@@ -182,12 +182,32 @@
 
         function logout() {
             if (!confirm("Logout from NQVate?")) return;
-            auth.signOut().then(() => location.reload());
+
+            auth.signOut().then(() => {
+                // Full reset
+                profileCreated = false;
+                currentUser = "@jimferraioli";
+                
+                // Clear local storage
+                localStorage.clear();
+                
+                // Reset UI
+                updateProfileUI();
+                document.getElementById('login-modal').classList.remove('hidden');
+                showToast("Logged out successfully");
+                
+            }).catch(err => {
+                console.error(err);
+                location.reload(); // fallback
+            });
         }
 
         function updateProfileUI() {
-            document.getElementById('profile-avatar').textContent = currentUser.substring(1, 3).toUpperCase();
-            document.getElementById('dropdown-username').textContent = currentUser;
+            const avatar = document.getElementById('profile-avatar');
+            const dropdownName = document.getElementById('dropdown-username');
+            
+            if (avatar) avatar.textContent = currentUser.substring(1, 3).toUpperCase();
+            if (dropdownName) dropdownName.textContent = currentUser;
         }
 
         function toggleProfileMenu() {
