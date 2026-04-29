@@ -136,29 +136,47 @@
             }
         }
 
-        // ==================== AUTH ====================
+        // ==================== AUTH ===================
+
         async function createProfile() {
-            const name = document.getElementById('full-name').value.trim();
-            if (!name) return showToast("Please enter your name", "error");
+            const nameInput = document.getElementById('full-name');
+            const name = nameInput.value.trim();
+            
+            if (!name) {
+                return showToast("Please enter your full name", "error");
+            }
+
+            console.log("🔄 Creating profile for:", name);
 
             try {
+                // Try Firebase Anonymous Sign-in
                 await auth.signInAnonymously();
+                
                 profileCreated = true;
                 currentUser = "@" + name.toLowerCase().replace(/\s+/g, '');
 
+                // Save to Firestore
                 await db.collection("users").doc(auth.currentUser.uid).set({
                     username: currentUser,
-                    profileCreated: true,
-                    nqv8Balance: nqv8Balance
+                    profileCreated: true
                 }, { merge: true });
 
                 document.getElementById('login-modal').classList.add('hidden');
                 updateProfileUI();
-                showToast(`✅ Welcome, ${currentUser}!`);
-                renderAll();
+                showToast(`✅ Welcome, ${currentUser}!`, "success");
+                console.log("✅ Profile created successfully");
+
             } catch (err) {
-                console.error(err);
-                showToast("Failed to create profile", "error");
+                console.error("❌ Create Profile Error:", err);
+                
+                // Fallback - Local mode (so the app still works)
+                profileCreated = true;
+                currentUser = "@" + name.toLowerCase().replace(/\s+/g, '');
+                
+                document.getElementById('login-modal').classList.add('hidden');
+                updateProfileUI();
+                showToast(`✅ Profile created (using local mode)`, "success");
+                console.log("⚠️ Used local fallback - Firebase auth failed");
             }
         }
 
