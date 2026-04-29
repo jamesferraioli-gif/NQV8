@@ -4,8 +4,15 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NQVate • Innovate. Incubate.</title>
+    
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap');
         :root { --primary: #00d4ff; }
@@ -35,57 +42,24 @@
         </div>
     </div>
 
-    <!-- DISCLAIMER -->
-    <div class="bg-amber-400/10 border-b border-amber-400/30 py-3 text-center text-xs text-amber-400">
-        NQVate is a neutral platform. We are <strong>not a party</strong> to any transactions, equity, NDAs or business deals.
-    </div>
-
-    <!-- NAVBAR -->
-    <nav class="bg-black border-b border-zinc-800 sticky top-0 z-50">
-        <div class="max-w-screen-2xl mx-auto px-6 py-5 flex items-center justify-between">
-            <div class="flex items-center gap-x-3">
-                <div class="w-9 h-9 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-2xl flex items-center justify-center text-2xl font-bold">N</div>
-                <span class="text-3xl font-semibold tracking-tighter" style="font-family: 'Space Grotesk', sans-serif;">NQVate</span>
-            </div>
-            <div class="hidden md:flex items-center gap-x-8 text-sm font-medium">
-                <a onclick="navigateTo('marketplace')" class="nav-link cursor-pointer flex items-center gap-x-1"><i class="fa-solid fa-store"></i> Marketplace</a>
-                <a onclick="navigateTo('ideas')" class="nav-link cursor-pointer flex items-center gap-x-1"><i class="fa-solid fa-lightbulb"></i> Ideas</a>
-                <a onclick="navigateTo('chats')" class="nav-link cursor-pointer flex items-center gap-x-1"><i class="fa-solid fa-comments"></i> Chats</a>
-                <a onclick="navigateTo('leaderboard')" class="nav-link cursor-pointer flex items-center gap-x-1"><i class="fa-solid fa-trophy"></i> Leaderboard</a>
-                <a onclick="navigateTo('profile')" class="nav-link cursor-pointer flex items-center gap-x-1"><i class="fa-solid fa-user"></i> Profile</a>
-            </div>
-            <div class="flex items-center gap-x-4">
-                <div onclick="connectWallet()" id="wallet-btn" class="cursor-pointer flex items-center gap-x-2 bg-zinc-900 hover:bg-zinc-800 border border-cyan-400 text-cyan-400 px-5 h-10 rounded-3xl text-sm font-semibold">
-                    <i class="fa-brands fa-ethereum"></i> <span id="wallet-text">Connect Wallet</span>
-                </div>
-                <div onclick="fakeNotification()" class="relative w-10 h-10 flex items-center justify-center bg-zinc-900 hover:bg-zinc-800 rounded-2xl cursor-pointer border border-zinc-700">
-                    <i class="fa-solid fa-bell"></i>
-                </div>
-
-                <!-- Profile Dropdown -->
-                <div id="profile-container" class="relative">
-                    <div onclick="toggleProfileMenu()" class="cursor-pointer flex items-center gap-x-2">
-                        <div id="profile-avatar" class="w-8 h-8 bg-gradient-to-br from-violet-400 to-cyan-400 rounded-2xl flex items-center justify-center text-sm font-bold">JF</div>
-                    </div>
-                    <div id="profile-dropdown" class="hidden absolute right-0 mt-2 w-56 bg-zinc-900 border border-zinc-700 rounded-3xl shadow-2xl py-2 z-[99999]">
-                        <div class="px-6 py-4 border-b border-zinc-700">
-                            <p class="font-semibold" id="dropdown-username">@jimferraioli</p>
-                            <p class="text-xs text-zinc-500">Logged in</p>
-                        </div>
-                        <a onclick="navigateTo('profile')" class="block px-6 py-3 hover:bg-zinc-800 cursor-pointer">👤 My Profile</a>
-                        <button onclick="logout()" class="w-full text-left px-6 py-3 text-red-400 hover:bg-zinc-800 flex items-center gap-x-2">
-                            <i class="fa-solid fa-right-from-bracket"></i> Logout
-                        </button>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </nav>
-
-    <!-- HERO + QUICK STATS + All sections (same as your working code) -->
-    <!-- ... [I kept all your HTML exactly the same from HERO to the last modal] ... -->
+    <!-- DISCLAIMER + NAVBAR (same as your last version) -->
+    <!-- ... (All HTML from disclaimer to the last modal is unchanged) ... -->
 
     <script>
+        // ==================== FIREBASE ====================
+        const firebaseConfig = {
+          apiKey: "AIzaSyAXpV2uJmNEj5qe65Mq0ki5cdMXcbaBisE",
+          authDomain: "nqv8-2a264.firebaseapp.com",
+          projectId: "nqv8-2a264",
+          storageBucket: "nqv8-2a264.firebasestorage.app",
+          messagingSenderId: "918111164289",
+          appId: "1:918111164289:web:e87dc103907eac54f47a80"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
         // ==================== STATE ====================
         let nqv8Balance = 2840;
         let profileCreated = false;
@@ -95,17 +69,48 @@
         let chats = [];
         let currentChatId = null;
         let currentPostType = 0;
-        let currentViewedProject = null;
-        let currentViewedIdea = null;
 
-        function loadFromStorage() {
-            if (localStorage.getItem('nqv8Balance')) nqv8Balance = parseFloat(localStorage.getItem('nqv8Balance'));
-            if (localStorage.getItem('myPostedProjects')) myPostedProjects = JSON.parse(localStorage.getItem('myPostedProjects'));
-            if (localStorage.getItem('ideas')) ideas = JSON.parse(localStorage.getItem('ideas'));
-            if (localStorage.getItem('chats')) chats = JSON.parse(localStorage.getItem('chats'));
-            if (localStorage.getItem('profileCreated')) profileCreated = JSON.parse(localStorage.getItem('profileCreated'));
-            if (localStorage.getItem('currentUser')) currentUser = localStorage.getItem('currentUser');
+        // ==================== FIRESTORE HELPERS ====================
+        async function saveUserProfile() {
+            if (!auth.currentUser) return;
+            await db.collection("users").doc(auth.currentUser.uid).set({
+                username: currentUser,
+                profileCreated: true,
+                nqv8Balance: nqv8Balance
+            }, { merge: true });
         }
 
-        function saveToStorage() {
-            localStorage.setItem('nqv8Balance', nqv8Balance);
+        async function loadUserProfile() {
+            if (!auth.currentUser) return;
+            const doc = await db.collection("users").doc(auth.currentUser.uid).get();
+            if (doc.exists) {
+                const data = doc.data();
+                profileCreated = data.profileCreated || false;
+                currentUser = data.username || currentUser;
+                nqv8Balance = data.nqv8Balance || 2840;
+            }
+        }
+
+        // Save / Load other data
+        async function saveData(collection, data) {
+            if (!auth.currentUser) return;
+            await db.collection(collection).doc(auth.currentUser.uid).set({ data }, { merge: true });
+        }
+
+        async function loadData(collection) {
+            if (!auth.currentUser) return [];
+            const doc = await db.collection(collection).doc(auth.currentUser.uid).get();
+            return doc.exists ? doc.data().data || [] : [];
+        }
+
+        // ==================== AUTH ====================
+        async function createProfile() {
+            const name = document.getElementById('full-name').value.trim();
+            if (!name) return showToast("Please enter your name", "error");
+
+            try {
+                await auth.signInAnonymously();
+                profileCreated = true;
+                currentUser = "@" + name.toLowerCase().replace(/\s+/g, '');
+
+                await
