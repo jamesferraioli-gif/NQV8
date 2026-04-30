@@ -40,7 +40,7 @@
                 <div id="nav-loggedin" class="hidden flex-1 justify-center items-center gap-8 text-sm font-medium mx-10">
                     <a onclick="navigateTo('marketplace')" class="hover:text-cyan-400 cursor-pointer">Marketplace</a>
                     <a onclick="navigateTo('ideas')" class="hover:text-cyan-400 cursor-pointer">Ideas</a>
-                    <a onclick="navigateTo('chat')" class="hover:text-cyan-400 cursor-pointer">Chat</a>
+                    <a onclick="navigateToChat()" class="hover:text-cyan-400 cursor-pointer">Chat</a>
                     <a onclick="navigateTo('leaderboard')" class="hover:text-cyan-400 cursor-pointer">Leaderboard</a>
                 </div>
 
@@ -208,7 +208,59 @@
             </div>
         </div>
     </div>
+        <!-- PROFILE PAGE -->
+    <div id="profile-page" class="max-w-5xl mx-auto pt-8 px-6 hidden">
+        ...
+    </div>
 
+    <!-- ==================== CHAT PAGE ==================== -->
+    <div id="chat-page" class="max-w-6xl mx-auto pt-8 px-6 hidden">
+        <div class="flex h-[calc(100vh-120px)] bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-700">
+
+            <!-- Sidebar -->
+            <div class="w-80 border-r border-zinc-700 flex flex-col">
+                <div class="p-4 border-b border-zinc-700">
+                    <input id="chat-search" type="text" placeholder="Search users..." 
+                           onkeyup="if(event.key==='Enter') searchUsersForChat()"
+                           class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 outline-none">
+                </div>
+                <div id="chat-list" class="flex-1 overflow-auto p-2">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Main Chat Area -->
+            <div class="flex-1 flex flex-col">
+                <div id="chat-header" class="px-6 py-4 border-b border-zinc-700 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div id="chat-avatar" class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold"></div>
+                        <div>
+                            <p id="chat-with-name" class="font-semibold">Select a chat</p>
+                            <p id="chat-with-username" class="text-xs text-zinc-400"></p>
+                        </div>
+                    </div>
+                    <button onclick="startVideoCall()" class="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-600 text-black px-5 py-2 rounded-2xl text-sm font-medium">
+                        <i class="fa-solid fa-video"></i> Video Call
+                    </button>
+                </div>
+
+                <div id="chat-messages" class="flex-1 overflow-auto p-6 space-y-4 bg-black">
+                    <!-- Messages populated by JS -->
+                </div>
+
+                <div class="p-4 border-t border-zinc-700 bg-zinc-900">
+                    <div class="flex gap-3">
+                        <input id="chat-input" type="text" placeholder="Type a message..." 
+                               onkeypress="if(event.key==='Enter') sendMessage()"
+                               class="flex-1 bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-4 outline-none">
+                        <button onclick="sendMessage()" class="px-8 bg-white text-black rounded-3xl font-medium">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
     <script>
         const firebaseConfig = {
           apiKey: "AIzaSyDnUVkD4WZ_jpHK1cY1G_1DOvHSfkUropU",
@@ -600,6 +652,192 @@
                 hideProjectDetailModal();
                 loadMarketplace();
             }
+        }
+        // ====================== CHAT FUNCTIONS ======================
+        let currentChatId = null;
+        let currentChatPartnerUid = null;
+        let currentChatUnsubscribe = null;
+
+        function navigateToChat() {
+            navigateTo('chat');
+            loadChatList();
+        }
+
+        async function loadChatList() {
+            const list = document.getElementById('chat-list');
+            list.innerHTML = '<p class="text-center text-zinc-500 py-8">Loading users...</p>';
+
+            try {
+                const usersSnap = await db.collection("users").get();
+                list.innerHTML = '';
+
+                usersSnap.forEach(doc => {
+                    const u = doc.data();
+                    if (u.uid === currentUser.uid) return;
+
+                    const div = document.createElement('div');
+                    div.className = "flex items-center gap-3 p-3 hover:bg-zinc-800 rounded-2xl cursor-pointer mx-2 my-1";
+                    div.innerHTML = `
+                        <div class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
+                            ${(u.fullName || u.username || '?')[0]}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium truncate">${u.fullName || u.username}</p>
+                            <p class="text-xs text-zinc-400 truncate">@${u.username || 'user'}</p>
+                        </div>
+                    `;
+                    div.onclick = () => initiateChat(u.uid, u);
+                    list.appendChild(div);
+                });
+            } catch (e) {
+                console.error(e);
+                list.innerHTML = `<p class="text-red-400 text-center py-8">Error loading users</p>`;
+            }
+        }
+
+        async function initiateChat(partnerUid, partnerData) {
+            if (confirm(`Start chat with @${partnerData.username || partnerData.fullName}? ($0.01 NQV8)`)) {
+                try {
+                    const chatData = {
+                        participants: [currentUser.uid, partnerUid].sort(),
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        status: 'accepted',
+                        initiator: currentUser.uid
+                    };
+
+                    const chatRef = await db.collection("chats").add(chatData);
+                    openChat(chatRef.id, partnerData);
+                } catch (e) {
+                    console.error(e);
+                    alert("Failed to start chat");
+                }
+            }
+        }
+
+        function openChat(chatId, partnerData) {
+            currentChatId = chatId;
+            currentChatPartnerUid = partnerData.uid;
+
+            document.getElementById('chat-with-name').textContent = partnerData.fullName || partnerData.username;
+            document.getElementById('chat-with-username').textContent = '@' + (partnerData.username || 'user');
+
+            const messagesDiv = document.getElementById('chat-messages');
+            messagesDiv.innerHTML = '';
+
+            if (currentChatUnsubscribe) currentChatUnsubscribe();
+
+            currentChatUnsubscribe = db.collection("chats").doc(chatId).onSnapshot(doc => {
+                const chat = doc.data();
+                messagesDiv.innerHTML = '';
+
+                if (chat && chat.messages) {
+                    chat.messages.forEach(msg => {
+                        const isMe = msg.senderUid === currentUser.uid;
+                        const bubble = document.createElement('div');
+                        bubble.className = `flex ${isMe ? 'justify-end' : 'justify-start'}`;
+                        bubble.innerHTML = `
+                            <div class="${isMe ? 'bg-cyan-500 text-black' : 'bg-zinc-700'} max-w-[70%] rounded-3xl px-5 py-3">
+                                ${msg.text}
+                            </div>
+                        `;
+                        messagesDiv.appendChild(bubble);
+                    });
+                }
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            });
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chat-input');
+            const text = input.value.trim();
+            if (!text || !currentChatId) return;
+
+            try {
+                const newMsg = {
+                    senderUid: currentUser.uid,
+                    text: text,
+                    timestamp: new Date()
+                };
+
+                await db.collection("chats").doc(currentChatId).update({
+                    messages: firebase.firestore.FieldValue.arrayUnion(newMsg)
+                });
+
+                input.value = '';
+            } catch (e) {
+                console.error(e);
+                alert("Failed to send message");
+            }
+        }
+
+        function searchUsersForChat() {
+            loadChatList();
+        }
+
+        // ====================== VIDEO CALL ======================
+        let localStream = null;
+        let isMuted = false;
+
+        async function startVideoCall() {
+            if (!currentChatPartnerUid) return alert("Open a chat first");
+
+            const modalHTML = `
+                <div id="video-call-modal" class="fixed inset-0 bg-black/95 flex items-center justify-center z-[100000]">
+                    <div class="bg-zinc-900 rounded-3xl p-6 w-full max-w-5xl">
+                        <div class="flex justify-between items-center mb-6">
+                            <h3 class="text-2xl font-bold">Video Call</h3>
+                            <button onclick="endVideoCall()" class="text-4xl leading-none hover:text-red-400">×</button>
+                        </div>
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="relative">
+                                <p class="text-xs text-zinc-400 mb-2">You</p>
+                                <video id="local-video" autoplay muted playsinline class="w-full bg-black rounded-3xl aspect-video object-cover"></video>
+                            </div>
+                            <div class="relative">
+                                <p class="text-xs text-zinc-400 mb-2">Them</p>
+                                <video id="remote-video" autoplay playsinline class="w-full bg-black rounded-3xl aspect-video object-cover"></video>
+                            </div>
+                        </div>
+                        <div class="flex justify-center gap-6 mt-8">
+                            <button onclick="toggleMute()" id="mute-btn" class="px-8 py-4 bg-zinc-800 hover:bg-zinc-700 rounded-3xl flex items-center gap-3">
+                                <i class="fa-solid fa-microphone"></i> <span>Mute</span>
+                            </button>
+                            <button onclick="endVideoCall()" class="px-10 py-4 bg-red-600 hover:bg-red-700 rounded-3xl text-white font-medium">
+                                End Call
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            const temp = document.createElement('div');
+            temp.innerHTML = modalHTML;
+            document.body.appendChild(temp.firstElementChild);
+
+            try {
+                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+                document.getElementById('local-video').srcObject = localStream;
+                document.getElementById('remote-video').srcObject = localStream;
+            } catch (err) {
+                alert("Camera or microphone access denied.");
+                endVideoCall();
+            }
+        }
+
+        function toggleMute() {
+            if (!localStream) return;
+            isMuted = !isMuted;
+            localStream.getAudioTracks().forEach(track => track.enabled = !isMuted);
+            const btn = document.getElementById('mute-btn');
+            btn.innerHTML = isMuted 
+                ? `<i class="fa-solid fa-microphone-slash"></i> <span>Unmute</span>` 
+                : `<i class="fa-solid fa-microphone"></i> <span>Mute</span>`;
+        }
+
+        function endVideoCall() {
+            if (localStream) localStream.getTracks().forEach(track => track.stop());
+            const modal = document.getElementById('video-call-modal');
+            if (modal) modal.remove();
         }
         
         function searchProjects() {
