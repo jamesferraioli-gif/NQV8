@@ -12,12 +12,6 @@
 
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
-        body { font-family: 'Inter', system-ui, sans-serif; }
-        .logo-font { font-family: 'Space Grotesk', sans-serif; }
-    </style>
 </head>
 <body class="bg-black text-white min-h-screen">
 
@@ -26,7 +20,7 @@
         <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <div class="w-9 h-9 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-2xl flex items-center justify-center text-2xl font-bold">N</div>
-                <span class="text-3xl font-bold tracking-tighter logo-font">NQVate</span>
+                <span class="text-3xl font-bold tracking-tighter">NQVate</span>
             </div>
 
             <div id="nav-loggedin" class="hidden items-center gap-8 text-sm font-medium">
@@ -34,37 +28,38 @@
                 <a onclick="navigateTo('explore')" class="hover:text-cyan-400 cursor-pointer">Explore</a>
             </div>
 
-            <!-- Account Icon + Dropdown -->
+            <!-- Account Icon -->
             <div id="profile-section" class="hidden relative">
-                <div onclick="toggleProfileMenu()" class="cursor-pointer flex items-center gap-2">
-                    <div id="profile-avatar" class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold ring-2 ring-cyan-400">JF</div>
+                <div onclick="toggleProfileMenu()" class="cursor-pointer">
+                    <div id="profile-avatar" class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold ring-2 ring-cyan-400">JD</div>
                 </div>
-                
-                <!-- Dropdown -->
                 <div id="profile-dropdown" class="hidden absolute right-0 mt-2 w-56 bg-zinc-900 border border-zinc-700 rounded-3xl shadow-2xl py-2 z-[99999]">
                     <div class="px-6 py-4 border-b border-zinc-700">
-                        <p class="font-semibold" id="dropdown-username">@username</p>
+                        <p class="font-semibold" id="dropdown-name">John Doe</p>
+                        <p class="text-xs text-zinc-500" id="dropdown-username">@johndoe</p>
                     </div>
                     <a onclick="navigateTo('profile')" class="block px-6 py-3 hover:bg-zinc-800 cursor-pointer">👤 View Profile</a>
-                    <button onclick="logout()" class="w-full text-left px-6 py-3 text-red-400 hover:bg-zinc-800 flex items-center gap-x-2">
-                        <i class="fa-solid fa-right-from-bracket"></i> Logout
-                    </button>
+                    <button onclick="logout()" class="w-full text-left px-6 py-3 text-red-400 hover:bg-zinc-800">Logout</button>
                 </div>
             </div>
         </div>
     </nav>
 
-    <!-- LOGIN MODAL -->
-    <div id="login-modal" class="fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
+    <!-- SIGNUP MODAL -->
+    <div id="signup-modal" class="fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
         <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-10">
-            <div class="text-center mb-8">
-                <div class="w-16 h-16 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-2xl mx-auto flex items-center justify-center text-4xl font-bold mb-4">N</div>
-                <h2 class="text-4xl font-bold logo-font">Welcome to NQVate</h2>
-                <p class="text-zinc-400 mt-2">The future of decentralized social</p>
+            <h2 class="text-4xl font-bold text-center mb-2">Join NQVate</h2>
+            <p class="text-center text-zinc-400 mb-8">Create your account</p>
+
+            <div class="grid grid-cols-2 gap-4">
+                <input id="first-name" type="text" placeholder="First Name" class="bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none focus:border-cyan-400">
+                <input id="last-name" type="text" placeholder="Last Name" class="bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none focus:border-cyan-400">
             </div>
 
-            <input id="full-name" type="text" placeholder="Full Name" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 mb-6 text-lg outline-none focus:border-cyan-400">
-            <button onclick="createProfile()" class="w-full py-5 bg-white text-black font-semibold rounded-2xl text-lg hover:bg-cyan-400 transition">
+            <input id="username" type="text" placeholder="Username (no duplicates)" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none focus:border-cyan-400">
+            <input id="email" type="email" placeholder="Email Address" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none focus:border-cyan-400">
+
+            <button onclick="createProfile()" class="w-full mt-6 py-5 bg-white text-black font-semibold rounded-2xl text-lg hover:bg-cyan-400 transition">
                 Create Account
             </button>
         </div>
@@ -95,41 +90,54 @@
 
         let currentUser = null;
 
+        // ==================== CREATE ACCOUNT ====================
         async function createProfile() {
-            const name = document.getElementById('full-name').value.trim();
-            if (!name) return alert("Please enter your full name");
+            const firstName = document.getElementById('first-name').value.trim();
+            const lastName = document.getElementById('last-name').value.trim();
+            const username = document.getElementById('username').value.trim().toLowerCase();
+            const email = document.getElementById('email').value.trim();
+
+            if (!firstName || !lastName || !username) {
+                return alert("First name, last name, and username are required");
+            }
+
+            // Check if username already exists
+            const usernameCheck = await db.collection("usernames").doc(username).get();
+            if (usernameCheck.exists) {
+                return alert("Username is already taken. Please choose another.");
+            }
 
             try {
                 await auth.signInAnonymously();
+
                 currentUser = {
                     uid: auth.currentUser.uid,
-                    displayName: name,
-                    username: "@" + name.toLowerCase().replace(/\s+/g, '')
+                    firstName: firstName,
+                    lastName: lastName,
+                    username: "@" + username,
+                    email: email,
+                    fullName: firstName + " " + lastName
                 };
 
-                await db.collection("users").doc(currentUser.uid).set({
-                    displayName: currentUser.displayName,
-                    username: currentUser.username,
-                    createdAt: new Date()
-                });
+                // Save user data
+                await db.collection("users").doc(currentUser.uid).set(currentUser);
 
-                document.getElementById('login-modal').classList.add('hidden');
-                document.getElementById('nav-loggedin').classList.remove('hidden');
-                document.getElementById('profile-section').classList.remove('hidden');
-                updateProfileUI();
+                // Reserve username
+                await db.collection("usernames").doc(username).set({ uid: currentUser.uid });
+
+                document.getElementById('signup-modal').classList.add('hidden');
+                updateUIAfterLogin();
                 loadFeed();
             } catch (err) {
                 console.error(err);
-                alert("Failed to create profile. Make sure Anonymous auth is enabled in Firebase.");
+                alert("Failed to create account. Please try again.");
             }
         }
 
-        function logout() {
-            if (confirm("Logout?")) auth.signOut().then(() => location.reload());
-        }
-
-        function updateProfileUI() {
-            document.getElementById('profile-avatar').textContent = currentUser.username.substring(1, 3).toUpperCase();
+        function updateUIAfterLogin() {
+            document.getElementById('profile-section').classList.remove('hidden');
+            document.getElementById('nav-loggedin').classList.remove('hidden');
+            document.getElementById('profile-avatar').textContent = currentUser.firstName[0] + currentUser.lastName[0];
             document.getElementById('dropdown-username').textContent = currentUser.username;
         }
 
@@ -137,12 +145,11 @@
             document.getElementById('profile-dropdown').classList.toggle('hidden');
         }
 
-        document.addEventListener('click', (e) => {
-            if (!document.getElementById('profile-section').contains(e.target)) {
-                document.getElementById('profile-dropdown').classList.add('hidden');
-            }
-        });
+        function logout() {
+            if (confirm("Logout?")) auth.signOut().then(() => location.reload());
+        }
 
+        // ==================== POSTS ====================
         async function createPost() {
             const text = document.getElementById('post-input').value.trim();
             if (!text || !currentUser) return;
@@ -150,7 +157,7 @@
             await db.collection("posts").add({
                 userId: currentUser.uid,
                 username: currentUser.username,
-                displayName: currentUser.displayName,
+                fullName: currentUser.fullName,
                 text: text,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp(),
                 likes: 0
@@ -170,29 +177,25 @@
                 const post = doc.data();
                 feed.innerHTML += `
                     <div class="bg-zinc-900 rounded-3xl p-6">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center font-bold">
-                                ${post.username ? post.username[1].toUpperCase() : '?'}
-                            </div>
-                            <div>
-                                <div class="font-semibold">${post.displayName}</div>
-                                <div class="text-xs text-zinc-500">${post.username}</div>
-                            </div>
-                        </div>
-                        <p class="mt-4 text-[17px]">${post.text}</p>
+                        <div class="font-semibold">${post.fullName}</div>
+                        <div class="text-xs text-cyan-400">${post.username}</div>
+                        <p class="mt-4">${post.text}</p>
                     </div>
                 `;
             });
         }
 
         window.onload = () => {
-            auth.onAuthStateChanged((user) => {
+            auth.onAuthStateChanged(user => {
                 if (user) {
-                    currentUser = { uid: user.uid };
-                    document.getElementById('login-modal').classList.add('hidden');
-                    document.getElementById('nav-loggedin').classList.remove('hidden');
-                    document.getElementById('profile-section').classList.remove('hidden');
-                    loadFeed();
+                    // Load existing user data if logged in
+                    db.collection("users").doc(user.uid).get().then(doc => {
+                        if (doc.exists) {
+                            currentUser = doc.data();
+                            updateUIAfterLogin();
+                            loadFeed();
+                        }
+                    });
                 }
             });
         };
