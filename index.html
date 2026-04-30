@@ -126,15 +126,54 @@
         </div>
     </div>
 
-    <!-- Keep existing AUTH MODAL and PROFILE PAGE here -->
     <!-- AUTH MODAL -->
-    <div id="auth-modal" class="fixed inset-0 bg-black/95 flex items-center justify-center z-[99999] hidden">
-        <!-- ... your existing auth modal ... -->
+    <div id="auth-modal" class="fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
+        <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-10">
+            <div class="flex border-b border-zinc-700 mb-6">
+                <button onclick="switchTab(0)" id="tab-create" class="flex-1 pb-4 text-lg font-semibold border-b-2 border-cyan-400">Create Account</button>
+                <button onclick="switchTab(1)" id="tab-login" class="flex-1 pb-4 text-lg font-semibold text-zinc-400">Login</button>
+            </div>
+
+            <div id="create-form">
+                <div class="grid grid-cols-2 gap-4">
+                    <input id="first-name" type="text" placeholder="First Name" class="bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                    <input id="last-name" type="text" placeholder="Last Name" class="bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                </div>
+                <input id="create-username" type="text" placeholder="Username (unique)" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                <input id="create-email" type="email" placeholder="Email Address" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                <input id="create-password" type="password" placeholder="Password (min 6 chars)" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                <button onclick="createProfile()" class="w-full mt-8 py-5 bg-white text-black font-semibold rounded-2xl text-lg">Create Account</button>
+            </div>
+
+            <div id="login-form" class="hidden">
+                <input id="login-email" type="email" placeholder="Email Address" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                <input id="login-password" type="password" placeholder="Password" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                <button onclick="loginWithEmail()" class="w-full mt-6 py-5 bg-white text-black font-semibold rounded-2xl text-lg">Login</button>
+                <p onclick="resetPassword()" class="text-center text-cyan-400 text-sm mt-4 cursor-pointer hover:underline">Forgot Password?</p>
+            </div>
+        </div>
     </div>
 
-    <!-- PROFILE PAGE (existing) -->
+    <!-- PROFILE PAGE -->
     <div id="profile-page" class="max-w-5xl mx-auto pt-8 px-6 hidden">
-        <!-- ... your existing profile ... -->
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-4xl font-bold">My Profile</h1>
+            <button onclick="navigateTo('marketplace')" class="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl">← Back</button>
+        </div>
+
+        <div class="bg-zinc-900 rounded-3xl p-8 mb-8">
+            <div class="flex flex-col md:flex-row gap-8 items-center md:items-start">
+                <div onclick="editProfile()" class="cursor-pointer">
+                    <div id="profile-avatar-large" class="w-32 h-32 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-3xl flex items-center justify-center text-6xl font-bold ring-4 ring-cyan-400 overflow-hidden"></div>
+                </div>
+                <div class="flex-1 text-center md:text-left">
+                    <p id="profile-fullname" class="text-4xl font-bold"></p>
+                    <p id="profile-username" class="text-cyan-400 text-2xl"></p>
+                    <p id="profile-email" class="text-zinc-400"></p>
+                    <p id="profile-bio" class="mt-6 text-zinc-300 leading-relaxed"></p>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -154,6 +193,7 @@
 
         let currentUser = null;
 
+        // ====================== UTILITY FUNCTIONS ======================
         function safeClassList(id, action) {
             const el = document.getElementById(id);
             if (el) {
@@ -166,8 +206,10 @@
             document.querySelectorAll('div[id$="-page"]').forEach(div => div.classList.add('hidden'));
             const target = document.getElementById(page + '-page');
             if (target) target.classList.remove('hidden');
+            if (page === 'marketplace') loadMarketplace();
         }
 
+        // ====================== NAVBAR & PROFILE ======================
         function toggleProfileMenu() {
             const dropdown = document.getElementById('profile-dropdown');
             if (dropdown) dropdown.classList.toggle('hidden');
@@ -193,29 +235,28 @@
             document.getElementById('profile-email').textContent = currentUser.email || '';
         }
 
-        function finishLogin() {
-            safeClassList('auth-modal', 'hide');
-            safeClassList('nav-loggedin', 'show');
-            safeClassList('right-section', 'show');
-            navigateTo('marketplace');
-            updateProfileUI();
+        function connectWallet() {
+            alert("🦊 Wallet connection coming soon!\n\n(We'll integrate MetaMask / Phantom later)");
+        }
+
+        function editProfile() {
+            alert("✏️ Profile editing coming soon!\n\nYou can update bio, profile picture, etc. here.");
         }
 
         function logout() {
             auth.signOut().then(() => location.reload());
         }
 
+        // ====================== AUTH FUNCTIONS ======================
         function switchTab(tab) {
             safeClassList('create-form', tab === 1 ? 'hide' : 'show');
             safeClassList('login-form', tab === 0 ? 'hide' : 'show');
-            // tab styling
+            
             document.getElementById('tab-create').classList.toggle('border-b-2', tab === 0);
             document.getElementById('tab-create').classList.toggle('text-white', tab === 0);
             document.getElementById('tab-login').classList.toggle('border-b-2', tab === 1);
             document.getElementById('tab-login').classList.toggle('text-white', tab === 1);
         }
-
-        // ==================== AUTH FUNCTIONS ====================
 
         async function createProfile() {
             const firstName = document.getElementById('first-name').value.trim();
@@ -286,9 +327,15 @@
                 .catch(err => alert(err.message));
         }
 
-        // ==================== END AUTH FUNCTIONS ====================
-        // ====================== MARKETPLACE FUNCTIONS ======================
+        function finishLogin() {
+            safeClassList('auth-modal', 'hide');
+            safeClassList('nav-loggedin', 'show');
+            safeClassList('right-section', 'show');
+            navigateTo('marketplace');
+            updateProfileUI();
+        }
 
+        // ====================== MARKETPLACE FUNCTIONS ======================
         async function loadMarketplace() {
             const grid = document.getElementById('projects-grid');
             grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 py-12">Loading projects...</p>';
@@ -435,15 +482,7 @@
             });
         }
 
-        // Update navigateTo to refresh marketplace
-        function navigateTo(page) {
-            document.querySelectorAll('div[id$="-page"]').forEach(div => div.classList.add('hidden'));
-            const target = document.getElementById(page + '-page');
-            if (target) target.classList.remove('hidden');
-            if (page === 'marketplace') loadMarketplace();
-        }
-
-        // ====================== WINDOW ONLOAD ======================
+        // ====================== INITIAL LOAD ======================
         window.onload = () => {
             auth.onAuthStateChanged(user => {
                 if (user) {
@@ -458,14 +497,6 @@
                 }
             });
         };
-
-        function finishLogin() {
-            safeClassList('auth-modal', 'hide');
-            safeClassList('nav-loggedin', 'show');
-            safeClassList('right-section', 'show');
-            navigateTo('marketplace');
-            updateProfileUI();
-        }
     </script>
 </body>
 </html>
