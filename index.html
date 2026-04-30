@@ -140,6 +140,25 @@
         </div>
     </div>
 
+    <!-- BID DETAIL MODAL (for project owner) -->
+    <div id="bid-detail-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
+        <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-8">
+            <button onclick="hideBidDetailModal()" class="float-right text-3xl leading-none mb-4">×</button>
+            
+            <h2 class="text-2xl font-bold mb-6" id="bid-detail-title">Bid Details</h2>
+            
+            <div id="bid-detail-content" class="space-y-6">
+                <!-- Filled by JS -->
+            </div>
+
+            <button onclick="acceptBid()" 
+                    id="accept-bid-btn"
+                    class="w-full mt-8 py-5 bg-green-500 hover:bg-green-600 text-black font-semibold rounded-3xl text-lg">
+                Accept This Offer
+            </button>
+        </div>
+    </div>
+    
     <!-- AUTH MODAL -->
     <div id="auth-modal" class="fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
         <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-10">
@@ -466,30 +485,21 @@
             const content = document.getElementById('detail-content');
 
             const isPoster = currentUser && project.posterUid === currentUser.uid;
-            const userBids = project.bids ? project.bids.filter(b => b.bidderUid === currentUser?.uid) : [];
 
-            // Build bids HTML with privacy
             let bidsHTML = '';
 
-            if (isPoster) {
-                // Project owner sees ALL bids
-                bidsHTML = project.bids && project.bids.length 
-                    ? project.bids.map(b => `
-                        <div class="bg-zinc-800 p-4 rounded-2xl mb-3">
-                            <strong>${b.bidderName}</strong><br>
-                            <span class="text-cyan-400">${b.amount}</span>
-                        </div>`).join('')
-                    : '<p class="text-zinc-500">No bids yet.</p>';
-            } else if (userBids.length > 0) {
-                // Bidder sees only their own bid(s)
-                bidsHTML = userBids.map(b => `
-                    <div class="bg-zinc-800 p-4 rounded-2xl mb-3">
-                        <strong>Your Bid</strong><br>
+            if (isPoster && project.bids && project.bids.length > 0) {
+                bidsHTML = project.bids.map((b, index) => `
+                    <div onclick="showBidDetail('${projectId}', ${index})" 
+                         class="bg-zinc-800 p-4 rounded-2xl mb-3 cursor-pointer hover:ring-2 hover:ring-cyan-400 transition-all">
+                        <strong>${b.bidderName}</strong><br>
                         <span class="text-cyan-400">${b.amount}</span>
-                    </div>`).join('');
+                    </div>
+                `).join('');
+            } else if (project.bids && project.bids.length > 0) {
+                bidsHTML = `<p class="text-zinc-500">${project.bids.length} bid(s) received</p>`;
             } else {
-                // Everyone else sees only count
-                bidsHTML = `<p class="text-zinc-500">${project.bids ? project.bids.length : 0} bid(s) received</p>`;
+                bidsHTML = `<p class="text-zinc-500">No bids yet.</p>`;
             }
 
             content.innerHTML = `
@@ -508,18 +518,14 @@
                 <h3 class="text-2xl font-semibold mb-4">Offers / Bids</h3>
                 <div class="mb-8">${bidsHTML}</div>
 
-                ${isPoster ? `
-                <div class="bg-yellow-900/30 border border-yellow-500/30 p-6 rounded-3xl text-center">
-                    <p class="text-yellow-400">This is your project. You can see all offers above.</p>
-                </div>
-                ` : `
+                ${!isPoster ? `
                 <div class="border-t border-zinc-700 pt-6">
                     <input id="bid-amount" type="text" placeholder="Your bid (e.g. $800 or 5% equity)" 
                            class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
                     <button onclick="placeBid('${projectId}')" 
                             class="w-full py-5 bg-white text-black font-semibold rounded-3xl">Place Bid ($0.01 NQV8)</button>
                 </div>
-                `}
+                ` : ''}
             `;
             modal.classList.remove('hidden');
         }
@@ -561,6 +567,41 @@
             }
         }
 
+        // ====================== BID DETAIL FUNCTIONS ======================
+        let currentProjectId = null;
+        let currentBidIndex = null;
+
+        function showBidDetail(projectId, bidIndex) {
+            currentProjectId = projectId;
+            currentBidIndex = bidIndex;
+
+            const modal = document.getElementById('bid-detail-modal');
+            const content = document.getElementById('bid-detail-content');
+
+            content.innerHTML = `
+                <p class="text-lg font-semibold mb-4">Bid Details</p>
+                <p class="text-2xl text-cyan-400">Full bid information will appear here</p>
+                <p class="text-zinc-400 mt-6">Accept offer logic coming soon...</p>
+            `;
+
+            modal.classList.remove('hidden');
+        }
+
+        function hideBidDetailModal() {
+            document.getElementById('bid-detail-modal').classList.add('hidden');
+        }
+
+        async function acceptBid() {
+            if (!currentProjectId || currentBidIndex === null) return;
+
+            if (confirm("Accept this bid? This action cannot be undone.")) {
+                alert("✅ Offer accepted!\n\n(Full acceptance + status update coming in next phase)");
+                hideBidDetailModal();
+                hideProjectDetailModal();
+                loadMarketplace();
+            }
+        }
+        
         function searchProjects() {
             const term = document.getElementById('search-input').value.toLowerCase().trim();
             if (!term) return loadMarketplace();
