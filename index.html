@@ -21,20 +21,36 @@
                 <span class="text-3xl font-bold tracking-tighter">NQVate</span>
             </div>
 
+            <!-- TABS -->
             <div id="nav-loggedin" class="hidden items-center gap-8 text-sm font-medium">
-                <a onclick="navigateTo('feed')" class="hover:text-cyan-400 cursor-pointer">Home</a>
+                <a onclick="navigateTo('marketplace')" class="hover:text-cyan-400 cursor-pointer nav-tab active" data-tab="marketplace">Marketplace</a>
+                <a onclick="navigateTo('ideas')" class="hover:text-cyan-400 cursor-pointer nav-tab" data-tab="ideas">Ideas</a>
+                <a onclick="navigateTo('chat')" class="hover:text-cyan-400 cursor-pointer nav-tab" data-tab="chat">Chat</a>
+                <a onclick="navigateTo('leaderboard')" class="hover:text-cyan-400 cursor-pointer nav-tab" data-tab="leaderboard">Leaderboard</a>
             </div>
 
-            <div id="profile-section" class="hidden relative">
-                <div onclick="toggleProfileMenu()" class="cursor-pointer">
-                    <div id="profile-avatar" class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold ring-2 ring-cyan-400">JD</div>
-                </div>
-                <div id="profile-dropdown" class="hidden absolute right-0 mt-2 w-56 bg-zinc-900 border border-zinc-700 rounded-3xl shadow-2xl py-2 z-[99999]">
-                    <div class="px-6 py-4 border-b border-zinc-700">
-                        <p class="font-semibold" id="dropdown-name">John Doe</p>
-                        <p class="text-xs text-zinc-500" id="dropdown-username">@johndoe</p>
+            <!-- RIGHT SIDE: Wallet + Profile -->
+            <div id="right-section" class="hidden flex items-center gap-4">
+                <!-- Connect Wallet Button -->
+                <button onclick="connectWallet()" 
+                        id="wallet-btn"
+                        class="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-cyan-400 text-cyan-400 px-5 py-2.5 rounded-2xl text-sm font-medium transition">
+                    <i class="fa-solid fa-wallet"></i>
+                    <span>Connect Wallet</span>
+                </button>
+
+                <!-- Profile -->
+                <div class="relative">
+                    <div onclick="toggleProfileMenu()" class="cursor-pointer">
+                        <div id="profile-avatar" class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold ring-2 ring-cyan-400">JD</div>
                     </div>
-                    <button onclick="logout()" class="w-full text-left px-6 py-3 text-red-400 hover:bg-zinc-800">Logout</button>
+                    <div id="profile-dropdown" class="hidden absolute right-0 mt-2 w-56 bg-zinc-900 border border-zinc-700 rounded-3xl shadow-2xl py-2 z-[99999]">
+                        <div class="px-6 py-4 border-b border-zinc-700">
+                            <p class="font-semibold" id="dropdown-name">John Doe</p>
+                            <p class="text-xs text-zinc-500" id="dropdown-username">@johndoe</p>
+                        </div>
+                        <button onclick="logout()" class="w-full text-left px-6 py-3 text-red-400 hover:bg-zinc-800">Logout</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -50,7 +66,6 @@
                 <input id="first-name" type="text" placeholder="First Name" class="bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
                 <input id="last-name" type="text" placeholder="Last Name" class="bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
             </div>
-
             <input id="username" type="text" placeholder="Username (unique)" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
             <input id="email" type="email" placeholder="Email Address" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
 
@@ -60,14 +75,18 @@
         </div>
     </div>
 
-    <!-- FEED -->
-    <div id="feed-page" class="max-w-2xl mx-auto pt-8 px-4 hidden">
-        <div class="bg-zinc-900 rounded-3xl p-6 mb-8">
-            <textarea id="post-input" rows="3" placeholder="What are you building today?" class="w-full bg-transparent outline-none text-lg resize-none"></textarea>
-            <button onclick="createPost()" class="mt-4 px-8 py-3 bg-white text-black font-semibold rounded-2xl hover:bg-cyan-400">Post</button>
+    <!-- MARKETPLACE (Default) -->
+    <div id="marketplace-page" class="max-w-6xl mx-auto pt-8 px-6">
+        <h1 class="text-4xl font-bold mb-8">Marketplace</h1>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" id="marketplace-grid">
+            <!-- Will be populated later -->
         </div>
-        <div id="posts-feed" class="space-y-6"></div>
     </div>
+
+    <!-- Other pages (Ideas, Chat, Leaderboard) -->
+    <div id="ideas-page" class="max-w-6xl mx-auto pt-8 px-6 hidden">Ideas Page</div>
+    <div id="chat-page" class="max-w-6xl mx-auto pt-8 px-6 hidden">Chat Page</div>
+    <div id="leaderboard-page" class="max-w-6xl mx-auto pt-8 px-6 hidden">Leaderboard Page</div>
 
     <script>
         const firebaseConfig = {
@@ -91,14 +110,11 @@
             let username = document.getElementById('username').value.trim().toLowerCase();
             const email = document.getElementById('email').value.trim();
 
-            if (!firstName || !lastName || !username) {
-                return alert("First name, last name, and username are required");
-            }
+            if (!firstName || !lastName || !username) return alert("First name, last name, and username are required");
 
             username = username.replace(/\s+/g, '');
 
             try {
-                // Check if username exists
                 const usernameDoc = await db.collection("usernames").doc(username).get();
                 if (usernameDoc.exists) return alert("Username already taken");
 
@@ -115,17 +131,13 @@
                 await db.collection("users").doc(currentUser.uid).set(currentUser);
                 await db.collection("usernames").doc(username).set({ uid: currentUser.uid });
 
-                // Show main app
                 document.getElementById('signup-modal').classList.add('hidden');
                 document.getElementById('nav-loggedin').classList.remove('hidden');
-                document.getElementById('profile-section').classList.remove('hidden');
-                document.getElementById('feed-page').classList.remove('hidden');
+                document.getElementById('right-section').classList.remove('hidden');
+                document.getElementById('marketplace-page').classList.remove('hidden');
 
                 updateProfileUI();
-                loadFeed();
-
             } catch (err) {
-                console.error(err);
                 alert("Error: " + err.message);
             }
         }
@@ -140,47 +152,36 @@
             document.getElementById('profile-dropdown').classList.toggle('hidden');
         }
 
+        function connectWallet() {
+            alert("🦊 Wallet connection coming soon (MetaMask / WalletConnect)");
+            // You can expand this later with actual Web3 integration
+        }
+
         function logout() {
             auth.signOut().then(() => location.reload());
         }
 
-        async function createPost() {
-            const text = document.getElementById('post-input').value.trim();
-            if (!text) return alert("Write something to post");
-
-            await db.collection("posts").add({
-                fullName: currentUser.fullName,
-                username: currentUser.username,
-                text: text,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-            });
-
-            document.getElementById('post-input').value = '';
-            loadFeed();
+        function navigateTo(page) {
+            document.querySelectorAll('div[id$="-page"]').forEach(div => div.classList.add('hidden'));
+            document.getElementById(page + '-page').classList.remove('hidden');
         }
 
-        async function loadFeed() {
-            const feed = document.getElementById('posts-feed');
-            feed.innerHTML = '<p class="text-zinc-500 text-center py-12">No posts yet. Be the first!</p>';
-
-            const snapshot = await db.collection("posts").orderBy("timestamp", "desc").get();
-            
-            if (snapshot.empty) return;
-
-            feed.innerHTML = '';
-            snapshot.forEach(doc => {
-                const post = doc.data();
-                feed.innerHTML += `
-                    <div class="bg-zinc-900 rounded-3xl p-6">
-                        <div class="font-semibold">${post.fullName}</div>
-                        <div class="text-xs text-cyan-400">${post.username}</div>
-                        <p class="mt-4">${post.text}</p>
-                    </div>
-                `;
+        window.onload = () => {
+            auth.onAuthStateChanged(user => {
+                if (user) {
+                    db.collection("users").doc(user.uid).get().then(doc => {
+                        if (doc.exists) {
+                            currentUser = doc.data();
+                            document.getElementById('signup-modal').classList.add('hidden');
+                            document.getElementById('nav-loggedin').classList.remove('hidden');
+                            document.getElementById('right-section').classList.remove('hidden');
+                            document.getElementById('marketplace-page').classList.remove('hidden');
+                            updateProfileUI();
+                        }
+                    });
+                }
             });
-        }
-
-        window.onload = () => console.log("✅ Ready");
+        };
     </script>
 </body>
 </html>
