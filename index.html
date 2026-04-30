@@ -8,8 +8,10 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
 </head>
 <body class="bg-black text-white min-h-screen">
 
@@ -42,13 +44,17 @@
 
                     <div class="relative">
                         <div onclick="toggleProfileMenu()" class="cursor-pointer">
-                            <div id="profile-avatar" class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold ring-2 ring-cyan-400">JD</div>
+                            <div id="profile-avatar" class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold ring-2 ring-cyan-400 overflow-hidden"></div>
                         </div>
+                        
                         <div id="profile-dropdown" class="hidden absolute right-0 mt-2 w-56 bg-zinc-900 border border-zinc-700 rounded-3xl shadow-2xl py-2 z-[99999]">
                             <div class="px-6 py-4 border-b border-zinc-700">
                                 <p class="font-semibold" id="dropdown-name">John Doe</p>
                                 <p class="text-xs text-zinc-500" id="dropdown-username">@johndoe</p>
                             </div>
+                            <button onclick="viewProfile()" class="w-full text-left px-6 py-3 hover:bg-zinc-800 flex items-center gap-3">
+                                👤 View Profile
+                            </button>
                             <button onclick="logout()" class="w-full text-left px-6 py-3 text-red-400 hover:bg-zinc-800">Logout</button>
                         </div>
                     </div>
@@ -57,185 +63,290 @@
         </div>
     </nav>
 
-    <!-- AUTH MODAL -->
-    <div id="auth-modal" class="fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
-        <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-10">
-            <div class="flex border-b border-zinc-700 mb-6">
-                <button onclick="switchTab(0)" id="tab-create" class="flex-1 pb-4 text-lg font-semibold border-b-2 border-cyan-400">Create Account</button>
-                <button onclick="switchTab(1)" id="tab-login" class="flex-1 pb-4 text-lg font-semibold text-zinc-400">Login</button>
-            </div>
+    <!-- PROFILE PAGE -->
+    <div id="profile-page" class="max-w-5xl mx-auto pt-8 px-6 hidden">
+        <div class="flex justify-between items-center mb-8">
+            <h1 class="text-4xl font-bold">My Profile</h1>
+            <button onclick="navigateTo('marketplace')" class="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl text-sm font-medium flex items-center gap-2">
+                ← Back
+            </button>
+        </div>
 
-            <!-- CREATE ACCOUNT -->
-            <div id="create-form">
-                <div class="grid grid-cols-2 gap-4">
-                    <input id="first-name" type="text" placeholder="First Name" class="bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
-                    <input id="last-name" type="text" placeholder="Last Name" class="bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+        <!-- Profile Header -->
+        <div class="bg-zinc-900 rounded-3xl p-8 mb-8">
+            <div class="flex flex-col md:flex-row gap-8 items-center md:items-start">
+                <div onclick="editProfile()" class="cursor-pointer">
+                    <div id="profile-avatar-large" class="w-32 h-32 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-3xl flex items-center justify-center text-6xl font-bold ring-4 ring-cyan-400 overflow-hidden"></div>
                 </div>
-                <input id="create-username" type="text" placeholder="Username (unique)" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
-                <input id="create-email" type="email" placeholder="Email Address" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
-                <input id="create-password" type="password" placeholder="Password (min 6 chars)" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
                 
-                <button onclick="createProfile()" class="w-full mt-8 py-5 bg-white text-black font-semibold rounded-2xl text-lg">
-                    Create Account
-                </button>
+                <div class="flex-1 text-center md:text-left">
+                    <div class="flex flex-col md:flex-row md:items-center gap-3">
+                        <p id="profile-fullname" class="text-4xl font-bold">John Doe</p>
+                        <button onclick="editProfile()" class="px-5 py-2 bg-cyan-500 hover:bg-cyan-400 text-black rounded-2xl text-sm font-semibold flex items-center gap-2">
+                            <i class="fas fa-edit"></i> Edit Profile
+                        </button>
+                    </div>
+                    <p id="profile-username" class="text-cyan-400 text-2xl">@johndoe</p>
+                    <p id="profile-email" class="text-zinc-400"></p>
+                    <p id="profile-bio" class="mt-6 text-zinc-300 leading-relaxed text-lg"></p>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Wallet -->
+            <div class="lg:col-span-1 bg-zinc-900 rounded-3xl p-6">
+                <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-wallet text-cyan-400"></i> Wallet
+                </h2>
+                <div class="bg-black rounded-2xl p-4 font-mono text-sm break-all" id="wallet-address">
+                    Not Connected
+                </div>
+                <button onclick="connectWallet()" class="mt-4 w-full py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl">Connect Wallet</button>
             </div>
 
-            <!-- LOGIN -->
-            <div id="login-form" class="hidden">
-                <input id="login-email" type="email" placeholder="Email Address" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
-                <input id="login-password" type="password" placeholder="Password" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
-                
-                <button onclick="loginWithEmail()" class="w-full mt-6 py-5 bg-white text-black font-semibold rounded-2xl text-lg">
-                    Login
-                </button>
-                
-                <p onclick="resetPassword()" class="text-center text-cyan-400 text-sm mt-4 cursor-pointer hover:underline">
-                    Forgot Password?
-                </p>
+            <!-- Stats -->
+            <div class="lg:col-span-2 bg-zinc-900 rounded-3xl p-6">
+                <h2 class="text-xl font-semibold mb-4">Activity</h2>
+                <div class="grid grid-cols-3 gap-4 text-center">
+                    <div class="bg-black/50 rounded-2xl p-4">
+                        <p class="text-3xl font-bold text-cyan-400" id="stat-projects">0</p>
+                        <p class="text-xs text-zinc-400 mt-1">Projects</p>
+                    </div>
+                    <div class="bg-black/50 rounded-2xl p-4">
+                        <p class="text-3xl font-bold text-cyan-400">47</p>
+                        <p class="text-xs text-zinc-400 mt-1">Ideas</p>
+                    </div>
+                    <div class="bg-black/50 rounded-2xl p-4">
+                        <p class="text-3xl font-bold text-cyan-400">8.2k</p>
+                        <p class="text-xs text-zinc-400 mt-1">Reputation</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- My Projects -->
+            <div class="lg:col-span-3 bg-zinc-900 rounded-3xl p-6">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-semibold">My Projects</h2>
+                    <button onclick="newProject()" class="px-5 py-2 bg-white text-black rounded-2xl text-sm font-semibold hover:bg-cyan-400 flex items-center gap-2">
+                        <i class="fas fa-plus"></i> New Project
+                    </button>
+                </div>
+                <div id="projects-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
             </div>
         </div>
     </div>
 
-    <!-- MARKETPLACE -->
+    <!-- EDIT PROFILE MODAL -->
+    <div id="edit-modal" class="fixed inset-0 bg-black/90 hidden flex items-center justify-center z-[100000]">
+        <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-8">
+            <h2 class="text-2xl font-bold mb-6">Edit Profile</h2>
+            
+            <div class="flex justify-center mb-6">
+                <label class="cursor-pointer">
+                    <div id="modal-avatar-preview" class="w-28 h-28 rounded-3xl overflow-hidden border-4 border-cyan-400"></div>
+                    <input type="file" id="avatar-upload" accept="image/*" class="hidden" onchange="previewAvatar(event)">
+                    <p class="text-center text-cyan-400 text-sm mt-2">Change Avatar</p>
+                </label>
+            </div>
+
+            <input id="edit-firstname" type="text" placeholder="First Name" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 mb-4">
+            <input id="edit-lastname" type="text" placeholder="Last Name" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 mb-4">
+            <textarea id="edit-bio" placeholder="Tell us about yourself..." rows="4" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 mb-6"></textarea>
+
+            <div class="flex gap-4">
+                <button onclick="saveProfile()" class="flex-1 py-4 bg-cyan-500 text-black font-semibold rounded-2xl">Save Changes</button>
+                <button onclick="closeEditModal()" class="flex-1 py-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MARKETPLACE PAGE -->
     <div id="marketplace-page" class="max-w-6xl mx-auto pt-8 px-6 hidden">
         <h1 class="text-4xl font-bold mb-8">Marketplace</h1>
         <p class="text-zinc-400">Welcome to NQVate!</p>
     </div>
 
     <script>
+        // ==================== YOUR NEW FIREBASE CONFIG ====================
         const firebaseConfig = {
-          apiKey: "AIzaSyAXpV2uJmNEj5qe65Mq0ki5cdMXcbaBisE",
-          authDomain: "nqv8-2a264.firebaseapp.com",
-          projectId: "nqv8-2a264",
-          storageBucket: "nqv8-2a264.firebasestorage.app",
-          messagingSenderId: "918111164289",
-          appId: "1:918111164289:web:e87dc103907eac54f47a80"
+          apiKey: "AIzaSyDnUVkD4WZ_jpHK1cY1G_1DOvHSfkUropU",
+          authDomain: "nqv8-9092f.firebaseapp.com",
+          projectId: "nqv8-9092f",
+          storageBucket: "nqv8-9092f.firebasestorage.app",
+          messagingSenderId: "199645894982",
+          appId: "1:199645894982:web:c5a192a4b553b9747e2d47"
         };
 
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
         const auth = firebase.auth();
+        const storage = firebase.storage();
 
         let currentUser = null;
+        let currentAvatarFile = null;
 
-        function switchTab(tab) {
-            document.getElementById('create-form').classList.toggle('hidden', tab === 1);
-            document.getElementById('login-form').classList.toggle('hidden', tab === 0);
-            
-            document.getElementById('tab-create').classList.toggle('border-b-2', tab === 0);
-            document.getElementById('tab-create').classList.toggle('text-white', tab === 0);
-            document.getElementById('tab-create').classList.toggle('text-zinc-400', tab === 1);
-            
-            document.getElementById('tab-login').classList.toggle('border-b-2', tab === 1);
-            document.getElementById('tab-login').classList.toggle('text-white', tab === 1);
-            document.getElementById('tab-login').classList.toggle('text-zinc-400', tab === 0);
+        // Navigation
+        function navigateTo(page) {
+            document.querySelectorAll('div[id$="-page"]').forEach(div => div.classList.add('hidden'));
+            const target = document.getElementById(page + '-page');
+            if (target) target.classList.remove('hidden');
         }
 
-        async function createProfile() {
-            const firstName = document.getElementById('first-name').value.trim();
-            const lastName = document.getElementById('last-name').value.trim();
-            let username = document.getElementById('create-username').value.trim().toLowerCase();
-            const email = document.getElementById('create-email').value.trim();
-            const password = document.getElementById('create-password').value.trim();
-
-            if (!firstName || !lastName || !username || !email || !password) return alert("All fields are required");
-            if (password.length < 6) return alert("Password must be at least 6 characters");
-
-            username = username.replace(/\s+/g, '');
-
-            try {
-                const usernameDoc = await db.collection("usernames").doc(username).get();
-                if (usernameDoc.exists) return alert("Username already taken");
-
-                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-                
-                // Send verification email
-                await userCredential.user.sendEmailVerification();
-
-                currentUser = {
-                    uid: userCredential.user.uid,
-                    firstName, lastName,
-                    username: "@" + username,
-                    email,
-                    fullName: firstName + " " + lastName,
-                    emailVerified: false
-                };
-
-                await db.collection("users").doc(currentUser.uid).set(currentUser);
-                await db.collection("usernames").doc(username).set({ uid: currentUser.uid });
-
-                alert("✅ Account created!\n\nPlease check your email and click the verification link before logging in.");
-                switchTab(1); // Switch to login tab
-            } catch (err) {
-                alert("Error: " + err.message);
-            }
-        }
-
-        async function loginWithEmail() {
-            const email = document.getElementById('login-email').value.trim();
-            const password = document.getElementById('login-password').value.trim();
-
-            if (!email || !password) return alert("Email and password are required");
-
-            try {
-                const userCredential = await auth.signInWithEmailAndPassword(email, password);
-                
-                if (!userCredential.user.emailVerified) {
-                    alert("Please verify your email first. Check your inbox.");
-                    return;
-                }
-
-                const userDoc = await db.collection("users").doc(userCredential.user.uid).get();
-                if (userDoc.exists) {
-                    currentUser = userDoc.data();
-                    finishLogin();
-                }
-            } catch (err) {
-                alert("Login failed: " + err.message);
-            }
-        }
-
-        async function resetPassword() {
-            const email = document.getElementById('login-email').value.trim();
-            if (!email) return alert("Enter your email first");
-            try {
-                await auth.sendPasswordResetEmail(email);
-                alert("Password reset link sent to your email!");
-            } catch (err) {
-                alert("Error: " + err.message);
-            }
-        }
-
-        function finishLogin() {
-            document.getElementById('auth-modal').classList.add('hidden');
-            document.getElementById('nav-loggedin').classList.remove('hidden');
-            document.getElementById('right-section').classList.remove('hidden');
-            document.getElementById('marketplace-page').classList.remove('hidden');
+        function viewProfile() {
+            toggleProfileMenu();
+            navigateTo('profile');
             updateProfileUI();
-        }
-
-        function updateProfileUI() {
-            document.getElementById('profile-avatar').textContent = currentUser.firstName[0] + currentUser.lastName[0];
-            document.getElementById('dropdown-name').textContent = currentUser.fullName;
-            document.getElementById('dropdown-username').textContent = currentUser.username;
+            loadUserProjects();
         }
 
         function toggleProfileMenu() {
             document.getElementById('profile-dropdown').classList.toggle('hidden');
         }
 
-        function connectWallet() {
-            alert("Wallet connection coming soon");
+        function updateProfileUI() {
+            if (!currentUser) return;
+
+            const initials = (currentUser.firstName?.[0] || '') + (currentUser.lastName?.[0] || '');
+
+            // Navbar avatar
+            const smallAvatar = document.getElementById('profile-avatar');
+            smallAvatar.innerHTML = currentUser.photoURL 
+                ? `<img src="${currentUser.photoURL}" class="w-full h-full object-cover">` 
+                : `<span class="text-sm font-bold">${initials}</span>`;
+
+            // Dropdown
+            document.getElementById('dropdown-name').textContent = currentUser.fullName || 'User';
+            document.getElementById('dropdown-username').textContent = currentUser.username || '';
+
+            // Large avatar
+            const largeAvatar = document.getElementById('profile-avatar-large');
+            largeAvatar.innerHTML = currentUser.photoURL 
+                ? `<img src="${currentUser.photoURL}" class="w-full h-full object-cover">` 
+                : `<span class="text-6xl font-bold">${initials}</span>`;
+
+            document.getElementById('profile-fullname').textContent = currentUser.fullName || 'User';
+            document.getElementById('profile-username').textContent = currentUser.username || '';
+            document.getElementById('profile-email').textContent = currentUser.email || '';
+            document.getElementById('profile-bio').textContent = currentUser.bio || "No bio yet. Tell the community about yourself!";
         }
 
-        function logout() {
-            auth.signOut().then(() => location.reload());
+        // Edit Profile
+        function editProfile() {
+            document.getElementById('edit-firstname').value = currentUser.firstName || '';
+            document.getElementById('edit-lastname').value = currentUser.lastName || '';
+            document.getElementById('edit-bio').value = currentUser.bio || '';
+
+            const preview = document.getElementById('modal-avatar-preview');
+            preview.innerHTML = currentUser.photoURL 
+                ? `<img src="${currentUser.photoURL}" class="w-full h-full object-cover">` 
+                : `<div class="w-full h-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-5xl font-bold">${(currentUser.firstName?.[0] || '') + (currentUser.lastName?.[0] || '')}</div>`;
+
+            document.getElementById('edit-modal').classList.remove('hidden');
         }
 
-        function navigateTo(page) {
-            document.querySelectorAll('div[id$="-page"]').forEach(div => div.classList.add('hidden'));
-            document.getElementById(page + '-page').classList.remove('hidden');
+        function closeEditModal() {
+            document.getElementById('edit-modal').classList.add('hidden');
+            currentAvatarFile = null;
         }
+
+        function previewAvatar(e) {
+            currentAvatarFile = e.target.files[0];
+            if (!currentAvatarFile) return;
+            const reader = new FileReader();
+            reader.onload = function(ev) {
+                document.getElementById('modal-avatar-preview').innerHTML = `<img src="${ev.target.result}" class="w-full h-full object-cover">`;
+            };
+            reader.readAsDataURL(currentAvatarFile);
+        }
+
+        async function saveProfile() {
+            const firstName = document.getElementById('edit-firstname').value.trim();
+            const lastName = document.getElementById('edit-lastname').value.trim();
+            const bio = document.getElementById('edit-bio').value.trim();
+
+            if (!firstName || !lastName) return alert("First and Last name are required");
+
+            try {
+                let photoURL = currentUser.photoURL;
+
+                if (currentAvatarFile) {
+                    const storageRef = storage.ref(`avatars/${currentUser.uid}`);
+                    await storageRef.put(currentAvatarFile);
+                    photoURL = await storageRef.getDownloadURL();
+                }
+
+                const updates = { firstName, lastName, fullName: firstName + " " + lastName, bio, photoURL };
+                await db.collection("users").doc(currentUser.uid).update(updates);
+                
+                currentUser = { ...currentUser, ...updates };
+                updateProfileUI();
+                closeEditModal();
+                alert("✅ Profile updated successfully!");
+            } catch (err) {
+                alert("Error: " + err.message);
+            }
+        }
+
+        // Projects
+        async function loadUserProjects() {
+            const container = document.getElementById('projects-container');
+            container.innerHTML = '<p class="text-zinc-400 col-span-3">Loading...</p>';
+
+            try {
+                const snapshot = await db.collection("users").doc(currentUser.uid).collection("projects").get();
+                container.innerHTML = '';
+
+                if (snapshot.empty) {
+                    container.innerHTML = `<p class="text-zinc-400 col-span-3 text-center py-8">No projects yet. Create your first one!</p>`;
+                    return;
+                }
+
+                snapshot.forEach(doc => {
+                    const p = doc.data();
+                    const card = document.createElement('div');
+                    card.className = "bg-black rounded-2xl p-5 hover:ring-1 hover:ring-cyan-400 transition";
+                    card.innerHTML = `
+                        <p class="font-semibold">${p.title}</p>
+                        <p class="text-xs text-zinc-400 mt-1">${p.status || 'Draft'}</p>
+                        <div class="mt-4 text-cyan-400 text-sm cursor-pointer">View →</div>
+                    `;
+                    container.appendChild(card);
+                });
+            } catch (err) {
+                container.innerHTML = `<p class="text-red-400">Error loading projects</p>`;
+            }
+        }
+
+        function newProject() {
+            const title = prompt("Project Title:");
+            if (!title) return;
+            const desc = prompt("Short description:") || "";
+
+            db.collection("users").doc(currentUser.uid).collection("projects").add({
+                title,
+                description: desc,
+                status: "Draft",
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            }).then(() => {
+                alert("Project created!");
+                loadUserProjects();
+            });
+        }
+
+        function finishLogin() {
+            document.getElementById('auth-modal').classList.add('hidden');
+            document.getElementById('nav-loggedin').classList.remove('hidden');
+            document.getElementById('right-section').classList.remove('hidden');
+            navigateTo('marketplace');
+            updateProfileUI();
+        }
+
+        function logout() { auth.signOut().then(() => location.reload()); }
+        function connectWallet() { alert("Wallet connection coming soon ✨"); }
+
+        // Keep your existing auth modal + createProfile, loginWithEmail, etc. functions here
+        // (Add them from your previous file if needed)
 
         window.onload = () => {
             auth.onAuthStateChanged(user => {
