@@ -208,7 +208,52 @@
             </div>
         </div>
     </div>
+    <!-- ==================== CHAT PAGE ==================== -->
+    <div id="chat-page" class="max-w-6xl mx-auto pt-8 px-6 hidden">
+        <div class="flex h-[calc(100vh-120px)] bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-700">
 
+            <!-- Sidebar -->
+            <div class="w-80 border-r border-zinc-700 flex flex-col">
+                <div class="p-4 border-b border-zinc-700">
+                    <input id="chat-search" type="text" placeholder="Search users..." 
+                           onkeyup="if(event.key==='Enter') searchUsersForChat()"
+                           class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 outline-none">
+                </div>
+                <div id="chat-list" class="flex-1 overflow-auto p-2">
+                    <!-- Populated by JS -->
+                </div>
+            </div>
+
+            <!-- Main Chat Area -->
+            <div class="flex-1 flex flex-col">
+                <div id="chat-header" class="px-6 py-4 border-b border-zinc-700 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div id="chat-avatar" class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold"></div>
+                        <div>
+                            <p id="chat-with-name" class="font-semibold">Select a chat</p>
+                            <p id="chat-with-username" class="text-xs text-zinc-400"></p>
+                        </div>
+                    </div>
+                    <button onclick="startVideoCall()" class="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-600 text-black px-5 py-2 rounded-2xl text-sm font-medium">
+                        <i class="fa-solid fa-video"></i> Video Call
+                    </button>
+                </div>
+
+                <div id="chat-messages" class="flex-1 overflow-auto p-6 space-y-4 bg-black">
+                    <!-- Messages populated by JS -->
+                </div>
+
+                <div class="p-4 border-t border-zinc-700 bg-zinc-900">
+                    <div class="flex gap-3">
+                        <input id="chat-input" type="text" placeholder="Type a message..." 
+                               onkeypress="if(event.key==='Enter') sendMessage()"
+                               class="flex-1 bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-4 outline-none">
+                        <button onclick="sendMessage()" class="px-8 bg-white text-black rounded-3xl font-medium">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
 <script>
 
 
