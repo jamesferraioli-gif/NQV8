@@ -96,25 +96,48 @@
             <!-- Populated by JS -->
         </div>
     </div>
-
+    
     <!-- POST PROJECT MODAL -->
     <div id="post-project-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
         <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-8">
             <h2 class="text-3xl font-bold mb-6">Post New Project</h2>
-            
-            <select id="project-type" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
-                <option value="build">Looking for someone to BUILD this</option>
-                <option value="fund">Looking for FUNDING</option>
-            </select>
 
-            <input id="project-title" type="text" placeholder="Project Title" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
-            <textarea id="project-desc" placeholder="Describe the project in detail..." rows="5" class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-4"></textarea>
-            
-            <input id="project-compensation" type="text" placeholder="Compensation (e.g. $1500 or 8% equity)" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-6">
+            <!-- Tabs -->
+            <div class="flex border-b border-zinc-700 mb-6">
+                <button onclick="switchProjectTab(0)" id="tab-build" 
+                        class="flex-1 pb-4 text-lg font-semibold border-b-2 border-cyan-400">🔨 Build Request</button>
+                <button onclick="switchProjectTab(1)" id="tab-fund" 
+                        class="flex-1 pb-4 text-lg font-semibold text-zinc-400">💰 Funding Request</button>
+            </div>
+
+            <input id="project-title" type="text" placeholder="Project Title" 
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+
+            <textarea id="project-desc" placeholder="Describe the project in detail..." rows="4" 
+                      class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6"></textarea>
+
+            <!-- Compensation Options -->
+            <div class="mb-6">
+                <p class="text-sm text-zinc-400 mb-3">Compensation / Equity (select one or both)</p>
+                <div class="flex gap-6">
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="comp-cash" class="w-5 h-5 accent-cyan-400">
+                        <span>Payment (USDC)</span>
+                    </label>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="comp-equity" class="w-5 h-5 accent-cyan-400">
+                        <span>Equity</span>
+                    </label>
+                </div>
+                <input id="project-compensation" type="text" placeholder="e.g. $2,500 or 10% equity or both" 
+                       class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+            </div>
 
             <div class="flex gap-3">
-                <button onclick="hidePostProjectModal()" class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
-                <button onclick="submitNewProject()" class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Post Project ($1.00 NQV8)</button>
+                <button onclick="hidePostProjectModal()" 
+                        class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+                <button onclick="submitNewProject()" 
+                        class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Post Project ($1.00 NQV8)</button>
             </div>
         </div>
     </div>
@@ -377,26 +400,53 @@
         function showPostProjectModal() {
             if (!currentUser) return alert("Please log in first");
             document.getElementById('post-project-modal').classList.remove('hidden');
+            switchProjectTab(0); // Default to Build tab
         }
 
         function hidePostProjectModal() {
             document.getElementById('post-project-modal').classList.add('hidden');
         }
 
+        function switchProjectTab(tab) {
+            document.getElementById('tab-build').classList.toggle('border-b-2', tab === 0);
+            document.getElementById('tab-build').classList.toggle('border-cyan-400', tab === 0);
+            document.getElementById('tab-build').classList.toggle('text-white', tab === 0);
+            
+            document.getElementById('tab-fund').classList.toggle('border-b-2', tab === 1);
+            document.getElementById('tab-fund').classList.toggle('border-cyan-400', tab === 1);
+            document.getElementById('tab-fund').classList.toggle('text-white', tab === 1);
+        }
+
         async function submitNewProject() {
             const title = document.getElementById('project-title').value.trim();
             const desc = document.getElementById('project-desc').value.trim();
             const compensation = document.getElementById('project-compensation').value.trim();
-            const type = document.getElementById('project-type').value;
+            const cashChecked = document.getElementById('comp-cash').checked;
+            const equityChecked = document.getElementById('comp-equity').checked;
 
-            if (!title || !desc || !compensation) return alert("Please fill all fields");
+            if (!title || !desc) {
+                alert("❌ Title and Description are required");
+                return;
+            }
+            if (!cashChecked && !equityChecked) {
+                alert("❌ Please select at least one: Payment or Equity");
+                return;
+            }
+            if (!compensation) {
+                alert("❌ Please enter compensation details");
+                return;
+            }
 
             try {
+                const isBuild = document.getElementById('tab-build').classList.contains('border-cyan-400');
+
                 const projectData = {
                     title,
                     description: desc,
                     compensation,
-                    type,
+                    type: isBuild ? 'build' : 'fund',
+                    hasCash: cashChecked,
+                    hasEquity: equityChecked,
                     posterUid: currentUser.uid,
                     posterName: currentUser.fullName || currentUser.username,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -404,9 +454,17 @@
                 };
 
                 await db.collection("projects").add(projectData);
+                
                 alert("✅ Project posted successfully!");
                 hidePostProjectModal();
                 loadMarketplace();
+
+                // Clear form
+                document.getElementById('project-title').value = '';
+                document.getElementById('project-desc').value = '';
+                document.getElementById('project-compensation').value = '';
+                document.getElementById('comp-cash').checked = false;
+                document.getElementById('comp-equity').checked = false;
             } catch (e) {
                 console.error(e);
                 alert("Failed to post project");
