@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NQVate • Innovate. Incubate.</title>
+    <title>NQVate</title>
     
     <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -14,64 +14,78 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Space+Grotesk:wght@500;600&display=swap');
-        :root { --primary: #00d4ff; }
-        * { transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); }
-        .nav-link { position: relative; }
-        .nav-link:after { content: ''; position: absolute; width: 0; height: 2px; bottom: -2px; left: 0; background-color: #00d4ff; }
-        .nav-link:hover:after { width: 100%; }
-        .hero-bg { background: linear-gradient(90deg, #0a0a2e 0%, #1a0b3d 100%); }
-        .card-hover:hover { transform: translateY(-8px); box-shadow: 0 25px 50px -12px rgb(0 212 255 / 0.2); }
-        .modal { animation: modalPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
-        @keyframes modalPop { from { transform: scale(0.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+        body { font-family: 'Inter', system-ui, sans-serif; }
+        .logo-font { font-family: 'Space Grotesk', sans-serif; }
+        .feed-container { max-width: 680px; }
     </style>
 </head>
-<body class="bg-zinc-950 text-white font-sans">
-
-    <!-- LOGIN MODAL -->
-    <div id="login-modal" class="fixed inset-0 bg-black/90 flex items-center justify-center z-[99999] hidden">
-        <div class="modal bg-zinc-900 max-w-md w-full mx-4 rounded-3xl p-8">
-            <h3 class="text-3xl font-semibold mb-8 text-center">Create Your NQVate Profile</h3>
-            <input id="full-name" type="text" placeholder="Full Name" class="w-full bg-black border border-zinc-700 rounded-3xl px-6 py-5 mb-6 text-lg outline-none">
-            <button onclick="createProfile()" class="w-full py-6 bg-gradient-to-r from-cyan-400 to-violet-400 text-black font-semibold rounded-3xl text-lg">
-                Create Profile & Continue
-            </button>
-        </div>
-    </div>
+<body class="bg-black text-white min-h-screen">
 
     <!-- NAVBAR -->
     <nav class="bg-black border-b border-zinc-800 sticky top-0 z-50">
-        <div class="max-w-screen-2xl mx-auto px-6 py-5 flex items-center justify-between">
-            <div class="flex items-center gap-x-3">
-                <div class="w-9 h-9 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-2xl flex items-center justify-center text-2xl font-bold">N</div>
-                <span class="text-3xl font-semibold tracking-tighter" style="font-family: 'Space Grotesk', sans-serif;">NQVate</span>
+        <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
+            <div class="flex items-center gap-8">
+                <div class="flex items-center gap-3">
+                    <div class="w-9 h-9 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-2xl flex items-center justify-center text-2xl font-bold">N</div>
+                    <span class="text-3xl font-bold tracking-tighter logo-font text-white">NQVate</span>
+                </div>
             </div>
-            <div class="hidden md:flex items-center gap-x-8 text-sm font-medium">
-                <a onclick="navigateTo('marketplace')" class="nav-link cursor-pointer">Marketplace</a>
-                <a onclick="navigateTo('ideas')" class="nav-link cursor-pointer">Ideas</a>
-                <a onclick="navigateTo('chats')" class="nav-link cursor-pointer">Chats</a>
-                <a onclick="navigateTo('leaderboard')" class="nav-link cursor-pointer">Leaderboard</a>
-                <a onclick="navigateTo('profile')" class="nav-link cursor-pointer">Profile</a>
+
+            <div id="nav-loggedin" class="hidden flex items-center gap-8 text-sm font-medium">
+                <a onclick="navigateTo('feed')" class="flex items-center gap-2 hover:text-cyan-400 cursor-pointer"><i class="fa-solid fa-house"></i> Home</a>
+                <a onclick="navigateTo('explore')" class="flex items-center gap-2 hover:text-cyan-400 cursor-pointer"><i class="fa-solid fa-magnifying-glass"></i> Explore</a>
+                <a onclick="navigateTo('profile')" class="flex items-center gap-2 hover:text-cyan-400 cursor-pointer"><i class="fa-solid fa-user"></i> Profile</a>
             </div>
-            <div class="flex items-center gap-x-4">
-                <div id="profile-container" class="relative hidden">
-                    <div onclick="toggleProfileMenu()" class="cursor-pointer">
-                        <div id="profile-avatar" class="w-8 h-8 bg-gradient-to-br from-violet-400 to-cyan-400 rounded-2xl flex items-center justify-center text-sm font-bold">JF</div>
-                    </div>
-                    <div id="profile-dropdown" class="hidden absolute right-0 mt-2 w-56 bg-zinc-900 border border-zinc-700 rounded-3xl shadow-2xl py-2 z-[99999]">
-                        <div class="px-6 py-4 border-b border-zinc-700">
-                            <p class="font-semibold" id="dropdown-username">@jimferraioli</p>
-                        </div>
-                        <a onclick="navigateTo('profile')" class="block px-6 py-3 hover:bg-zinc-800 cursor-pointer">👤 My Profile</a>
-                        <button onclick="logout()" class="w-full text-left px-6 py-3 text-red-400 hover:bg-zinc-800">Logout</button>
-                    </div>
+
+            <div id="profile-section" class="hidden flex items-center gap-4">
+                <div onclick="toggleProfileMenu()" class="cursor-pointer">
+                    <div id="profile-avatar" class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold ring-2 ring-cyan-400">JF</div>
                 </div>
             </div>
         </div>
     </nav>
 
-    <!-- Your original sections (Hero, Marketplace, Ideas, Chats, etc.) go here -->
-    <!-- Keep all your HTML from HERO down exactly as it was in your working version -->
+    <!-- LOGIN MODAL -->
+    <div id="login-modal" class="fixed inset-0 bg-black/95 flex items-center justify-center z-[99999] hidden">
+        <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-10">
+            <h2 class="text-4xl font-bold text-center mb-2 logo-font">Join NQVate</h2>
+            <p class="text-zinc-400 text-center mb-8">The future of decentralized social</p>
+            
+            <input id="full-name" type="text" placeholder="Full Name" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 mb-4 text-lg outline-none focus:border-cyan-400">
+            <button onclick="createProfile()" class="w-full py-5 bg-white text-black font-semibold rounded-2xl text-lg hover:bg-cyan-400 transition">
+                Create Account
+            </button>
+        </div>
+    </div>
+
+    <!-- MAIN FEED -->
+    <div id="feed-page" class="max-w-2xl mx-auto pt-8 px-4">
+        <!-- Post Composer -->
+        <div class="bg-zinc-900 rounded-3xl p-6 mb-8 border border-zinc-800">
+            <textarea id="post-input" rows="3" placeholder="What are you building today?" class="w-full bg-transparent outline-none text-lg resize-none"></textarea>
+            <div class="flex justify-between items-center mt-4">
+                <div class="text-cyan-400 text-sm cursor-pointer hover:text-cyan-300">📸 Media</div>
+                <button onclick="createPost()" class="px-8 py-3 bg-white text-black font-semibold rounded-2xl hover:bg-cyan-400 transition">Post</button>
+            </div>
+        </div>
+
+        <!-- Posts Feed -->
+        <div id="posts-feed" class="space-y-6"></div>
+    </div>
+
+    <!-- PROFILE PAGE -->
+    <div id="profile-page" class="max-w-2xl mx-auto pt-8 px-4 hidden">
+        <div class="bg-zinc-900 rounded-3xl p-8 text-center">
+            <div id="profile-avatar-big" class="w-24 h-24 mx-auto bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-5xl font-bold mb-6">JF</div>
+            <h2 id="profile-name" class="text-3xl font-bold">Username</h2>
+            <p id="profile-username" class="text-cyan-400">@username</p>
+        </div>
+        <div class="mt-8">
+            <h3 class="text-xl font-semibold mb-4">My Posts</h3>
+            <div id="my-posts" class="space-y-6"></div>
+        </div>
+    </div>
 
     <script>
         // ==================== FIREBASE ====================
@@ -88,101 +102,120 @@
         const db = firebase.firestore();
         const auth = firebase.auth();
 
-        // STATE
-        let profileCreated = false;
-        let currentUser = "@guest";
-        let myPostedProjects = [];
-        let ideas = [];
-        let chats = [];
-
-        function showToast(message, type = "success") {
-            const toast = document.createElement('div');
-            toast.style.cssText = `position:fixed;bottom:24px;right:24px;padding:16px 24px;border-radius:9999px;font-size:14px;font-weight:600;z-index:99999;${type === 'success' ? 'background:#10b981;color:#000' : 'background:#ef4444;color:#fff'}`;
-            toast.innerHTML = `${type === 'success' ? '✅' : '⚠️'} ${message}`;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 2800);
-        }
+        let currentUser = null;
 
         // ==================== AUTH ====================
         async function createProfile() {
             const name = document.getElementById('full-name').value.trim();
-            if (!name) return showToast("Please enter your name", "error");
+            if (!name) return alert("Please enter your name");
 
             try {
                 await auth.signInAnonymously();
-                profileCreated = true;
-                currentUser = "@" + name.toLowerCase().replace(/\s+/g, '');
+                currentUser = {
+                    uid: auth.currentUser.uid,
+                    displayName: name,
+                    username: "@" + name.toLowerCase().replace(/\s+/g, '')
+                };
 
-                await db.collection("users").doc(auth.currentUser.uid).set({
-                    username: currentUser,
-                    profileCreated: true
-                }, { merge: true });
+                await db.collection("users").doc(currentUser.uid).set({
+                    displayName: currentUser.displayName,
+                    username: currentUser.username,
+                    createdAt: new Date()
+                });
 
                 document.getElementById('login-modal').classList.add('hidden');
-                updateProfileUI();
-                showToast(`✅ Welcome, ${currentUser}!`);
-                renderAll();
+                document.getElementById('nav-loggedin').classList.remove('hidden');
+                showFeed();
             } catch (err) {
                 console.error(err);
-                showToast("Failed to create profile. Make sure Anonymous auth is enabled.", "error");
+                alert("Failed to create account. Please make sure Anonymous auth is enabled in Firebase.");
             }
         }
 
         function logout() {
-            if (!confirm("Logout?")) return;
-            auth.signOut().then(() => location.reload());
+            if (confirm("Logout?")) auth.signOut().then(() => location.reload());
         }
 
-        function updateProfileUI() {
-            document.getElementById('profile-avatar').textContent = currentUser.substring(1, 3).toUpperCase();
-            document.getElementById('dropdown-username').textContent = currentUser;
+        // ==================== POSTS ====================
+        async function createPost() {
+            const text = document.getElementById('post-input').value.trim();
+            if (!text || !currentUser) return;
+
+            await db.collection("posts").add({
+                userId: currentUser.uid,
+                username: currentUser.username,
+                displayName: currentUser.displayName,
+                text: text,
+                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+                likes: 0
+            });
+
+            document.getElementById('post-input').value = '';
+            loadFeed();
         }
 
-        function toggleProfileMenu() {
-            document.getElementById('profile-dropdown').classList.toggle('hidden');
+        async function loadFeed() {
+            const feed = document.getElementById('posts-feed');
+            feed.innerHTML = '';
+
+            const snapshot = await db.collection("posts").orderBy("timestamp", "desc").get();
+            
+            snapshot.forEach(doc => {
+                const post = doc.data();
+                feed.innerHTML += `
+                    <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 bg-gradient-to-br from-violet-400 to-cyan-400 rounded-full flex items-center justify-center text-lg font-bold">
+                                ${post.username ? post.username[1].toUpperCase() : 'U'}
+                            </div>
+                            <div>
+                                <div class="font-semibold">${post.displayName || post.username}</div>
+                                <div class="text-xs text-zinc-500">${post.username}</div>
+                            </div>
+                        </div>
+                        <p class="mt-4 text-[17px] leading-relaxed">${post.text}</p>
+                        <div class="mt-6 flex gap-8 text-sm">
+                            <button onclick="likePost('${doc.id}')" class="flex items-center gap-2 hover:text-pink-400">
+                                ❤️ <span>${post.likes || 0}</span>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        async function likePost(postId) {
+            await db.collection("posts").doc(postId).update({
+                likes: firebase.firestore.FieldValue.increment(1)
+            });
+            loadFeed();
         }
 
         // ==================== NAV ====================
         function navigateTo(page) {
-            if (!profileCreated) return showToast("Create profile first", "error");
-            document.querySelectorAll('div[id$="-section"]').forEach(s => s.classList.add('hidden'));
-            const section = document.getElementById(page + '-section');
-            if (section) section.classList.remove('hidden');
+            document.getElementById('feed-page').classList.add('hidden');
+            document.getElementById('profile-page').classList.add('hidden');
+
+            if (page === 'feed') {
+                document.getElementById('feed-page').classList.remove('hidden');
+                loadFeed();
+            } else if (page === 'profile') {
+                document.getElementById('profile-page').classList.remove('hidden');
+            }
         }
 
-        function renderAll() {
-            renderMarketplace();
-            renderIdeas();
-            renderYourChats();
-            renderProfile();
+        function showFeed() {
+            navigateTo('feed');
         }
 
-        // ==================== YOUR ORIGINAL FUNCTIONS (Firebase ready) ====================
-        function connectWallet() {
-            if (!profileCreated) return showToast("Create profile first", "error");
-            showToast("Wallet connected (demo)");
-        }
-
-        function fakeNotification() { showToast("No new notifications"); }
-
-        function renderMarketplace() {
-            // Your original marketplace code here
-            console.log("Marketplace rendered");
-        }
-
-        function showPostProjectModal() {
-            if (!profileCreated) return showToast("Create profile first", "error");
-            showToast("Post project modal opened (add your full modal logic)");
-        }
-
-        // Add your other functions (showPostIdeaModal, renderIdeas, chats, etc.) here as they were
-
+        // ==================== INIT ====================
         window.onload = () => {
-            auth.onAuthStateChanged(async (user) => {
+            auth.onAuthStateChanged((user) => {
                 if (user) {
-                    profileCreated = true;
-                    updateProfileUI();
-                    renderAll();
+                    currentUser = { uid: user.uid };
+                    document.getElementById('login-modal').classList.add('hidden');
+                    document.getElementById('nav-loggedin').classList.remove('hidden');
+                    showFeed();
                 } else {
                     document.getElementById('login-modal').classList.remove('hidden');
                 }
