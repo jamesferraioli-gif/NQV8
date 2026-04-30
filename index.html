@@ -234,6 +234,12 @@
             navigateTo('profile');
         }
 
+        function viewUserProfile(uid) {
+            if (!uid) return alert("User profile not available yet.");
+            alert(`👤 Viewing profile for user ID: ${uid}\n\n(Full user profile page coming soon)`);
+            // Future: navigateTo('user-profile') + load user data
+        }
+
         function updateProfileUI() {
             if (!currentUser) return;
             const initials = (currentUser.firstName?.[0] || '') + (currentUser.lastName?.[0] || '');
@@ -459,33 +465,52 @@
             const modal = document.getElementById('project-detail-modal');
             const content = document.getElementById('detail-content');
 
-            const isOwnProject = currentUser && project.posterUid === currentUser.uid;
+            const isPoster = currentUser && project.posterUid === currentUser.uid;
+            const userBids = project.bids ? project.bids.filter(b => b.bidderUid === currentUser?.uid) : [];
 
-            let bidsHTML = project.bids && project.bids.length 
-                ? project.bids.map(b => `
+            // Build bids HTML with privacy
+            let bidsHTML = '';
+
+            if (isPoster) {
+                // Project owner sees ALL bids
+                bidsHTML = project.bids && project.bids.length 
+                    ? project.bids.map(b => `
+                        <div class="bg-zinc-800 p-4 rounded-2xl mb-3">
+                            <strong>${b.bidderName}</strong><br>
+                            <span class="text-cyan-400">${b.amount}</span>
+                        </div>`).join('')
+                    : '<p class="text-zinc-500">No bids yet.</p>';
+            } else if (userBids.length > 0) {
+                // Bidder sees only their own bid(s)
+                bidsHTML = userBids.map(b => `
                     <div class="bg-zinc-800 p-4 rounded-2xl mb-3">
-                        <strong>${b.bidderName}</strong><br>
+                        <strong>Your Bid</strong><br>
                         <span class="text-cyan-400">${b.amount}</span>
-                    </div>`).join('')
-                : '<p class="text-zinc-500">No bids yet. Be the first!</p>';
+                    </div>`).join('');
+            } else {
+                // Everyone else sees only count
+                bidsHTML = `<p class="text-zinc-500">${project.bids ? project.bids.length : 0} bid(s) received</p>`;
+            }
 
             content.innerHTML = `
                 <div class="flex justify-between items-start mb-4">
                     <h2 class="text-4xl font-bold">${project.title}</h2>
-                    <span class="text-xs bg-zinc-800 px-3 py-1 rounded-full text-zinc-400">
-                        Posted by ${project.posterName || 'Anonymous'}
-                    </span>
                 </div>
                 
+                <p onclick="viewUserProfile('${project.posterUid}')" 
+                   class="text-cyan-400 hover:underline cursor-pointer inline-block mb-6">
+                    Posted by @${project.posterName || 'anonymous'}
+                </p>
+
                 <p class="text-cyan-400 mb-6">${project.type === 'build' ? '🔨 Build Request' : '💰 Funding Request'} • ${project.compensation}</p>
                 <p class="text-zinc-300 leading-relaxed mb-8">${project.description}</p>
                 
-                <h3 class="text-2xl font-semibold mb-4">Bids (${project.bids ? project.bids.length : 0})</h3>
+                <h3 class="text-2xl font-semibold mb-4">Offers / Bids</h3>
                 <div class="mb-8">${bidsHTML}</div>
 
-                ${isOwnProject ? `
+                ${isPoster ? `
                 <div class="bg-yellow-900/30 border border-yellow-500/30 p-6 rounded-3xl text-center">
-                    <p class="text-yellow-400">You posted this project. You cannot bid on your own project.</p>
+                    <p class="text-yellow-400">This is your project. You can see all offers above.</p>
                 </div>
                 ` : `
                 <div class="border-t border-zinc-700 pt-6">
