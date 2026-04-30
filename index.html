@@ -98,6 +98,7 @@
             username = username.replace(/\s+/g, '');
 
             try {
+                // Check if username exists
                 const usernameDoc = await db.collection("usernames").doc(username).get();
                 if (usernameDoc.exists) return alert("Username already taken");
 
@@ -114,7 +115,7 @@
                 await db.collection("users").doc(currentUser.uid).set(currentUser);
                 await db.collection("usernames").doc(username).set({ uid: currentUser.uid });
 
-                // SUCCESS - Show main UI
+                // Show main app
                 document.getElementById('signup-modal').classList.add('hidden');
                 document.getElementById('nav-loggedin').classList.remove('hidden');
                 document.getElementById('profile-section').classList.remove('hidden');
@@ -123,7 +124,6 @@
                 updateProfileUI();
                 loadFeed();
 
-                console.log("✅ Account created and UI updated");
             } catch (err) {
                 console.error(err);
                 alert("Error: " + err.message);
@@ -146,12 +146,11 @@
 
         async function createPost() {
             const text = document.getElementById('post-input').value.trim();
-            if (!text || !currentUser) return alert("Please write something");
+            if (!text) return alert("Write something to post");
 
             await db.collection("posts").add({
-                userId: currentUser.uid,
-                username: currentUser.username,
                 fullName: currentUser.fullName,
+                username: currentUser.username,
                 text: text,
                 timestamp: firebase.firestore.FieldValue.serverTimestamp()
             });
@@ -162,7 +161,7 @@
 
         async function loadFeed() {
             const feed = document.getElementById('posts-feed');
-            feed.innerHTML = '<p class="text-zinc-500 text-center py-12">No posts yet. Be the first to post!</p>';
+            feed.innerHTML = '<p class="text-zinc-500 text-center py-12">No posts yet. Be the first!</p>';
 
             const snapshot = await db.collection("posts").orderBy("timestamp", "desc").get();
             
@@ -181,9 +180,7 @@
             });
         }
 
-        window.onload = () => {
-            console.log("✅ Page loaded");
-        };
+        window.onload = () => console.log("✅ Ready");
     </script>
 </body>
 </html>
