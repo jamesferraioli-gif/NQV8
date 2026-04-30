@@ -187,11 +187,78 @@
             document.getElementById('tab-login').classList.toggle('text-white', tab === 1);
         }
 
-        // Create & Login functions (same as before)
-        async function createProfile() { /* full function from previous messages */ }
-        async function loginWithEmail() { /* full function from previous messages */ }
-        function resetPassword() { /* ... */ }
+        // ==================== AUTH FUNCTIONS ====================
 
+        async function createProfile() {
+            const firstName = document.getElementById('first-name').value.trim();
+            const lastName = document.getElementById('last-name').value.trim();
+            const username = document.getElementById('create-username').value.trim().toLowerCase();
+            const email = document.getElementById('create-email').value.trim();
+            const password = document.getElementById('create-password').value;
+
+            if (!firstName || !lastName || !username || !email || !password) {
+                alert("Please fill in all fields");
+                return;
+            }
+            if (password.length < 6) {
+                alert("Password must be at least 6 characters");
+                return;
+            }
+
+            try {
+                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+                const user = userCredential.user;
+
+                const userData = {
+                    uid: user.uid,
+                    firstName,
+                    lastName,
+                    fullName: `${firstName} ${lastName}`,
+                    username,
+                    email: user.email,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                await db.collection("users").doc(user.uid).set(userData);
+
+                currentUser = userData;
+                finishLogin();
+            } catch (error) {
+                console.error(error);
+                alert(error.message);
+            }
+        }
+
+        async function loginWithEmail() {
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+
+            if (!email || !password) {
+                alert("Please enter email and password");
+                return;
+            }
+
+            try {
+                await auth.signInWithEmailAndPassword(email, password);
+                // onAuthStateChanged will handle the rest
+            } catch (error) {
+                console.error(error);
+                alert(error.message);
+            }
+        }
+
+        function resetPassword() {
+            const email = document.getElementById('login-email').value.trim();
+            if (!email) {
+                alert("Please enter your email address first");
+                return;
+            }
+            auth.sendPasswordResetEmail(email)
+                .then(() => alert("Password reset email sent! Check your inbox."))
+                .catch(err => alert(err.message));
+        }
+
+        // ==================== END AUTH FUNCTIONS ====================
         window.onload = () => {
             auth.onAuthStateChanged(user => {
                 if (user) {
