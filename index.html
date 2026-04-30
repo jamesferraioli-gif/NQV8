@@ -28,18 +28,34 @@
                 <div class="w-9 h-9 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-2xl flex items-center justify-center text-2xl font-bold">N</div>
                 <span class="text-3xl font-bold tracking-tighter logo-font">NQVate</span>
             </div>
-            
+
             <div id="nav-loggedin" class="hidden items-center gap-8 text-sm font-medium">
                 <a onclick="navigateTo('feed')" class="hover:text-cyan-400 cursor-pointer">Home</a>
                 <a onclick="navigateTo('explore')" class="hover:text-cyan-400 cursor-pointer">Explore</a>
-                <a onclick="navigateTo('profile')" class="hover:text-cyan-400 cursor-pointer">Profile</a>
-                <button onclick="logout()" class="text-red-400 hover:text-red-500">Logout</button>
+            </div>
+
+            <!-- Account Icon + Dropdown -->
+            <div id="profile-section" class="hidden relative">
+                <div onclick="toggleProfileMenu()" class="cursor-pointer flex items-center gap-2">
+                    <div id="profile-avatar" class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold ring-2 ring-cyan-400">JF</div>
+                </div>
+                
+                <!-- Dropdown -->
+                <div id="profile-dropdown" class="hidden absolute right-0 mt-2 w-56 bg-zinc-900 border border-zinc-700 rounded-3xl shadow-2xl py-2 z-[99999]">
+                    <div class="px-6 py-4 border-b border-zinc-700">
+                        <p class="font-semibold" id="dropdown-username">@username</p>
+                    </div>
+                    <a onclick="navigateTo('profile')" class="block px-6 py-3 hover:bg-zinc-800 cursor-pointer">👤 View Profile</a>
+                    <button onclick="logout()" class="w-full text-left px-6 py-3 text-red-400 hover:bg-zinc-800 flex items-center gap-x-2">
+                        <i class="fa-solid fa-right-from-bracket"></i> Logout
+                    </button>
+                </div>
             </div>
         </div>
     </nav>
 
-    <!-- LOGIN / SIGNUP MODAL -->
-    <div id="auth-modal" class="fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
+    <!-- LOGIN MODAL -->
+    <div id="login-modal" class="fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
         <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-10">
             <div class="text-center mb-8">
                 <div class="w-16 h-16 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-2xl mx-auto flex items-center justify-center text-4xl font-bold mb-4">N</div>
@@ -47,30 +63,23 @@
                 <p class="text-zinc-400 mt-2">The future of decentralized social</p>
             </div>
 
-            <input id="full-name" type="text" placeholder="Full Name" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 mb-4 text-lg outline-none focus:border-cyan-400">
-            <button onclick="createProfile()" class="w-full py-5 bg-white text-black font-semibold rounded-2xl text-lg hover:bg-cyan-400 transition mb-4">
+            <input id="full-name" type="text" placeholder="Full Name" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 mb-6 text-lg outline-none focus:border-cyan-400">
+            <button onclick="createProfile()" class="w-full py-5 bg-white text-black font-semibold rounded-2xl text-lg hover:bg-cyan-400 transition">
                 Create Account
             </button>
-            <p class="text-center text-xs text-zinc-500">or sign in anonymously</p>
         </div>
     </div>
 
-    <!-- MAIN FEED -->
+    <!-- FEED -->
     <div id="feed-page" class="max-w-2xl mx-auto pt-8 px-4 hidden">
-        <!-- Composer -->
-        <div class="bg-zinc-900 rounded-3xl p-6 mb-8 border border-zinc-800">
+        <div class="bg-zinc-900 rounded-3xl p-6 mb-8">
             <textarea id="post-input" rows="3" placeholder="What are you building today?" class="w-full bg-transparent outline-none text-lg resize-none"></textarea>
-            <div class="flex justify-end mt-4">
-                <button onclick="createPost()" class="px-8 py-3 bg-white text-black font-semibold rounded-2xl hover:bg-cyan-400">Post</button>
-            </div>
+            <button onclick="createPost()" class="mt-4 px-8 py-3 bg-white text-black font-semibold rounded-2xl hover:bg-cyan-400">Post</button>
         </div>
-
-        <!-- Feed -->
         <div id="posts-feed" class="space-y-6"></div>
     </div>
 
     <script>
-        // ==================== FIREBASE ====================
         const firebaseConfig = {
           apiKey: "AIzaSyAXpV2uJmNEj5qe65Mq0ki5cdMXcbaBisE",
           authDomain: "nqv8-2a264.firebaseapp.com",
@@ -86,29 +95,28 @@
 
         let currentUser = null;
 
-        // ==================== AUTH ====================
         async function createProfile() {
             const name = document.getElementById('full-name').value.trim();
             if (!name) return alert("Please enter your full name");
 
             try {
                 await auth.signInAnonymously();
-                
                 currentUser = {
                     uid: auth.currentUser.uid,
-                    username: "@" + name.toLowerCase().replace(/\s+/g, ''),
-                    displayName: name
+                    displayName: name,
+                    username: "@" + name.toLowerCase().replace(/\s+/g, '')
                 };
 
                 await db.collection("users").doc(currentUser.uid).set({
-                    username: currentUser.username,
                     displayName: currentUser.displayName,
+                    username: currentUser.username,
                     createdAt: new Date()
                 });
 
-                document.getElementById('auth-modal').classList.add('hidden');
+                document.getElementById('login-modal').classList.add('hidden');
                 document.getElementById('nav-loggedin').classList.remove('hidden');
-                document.getElementById('feed-page').classList.remove('hidden');
+                document.getElementById('profile-section').classList.remove('hidden');
+                updateProfileUI();
                 loadFeed();
             } catch (err) {
                 console.error(err);
@@ -120,7 +128,21 @@
             if (confirm("Logout?")) auth.signOut().then(() => location.reload());
         }
 
-        // ==================== POSTS ====================
+        function updateProfileUI() {
+            document.getElementById('profile-avatar').textContent = currentUser.username.substring(1, 3).toUpperCase();
+            document.getElementById('dropdown-username').textContent = currentUser.username;
+        }
+
+        function toggleProfileMenu() {
+            document.getElementById('profile-dropdown').classList.toggle('hidden');
+        }
+
+        document.addEventListener('click', (e) => {
+            if (!document.getElementById('profile-section').contains(e.target)) {
+                document.getElementById('profile-dropdown').classList.add('hidden');
+            }
+        });
+
         async function createPost() {
             const text = document.getElementById('post-input').value.trim();
             if (!text || !currentUser) return;
@@ -147,7 +169,7 @@
             snapshot.forEach(doc => {
                 const post = doc.data();
                 feed.innerHTML += `
-                    <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800">
+                    <div class="bg-zinc-900 rounded-3xl p-6">
                         <div class="flex items-center gap-3">
                             <div class="w-10 h-10 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center font-bold">
                                 ${post.username ? post.username[1].toUpperCase() : '?'}
@@ -157,35 +179,20 @@
                                 <div class="text-xs text-zinc-500">${post.username}</div>
                             </div>
                         </div>
-                        <p class="mt-4 text-[17px] leading-relaxed">${post.text}</p>
-                        <div class="mt-6 flex items-center gap-6 text-sm text-zinc-400">
-                            <button onclick="likePost('${doc.id}')" class="flex items-center gap-2 hover:text-pink-400">
-                                ❤️ <span>${post.likes || 0}</span>
-                            </button>
-                        </div>
+                        <p class="mt-4 text-[17px]">${post.text}</p>
                     </div>
                 `;
             });
         }
 
-        async function likePost(postId) {
-            await db.collection("posts").doc(postId).update({
-                likes: firebase.firestore.FieldValue.increment(1)
-            });
-            loadFeed();
-        }
-
-        // ==================== INIT ====================
         window.onload = () => {
             auth.onAuthStateChanged((user) => {
                 if (user) {
                     currentUser = { uid: user.uid };
-                    document.getElementById('auth-modal').classList.add('hidden');
+                    document.getElementById('login-modal').classList.add('hidden');
                     document.getElementById('nav-loggedin').classList.remove('hidden');
-                    document.getElementById('feed-page').classList.remove('hidden');
+                    document.getElementById('profile-section').classList.remove('hidden');
                     loadFeed();
-                } else {
-                    document.getElementById('auth-modal').classList.remove('hidden');
                 }
             });
         };
