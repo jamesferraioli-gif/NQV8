@@ -459,6 +459,8 @@
             const modal = document.getElementById('project-detail-modal');
             const content = document.getElementById('detail-content');
 
+            const isOwnProject = currentUser && project.posterUid === currentUser.uid;
+
             let bidsHTML = project.bids && project.bids.length 
                 ? project.bids.map(b => `
                     <div class="bg-zinc-800 p-4 rounded-2xl mb-3">
@@ -468,19 +470,31 @@
                 : '<p class="text-zinc-500">No bids yet. Be the first!</p>';
 
             content.innerHTML = `
-                <h2 class="text-4xl font-bold mb-2">${project.title}</h2>
+                <div class="flex justify-between items-start mb-4">
+                    <h2 class="text-4xl font-bold">${project.title}</h2>
+                    <span class="text-xs bg-zinc-800 px-3 py-1 rounded-full text-zinc-400">
+                        Posted by ${project.posterName || 'Anonymous'}
+                    </span>
+                </div>
+                
                 <p class="text-cyan-400 mb-6">${project.type === 'build' ? '🔨 Build Request' : '💰 Funding Request'} • ${project.compensation}</p>
                 <p class="text-zinc-300 leading-relaxed mb-8">${project.description}</p>
                 
                 <h3 class="text-2xl font-semibold mb-4">Bids (${project.bids ? project.bids.length : 0})</h3>
                 <div class="mb-8">${bidsHTML}</div>
 
+                ${isOwnProject ? `
+                <div class="bg-yellow-900/30 border border-yellow-500/30 p-6 rounded-3xl text-center">
+                    <p class="text-yellow-400">You posted this project. You cannot bid on your own project.</p>
+                </div>
+                ` : `
                 <div class="border-t border-zinc-700 pt-6">
                     <input id="bid-amount" type="text" placeholder="Your bid (e.g. $800 or 5% equity)" 
                            class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
                     <button onclick="placeBid('${projectId}')" 
                             class="w-full py-5 bg-white text-black font-semibold rounded-3xl">Place Bid ($0.01 NQV8)</button>
                 </div>
+                `}
             `;
             modal.classList.remove('hidden');
         }
@@ -495,23 +509,30 @@
 
             try {
                 const projectRef = db.collection("projects").doc(projectId);
+                const projectSnap = await projectRef.get();
+                const project = projectSnap.data();
+
+                if (project.posterUid === currentUser.uid) {
+                    return alert("❌ You cannot bid on your own project.");
+                }
+
                 const newBid = {
                     bidderUid: currentUser.uid,
                     bidderName: currentUser.fullName || currentUser.username,
                     amount,
-                    timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    timestamp: new Date()
                 };
 
                 await projectRef.update({
                     bids: firebase.firestore.FieldValue.arrayUnion(newBid)
                 });
 
-                alert("✅ Bid placed successfully!");
+                alert("✅ Bid placed successfully! ($0.01 NQV8 deducted in future version)");
                 hideProjectDetailModal();
                 loadMarketplace();
             } catch (e) {
                 console.error(e);
-                alert("Failed to place bid");
+                alert("Failed to place bid: " + e.message);
             }
         }
 
