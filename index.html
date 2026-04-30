@@ -196,18 +196,70 @@
 
         <div class="bg-zinc-900 rounded-3xl p-8 mb-8">
             <div class="flex flex-col md:flex-row gap-8 items-center md:items-start">
-                <div onclick="editProfile()" class="cursor-pointer">
-                    <div id="profile-avatar-large" class="w-32 h-32 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-3xl flex items-center justify-center text-6xl font-bold ring-4 ring-cyan-400 overflow-hidden"></div>
+                <!-- Profile Picture Upload -->
+                <div class="text-center">
+                    <div onclick="document.getElementById('profile-upload').click()" class="cursor-pointer">
+                        <div id="profile-avatar-large" class="w-32 h-32 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-3xl flex items-center justify-center text-6xl font-bold ring-4 ring-cyan-400 overflow-hidden mx-auto"></div>
+                    </div>
+                    <input id="profile-upload" type="file" accept="image/*" class="hidden" onchange="uploadProfilePicture()">
+                    <p onclick="document.getElementById('profile-upload').click()" class="text-xs text-cyan-400 mt-3 cursor-pointer hover:underline">Upload new photo</p>
                 </div>
+
                 <div class="flex-1 text-center md:text-left">
                     <p id="profile-fullname" class="text-4xl font-bold"></p>
                     <p id="profile-username" class="text-cyan-400 text-2xl"></p>
                     <p id="profile-email" class="text-zinc-400"></p>
                     <p id="profile-bio" class="mt-6 text-zinc-300 leading-relaxed"></p>
+
+                    <!-- NQV8 Balance -->
+                    <div class="mt-8 bg-black/50 rounded-2xl p-6 flex justify-between items-center">
+                        <div>
+                            <p class="text-sm text-zinc-400">NQV8 Balance</p>
+                            <p id="profile-nqv8-balance" class="text-5xl font-bold text-cyan-400">0</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-sm text-zinc-400">Total Earnings</p>
+                            <p id="profile-total-earnings" class="text-3xl font-semibold">$0</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
+
+        <!-- My Posted Projects -->
+        <div class="mb-10">
+            <h2 class="text-2xl font-semibold mb-4">My Posted Projects</h2>
+            <div id="my-posted-projects" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- Completed Projects -->
+        <div class="mb-10">
+            <h2 class="text-2xl font-semibold mb-4">Completed Projects</h2>
+            <div id="completed-projects" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- Equity Stakes -->
+        <div class="mb-10">
+            <h2 class="text-2xl font-semibold mb-4">Equity Stakes</h2>
+            <div id="equity-stakes" class="space-y-3">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- My Reviews -->
+        <div>
+            <h2 class="text-2xl font-semibold mb-4">Reviews Received</h2>
+            <div id="my-reviews" class="space-y-4">
+                <!-- Populated by JS -->
+            </div>
+        </div>
     </div>
+
+    
     <!-- ==================== CHAT PAGE ==================== -->
     <div id="chat-page" class="max-w-6xl mx-auto pt-8 px-6 hidden">
         <div class="flex h-[calc(100vh-120px)] bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-700">
@@ -314,11 +366,17 @@
                 ? `<img src="${currentUser.photoURL}" class="w-full h-full object-cover">` 
                 : `<span class="text-xl font-bold">${initials}</span>`;
 
+            document.getElementById('profile-avatar-large').innerHTML = currentUser.photoURL 
+                ? `<img src="${currentUser.photoURL}" class="w-full h-full object-cover">` 
+                : `<span class="text-6xl font-bold">${initials}</span>`;
+
             document.getElementById('dropdown-name').textContent = currentUser.fullName || 'User';
             document.getElementById('dropdown-username').textContent = currentUser.username || '';
             document.getElementById('profile-fullname').textContent = currentUser.fullName || 'User';
             document.getElementById('profile-username').textContent = currentUser.username || '';
             document.getElementById('profile-email').textContent = currentUser.email || '';
+
+            loadProfileData();   // ← This line loads the new sections
         }
 
         function connectWallet() {
@@ -834,7 +892,65 @@
             const modal = document.getElementById('video-call-modal');
             if (modal) modal.remove();
         }
-        
+
+        // ====================== PROFILE ENHANCEMENTS ======================
+        async function uploadProfilePicture() {
+            const file = document.getElementById('profile-upload').files[0];
+            if (!file || !currentUser) return alert("Please select an image");
+
+            try {
+                const storageRef = storage.ref('profile-pictures/' + currentUser.uid);
+                await storageRef.put(file);
+                const photoURL = await storageRef.getDownloadURL();
+
+                await db.collection("users").doc(currentUser.uid).update({ photoURL });
+
+                currentUser.photoURL = photoURL;
+                updateProfileUI();
+                alert("✅ Profile picture updated!");
+            } catch (e) {
+                console.error(e);
+                alert("Failed to upload image");
+            }
+        }
+
+        async function loadProfileData() {
+            if (!currentUser) return;
+
+            // Load My Posted Projects
+            const postedGrid = document.getElementById('my-posted-projects');
+            postedGrid.innerHTML = '<p class="col-span-full text-zinc-400">Loading...</p>';
+            const projectsSnap = await db.collection("projects")
+                .where("posterUid", "==", currentUser.uid)
+                .orderBy("createdAt", "desc")
+                .get();
+
+            postedGrid.innerHTML = '';
+            if (projectsSnap.empty) {
+                postedGrid.innerHTML = `<p class="text-zinc-400">No projects posted yet.</p>`;
+            } else {
+                projectsSnap.forEach(doc => {
+                    const p = doc.data();
+                    const card = document.createElement('div');
+                    card.className = "bg-zinc-800 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-cyan-400";
+                    card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs text-zinc-400">${p.type} • ${p.compensation}</span>`;
+                    card.onclick = () => showProjectDetail(doc.id, p);
+                    postedGrid.appendChild(card);
+                });
+            }
+
+            // Completed Projects & Reviews (stub for now - will expand when bids are accepted)
+            document.getElementById('completed-projects').innerHTML = `<p class="text-zinc-400">Completed projects will appear here once bids are accepted.</p>`;
+            document.getElementById('my-reviews').innerHTML = `<p class="text-zinc-400">Reviews will appear here after projects are completed.</p>`;
+
+            // Balance & Earnings (demo values - can be updated later via transactions)
+            document.getElementById('profile-nqv8-balance').textContent = currentUser.nqv8Balance || "1,250";
+            document.getElementById('profile-total-earnings').textContent = "$" + (currentUser.totalEarnings || "0");
+        }
+
+        // Update existing updateProfileUI to also call loadProfileData
+        // (we'll modify it in the next step)
+    
         function searchProjects() {
             const term = document.getElementById('search-input').value.toLowerCase().trim();
             if (!term) return loadMarketplace();
