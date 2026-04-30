@@ -116,21 +116,11 @@
             <textarea id="project-desc" placeholder="Describe the project in detail..." rows="4" 
                       class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6"></textarea>
 
-            <!-- Compensation Options -->
+            <!-- Compensation -->
             <div class="mb-6">
-                <p class="text-sm text-zinc-400 mb-3">Compensation / Equity (select one or both)</p>
-                <div class="flex gap-6">
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" id="comp-cash" class="w-5 h-5 accent-cyan-400">
-                        <span>Payment (USDC)</span>
-                    </label>
-                    <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" id="comp-equity" class="w-5 h-5 accent-cyan-400">
-                        <span>Equity</span>
-                    </label>
-                </div>
-                <input id="project-compensation" type="text" placeholder="e.g. $2,500 or 10% equity or both" 
-                       class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                <p id="compensation-label" class="text-sm text-zinc-400 mb-3">Compensation</p>
+                <input id="project-compensation" type="text" placeholder="e.g. $2,500 USDC" 
+                       class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
             </div>
 
             <div class="flex gap-3">
@@ -397,56 +387,52 @@
             }
         }
 
+
         function showPostProjectModal() {
             if (!currentUser) return alert("Please log in first");
             document.getElementById('post-project-modal').classList.remove('hidden');
-            switchProjectTab(0); // Default to Build tab
+            switchProjectTab(0);   // Start on Build tab
         }
 
         function hidePostProjectModal() {
             document.getElementById('post-project-modal').classList.add('hidden');
         }
-
+        
         function switchProjectTab(tab) {
-            document.getElementById('tab-build').classList.toggle('border-b-2', tab === 0);
-            document.getElementById('tab-build').classList.toggle('border-cyan-400', tab === 0);
-            document.getElementById('tab-build').classList.toggle('text-white', tab === 0);
+            const isBuild = tab === 0;
             
-            document.getElementById('tab-fund').classList.toggle('border-b-2', tab === 1);
-            document.getElementById('tab-fund').classList.toggle('border-cyan-400', tab === 1);
-            document.getElementById('tab-fund').classList.toggle('text-white', tab === 1);
+            document.getElementById('tab-build').classList.toggle('border-b-2', isBuild);
+            document.getElementById('tab-build').classList.toggle('border-cyan-400', isBuild);
+            document.getElementById('tab-build').classList.toggle('text-white', isBuild);
+            
+            document.getElementById('tab-fund').classList.toggle('border-b-2', !isBuild);
+            document.getElementById('tab-fund').classList.toggle('border-cyan-400', !isBuild);
+            document.getElementById('tab-fund').classList.toggle('text-white', !isBuild);
+
+            // Change placeholder text
+            const input = document.getElementById('project-compensation');
+            input.placeholder = isBuild 
+                ? "e.g. $2,500 USDC or $1,000 + 5% equity" 
+                : "e.g. $10,000 for 1% equity";
         }
 
         async function submitNewProject() {
             const title = document.getElementById('project-title').value.trim();
             const desc = document.getElementById('project-desc').value.trim();
             const compensation = document.getElementById('project-compensation').value.trim();
-            const cashChecked = document.getElementById('comp-cash').checked;
-            const equityChecked = document.getElementById('comp-equity').checked;
+            const isBuild = document.getElementById('tab-build').classList.contains('border-cyan-400');
 
-            if (!title || !desc) {
-                alert("❌ Title and Description are required");
-                return;
-            }
-            if (!cashChecked && !equityChecked) {
-                alert("❌ Please select at least one: Payment or Equity");
-                return;
-            }
-            if (!compensation) {
-                alert("❌ Please enter compensation details");
+            if (!title || !desc || !compensation) {
+                alert("❌ Title, Description, and Compensation are required");
                 return;
             }
 
             try {
-                const isBuild = document.getElementById('tab-build').classList.contains('border-cyan-400');
-
                 const projectData = {
                     title,
                     description: desc,
                     compensation,
                     type: isBuild ? 'build' : 'fund',
-                    hasCash: cashChecked,
-                    hasEquity: equityChecked,
                     posterUid: currentUser.uid,
                     posterName: currentUser.fullName || currentUser.username,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -463,11 +449,9 @@
                 document.getElementById('project-title').value = '';
                 document.getElementById('project-desc').value = '';
                 document.getElementById('project-compensation').value = '';
-                document.getElementById('comp-cash').checked = false;
-                document.getElementById('comp-equity').checked = false;
             } catch (e) {
                 console.error(e);
-                alert("Failed to post project");
+                alert("Failed to post project: " + e.message);
             }
         }
 
