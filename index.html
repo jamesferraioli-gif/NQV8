@@ -28,7 +28,6 @@
                 <a onclick="navigateTo('explore')" class="hover:text-cyan-400 cursor-pointer">Explore</a>
             </div>
 
-            <!-- Account Icon -->
             <div id="profile-section" class="hidden relative">
                 <div onclick="toggleProfileMenu()" class="cursor-pointer">
                     <div id="profile-avatar" class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold ring-2 ring-cyan-400">JD</div>
@@ -56,10 +55,10 @@
                 <input id="last-name" type="text" placeholder="Last Name" class="bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none focus:border-cyan-400">
             </div>
 
-            <input id="username" type="text" placeholder="Username (no duplicates)" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none focus:border-cyan-400">
+            <input id="username" type="text" placeholder="Username (unique)" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none focus:border-cyan-400">
             <input id="email" type="email" placeholder="Email Address" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none focus:border-cyan-400">
 
-            <button onclick="createProfile()" class="w-full mt-6 py-5 bg-white text-black font-semibold rounded-2xl text-lg hover:bg-cyan-400 transition">
+            <button onclick="createProfile()" class="w-full mt-8 py-5 bg-white text-black font-semibold rounded-2xl text-lg hover:bg-cyan-400 transition">
                 Create Account
             </button>
         </div>
@@ -90,20 +89,21 @@
 
         let currentUser = null;
 
-        // ==================== CREATE ACCOUNT ====================
         async function createProfile() {
             const firstName = document.getElementById('first-name').value.trim();
             const lastName = document.getElementById('last-name').value.trim();
-            const username = document.getElementById('username').value.trim().toLowerCase();
+            let username = document.getElementById('username').value.trim().toLowerCase();
             const email = document.getElementById('email').value.trim();
 
             if (!firstName || !lastName || !username) {
                 return alert("First name, last name, and username are required");
             }
 
-            // Check if username already exists
-            const usernameCheck = await db.collection("usernames").doc(username).get();
-            if (usernameCheck.exists) {
+            username = username.replace(/\s+/g, '');
+
+            // Check if username is taken
+            const usernameDoc = await db.collection("usernames").doc(username).get();
+            if (usernameDoc.exists) {
                 return alert("Username is already taken. Please choose another.");
             }
 
@@ -119,14 +119,16 @@
                     fullName: firstName + " " + lastName
                 };
 
-                // Save user data
+                // Save user
                 await db.collection("users").doc(currentUser.uid).set(currentUser);
 
                 // Reserve username
                 await db.collection("usernames").doc(username).set({ uid: currentUser.uid });
 
                 document.getElementById('signup-modal').classList.add('hidden');
-                updateUIAfterLogin();
+                document.getElementById('nav-loggedin').classList.remove('hidden');
+                document.getElementById('profile-section').classList.remove('hidden');
+                updateProfileUI();
                 loadFeed();
             } catch (err) {
                 console.error(err);
@@ -134,10 +136,9 @@
             }
         }
 
-        function updateUIAfterLogin() {
-            document.getElementById('profile-section').classList.remove('hidden');
-            document.getElementById('nav-loggedin').classList.remove('hidden');
+        function updateProfileUI() {
             document.getElementById('profile-avatar').textContent = currentUser.firstName[0] + currentUser.lastName[0];
+            document.getElementById('dropdown-name').textContent = currentUser.fullName;
             document.getElementById('dropdown-username').textContent = currentUser.username;
         }
 
@@ -149,7 +150,6 @@
             if (confirm("Logout?")) auth.signOut().then(() => location.reload());
         }
 
-        // ==================== POSTS ====================
         async function createPost() {
             const text = document.getElementById('post-input').value.trim();
             if (!text || !currentUser) return;
@@ -172,7 +172,6 @@
             feed.innerHTML = '';
 
             const snapshot = await db.collection("posts").orderBy("timestamp", "desc").get();
-            
             snapshot.forEach(doc => {
                 const post = doc.data();
                 feed.innerHTML += `
@@ -186,13 +185,15 @@
         }
 
         window.onload = () => {
-            auth.onAuthStateChanged(user => {
+            auth.onAuthStateChanged((user) => {
                 if (user) {
-                    // Load existing user data if logged in
                     db.collection("users").doc(user.uid).get().then(doc => {
                         if (doc.exists) {
                             currentUser = doc.data();
-                            updateUIAfterLogin();
+                            document.getElementById('signup-modal').classList.add('hidden');
+                            document.getElementById('nav-loggedin').classList.remove('hidden');
+                            document.getElementById('profile-section').classList.remove('hidden');
+                            updateProfileUI();
                             loadFeed();
                         }
                     });
