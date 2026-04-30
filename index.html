@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>NQVate</title>
     
-    <!-- Firebase -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
@@ -15,35 +14,6 @@
 </head>
 <body class="bg-black text-white min-h-screen">
 
-    <!-- NAVBAR -->
-    <nav class="bg-black border-b border-zinc-800 sticky top-0 z-50">
-        <div class="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <div class="w-9 h-9 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-2xl flex items-center justify-center text-2xl font-bold">N</div>
-                <span class="text-3xl font-bold tracking-tighter">NQVate</span>
-            </div>
-
-            <div id="nav-loggedin" class="hidden items-center gap-8 text-sm font-medium">
-                <a onclick="navigateTo('feed')" class="hover:text-cyan-400 cursor-pointer">Home</a>
-                <a onclick="navigateTo('explore')" class="hover:text-cyan-400 cursor-pointer">Explore</a>
-            </div>
-
-            <div id="profile-section" class="hidden relative">
-                <div onclick="toggleProfileMenu()" class="cursor-pointer">
-                    <div id="profile-avatar" class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold ring-2 ring-cyan-400">JD</div>
-                </div>
-                <div id="profile-dropdown" class="hidden absolute right-0 mt-2 w-56 bg-zinc-900 border border-zinc-700 rounded-3xl shadow-2xl py-2 z-[99999]">
-                    <div class="px-6 py-4 border-b border-zinc-700">
-                        <p class="font-semibold" id="dropdown-name">John Doe</p>
-                        <p class="text-xs text-zinc-500" id="dropdown-username">@johndoe</p>
-                    </div>
-                    <a onclick="navigateTo('profile')" class="block px-6 py-3 hover:bg-zinc-800 cursor-pointer">👤 View Profile</a>
-                    <button onclick="logout()" class="w-full text-left px-6 py-3 text-red-400 hover:bg-zinc-800">Logout</button>
-                </div>
-            </div>
-        </div>
-    </nav>
-
     <!-- SIGNUP MODAL -->
     <div id="signup-modal" class="fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
         <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-10">
@@ -51,26 +21,17 @@
             <p class="text-center text-zinc-400 mb-8">Create your account</p>
 
             <div class="grid grid-cols-2 gap-4">
-                <input id="first-name" type="text" placeholder="First Name" class="bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none focus:border-cyan-400">
-                <input id="last-name" type="text" placeholder="Last Name" class="bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none focus:border-cyan-400">
+                <input id="first-name" type="text" placeholder="First Name" class="bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                <input id="last-name" type="text" placeholder="Last Name" class="bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
             </div>
 
-            <input id="username" type="text" placeholder="Username (unique)" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none focus:border-cyan-400">
-            <input id="email" type="email" placeholder="Email Address" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none focus:border-cyan-400">
+            <input id="username" type="text" placeholder="Username (unique)" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+            <input id="email" type="email" placeholder="Email Address" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
 
-            <button onclick="createProfile()" class="w-full mt-8 py-5 bg-white text-black font-semibold rounded-2xl text-lg hover:bg-cyan-400 transition">
+            <button onclick="createProfile()" class="w-full mt-8 py-5 bg-white text-black font-semibold rounded-2xl text-lg">
                 Create Account
             </button>
         </div>
-    </div>
-
-    <!-- FEED -->
-    <div id="feed-page" class="max-w-2xl mx-auto pt-8 px-4 hidden">
-        <div class="bg-zinc-900 rounded-3xl p-6 mb-8">
-            <textarea id="post-input" rows="3" placeholder="What are you building today?" class="w-full bg-transparent outline-none text-lg resize-none"></textarea>
-            <button onclick="createPost()" class="mt-4 px-8 py-3 bg-white text-black font-semibold rounded-2xl hover:bg-cyan-400">Post</button>
-        </div>
-        <div id="posts-feed" class="space-y-6"></div>
     </div>
 
     <script>
@@ -90,6 +51,8 @@
         let currentUser = null;
 
         async function createProfile() {
+            console.log("Create button clicked");
+
             const firstName = document.getElementById('first-name').value.trim();
             const lastName = document.getElementById('last-name').value.trim();
             let username = document.getElementById('username').value.trim().toLowerCase();
@@ -101,105 +64,33 @@
 
             username = username.replace(/\s+/g, '');
 
-            // Check if username is taken
-            const usernameDoc = await db.collection("usernames").doc(username).get();
-            if (usernameDoc.exists) {
-                return alert("Username is already taken. Please choose another.");
-            }
-
             try {
+                const usernameDoc = await db.collection("usernames").doc(username).get();
+                if (usernameDoc.exists) return alert("Username already taken");
+
                 await auth.signInAnonymously();
 
                 currentUser = {
                     uid: auth.currentUser.uid,
-                    firstName: firstName,
-                    lastName: lastName,
+                    firstName, lastName,
                     username: "@" + username,
-                    email: email,
+                    email,
                     fullName: firstName + " " + lastName
                 };
 
-                // Save user
                 await db.collection("users").doc(currentUser.uid).set(currentUser);
-
-                // Reserve username
                 await db.collection("usernames").doc(username).set({ uid: currentUser.uid });
 
                 document.getElementById('signup-modal').classList.add('hidden');
-                document.getElementById('nav-loggedin').classList.remove('hidden');
-                document.getElementById('profile-section').classList.remove('hidden');
-                updateProfileUI();
-                loadFeed();
+                alert("✅ Account created successfully!");
+                console.log("Account created");
             } catch (err) {
                 console.error(err);
-                alert("Failed to create account. Please try again.");
+                alert("Error: " + err.message);
             }
         }
 
-        function updateProfileUI() {
-            document.getElementById('profile-avatar').textContent = currentUser.firstName[0] + currentUser.lastName[0];
-            document.getElementById('dropdown-name').textContent = currentUser.fullName;
-            document.getElementById('dropdown-username').textContent = currentUser.username;
-        }
-
-        function toggleProfileMenu() {
-            document.getElementById('profile-dropdown').classList.toggle('hidden');
-        }
-
-        function logout() {
-            if (confirm("Logout?")) auth.signOut().then(() => location.reload());
-        }
-
-        async function createPost() {
-            const text = document.getElementById('post-input').value.trim();
-            if (!text || !currentUser) return;
-
-            await db.collection("posts").add({
-                userId: currentUser.uid,
-                username: currentUser.username,
-                fullName: currentUser.fullName,
-                text: text,
-                timestamp: firebase.firestore.FieldValue.serverTimestamp(),
-                likes: 0
-            });
-
-            document.getElementById('post-input').value = '';
-            loadFeed();
-        }
-
-        async function loadFeed() {
-            const feed = document.getElementById('posts-feed');
-            feed.innerHTML = '';
-
-            const snapshot = await db.collection("posts").orderBy("timestamp", "desc").get();
-            snapshot.forEach(doc => {
-                const post = doc.data();
-                feed.innerHTML += `
-                    <div class="bg-zinc-900 rounded-3xl p-6">
-                        <div class="font-semibold">${post.fullName}</div>
-                        <div class="text-xs text-cyan-400">${post.username}</div>
-                        <p class="mt-4">${post.text}</p>
-                    </div>
-                `;
-            });
-        }
-
-        window.onload = () => {
-            auth.onAuthStateChanged((user) => {
-                if (user) {
-                    db.collection("users").doc(user.uid).get().then(doc => {
-                        if (doc.exists) {
-                            currentUser = doc.data();
-                            document.getElementById('signup-modal').classList.add('hidden');
-                            document.getElementById('nav-loggedin').classList.remove('hidden');
-                            document.getElementById('profile-section').classList.remove('hidden');
-                            updateProfileUI();
-                            loadFeed();
-                        }
-                    });
-                }
-            });
-        };
+        window.onload = () => console.log("Page loaded");
     </script>
 </body>
 </html>
