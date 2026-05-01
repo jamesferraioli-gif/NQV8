@@ -77,8 +77,8 @@
             </p>
         </div>
 
-        <!-- Controls -->
-        <div class="flex flex-col md:flex-row gap-4 mb-8">
+        <!-- Controls + Live Stats -->
+        <div class="flex flex-col md:flex-row gap-4 mb-8 items-end">
             <input id="search-input" type="text" 
                    placeholder="Search projects..." 
                    onkeyup="if(event.key === 'Enter') searchProjects()"
@@ -90,11 +90,34 @@
             </button>
         </div>
 
+        <!-- Live Stats -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10 text-center">
+            <div class="bg-zinc-900 rounded-3xl p-6">
+                <p id="stat-open" class="text-4xl font-bold text-cyan-400">0</p>
+                <p class="text-xs text-zinc-400">Open for Bidding</p>
+            </div>
+            <div class="bg-zinc-900 rounded-3xl p-6">
+                <p id="stat-inprogress" class="text-4xl font-bold text-amber-400">0</p>
+                <p class="text-xs text-zinc-400">Actively Building</p>
+            </div>
+            <div class="bg-zinc-900 rounded-3xl p-6">
+                <p id="stat-completed" class="text-4xl font-bold text-emerald-400">0</p>
+                <p class="text-xs text-zinc-400">Completed</p>
+            </div>
+            <div class="bg-zinc-900 rounded-3xl p-6">
+                <p id="stat-nqv8-awarded" class="text-4xl font-bold text-violet-400">0</p>
+                <p class="text-xs text-zinc-400">NQV8 Awarded</p>
+            </div>
+            <div class="bg-zinc-900 rounded-3xl p-6">
+                <p id="stat-total-funding" class="text-4xl font-bold">$0</p>
+                <p class="text-xs text-zinc-400">Total Funding</p>
+            </div>
+        </div>
+
         <!-- Projects Grid -->
         <div id="projects-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <!-- Populated by JS -->
         </div>
-    </div>
     
     <!-- POST PROJECT MODAL -->
     <div id="post-project-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
@@ -115,10 +138,25 @@
             <textarea id="project-desc" placeholder="Describe the project in detail..." rows="4" 
                       class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6"></textarea>
 
+            <!-- Category -->
+            <div class="mb-6">
+                <p class="text-sm text-zinc-400 mb-3">Category</p>
+                <select id="project-category" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                    <option value="">Select Category</option>
+                    <option value="AI/ML">AI / Machine Learning</option>
+                    <option value="Blockchain">Crypto / Blockchain</option>
+                    <option value="DeFi">DeFi / Finance</option>
+                    <option value="Gaming">Gaming / Metaverse</option>
+                    <option value="Infrastructure">Infrastructure / Tools</option>
+                    <option value="Social">Social / Community</option>
+                    <option value="Other">Other</option>
+                </select>
+            </div>
+
             <!-- Compensation -->
             <div class="mb-6">
                 <p id="compensation-label" class="text-sm text-zinc-400 mb-3">Compensation</p>
-                <input id="project-compensation" type="text" placeholder="e.g. $2,500 USDC" 
+                <input id="project-compensation" type="text" placeholder="e.g. $2,500 USDC or $1,000 + 5% equity" 
                        class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
             </div>
 
@@ -170,7 +208,7 @@
             <h2 class="text-3xl font-bold mb-6">Welcome to NQVate</h2>
             
             <div class="text-left text-zinc-300 leading-relaxed text-base">
-                Welcome to Incuvate—a decentralized social incubator aimed at connecting builders, resources, and ideas. 
+                Welcome to NQVate—a decentralized social incubator aimed at connecting builders, resources, and ideas. 
                 Put projects out for bidding that you are working on. Be explicit in what you are looking for. 
                 Build connections across the community. As your projects and applications grow, put them up for funding. 
                 Earn NQV8, our native token, as a reward for completing projects, in addition to whatever compensation 
@@ -619,34 +657,53 @@
                 const snapshot = await db.collection("projects").orderBy("createdAt", "desc").get();
                 grid.innerHTML = '';
 
+                let open = 0, inprogress = 0, completed = 0, totalNQV8 = 0;
+
                 if (snapshot.empty) {
                     grid.innerHTML = `<p class="col-span-full text-center text-zinc-400 py-12">No projects yet. Be the first to post!</p>`;
-                    return;
+                } else {
+                    snapshot.forEach(doc => {
+                        const p = doc.data();
+                        const card = document.createElement('div');
+                        card.className = "bg-zinc-900 rounded-3xl p-6 hover:ring-2 hover:ring-cyan-400 cursor-pointer transition-all";
+
+                        const statusHTML = p.status === "in-progress" 
+                            ? `<span class="px-4 py-1 text-xs rounded-full bg-amber-500/20 text-amber-400">In Progress</span>` 
+                            : (p.status === "completed" 
+                                ? `<span class="px-4 py-1 text-xs rounded-full bg-emerald-500/20 text-emerald-400">Completed</span>` 
+                                : `<span class="px-4 py-1 text-xs rounded-full ${p.type === 'build' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-violet-500/20 text-violet-400'}">
+                                    ${p.type === 'build' ? 'Build Request' : 'Funding Request'}
+                                   </span>`);
+
+                        card.innerHTML = `
+                            <div class="flex justify-between items-start mb-4">
+                                ${statusHTML}
+                                <span class="text-xs text-zinc-500">${p.bids ? p.bids.length : 0} bids</span>
+                            </div>
+                            <h3 class="text-2xl font-bold mb-2">${p.title}</h3>
+                            <p class="text-zinc-400 line-clamp-3 mb-4">${p.description}</p>
+                            <div class="text-cyan-400 font-medium">${p.compensation}</div>
+                            ${p.category ? `<p class="text-xs text-violet-400 mt-2">Category: ${p.category}</p>` : ''}
+                        `;
+                        card.onclick = () => showProjectDetail(doc.id, p);
+                        grid.appendChild(card);
+
+                        // Count stats
+                        if (p.status === "open" || !p.status) open++;
+                        else if (p.status === "in-progress") inprogress++;
+                        else if (p.status === "completed") completed++;
+
+                        if (p.nqv8Awarded) totalNQV8 += Number(p.nqv8Awarded) || 0;
+                    });
                 }
 
-                snapshot.forEach(doc => {
-                    const p = doc.data();
-                    const card = document.createElement('div');
-                    card.className = "bg-zinc-900 rounded-3xl p-6 hover:ring-2 hover:ring-cyan-400 cursor-pointer transition-all";
+                // Update Live Stats
+                document.getElementById('stat-open').textContent = open;
+                document.getElementById('stat-inprogress').textContent = inprogress;
+                document.getElementById('stat-completed').textContent = completed;
+                document.getElementById('stat-nqv8-awarded').textContent = totalNQV8.toLocaleString();
+                document.getElementById('stat-total-funding').textContent = "$0"; // Future expansion
 
-                    const statusHTML = p.status === "in-progress" 
-                        ? `<span class="px-4 py-1 text-xs rounded-full bg-amber-500/20 text-amber-400">In Progress</span>` 
-                        : `<span class="px-4 py-1 text-xs rounded-full ${p.type === 'build' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-violet-500/20 text-violet-400'}">
-                            ${p.type === 'build' ? 'Build Request' : 'Funding Request'}
-                           </span>`;
-
-                    card.innerHTML = `
-                        <div class="flex justify-between items-start mb-4">
-                            ${statusHTML}
-                            <span class="text-xs text-zinc-500">${p.bids ? p.bids.length : 0} bids</span>
-                        </div>
-                        <h3 class="text-2xl font-bold mb-2">${p.title}</h3>
-                        <p class="text-zinc-400 line-clamp-3 mb-4">${p.description}</p>
-                        <div class="text-cyan-400 font-medium">${p.compensation}</div>
-                    `;
-                    card.onclick = () => showProjectDetail(doc.id, p);
-                    grid.appendChild(card);
-                });
             } catch (e) {
                 console.error(e);
                 grid.innerHTML = `<p class="text-red-400">Error loading projects</p>`;
@@ -686,10 +743,16 @@
             const title = document.getElementById('project-title').value.trim();
             const desc = document.getElementById('project-desc').value.trim();
             const compensation = document.getElementById('project-compensation').value.trim();
+            const category = document.getElementById('project-category').value;
             const isBuild = document.getElementById('tab-build').classList.contains('border-cyan-400');
 
             if (!title || !desc || !compensation) {
                 alert("❌ Title, Description, and Compensation are required");
+                return;
+            }
+
+            if (!category) {
+                alert("❌ Please select a category");
                 return;
             }
 
@@ -698,11 +761,14 @@
                     title,
                     description: desc,
                     compensation,
+                    category,                    // ← Added
                     type: isBuild ? 'build' : 'fund',
                     posterUid: currentUser.uid,
                     posterName: currentUser.fullName || currentUser.username,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    bids: []
+                    bids: [],
+                    bidsOpen: true,
+                    status: "open"
                 };
 
                 await db.collection("projects").add(projectData);
@@ -715,6 +781,7 @@
                 document.getElementById('project-title').value = '';
                 document.getElementById('project-desc').value = '';
                 document.getElementById('project-compensation').value = '';
+                document.getElementById('project-category').value = '';
             } catch (e) {
                 console.error(e);
                 alert("Failed to post project: " + e.message);
@@ -1319,8 +1386,13 @@
             if (!term) return loadMarketplace();
 
             const cards = document.querySelectorAll('#projects-grid > div');
+            
             cards.forEach(card => {
-                card.style.display = card.textContent.toLowerCase().includes(term) ? 'block' : 'none';
+                const text = card.textContent.toLowerCase();
+                const hasCategoryMatch = card.textContent.toLowerCase().includes(term);
+                
+                // Priority: category match first, then general text
+                card.style.display = text.includes(term) ? 'block' : 'none';
             });
         }
 
