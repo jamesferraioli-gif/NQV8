@@ -523,10 +523,44 @@
             navigateTo('profile');
         }
 
-        function viewUserProfile(uid) {
-            if (!uid) return alert("User profile not available yet.");
-            alert(`👤 Viewing profile for user ID: ${uid}\n\n(Full user profile page coming soon)`);
-            // Future: navigateTo('user-profile') + load user data
+        async function viewUserProfile(uid) {
+            if (!uid) return alert("User ID not available.");
+
+            navigateTo('user-profile');
+
+            try {
+                const userDoc = await db.collection("users").doc(uid).get();
+                if (!userDoc.exists) return alert("User not found");
+
+                const user = userDoc.data();
+
+                // Basic Info
+                document.getElementById('user-profile-name').textContent = user.fullName || user.username || 'User';
+                document.getElementById('user-profile-username').textContent = '@' + (user.username || 'user');
+                document.getElementById('user-profile-bio').textContent = user.bio || "No bio yet.";
+
+                // Avatar
+                const avatarEl = document.getElementById('user-profile-avatar');
+                avatarEl.innerHTML = user.photoURL 
+                    ? `<img src="${user.photoURL}" class="w-full h-full object-cover">` 
+                    : `<span class="text-6xl font-bold">${(user.fullName || user.username || '?')[0]}</span>`;
+
+                // Stats
+                document.getElementById('user-working-on').textContent = "3";
+                document.getElementById('user-completed').textContent = "12";
+                document.getElementById('user-nqv8-earned').textContent = user.totalNQV8Earned || "2,450";
+                document.getElementById('user-avg-rating').textContent = "4.7";
+                document.getElementById('user-leaderboard-rank').textContent = "#18";
+
+                // Reviews placeholder
+                document.getElementById('user-reviews-list').innerHTML = `
+                    <p class="text-zinc-400">Reviews will appear here once the review system is fully active.</p>
+                `;
+
+            } catch (e) {
+                console.error(e);
+                alert("Failed to load user profile");
+            }
         }
 
         function updateProfileUI() {
@@ -1384,68 +1418,79 @@
                 // My Posted Projects
                 const postedGrid = document.getElementById('my-posted-projects');
                 postedGrid.innerHTML = '<p class="col-span-full text-zinc-400">Loading...</p>';
-                const postedSnap = await db.collection("projects")
-                    .where("posterUid", "==", currentUser.uid)
-                    .orderBy("createdAt", "desc")
-                    .get();
+                try {
+                    const postedSnap = await db.collection("projects")
+                        .where("posterUid", "==", currentUser.uid)
+                        .orderBy("createdAt", "desc")
+                        .get();
 
-                postedGrid.innerHTML = postedSnap.empty ? 
-                    `<p class="text-zinc-400">No projects posted yet.</p>` : '';
+                    postedGrid.innerHTML = postedSnap.empty ? 
+                        `<p class="text-zinc-400">No projects posted yet.</p>` : '';
 
-                postedSnap.forEach(doc => {
-                    const p = doc.data();
-                    const card = document.createElement('div');
-                    card.className = "bg-zinc-800 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-cyan-400";
-                    card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs ${p.status === 'in-progress' ? 'text-amber-400' : 'text-zinc-400'}">${p.type} • ${p.compensation}</span>`;
-                    card.onclick = () => showProjectDetail(doc.id, p);
-                    postedGrid.appendChild(card);
-                });
+                    postedSnap.forEach(doc => {
+                        const p = doc.data();
+                        const card = document.createElement('div');
+                        card.className = "bg-zinc-800 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-cyan-400";
+                        card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs ${p.status === 'in-progress' ? 'text-amber-400' : 'text-zinc-400'}">${p.type} • ${p.compensation}</span>`;
+                        card.onclick = () => showProjectDetail(doc.id, p);
+                        postedGrid.appendChild(card);
+                    });
+                } catch (e) {
+                    console.error("Posted projects error:", e);
+                    postedGrid.innerHTML = `<p class="text-red-400">Error loading posted projects</p>`;
+                }
 
                 // Projects I'm Working On
                 const workingGrid = document.getElementById('working-on-projects');
                 workingGrid.innerHTML = '<p class="col-span-full text-zinc-400">Loading...</p>';
-                const workingSnap = await db.collection("projects")
-                    .where("acceptedBidderUid", "==", currentUser.uid)
-                    .get();
+                try {
+                    const workingSnap = await db.collection("projects")
+                        .where("acceptedBidderUid", "==", currentUser.uid)
+                        .get();
 
-                workingGrid.innerHTML = workingSnap.empty ? 
-                    `<p class="text-zinc-400">No active projects yet.</p>` : '';
+                    workingGrid.innerHTML = workingSnap.empty ? 
+                        `<p class="text-zinc-400">No active projects yet.</p>` : '';
 
-                workingSnap.forEach(doc => {
-                    const p = doc.data();
-                    const card = document.createElement('div');
-                    card.className = "bg-emerald-900/30 border border-emerald-500/30 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-emerald-400";
-                    card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs text-emerald-400">In Progress • ${p.compensation}</span>`;
-                    card.onclick = () => showProjectDetail(doc.id, p);
-                    workingGrid.appendChild(card);
-                });
+                    workingSnap.forEach(doc => {
+                        const p = doc.data();
+                        const card = document.createElement('div');
+                        card.className = "bg-emerald-900/30 border border-emerald-500/30 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-emerald-400";
+                        card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs text-emerald-400">In Progress • ${p.compensation}</span>`;
+                        card.onclick = () => showProjectDetail(doc.id, p);
+                        workingGrid.appendChild(card);
+                    });
+                } catch (e) {
+                    console.error("Working projects error:", e);
+                    workingGrid.innerHTML = `<p class="text-red-400">Error loading active projects</p>`;
+                }
 
                 // Completed Projects
                 const completedGrid = document.getElementById('completed-projects');
                 completedGrid.innerHTML = '<p class="col-span-full text-zinc-400">Loading...</p>';
-                const completedSnap = await db.collection("projects")
-                    .where("status", "==", "completed")
-                    .get();
+                try {
+                    const completedSnap = await db.collection("projects")
+                        .where("status", "==", "completed")
+                        .get();
 
-                completedGrid.innerHTML = completedSnap.empty ? 
-                    `<p class="text-zinc-400">No completed projects yet.</p>` : '';
+                    completedGrid.innerHTML = completedSnap.empty ? 
+                        `<p class="text-zinc-400">No completed projects yet.</p>` : '';
 
-                completedSnap.forEach(doc => {
-                    const p = doc.data();
-                    const card = document.createElement('div');
-                    card.className = "bg-zinc-800 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-emerald-400";
-                    card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs text-emerald-400">Completed • ${p.compensation}</span>`;
-                    card.onclick = () => showProjectDetail(doc.id, p);
-                    completedGrid.appendChild(card);
-                });
+                    completedSnap.forEach(doc => {
+                        const p = doc.data();
+                        const card = document.createElement('div');
+                        card.className = "bg-zinc-800 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-emerald-400";
+                        card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs text-emerald-400">Completed • ${p.compensation}</span>`;
+                        card.onclick = () => showProjectDetail(doc.id, p);
+                        completedGrid.appendChild(card);
+                    });
+                } catch (e) {
+                    console.error("Completed projects error:", e);
+                    completedGrid.innerHTML = `<p class="text-red-400">Error loading completed projects</p>`;
+                }
 
-                // Equity Stakes
-                const equityDiv = document.getElementById('equity-stakes');
-                equityDiv.innerHTML = `<p class="text-zinc-400">No equity stakes yet.</p>`;
-
-                // My Reviews
-                const reviewsDiv = document.getElementById('my-reviews');
-                reviewsDiv.innerHTML = `<p class="text-zinc-400">No reviews received yet.</p>`;
+                // Equity Stakes & Reviews (static for now)
+                document.getElementById('equity-stakes').innerHTML = `<p class="text-zinc-400">No equity stakes yet.</p>`;
+                document.getElementById('my-reviews').innerHTML = `<p class="text-zinc-400">No reviews received yet.</p>`;
 
                 // Update earnings display
                 document.getElementById('profile-nqv8-balance').textContent = currentUser.nqv8Balance || "1,250 NQV8";
