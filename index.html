@@ -217,6 +217,37 @@
         </div>
     </div>
 
+
+        <!-- SUBMIT DELIVERABLES MODAL -->
+    <div id="submit-deliverables-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
+        <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-8">
+            <h2 class="text-3xl font-bold mb-6">Submit Deliverables</h2>
+            <p class="text-zinc-400 mb-6">Project: <span id="deliverable-project-title" class="font-medium text-white"></span></p>
+
+            <textarea id="deliverable-desc" placeholder="Describe what you built, any notes, deployment instructions..." 
+                      class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6" rows="4"></textarea>
+
+            <input id="deliverable-github" type="text" placeholder="GitHub / Live Demo Link (optional)" 
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-6">
+
+            <!-- File Upload -->
+            <div class="mb-6">
+                <p class="text-sm text-zinc-400 mb-3">Upload files (code, builds, screenshots, etc.)</p>
+                <input id="deliverable-files" type="file" multiple class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                <p id="files-selected" class="text-xs text-emerald-400 mt-2 hidden">Files selected</p>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="hideDeliverablesModal()" 
+                        class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+                <button onclick="submitDeliverables()" 
+                        class="flex-1 py-4 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-3xl">
+                    Submit Deliverables
+                </button>
+            </div>
+        </div>
+    </div>
+
         <!-- WELCOME MODAL -->
     <div id="welcome-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
         <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-10 text-center">
@@ -909,11 +940,13 @@
 
         async function showProjectDetail(projectId, project) {
             currentProject = project;
+            currentProjectId = projectId;   // Important for deliverables
 
             const modal = document.getElementById('project-detail-modal');
             const content = document.getElementById('detail-content');
 
             const isPoster = currentUser && project.posterUid === currentUser.uid;
+            const isWorker = currentUser && project.acceptedBidderUid === currentUser.uid;
 
             let bidsHTML = '';
 
@@ -929,6 +962,18 @@
                 bidsHTML = `<p class="text-zinc-500">${project.bids.length} bid(s) received</p>`;
             } else {
                 bidsHTML = `<p class="text-zinc-500">No bids yet.</p>`;
+            }
+
+            // NEW: Action button for worker who won the bid
+            let actionHTML = '';
+            if (isWorker && project.status === "in-progress") {
+                actionHTML = `
+                    <div class="border-t border-zinc-700 pt-6 mt-8">
+                        <button onclick="showSubmitDeliverablesModal('${projectId}', '${project.title.replace(/'/g, "\\'")}')" 
+                                class="w-full py-5 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-3xl flex items-center justify-center gap-3">
+                            <i class="fa-solid fa-upload"></i> Submit Deliverables
+                        </button>
+                    </div>`;
             }
 
             content.innerHTML = `
@@ -955,10 +1000,11 @@
                             class="w-full py-5 bg-white text-black font-semibold rounded-3xl">Place Bid ($0.01 NQV8)</button>
                 </div>
                 ` : ''}
+
+                ${actionHTML}
             `;
             modal.classList.remove('hidden');
         }
-
         function hideProjectDetailModal() {
             document.getElementById('project-detail-modal').classList.add('hidden');
         }
@@ -1126,6 +1172,68 @@
             }
         }
 
+        // ====================== DELIVERABLES & REVIEW WORKFLOW ======================
+        let currentDeliverableProjectId = null;
+
+        function showSubmitDeliverablesModal(projectId, projectTitle) {
+            currentDeliverableProjectId = projectId;
+            document.getElementById('deliverable-project-title').textContent = projectTitle;
+            document.getElementById('submit-deliverables-modal').classList.remove('hidden');
+            document.getElementById('deliverable-files').value = ''; // reset
+        }
+
+        function hideDeliverablesModal() {
+            document.getElementById('submit-deliverables-modal').classList.add('hidden');
+        }
+
+        async function submitDeliverables() {
+            if (!currentDeliverableProjectId) return;
+
+            const desc = document.getElementById('deliverable-desc').value.trim();
+            const githubLink = document.getElementById('deliverable-github').value.trim();
+            const filesInput = document.getElementById('deliverable-files');
+
+            if (!desc) return alert("Please describe what you built");
+
+            try {
+                const projectRef = db.collection("projects").doc(currentDeliverableProjectId);
+                const files = filesInput.files;
+                let fileUrls = [];
+
+                // Upload files to Firebase Storage
+                if (files.length > 0) {
+                    const uploadPromises = [];
+                    for (let file of files) {
+                        const storageRef = storage.ref(`deliverables/${currentDeliverableProjectId}/${Date.now()}-${file.name}`);
+                        uploadPromises.push(storageRef.put(file).then(snapshot => snapshot.ref.getDownloadURL()));
+                    }
+                    fileUrls = await Promise.all(uploadPromises);
+                }
+
+                const newSubmission = {
+                    submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    submitterUid: currentUser.uid,
+                    submitterName: currentUser.fullName || currentUser.username,
+                    description: desc,
+                    githubLink: githubLink || null,
+                    files: fileUrls,
+                    status: 'submitted'
+                };
+
+                await projectRef.update({
+                    deliverables: firebase.firestore.FieldValue.arrayUnion(newSubmission),
+                    lastSubmittedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                alert("✅ Deliverables submitted successfully! The project poster has been notified.");
+                hideDeliverablesModal();
+                hideProjectDetailModal();
+                loadMarketplace(); // refresh
+            } catch (e) {
+                console.error(e);
+                alert("Failed to submit deliverables: " + e.message);
+            }
+        }
     
         // ====================== CHAT FUNCTIONS ======================
         let currentChatId = null;
