@@ -181,6 +181,17 @@
                 <input id="create-username" type="text" placeholder="Username (unique)" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
                 <input id="create-email" type="email" placeholder="Email Address" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
                 <input id="create-password" type="password" placeholder="Password (min 6 chars)" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+
+                <!-- Wallet Connection -->
+                <div class="mt-6 p-5 bg-zinc-800 border border-zinc-600 rounded-3xl">
+                    <p class="text-sm text-zinc-400 mb-3">Connect Wallet (Required)</p>
+                    <button onclick="connectWalletDuringSignup()" id="signup-wallet-btn"
+                            class="w-full py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-2xl flex items-center justify-center gap-3">
+                        <i class="fa-solid fa-wallet"></i> Connect Wallet
+                    </button>
+                    <p id="wallet-status" class="text-center text-emerald-400 text-sm mt-3 hidden">✅ Wallet Connected</p>
+                </div>
+                
                 <button onclick="createProfile()" class="w-full mt-8 py-5 bg-white text-black font-semibold rounded-2xl text-lg">Create Account</button>
             </div>
 
@@ -452,6 +463,24 @@
             alert("🦊 Wallet connection coming soon!\n\n(We'll integrate MetaMask / Phantom later)");
         }
 
+        let walletConnected = false;
+
+        function connectWalletDuringSignup() {
+            // Demo mode for now
+            if (confirm("Connect wallet? (Demo - MetaMask / Phantom coming soon)")) {
+                walletConnected = true;
+                document.getElementById('wallet-status').classList.remove('hidden');
+                document.getElementById('signup-wallet-btn').innerHTML = `<i class="fa-solid fa-check"></i> Wallet Connected`;
+                alert("✅ Wallet connected! You will receive 10,000 NQV8 bonus on account creation.");
+            }
+        }
+
+        function connectWallet() {
+            if (confirm("Connect wallet? (Demo mode)")) {
+                alert("✅ Wallet connected! (Demo)\n\nBalance updates will appear in your profile.");
+            }
+        }
+    
         function editProfile() {
             alert("✏️ Profile editing coming soon!\n\nYou can update bio, profile picture, etc. here.");
         }
@@ -487,6 +516,11 @@
                 return;
             }
 
+            if (!walletConnected) {
+                alert("❌ You must connect a wallet to create an account.");
+                return;
+            }
+
             try {
                 const userCredential = await auth.createUserWithEmailAndPassword(email, password);
                 const user = userCredential.user;
@@ -498,6 +532,9 @@
                     fullName: `${firstName} ${lastName}`,
                     username,
                     email: user.email,
+                    nqv8Balance: 10000,           // Bonus from treasury
+                    totalNQV8Earned: 10000,
+                    walletConnected: true,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
 
@@ -505,6 +542,7 @@
 
                 currentUser = userData;
                 finishLogin();
+                alert("✅ Account created! You received 10,000 NQV8 bonus from the treasury.");
             } catch (error) {
                 console.error(error);
                 alert(error.message);
