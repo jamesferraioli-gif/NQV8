@@ -1339,6 +1339,19 @@
                 }
             });
         };
+        function showWelcomeModal() {
+            const modal = document.getElementById('welcome-modal');
+            if (modal) modal.classList.remove('hidden');
+        }
+
+        function closeWelcomeModal() {
+            const modal = document.getElementById('welcome-modal');
+            if (modal) modal.classList.add('hidden');
+        }
+
+
+
+    
     </script>
 </body>
 </html>
