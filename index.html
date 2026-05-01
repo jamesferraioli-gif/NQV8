@@ -885,20 +885,26 @@
                         return;
                     }
 
-                    chatsSnap.forEach(doc => {
+                    chatsSnap.forEach(async (doc) => {   // Note: async here for user lookup
                         const chat = doc.data();
                         const otherUid = chat.participants.find(uid => uid !== currentUser.uid);
                         
+                        // Fetch the other user's data for nice display
+                        const userDoc = await db.collection("users").doc(otherUid).get();
+                        const otherUser = userDoc.exists ? userDoc.data() : { username: otherUid.substring(0,8) };
+
                         const div = document.createElement('div');
                         div.className = "flex items-center gap-3 p-3 hover:bg-zinc-800 rounded-2xl cursor-pointer mx-2 my-1";
                         div.innerHTML = `
-                            <div class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">💬</div>
+                            <div class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
+                                ${(otherUser.fullName || otherUser.username || '?')[0]}
+                            </div>
                             <div class="flex-1 min-w-0">
-                                <p class="font-medium truncate">Chat with @${otherUid ? otherUid.substring(0,8) : 'user'}</p>
-                                <p class="text-xs text-emerald-400">Previous conversation</p>
+                                <p class="font-medium truncate">${otherUser.fullName || otherUser.username}</p>
+                                <p class="text-xs text-emerald-400 truncate">@${otherUser.username || otherUid.substring(0,8)}</p>
                             </div>
                         `;
-                        div.onclick = () => openChat(doc.id, { uid: otherUid });
+                        div.onclick = () => openChat(doc.id, otherUser);
                         list.appendChild(div);
                     });
                 }
@@ -907,7 +913,6 @@
                 list.innerHTML = `<p class="text-red-400 text-center py-8">Error loading chats</p>`;
             }
         }
-
     
         async function initiateChat(partnerUid, partnerData) {
             if (confirm(`Start chat with @${partnerData.username || partnerData.fullName}? ($0.01 NQV8)`)) {
