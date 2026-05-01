@@ -273,6 +273,59 @@
         </div>
     </div>
 
+        <!-- ==================== USER PROFILE PAGE ==================== -->
+    <div id="user-profile-page" class="max-w-5xl mx-auto pt-8 px-6 hidden">
+        <div class="flex justify-between items-center mb-8">
+            <button onclick="navigateTo('marketplace')" class="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 rounded-2xl">← Back</button>
+            <h1 id="user-profile-name" class="text-4xl font-bold"></h1>
+        </div>
+
+        <div class="bg-zinc-900 rounded-3xl p-8 mb-8">
+            <div class="flex flex-col md:flex-row gap-8 items-center md:items-start">
+                <div id="user-profile-avatar" class="w-32 h-32 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-3xl flex items-center justify-center text-6xl font-bold ring-4 ring-cyan-400 overflow-hidden"></div>
+
+                <div class="flex-1 text-center md:text-left">
+                    <p id="user-profile-username" class="text-cyan-400 text-3xl"></p>
+                    <p id="user-profile-bio" class="mt-4 text-zinc-300 leading-relaxed"></p>
+
+                    <div class="mt-6 flex gap-8">
+                        <div>
+                            <p class="text-5xl font-bold text-cyan-400" id="user-avg-rating">0.0</p>
+                            <p class="text-sm text-zinc-400">Average Rating</p>
+                        </div>
+                        <div>
+                            <p class="text-5xl font-bold" id="user-nqv8-earned">0</p>
+                            <p class="text-sm text-zinc-400">NQV8 Earned</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats -->
+        <div class="grid grid-cols-3 gap-4 mb-10">
+            <div class="bg-zinc-900 rounded-3xl p-6 text-center">
+                <p class="text-4xl font-bold text-emerald-400" id="user-working-on">0</p>
+                <p class="text-zinc-400">Working On</p>
+            </div>
+            <div class="bg-zinc-900 rounded-3xl p-6 text-center">
+                <p class="text-4xl font-bold text-cyan-400" id="user-completed">0</p>
+                <p class="text-zinc-400">Completed</p>
+            </div>
+            <div class="bg-zinc-900 rounded-3xl p-6 text-center">
+                <p class="text-4xl font-bold" id="user-leaderboard-rank">#0</p>
+                <p class="text-zinc-400">Leaderboard Rank</p>
+            </div>
+        </div>
+
+        <!-- Reviews -->
+        <div>
+            <h2 class="text-2xl font-semibold mb-4">Reviews Received</h2>
+            <div id="user-reviews-list" class="space-y-4 max-h-[500px] overflow-auto pr-2">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+    </div>
     
     <!-- ==================== CHAT PAGE ==================== -->
     <div id="chat-page" class="max-w-6xl mx-auto pt-8 px-6 hidden">
@@ -352,7 +405,9 @@
             document.querySelectorAll('div[id$="-page"]').forEach(div => div.classList.add('hidden'));
             const target = document.getElementById(page + '-page');
             if (target) target.classList.remove('hidden');
+            
             if (page === 'marketplace') loadMarketplace();
+            if (page === 'chat') loadChatList("");   // ← Only new line
         }
 
         // ====================== NAVBAR & PROFILE ======================
@@ -1130,6 +1185,47 @@
 
         // Update existing updateProfileUI to also call loadProfileData
         // (we'll modify it in the next step)
+
+        // ====================== VIEW OTHER USER PROFILE ======================
+        async function viewUserProfile(uid) {
+            if (!uid) return;
+
+            navigateTo('user-profile');  // We'll add this page ID
+
+            try {
+                const userDoc = await db.collection("users").doc(uid).get();
+                if (!userDoc.exists) return alert("User not found");
+
+                const user = userDoc.data();
+
+                // Basic Info
+                document.getElementById('user-profile-name').textContent = user.fullName || user.username;
+                document.getElementById('user-profile-username').textContent = '@' + (user.username || 'user');
+                document.getElementById('user-profile-bio').textContent = user.bio || "No bio yet.";
+
+                // Avatar
+                const avatarEl = document.getElementById('user-profile-avatar');
+                avatarEl.innerHTML = user.photoURL 
+                    ? `<img src="${user.photoURL}" class="w-full h-full object-cover">` 
+                    : `<span class="text-6xl font-bold">${(user.fullName || user.username || '?')[0]}</span>`;
+
+                // Stats (demo values for now)
+                document.getElementById('user-working-on').textContent = "3";
+                document.getElementById('user-completed').textContent = "12";
+                document.getElementById('user-nqv8-earned').textContent = user.totalNQV8Earned || "2,450";
+                document.getElementById('user-avg-rating').textContent = "4.7";
+                document.getElementById('user-leaderboard-rank').textContent = "#18";
+
+                // Load Reviews (stub for now)
+                document.getElementById('user-reviews-list').innerHTML = `
+                    <p class="text-zinc-400">Reviews will appear here once the review system is fully active.</p>
+                `;
+
+            } catch (e) {
+                console.error(e);
+                alert("Failed to load user profile");
+            }
+        }    
     
         function searchProjects() {
             const term = document.getElementById('search-input').value.toLowerCase().trim();
