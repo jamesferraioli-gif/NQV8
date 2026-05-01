@@ -199,6 +199,18 @@
                     Accept Bid
                 </button>
             </div>
+            <!-- Deadline Selection -->
+            <div class="mt-6">
+                <p class="text-sm text-zinc-400 mb-3">Project Deadline</p>
+                <select id="project-deadline" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                    <option value="">Select Deadline</option>
+                    <option value="1day">1 Day</option>
+                    <option value="1week" selected>1 Week</option>
+                    <option value="1month">1 Month</option>
+                    <option value="3months">3 Months</option>
+                </select>
+                <p class="text-xs text-zinc-500 mt-2">Projects longer than 3 months should be broken into milestones.</p>
+            </div>
         </div>
     </div>
 
@@ -957,14 +969,18 @@
         async function acceptBid() {
             if (!currentProjectId || currentBidIndex === null) return;
 
-            if (!confirm("Accept this bid? This will lock the project and notify the bidder.")) return;
+            const deadline = document.getElementById('project-deadline').value;
+            if (!deadline) {
+                return alert("Please select a project deadline.");
+            }
+
+            if (!confirm(`Accept this bid with a ${deadline} deadline? This will lock the project.`)) return;
 
             try {
                 const projectRef = db.collection("projects").doc(currentProjectId);
                 const projectSnap = await projectRef.get();
                 const project = projectSnap.data();
 
-                // Prevent double-accept
                 if (project.status === "in-progress" || project.acceptedBid) {
                     return alert("This project has already been accepted.");
                 }
@@ -976,7 +992,9 @@
                     acceptedBid: bid,
                     acceptedAt: firebase.firestore.FieldValue.serverTimestamp(),
                     acceptedBidderUid: bid.bidderUid,
-                    bidsOpen: false
+                    bidsOpen: false,
+                    deadline: deadline,                    // Added
+                    deadlineSetAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
                 // Auto-create chat
@@ -990,7 +1008,7 @@
 
                 await db.collection("chats").add(chatData);
 
-                alert(`✅ Bid from @${bid.bidderName} accepted!\n\nProject is now locked and in progress.`);
+                alert(`✅ Bid accepted with ${deadline} deadline!\n\nProject is now locked.`);
 
                 hideBidDetailModal();
                 hideProjectDetailModal();
