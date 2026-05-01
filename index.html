@@ -282,7 +282,7 @@
             <div class="w-80 border-r border-zinc-700 flex flex-col">
                 <div class="p-4 border-b border-zinc-700">
                     <input id="chat-search" type="text" placeholder="Search users by username..." 
-                           onkeyup="searchUsersForChat()"
+                           onkeyup="searchUsersForChat()" 
                            class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 outline-none">
                 </div>
                 <div id="chat-list" class="flex-1 overflow-auto p-2">
@@ -825,54 +825,90 @@
 
         function navigateToChat() {
             navigateTo('chat');
-            loadChatList();
+            loadChatList("");        // Load previous chats by default
         }
 
         async function loadChatList(searchTerm = "") {
             const list = document.getElementById('chat-list');
-            list.innerHTML = '<p class="text-center text-zinc-500 py-8">Loading users...</p>';
+            
+            list.innerHTML = searchTerm ? 
+                '<p class="text-center text-zinc-500 py-8">Searching...</p>' : 
+                '<p class="text-center text-zinc-500 py-8">Loading your chats...</p>';
 
             try {
-                let query = db.collection("users");
+                if (searchTerm.trim()) {
+                    // ====================== SEARCH USERS MODE ======================
+                    const term = searchTerm.toLowerCase().trim();
+                    const usersSnap = await db.collection("users")
+                        .where("username", ">=", term)
+                        .where("username", "<=", term + "\uf8ff")
+                        .limit(30)
+                        .get();
 
-                if (searchTerm) {
-                    // Search by username (case insensitive)
-                    query = query.where("username", ">=", searchTerm.toLowerCase())
-                                 .where("username", "<=", searchTerm.toLowerCase() + "\uf8ff");
+                    list.innerHTML = '';
+
+                    if (usersSnap.empty) {
+                        list.innerHTML = `<p class="text-center text-zinc-400 py-8">No users found for "${searchTerm}"</p>`;
+                        return;
+                    }
+
+                    usersSnap.forEach(doc => {
+                        const u = doc.data();
+                        if (u.uid === currentUser.uid) return;   // Prevent self-chat
+
+                        const div = document.createElement('div');
+                        div.className = "flex items-center gap-3 p-3 hover:bg-zinc-800 rounded-2xl cursor-pointer mx-2 my-1";
+                        div.innerHTML = `
+                            <div class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
+                                ${(u.fullName || u.username || '?')[0]}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="font-medium truncate">${u.fullName || u.username}</p>
+                                <p class="text-xs text-zinc-400 truncate">@${u.username || 'user'}</p>
+                            </div>
+                        `;
+                        div.onclick = () => initiateChat(u.uid, u);
+                        list.appendChild(div);
+                    });
+
+                } else {
+                    // ====================== CHAT HISTORY MODE ======================
+                    const chatsSnap = await db.collection("chats")
+                        .where("participants", "array-contains", currentUser.uid)
+                        .orderBy("createdAt", "desc")
+                        .get();
+
+                    list.innerHTML = '';
+
+                    if (chatsSnap.empty) {
+                        list.innerHTML = `<p class="text-center text-zinc-400 py-8">No chats yet.<br>Search users above to start one.</p>`;
+                        return;
+                    }
+
+                    chatsSnap.forEach(doc => {
+                        const chat = doc.data();
+                        const otherUid = chat.participants.find(uid => uid !== currentUser.uid);
+                        
+                        const div = document.createElement('div');
+                        div.className = "flex items-center gap-3 p-3 hover:bg-zinc-800 rounded-2xl cursor-pointer mx-2 my-1";
+                        div.innerHTML = `
+                            <div class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">💬</div>
+                            <div class="flex-1 min-w-0">
+                                <p class="font-medium truncate">Previous Chat</p>
+                                <p class="text-xs text-emerald-400">Tap to continue conversation</p>
+                            </div>
+                        `;
+                        div.onclick = () => openChat(doc.id, { uid: otherUid });
+                        list.appendChild(div);
+                    });
                 }
-
-                const usersSnap = await query.get();
-                list.innerHTML = '';
-
-                if (usersSnap.empty) {
-                    list.innerHTML = `<p class="text-center text-zinc-400 py-8">No users found.</p>`;
-                    return;
-                }
-
-                usersSnap.forEach(doc => {
-                    const u = doc.data();
-                    if (u.uid === currentUser.uid) return;
-
-                    const div = document.createElement('div');
-                    div.className = "flex items-center gap-3 p-3 hover:bg-zinc-800 rounded-2xl cursor-pointer mx-2 my-1";
-                    div.innerHTML = `
-                        <div class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
-                            ${(u.fullName || u.username || '?')[0]}
-                        </div>
-                        <div class="flex-1 min-w-0">
-                            <p class="font-medium truncate">${u.fullName || u.username}</p>
-                            <p class="text-xs text-zinc-400 truncate">@${u.username || 'user'}</p>
-                        </div>
-                    `;
-                    div.onclick = () => initiateChat(u.uid, u);
-                    list.appendChild(div);
-                });
             } catch (e) {
                 console.error(e);
-                list.innerHTML = `<p class="text-red-400 text-center py-8">Error loading users</p>`;
+                list.innerHTML = `<p class="text-red-400 text-center py-8">Error loading chats</p>`;
             }
         }
 
+    
         async function initiateChat(partnerUid, partnerData) {
             if (confirm(`Start chat with @${partnerData.username || partnerData.fullName}? ($0.01 NQV8)`)) {
                 try {
