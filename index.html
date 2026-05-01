@@ -1197,21 +1197,23 @@
 
             try {
                 const projectRef = db.collection("projects").doc(currentDeliverableProjectId);
-                const files = filesInput.files;
                 let fileUrls = [];
 
-                // Upload files to Firebase Storage
+                // Upload files if any
+                const files = filesInput.files;
                 if (files.length > 0) {
                     const uploadPromises = [];
                     for (let file of files) {
                         const storageRef = storage.ref(`deliverables/${currentDeliverableProjectId}/${Date.now()}-${file.name}`);
-                        uploadPromises.push(storageRef.put(file).then(snapshot => snapshot.ref.getDownloadURL()));
+                        uploadPromises.push(
+                            storageRef.put(file).then(snapshot => snapshot.ref.getDownloadURL())
+                        );
                     }
                     fileUrls = await Promise.all(uploadPromises);
                 }
 
                 const newSubmission = {
-                    submittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    submittedAt: new Date(),                    // ← Fixed: use regular Date
                     submitterUid: currentUser.uid,
                     submitterName: currentUser.fullName || currentUser.username,
                     description: desc,
@@ -1222,19 +1224,18 @@
 
                 await projectRef.update({
                     deliverables: firebase.firestore.FieldValue.arrayUnion(newSubmission),
-                    lastSubmittedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    lastSubmittedAt: firebase.firestore.FieldValue.serverTimestamp()   // This one is allowed
                 });
 
                 alert("✅ Deliverables submitted successfully! The project poster has been notified.");
                 hideDeliverablesModal();
                 hideProjectDetailModal();
-                loadMarketplace(); // refresh
+                loadMarketplace(); // refresh the view
             } catch (e) {
                 console.error(e);
                 alert("Failed to submit deliverables: " + e.message);
             }
-        }
-    
+        }    
         // ====================== CHAT FUNCTIONS ======================
         let currentChatId = null;
         let currentChatPartnerUid = null;
