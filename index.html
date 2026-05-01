@@ -151,11 +151,17 @@
                 <!-- Filled by JS -->
             </div>
 
-            <button onclick="acceptBid()" 
-                    id="accept-bid-btn"
-                    class="w-full mt-8 py-5 bg-green-500 hover:bg-green-600 text-black font-semibold rounded-3xl text-lg">
-                Accept This Offer
-            </button>
+            <div class="flex gap-3 mt-8">
+                <button onclick="messageBidder()" 
+                        class="flex-1 py-5 border border-cyan-400 text-cyan-400 font-semibold rounded-3xl">
+                    💬 Message User (Free)
+                </button>
+                <button onclick="acceptBid()" 
+                        id="accept-bid-btn"
+                        class="flex-1 py-5 bg-green-500 hover:bg-green-600 text-black font-semibold rounded-3xl">
+                    Accept Bid
+                </button>
+            </div>
         </div>
     </div>
     
@@ -586,6 +592,8 @@
         }
 
         async function showProjectDetail(projectId, project) {
+            currentProject = project;
+
             const modal = document.getElementById('project-detail-modal');
             const content = document.getElementById('detail-content');
 
@@ -683,10 +691,28 @@
             const modal = document.getElementById('bid-detail-modal');
             const content = document.getElementById('bid-detail-content');
 
+            const project = currentProject; // We'll set this in showProjectDetail
+            const bid = project.bids[bidIndex];
+
             content.innerHTML = `
-                <p class="text-lg font-semibold mb-4">Bid Details</p>
-                <p class="text-2xl text-cyan-400">Full bid information will appear here</p>
-                <p class="text-zinc-400 mt-6">Accept offer logic coming soon...</p>
+                <div class="flex items-center gap-4">
+                    <div class="w-12 h-12 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-2xl flex items-center justify-center text-xl font-bold">
+                        ${bid.bidderName[0]}
+                    </div>
+                    <div>
+                        <p onclick="viewUserProfile('${bid.bidderUid}')" class="font-semibold text-lg cursor-pointer hover:underline">
+                            @${bid.bidderName}
+                        </p>
+                        <p class="text-sm text-zinc-400">Bidder • ${bid.rating ? '⭐'.repeat(bid.rating) : 'No rating yet'}</p>
+                    </div>
+                </div>
+
+                <div class="mt-6 bg-zinc-800 rounded-2xl p-5">
+                    <p class="text-cyan-400 font-medium">${bid.amount}</p>
+                    <p class="text-sm text-zinc-400 mt-1">${new Date(bid.timestamp).toLocaleDateString()}</p>
+                </div>
+
+                <p class="text-zinc-400 mt-6 text-sm">Click "Message User" to discuss details before accepting.</p>
             `;
 
             modal.classList.remove('hidden');
@@ -696,14 +722,61 @@
             document.getElementById('bid-detail-modal').classList.add('hidden');
         }
 
+        // ====================== BID ACCEPTANCE & MESSAGING ======================
+        let currentProject = null;   // We'll store the full project when opening bid detail
+
+        async function messageBidder() {
+            if (!currentProject || currentBidIndex === null) return;
+
+            const bid = currentProject.bids[currentBidIndex];
+            
+            // Free chat initiation for bid-related messaging
+            try {
+                const chatData = {
+                    participants: [currentUser.uid, bid.bidderUid].sort(),
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    status: 'accepted',
+                    relatedProjectId: currentProjectId,
+                    isBidRelated: true
+                };
+
+                const chatRef = await db.collection("chats").add(chatData);
+                hideBidDetailModal();
+                hideProjectDetailModal();
+                
+                // Open the chat
+                openChat(chatRef.id, { uid: bid.bidderUid, fullName: bid.bidderName, username: bid.bidderName });
+                navigateToChat();
+            } catch (e) {
+                console.error(e);
+                alert("Failed to open chat");
+            }
+        }
+
         async function acceptBid() {
             if (!currentProjectId || currentBidIndex === null) return;
 
-            if (confirm("Accept this bid? This action cannot be undone.")) {
-                alert("✅ Offer accepted!\n\n(Full acceptance + status update coming in next phase)");
+            if (!confirm("Accept this bid? This will lock the project and notify the bidder.")) return;
+
+            try {
+                const projectRef = db.collection("projects").doc(currentProjectId);
+                const bid = currentProject.bids[currentBidIndex];
+
+                await projectRef.update({
+                    status: "in-progress",
+                    acceptedBid: bid,
+                    acceptedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    acceptedBidderUid: bid.bidderUid
+                });
+
+                alert(`✅ Bid from @${bid.bidderName} accepted!\n\nProject is now locked and in progress.`);
+
                 hideBidDetailModal();
                 hideProjectDetailModal();
                 loadMarketplace();
+            } catch (e) {
+                console.error(e);
+                alert("Failed to accept bid: " + e.message);
             }
         }
         // ====================== CHAT FUNCTIONS ======================
