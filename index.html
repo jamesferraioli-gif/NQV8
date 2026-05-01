@@ -605,6 +605,9 @@
             safeClassList('right-section', 'show');
             navigateTo('marketplace');
             updateProfileUI();
+            
+            // Show welcome popup every time you login
+            setTimeout(showWelcomeModal, 800);
         }
 
         // ====================== MARKETPLACE FUNCTIONS ======================
