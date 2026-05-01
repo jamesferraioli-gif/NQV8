@@ -854,7 +854,7 @@
 
                     usersSnap.forEach(doc => {
                         const u = doc.data();
-                        if (u.uid === currentUser.uid) return;   // Prevent self-chat
+                        if (u.uid === currentUser.uid) return;
 
                         const div = document.createElement('div');
                         div.className = "flex items-center gap-3 p-3 hover:bg-zinc-800 rounded-2xl cursor-pointer mx-2 my-1";
@@ -894,8 +894,8 @@
                         div.innerHTML = `
                             <div class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">💬</div>
                             <div class="flex-1 min-w-0">
-                                <p class="font-medium truncate">Previous Chat</p>
-                                <p class="text-xs text-emerald-400">Tap to continue conversation</p>
+                                <p class="font-medium truncate">Chat with @${otherUid ? otherUid.substring(0,8) : 'user'}</p>
+                                <p class="text-xs text-emerald-400">Previous conversation</p>
                             </div>
                         `;
                         div.onclick = () => openChat(doc.id, { uid: otherUid });
