@@ -696,6 +696,9 @@
                             <p class="text-zinc-400 line-clamp-3 mb-4">${p.description}</p>
                             <div class="text-cyan-400 font-medium">${p.compensation}</div>
                             ${p.category ? `<p class="text-xs text-violet-400 mt-2">Category: ${p.category}</p>` : ''}
+                            <p onclick="viewUserProfile('${p.posterUid}')" class="text-cyan-400 hover:underline cursor-pointer text-xs mt-3">
+                                Posted by @${p.posterUsername || p.posterName || 'anonymous'}
+                            </p>
                         `;
                         card.onclick = () => showProjectDetail(doc.id, p);
                         grid.appendChild(card);
@@ -777,6 +780,7 @@
                     type: isBuild ? 'build' : 'fund',
                     posterUid: currentUser.uid,
                     posterName: currentUser.fullName || currentUser.username,
+                    posterUsername: currentUser.username,   // ← ADD THIS LINE
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     bids: [],
                     bidsOpen: true,
@@ -831,7 +835,7 @@
                 
                 <p onclick="viewUserProfile('${project.posterUid}')" 
                    class="text-cyan-400 hover:underline cursor-pointer inline-block mb-6">
-                    Posted by @${project.posterName || 'anonymous'}
+                    Posted by @${project.posterUsername || project.posterName || 'anonymous'}
                 </p>
 
                 <p class="text-cyan-400 mb-6">${project.type === 'build' ? '🔨 Build Request' : '💰 Funding Request'} • ${project.compensation}</p>
@@ -1360,9 +1364,9 @@
 
         // ====================== VIEW OTHER USER PROFILE ======================
         async function viewUserProfile(uid) {
-            if (!uid) return;
+            if (!uid) return alert("User ID not available.");
 
-            navigateTo('user-profile');  // We'll add this page ID
+            navigateTo('user-profile');
 
             try {
                 const userDoc = await db.collection("users").doc(uid).get();
@@ -1371,7 +1375,7 @@
                 const user = userDoc.data();
 
                 // Basic Info
-                document.getElementById('user-profile-name').textContent = user.fullName || user.username;
+                document.getElementById('user-profile-name').textContent = user.fullName || user.username || 'User';
                 document.getElementById('user-profile-username').textContent = '@' + (user.username || 'user');
                 document.getElementById('user-profile-bio').textContent = user.bio || "No bio yet.";
 
@@ -1381,14 +1385,14 @@
                     ? `<img src="${user.photoURL}" class="w-full h-full object-cover">` 
                     : `<span class="text-6xl font-bold">${(user.fullName || user.username || '?')[0]}</span>`;
 
-                // Stats (demo values for now)
+                // Stats
                 document.getElementById('user-working-on').textContent = "3";
                 document.getElementById('user-completed').textContent = "12";
                 document.getElementById('user-nqv8-earned').textContent = user.totalNQV8Earned || "2,450";
                 document.getElementById('user-avg-rating').textContent = "4.7";
                 document.getElementById('user-leaderboard-rank').textContent = "#18";
 
-                // Load Reviews (stub for now)
+                // Reviews placeholder
                 document.getElementById('user-reviews-list').innerHTML = `
                     <p class="text-zinc-400">Reviews will appear here once the review system is fully active.</p>
                 `;
@@ -1397,7 +1401,7 @@
                 console.error(e);
                 alert("Failed to load user profile");
             }
-        }    
+        }
     
         function searchProjects() {
             const term = document.getElementById('search-input').value.toLowerCase().trim();
