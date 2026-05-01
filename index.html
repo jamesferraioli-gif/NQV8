@@ -940,26 +940,20 @@
                         return;
                     }
 
-                    chatsSnap.forEach(async (doc) => {   // Note: async here for user lookup
+                    chatsSnap.forEach(doc => {
                         const chat = doc.data();
                         const otherUid = chat.participants.find(uid => uid !== currentUser.uid);
                         
-                        // Fetch the other user's data for nice display
-                        const userDoc = await db.collection("users").doc(otherUid).get();
-                        const otherUser = userDoc.exists ? userDoc.data() : { username: otherUid.substring(0,8) };
-
                         const div = document.createElement('div');
                         div.className = "flex items-center gap-3 p-3 hover:bg-zinc-800 rounded-2xl cursor-pointer mx-2 my-1";
                         div.innerHTML = `
-                            <div class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
-                                ${(otherUser.fullName || otherUser.username || '?')[0]}
-                            </div>
+                            <div class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">💬</div>
                             <div class="flex-1 min-w-0">
-                                <p class="font-medium truncate">${otherUser.fullName || otherUser.username}</p>
-                                <p class="text-xs text-emerald-400 truncate">@${otherUser.username || otherUid.substring(0,8)}</p>
+                                <p class="font-medium truncate">Chat with @${otherUid ? otherUid.substring(0,8) : 'user'}</p>
+                                <p class="text-xs text-emerald-400">Tap to continue conversation</p>
                             </div>
                         `;
-                        div.onclick = () => openChat(doc.id, otherUser);
+                        div.onclick = () => openChat(doc.id, { uid: otherUid });
                         list.appendChild(div);
                     });
                 }
@@ -970,21 +964,47 @@
         }
     
         async function initiateChat(partnerUid, partnerData) {
-            if (confirm(`Start chat with @${partnerData.username || partnerData.fullName}? ($0.01 NQV8)`)) {
-                try {
+            if (partnerUid === currentUser.uid) return alert("You cannot chat with yourself.");
+
+            try {
+                // Check if a chat already exists between these two users
+                const existingChats = await db.collection("chats")
+                    .where("participants", "array-contains", currentUser.uid)
+                    .get();
+
+                let chatId = null;
+
+                existingChats.forEach(doc => {
+                    const chat = doc.data();
+                    if (chat.participants.includes(partnerUid)) {
+                        chatId = doc.id;
+                    }
+                });
+
+                if (chatId) {
+                    // Open existing chat
+                    openChat(chatId, partnerData);
+                    navigateToChat();
+                    return;
+                }
+
+                // Create new chat
+                if (confirm(`Start new chat with @${partnerData.username || partnerData.fullName}? ($0.01 NQV8)`)) {
                     const chatData = {
                         participants: [currentUser.uid, partnerUid].sort(),
                         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                         status: 'accepted',
-                        initiator: currentUser.uid
+                        relatedProjectId: null,
+                        isBidRelated: false
                     };
 
                     const chatRef = await db.collection("chats").add(chatData);
                     openChat(chatRef.id, partnerData);
-                } catch (e) {
-                    console.error(e);
-                    alert("Failed to start chat");
+                    navigateToChat();
                 }
+            } catch (e) {
+                console.error(e);
+                alert("Failed to start chat");
             }
         }
 
