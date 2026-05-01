@@ -503,11 +503,16 @@
                     const p = doc.data();
                     const card = document.createElement('div');
                     card.className = "bg-zinc-900 rounded-3xl p-6 hover:ring-2 hover:ring-cyan-400 cursor-pointer transition-all";
+
+                    const statusHTML = p.status === "in-progress" 
+                        ? `<span class="px-4 py-1 text-xs rounded-full bg-amber-500/20 text-amber-400">In Progress</span>` 
+                        : `<span class="px-4 py-1 text-xs rounded-full ${p.type === 'build' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-violet-500/20 text-violet-400'}">
+                            ${p.type === 'build' ? 'Build Request' : 'Funding Request'}
+                           </span>`;
+
                     card.innerHTML = `
                         <div class="flex justify-between items-start mb-4">
-                            <span class="px-4 py-1 text-xs rounded-full ${p.type === 'build' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-violet-500/20 text-violet-400'}">
-                                ${p.type === 'build' ? 'Build Request' : 'Funding Request'}
-                            </span>
+                            ${statusHTML}
                             <span class="text-xs text-zinc-500">${p.bids ? p.bids.length : 0} bids</span>
                         </div>
                         <h3 class="text-2xl font-bold mb-2">${p.title}</h3>
@@ -660,6 +665,10 @@
                     return alert("❌ You cannot bid on your own project.");
                 }
 
+                if (project.bidsOpen === false || project.status === "in-progress") {
+                    return alert("❌ This project has already been accepted and is in progress.");
+                }
+
                 const newBid = {
                     bidderUid: currentUser.uid,
                     bidderName: currentUser.fullName || currentUser.username,
@@ -756,7 +765,7 @@
         async function acceptBid() {
             if (!currentProjectId || currentBidIndex === null) return;
 
-            if (!confirm("Accept this bid? This will lock the project and notify the bidder.")) return;
+            if (!confirm("Accept this bid? This will lock the project, create a chat, and notify the bidder.")) return;
 
             try {
                 const projectRef = db.collection("projects").doc(currentProjectId);
@@ -766,10 +775,22 @@
                     status: "in-progress",
                     acceptedBid: bid,
                     acceptedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    acceptedBidderUid: bid.bidderUid
+                    acceptedBidderUid: bid.bidderUid,
+                    bidsOpen: false   // ← Prevents new bids
                 });
 
-                alert(`✅ Bid from @${bid.bidderName} accepted!\n\nProject is now locked and in progress.`);
+                // Auto-create chat between owner and winner
+                const chatData = {
+                    participants: [currentUser.uid, bid.bidderUid].sort(),
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    status: 'accepted',
+                    relatedProjectId: currentProjectId,
+                    isBidRelated: true
+                };
+
+                const chatRef = await db.collection("chats").add(chatData);
+
+                alert(`✅ Bid from @${bid.bidderName} accepted!\n\nProject is now locked and in progress.\nA chat has been opened with them.`);
 
                 hideBidDetailModal();
                 hideProjectDetailModal();
