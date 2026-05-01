@@ -218,33 +218,43 @@
     </div>
 
 
-        <!-- SUBMIT DELIVERABLES MODAL -->
-    <div id="submit-deliverables-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
+    <!-- SUBMIT WORK / FUNDING MODAL (handles both deliverables and funding) -->
+    <div id="submit-work-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
         <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-8">
-            <h2 class="text-3xl font-bold mb-6">Submit Deliverables</h2>
-            <p class="text-zinc-400 mb-6">Project: <span id="deliverable-project-title" class="font-medium text-white"></span></p>
+            <h2 id="submit-modal-title" class="text-3xl font-bold mb-2"></h2>
+            <p id="submit-modal-subtitle" class="text-zinc-400 mb-6"></p>
 
-            <textarea id="deliverable-desc" placeholder="Describe what you built, any notes, deployment instructions..." 
+            <textarea id="submit-desc" placeholder="Describe your submission..." 
                       class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6" rows="4"></textarea>
 
-            <input id="deliverable-github" type="text" placeholder="GitHub / Live Demo Link (optional)" 
+            <input id="submit-link" type="text" placeholder="GitHub / Demo / Document Link (optional)" 
                    class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-6">
+
+            <!-- Boilerplate button (only for funding) -->
+            <button onclick="generateFundingBoilerplate()" 
+                    id="boilerplate-btn"
+                    class="hidden w-full py-3 bg-violet-600 hover:bg-violet-700 text-white rounded-2xl mb-6 flex items-center justify-center gap-2">
+                <i class="fa-solid fa-file-contract"></i> Use NQVate Boilerplate Funding Agreement
+            </button>
 
             <!-- File Upload -->
             <div class="mb-6">
-                <p class="text-sm text-zinc-400 mb-3">Upload files (code, builds, screenshots, etc.)</p>
-                <input id="deliverable-files" type="file" multiple class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
-                <p id="files-selected" class="text-xs text-emerald-400 mt-2 hidden">Files selected</p>
+                <p class="text-sm text-zinc-400 mb-3" id="file-label">Attach files</p>
+                <input id="submit-files" type="file" multiple class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
             </div>
 
             <div class="flex gap-3">
-                <button onclick="hideDeliverablesModal()" 
+                <button onclick="hideSubmitWorkModal()" 
                         class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
-                <button onclick="submitDeliverables()" 
+                <button onclick="submitWork()" 
                         class="flex-1 py-4 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-3xl">
-                    Submit Deliverables
+                    Submit
                 </button>
             </div>
+
+            <p class="text-xs text-zinc-500 mt-6 text-center">
+                NQVate is not a party to any agreement between users and assumes no legal liability.
+            </p>
         </div>
     </div>
 
@@ -964,14 +974,17 @@
                 bidsHTML = `<p class="text-zinc-500">No bids yet.</p>`;
             }
 
-            // NEW: Action button for worker who won the bid
+            // NEW: Action button for worker / funder
             let actionHTML = '';
             if (isWorker && project.status === "in-progress") {
+                const btnText = project.type === 'fund' ? 'Submit Funding Agreement' : 'Submit Deliverables';
+                const icon = project.type === 'fund' ? 'fa-file-contract' : 'fa-upload';
+                
                 actionHTML = `
                     <div class="border-t border-zinc-700 pt-6 mt-8">
-                        <button onclick="showSubmitDeliverablesModal('${projectId}', '${project.title.replace(/'/g, "\\'")}')" 
+                        <button onclick="showSubmitWorkModal('${projectId}', currentProject)" 
                                 class="w-full py-5 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-3xl flex items-center justify-center gap-3">
-                            <i class="fa-solid fa-upload"></i> Submit Deliverables
+                            <i class="fa-solid ${icon}"></i> ${btnText}
                         </button>
                     </div>`;
             }
@@ -1172,70 +1185,114 @@
             }
         }
 
-        // ====================== DELIVERABLES & REVIEW WORKFLOW ======================
-        let currentDeliverableProjectId = null;
+        // ====================== SUBMIT WORK / FUNDING AGREEMENT ======================
+        let currentSubmitProjectId = null;
+        let currentSubmitProjectType = null;
 
-        function showSubmitDeliverablesModal(projectId, projectTitle) {
-            currentDeliverableProjectId = projectId;
-            document.getElementById('deliverable-project-title').textContent = projectTitle;
-            document.getElementById('submit-deliverables-modal').classList.remove('hidden');
-            document.getElementById('deliverable-files').value = ''; // reset
+        function showSubmitWorkModal(projectId, project) {
+            currentSubmitProjectId = projectId;
+            currentSubmitProjectType = project.type;
+
+            const modal = document.getElementById('submit-work-modal');
+            
+            if (project.type === 'fund') {
+                document.getElementById('submit-modal-title').innerHTML = 'Submit Funding Agreement';
+                document.getElementById('submit-modal-subtitle').innerHTML = `You are committing to provide <strong>${project.compensation}</strong> for equity in this project.`;
+                document.getElementById('boilerplate-btn').classList.remove('hidden');
+                document.getElementById('file-label').textContent = 'Upload signed agreement or supporting documents';
+                document.getElementById('submit-desc').placeholder = 'Notes about your funding commitment...';
+            } else {
+                document.getElementById('submit-modal-title').innerHTML = 'Submit Deliverables';
+                document.getElementById('submit-modal-subtitle').innerHTML = `Project: <strong>${project.title}</strong>`;
+                document.getElementById('boilerplate-btn').classList.add('hidden');
+                document.getElementById('file-label').textContent = 'Upload files (code, builds, screenshots, etc.)';
+                document.getElementById('submit-desc').placeholder = 'Describe what you built, deployment instructions, etc...';
+            }
+
+            modal.classList.remove('hidden');
+            document.getElementById('submit-files').value = '';
         }
 
-        function hideDeliverablesModal() {
-            document.getElementById('submit-deliverables-modal').classList.add('hidden');
+        function hideSubmitWorkModal() {
+            document.getElementById('submit-work-modal').classList.add('hidden');
         }
 
-        async function submitDeliverables() {
-            if (!currentDeliverableProjectId) return;
+        function generateFundingBoilerplate() {
+            const boilerplate = `NQVATE FUNDING AGREEMENT BOILERPLATE
 
-            const desc = document.getElementById('deliverable-desc').value.trim();
-            const githubLink = document.getElementById('deliverable-github').value.trim();
-            const filesInput = document.getElementById('deliverable-files');
+Parties:
+- Funder: [YOUR NAME / ENTITY]
+- Project Owner: [POSTER NAME / ENTITY]
 
-            if (!desc) return alert("Please describe what you built");
+Amount: [INSERT AMOUNT FROM PROJECT]
+Equity: [INSERT % FROM PROJECT]
+
+1. NQVate is NOT a party to this agreement and has ZERO legal liability.
+
+2. Funding is provided exclusively for the project described. The Project Owner agrees that this funding applies to ALL future uses, derivatives, or successor entities of the project/product. Transferring the project to a new entity does not release the funding obligation.
+
+3. In exchange for the funding, the Project Owner grants the Funder the agreed equity percentage in the project/company in perpetuity.
+
+4. Both parties represent they have full authority to enter this agreement.
+
+5. Governing Law: [Your choice, e.g. Delaware, USA]
+
+This is a binding legal agreement. Consult your own attorney before signing.`;
+
+            document.getElementById('submit-desc').value = boilerplate;
+            alert("✅ Boilerplate funding agreement loaded.\n\nReview and edit as needed before submitting.");
+        }
+
+        async function submitWork() {
+            if (!currentSubmitProjectId) return;
+
+            const desc = document.getElementById('submit-desc').value.trim();
+            const link = document.getElementById('submit-link').value.trim();
+            const filesInput = document.getElementById('submit-files');
+
+            if (!desc) return alert("Please provide a description or agreement text");
 
             try {
-                const projectRef = db.collection("projects").doc(currentDeliverableProjectId);
+                const projectRef = db.collection("projects").doc(currentSubmitProjectId);
                 let fileUrls = [];
 
-                // Upload files if any
                 const files = filesInput.files;
                 if (files.length > 0) {
-                    const uploadPromises = [];
-                    for (let file of files) {
-                        const storageRef = storage.ref(`deliverables/${currentDeliverableProjectId}/${Date.now()}-${file.name}`);
-                        uploadPromises.push(
-                            storageRef.put(file).then(snapshot => snapshot.ref.getDownloadURL())
-                        );
-                    }
+                    const uploadPromises = Array.from(files).map(file => {
+                        const storageRef = storage.ref(`${currentSubmitProjectType === 'fund' ? 'funding-agreements' : 'deliverables'}/${currentSubmitProjectId}/${Date.now()}-${file.name}`);
+                        return storageRef.put(file).then(snapshot => snapshot.ref.getDownloadURL());
+                    });
                     fileUrls = await Promise.all(uploadPromises);
                 }
 
-                const newSubmission = {
-                    submittedAt: new Date(),                    // ← Fixed: use regular Date
+                const submission = {
+                    type: currentSubmitProjectType === 'fund' ? 'funding-agreement' : 'deliverable',
+                    submittedAt: new Date(),
                     submitterUid: currentUser.uid,
                     submitterName: currentUser.fullName || currentUser.username,
                     description: desc,
-                    githubLink: githubLink || null,
+                    link: link || null,
                     files: fileUrls,
                     status: 'submitted'
                 };
 
                 await projectRef.update({
-                    deliverables: firebase.firestore.FieldValue.arrayUnion(newSubmission),
-                    lastSubmittedAt: firebase.firestore.FieldValue.serverTimestamp()   // This one is allowed
+                    submissions: firebase.firestore.FieldValue.arrayUnion(submission),
+                    lastSubmittedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
-                alert("✅ Deliverables submitted successfully! The project poster has been notified.");
-                hideDeliverablesModal();
+                alert(currentSubmitProjectType === 'fund' 
+                    ? "✅ Funding agreement submitted! The project owner has been notified." 
+                    : "✅ Deliverables submitted successfully!");
+
+                hideSubmitWorkModal();
                 hideProjectDetailModal();
-                loadMarketplace(); // refresh the view
+                loadMarketplace();
             } catch (e) {
                 console.error(e);
-                alert("Failed to submit deliverables: " + e.message);
+                alert("Failed to submit: " + e.message);
             }
-        }    
+        }
         // ====================== CHAT FUNCTIONS ======================
         let currentChatId = null;
         let currentChatPartnerUid = null;
