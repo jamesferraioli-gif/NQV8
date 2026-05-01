@@ -455,6 +455,24 @@
             </div>
         </div>
     </div>
+    <!-- ==================== LEADERBOARD PAGE ==================== -->
+    <div id="leaderboard-page" class="max-w-6xl mx-auto pt-8 px-6 hidden">
+        <div class="mb-10">
+            <h1 class="text-5xl font-bold tracking-tighter mb-4">Leaderboard</h1>
+            <p class="text-xl text-zinc-400 max-w-3xl">
+                Top builders ranked by total NQV8 earned
+            </p>
+        </div>
+
+        <div id="leaderboard-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Populated by JS -->
+        </div>
+    </div>
+
+
+
+
+        
 <script>
 
 
@@ -489,7 +507,9 @@
             if (target) target.classList.remove('hidden');
             
             if (page === 'marketplace') loadMarketplace();
-            if (page === 'chat') loadChatList("");   // ← Only new line
+            if (page === 'profile') loadProfileData();
+            if (page === 'chat') loadChatList("");
+            if (page === 'leaderboard') loadLeaderboard();
         }
 
         // ====================== NAVBAR & PROFILE ======================
@@ -724,7 +744,53 @@
                 grid.innerHTML = `<p class="text-red-400">Error loading projects</p>`;
             }
         }
+    
+        async function loadLeaderboard() {
+            const grid = document.getElementById('leaderboard-grid');
+            grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 py-12">Loading leaderboard...</p>';
 
+            try {
+                const snapshot = await db.collection("users").orderBy("totalNQV8Earned", "desc").limit(12).get();
+                grid.innerHTML = '';
+
+                if (snapshot.empty) {
+                    grid.innerHTML = `<p class="col-span-full text-center text-zinc-400 py-12">No users on the leaderboard yet.</p>`;
+                    return;
+                }
+
+                let rank = 1;
+                snapshot.forEach(doc => {
+                    const u = doc.data();
+                    const card = document.createElement('div');
+                    card.className = "bg-zinc-900 rounded-3xl p-6 hover:ring-2 hover:ring-cyan-400 cursor-pointer transition-all";
+
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start mb-4">
+                            <span class="text-4xl font-bold text-cyan-400">#${rank}</span>
+                            <span class="text-xs text-emerald-400">${u.totalNQV8Earned || 0} NQV8</span>
+                        </div>
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-2xl flex items-center justify-center text-2xl font-bold flex-shrink-0 overflow-hidden">
+                                ${u.photoURL 
+                                    ? `<img src="${u.photoURL}" class="w-full h-full object-cover">` 
+                                    : (u.fullName || u.username || '?')[0]}
+                            </div>
+                            <div>
+                                <p class="font-bold">${u.fullName || u.username}</p>
+                                <p class="text-cyan-400 text-sm">@${u.username || ''}</p>
+                            </div>
+                        </div>
+                    `;
+                    card.onclick = () => viewUserProfile(doc.id);
+                    grid.appendChild(card);
+                    rank++;
+                });
+            } catch (e) {
+                console.error(e);
+                grid.innerHTML = `<p class="text-red-400">Error loading leaderboard</p>`;
+            }
+        }
+    
 
         function showPostProjectModal() {
             if (!currentUser) return alert("Please log in first");
@@ -1091,7 +1157,7 @@
                         return;
                     }
 
-                    chatsSnap.forEach(async (doc) => {
+                    for (const doc of chatsSnap.docs) {
                         const chat = doc.data();
                         const otherUid = chat.participants.find(uid => uid !== currentUser.uid);
                         
@@ -1111,7 +1177,7 @@
                         `;
                         div.onclick = () => openChat(doc.id, otherUser);
                         list.appendChild(div);
-                    });
+                    }
                 }
             } catch (e) {
                 console.error(e);
@@ -1314,49 +1380,80 @@
 
         async function loadProfileData() {
             if (!currentUser) return;
+            try {
+                // My Posted Projects
+                const postedGrid = document.getElementById('my-posted-projects');
+                postedGrid.innerHTML = '<p class="col-span-full text-zinc-400">Loading...</p>';
+                const postedSnap = await db.collection("projects")
+                    .where("posterUid", "==", currentUser.uid)
+                    .orderBy("createdAt", "desc")
+                    .get();
 
-            // My Posted Projects
-            const postedGrid = document.getElementById('my-posted-projects');
-            postedGrid.innerHTML = '<p class="col-span-full text-zinc-400">Loading...</p>';
-            const postedSnap = await db.collection("projects")
-                .where("posterUid", "==", currentUser.uid)
-                .orderBy("createdAt", "desc")
-                .get();
+                postedGrid.innerHTML = postedSnap.empty ? 
+                    `<p class="text-zinc-400">No projects posted yet.</p>` : '';
 
-            postedGrid.innerHTML = postedSnap.empty ? 
-                `<p class="text-zinc-400">No projects posted yet.</p>` : '';
+                postedSnap.forEach(doc => {
+                    const p = doc.data();
+                    const card = document.createElement('div');
+                    card.className = "bg-zinc-800 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-cyan-400";
+                    card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs ${p.status === 'in-progress' ? 'text-amber-400' : 'text-zinc-400'}">${p.type} • ${p.compensation}</span>`;
+                    card.onclick = () => showProjectDetail(doc.id, p);
+                    postedGrid.appendChild(card);
+                });
 
-            postedSnap.forEach(doc => {
-                const p = doc.data();
-                const card = document.createElement('div');
-                card.className = "bg-zinc-800 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-cyan-400";
-                card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs ${p.status === 'in-progress' ? 'text-amber-400' : 'text-zinc-400'}">${p.type} • ${p.compensation}</span>`;
-                card.onclick = () => showProjectDetail(doc.id, p);
-                postedGrid.appendChild(card);
-            });
+                // Projects I'm Working On
+                const workingGrid = document.getElementById('working-on-projects');
+                workingGrid.innerHTML = '<p class="col-span-full text-zinc-400">Loading...</p>';
+                const workingSnap = await db.collection("projects")
+                    .where("acceptedBidderUid", "==", currentUser.uid)
+                    .get();
 
-            // Projects I'm Working On
-            const workingGrid = document.getElementById('working-on-projects');
-            workingGrid.innerHTML = '<p class="col-span-full text-zinc-400">Loading...</p>';
-            const workingSnap = await db.collection("projects")
-                .where("acceptedBidderUid", "==", currentUser.uid)
-                .get();
+                workingGrid.innerHTML = workingSnap.empty ? 
+                    `<p class="text-zinc-400">No active projects yet.</p>` : '';
 
-            workingGrid.innerHTML = workingSnap.empty ? 
-                `<p class="text-zinc-400">No active projects yet.</p>` : '';
+                workingSnap.forEach(doc => {
+                    const p = doc.data();
+                    const card = document.createElement('div');
+                    card.className = "bg-emerald-900/30 border border-emerald-500/30 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-emerald-400";
+                    card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs text-emerald-400">In Progress • ${p.compensation}</span>`;
+                    card.onclick = () => showProjectDetail(doc.id, p);
+                    workingGrid.appendChild(card);
+                });
 
-            workingSnap.forEach(doc => {
-                const p = doc.data();
-                const card = document.createElement('div');
-                card.className = "bg-emerald-900/30 border border-emerald-500/30 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-emerald-400";
-                card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs text-emerald-400">In Progress • ${p.compensation}</span>`;
-                card.onclick = () => showProjectDetail(doc.id, p);
-                workingGrid.appendChild(card);
-            });
+                // Completed Projects
+                const completedGrid = document.getElementById('completed-projects');
+                completedGrid.innerHTML = '<p class="col-span-full text-zinc-400">Loading...</p>';
+                const completedSnap = await db.collection("projects")
+                    .where("status", "==", "completed")
+                    .get();
 
-            // Update earnings display (NQV8)
-            document.getElementById('profile-nqv8-balance').textContent = currentUser.nqv8Balance || "1,250 NQV8";
-            document.getElementById('profile-total-earnings').textContent = (currentUser.totalNQV8Earned || "0") + " NQV8";
+                completedGrid.innerHTML = completedSnap.empty ? 
+                    `<p class="text-zinc-400">No completed projects yet.</p>` : '';
+
+                completedSnap.forEach(doc => {
+                    const p = doc.data();
+                    const card = document.createElement('div');
+                    card.className = "bg-zinc-800 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-emerald-400";
+                    card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs text-emerald-400">Completed • ${p.compensation}</span>`;
+                    card.onclick = () => showProjectDetail(doc.id, p);
+                    completedGrid.appendChild(card);
+                });
+
+                // Equity Stakes
+                const equityDiv = document.getElementById('equity-stakes');
+                equityDiv.innerHTML = `<p class="text-zinc-400">No equity stakes yet.</p>`;
+
+                // My Reviews
+                const reviewsDiv = document.getElementById('my-reviews');
+                reviewsDiv.innerHTML = `<p class="text-zinc-400">No reviews received yet.</p>`;
+
+                // Update earnings display
+                document.getElementById('profile-nqv8-balance').textContent = currentUser.nqv8Balance || "1,250 NQV8";
+                document.getElementById('profile-total-earnings').textContent = (currentUser.totalNQV8Earned || "0") + " NQV8";
+
+            } catch (e) {
+                console.error("Profile data load error:", e);
+            }
         }
 
         // Update existing updateProfileUI to also call loadProfileData
