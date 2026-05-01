@@ -240,6 +240,14 @@
             </div>
         </div>
 
+        <!-- Projects I'm Working On -->
+        <div class="mb-10">
+            <h2 class="text-2xl font-semibold mb-4">Projects I'm Working On</h2>
+            <div id="working-on-projects" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
         <!-- Completed Projects -->
         <div class="mb-10">
             <h2 class="text-2xl font-semibold mb-4">Completed Projects</h2>
@@ -765,10 +773,18 @@
         async function acceptBid() {
             if (!currentProjectId || currentBidIndex === null) return;
 
-            if (!confirm("Accept this bid? This will lock the project, create a chat, and notify the bidder.")) return;
+            if (!confirm("Accept this bid? This will lock the project and notify the bidder.")) return;
 
             try {
                 const projectRef = db.collection("projects").doc(currentProjectId);
+                const projectSnap = await projectRef.get();
+                const project = projectSnap.data();
+
+                // Prevent double-accept
+                if (project.status === "in-progress" || project.acceptedBid) {
+                    return alert("This project has already been accepted.");
+                }
+
                 const bid = currentProject.bids[currentBidIndex];
 
                 await projectRef.update({
@@ -776,10 +792,10 @@
                     acceptedBid: bid,
                     acceptedAt: firebase.firestore.FieldValue.serverTimestamp(),
                     acceptedBidderUid: bid.bidderUid,
-                    bidsOpen: false   // ← Prevents new bids
+                    bidsOpen: false
                 });
 
-                // Auto-create chat between owner and winner
+                // Auto-create chat
                 const chatData = {
                     participants: [currentUser.uid, bid.bidderUid].sort(),
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -788,9 +804,9 @@
                     isBidRelated: true
                 };
 
-                const chatRef = await db.collection("chats").add(chatData);
+                await db.collection("chats").add(chatData);
 
-                alert(`✅ Bid from @${bid.bidderName} accepted!\n\nProject is now locked and in progress.\nA chat has been opened with them.`);
+                alert(`✅ Bid from @${bid.bidderName} accepted!\n\nProject is now locked and in progress.`);
 
                 hideBidDetailModal();
                 hideProjectDetailModal();
@@ -800,6 +816,8 @@
                 alert("Failed to accept bid: " + e.message);
             }
         }
+
+    
         // ====================== CHAT FUNCTIONS ======================
         let currentChatId = null;
         let currentChatPartnerUid = null;
@@ -812,33 +830,41 @@
 
         async function loadChatList() {
             const list = document.getElementById('chat-list');
-            list.innerHTML = '<p class="text-center text-zinc-500 py-8">Loading users...</p>';
+            list.innerHTML = '<p class="text-center text-zinc-500 py-8">Loading chats...</p>';
 
             try {
-                const usersSnap = await db.collection("users").get();
+                // Get all chats where current user is a participant
+                const chatsSnap = await db.collection("chats")
+                    .where("participants", "array-contains", currentUser.uid)
+                    .orderBy("createdAt", "desc")
+                    .get();
+
                 list.innerHTML = '';
 
-                usersSnap.forEach(doc => {
-                    const u = doc.data();
-                    if (u.uid === currentUser.uid) return;
+                if (chatsSnap.empty) {
+                    list.innerHTML = `<p class="text-center text-zinc-400 py-8">No chats yet.<br>Start one from the user list.</p>`;
+                    return;
+                }
 
+                chatsSnap.forEach(doc => {
+                    const chat = doc.data();
+                    const otherUid = chat.participants.find(uid => uid !== currentUser.uid);
+                    
                     const div = document.createElement('div');
                     div.className = "flex items-center gap-3 p-3 hover:bg-zinc-800 rounded-2xl cursor-pointer mx-2 my-1";
                     div.innerHTML = `
-                        <div class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
-                            ${(u.fullName || u.username || '?')[0]}
-                        </div>
+                        <div class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">👤</div>
                         <div class="flex-1 min-w-0">
-                            <p class="font-medium truncate">${u.fullName || u.username}</p>
-                            <p class="text-xs text-zinc-400 truncate">@${u.username || 'user'}</p>
+                            <p class="font-medium truncate">Chat ${otherUid.slice(0,8)}...</p>
+                            <p class="text-xs text-zinc-400">Project-related chat</p>
                         </div>
                     `;
-                    div.onclick = () => initiateChat(u.uid, u);
+                    div.onclick = () => openChat(doc.id, { uid: otherUid, fullName: "Chat Partner", username: "user" });
                     list.appendChild(div);
                 });
             } catch (e) {
                 console.error(e);
-                list.innerHTML = `<p class="text-red-400 text-center py-8">Error loading users</p>`;
+                list.innerHTML = `<p class="text-red-400 text-center py-8">Error loading chats</p>`;
             }
         }
 
@@ -1011,35 +1037,48 @@
         async function loadProfileData() {
             if (!currentUser) return;
 
-            // Load My Posted Projects
+            // My Posted Projects
             const postedGrid = document.getElementById('my-posted-projects');
             postedGrid.innerHTML = '<p class="col-span-full text-zinc-400">Loading...</p>';
-            const projectsSnap = await db.collection("projects")
+            const postedSnap = await db.collection("projects")
                 .where("posterUid", "==", currentUser.uid)
                 .orderBy("createdAt", "desc")
                 .get();
 
-            postedGrid.innerHTML = '';
-            if (projectsSnap.empty) {
-                postedGrid.innerHTML = `<p class="text-zinc-400">No projects posted yet.</p>`;
-            } else {
-                projectsSnap.forEach(doc => {
-                    const p = doc.data();
-                    const card = document.createElement('div');
-                    card.className = "bg-zinc-800 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-cyan-400";
-                    card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs text-zinc-400">${p.type} • ${p.compensation}</span>`;
-                    card.onclick = () => showProjectDetail(doc.id, p);
-                    postedGrid.appendChild(card);
-                });
-            }
+            postedGrid.innerHTML = postedSnap.empty ? 
+                `<p class="text-zinc-400">No projects posted yet.</p>` : '';
 
-            // Completed Projects & Reviews (stub for now - will expand when bids are accepted)
-            document.getElementById('completed-projects').innerHTML = `<p class="text-zinc-400">Completed projects will appear here once bids are accepted.</p>`;
-            document.getElementById('my-reviews').innerHTML = `<p class="text-zinc-400">Reviews will appear here after projects are completed.</p>`;
+            postedSnap.forEach(doc => {
+                const p = doc.data();
+                const card = document.createElement('div');
+                card.className = "bg-zinc-800 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-cyan-400";
+                card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs ${p.status === 'in-progress' ? 'text-amber-400' : 'text-zinc-400'}">${p.type} • ${p.compensation}</span>`;
+                card.onclick = () => showProjectDetail(doc.id, p);
+                postedGrid.appendChild(card);
+            });
 
-            // Balance & Earnings (demo values - can be updated later via transactions)
-            document.getElementById('profile-nqv8-balance').textContent = currentUser.nqv8Balance || "1,250";
-            document.getElementById('profile-total-earnings').textContent = "$" + (currentUser.totalEarnings || "0");
+            // Projects I'm Working On
+            const workingGrid = document.getElementById('working-on-projects');
+            workingGrid.innerHTML = '<p class="col-span-full text-zinc-400">Loading...</p>';
+            const workingSnap = await db.collection("projects")
+                .where("acceptedBidderUid", "==", currentUser.uid)
+                .get();
+
+            workingGrid.innerHTML = workingSnap.empty ? 
+                `<p class="text-zinc-400">No active projects yet.</p>` : '';
+
+            workingSnap.forEach(doc => {
+                const p = doc.data();
+                const card = document.createElement('div');
+                card.className = "bg-emerald-900/30 border border-emerald-500/30 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-emerald-400";
+                card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs text-emerald-400">In Progress • ${p.compensation}</span>`;
+                card.onclick = () => showProjectDetail(doc.id, p);
+                workingGrid.appendChild(card);
+            });
+
+            // Update earnings display (NQV8)
+            document.getElementById('profile-nqv8-balance').textContent = currentUser.nqv8Balance || "1,250 NQV8";
+            document.getElementById('profile-total-earnings').textContent = (currentUser.totalNQV8Earned || "0") + " NQV8";
         }
 
         // Update existing updateProfileUI to also call loadProfileData
