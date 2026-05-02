@@ -774,16 +774,24 @@
                 } else {
                     snapshot.forEach(doc => {
                         const p = doc.data();
+
+                        // IMPORTANT: Hide accepted/in-progress projects from Marketplace
+                        if (p.status === "in-progress" || p.status === "completed") {
+                            if (p.status === "in-progress") inprogress++;
+                            else if (p.status === "completed") completed++;
+                            if (p.nqv8Awarded) totalNQV8 += Number(p.nqv8Awarded) || 0;
+                            return; // skip rendering
+                        }
+
+                        // Only render OPEN projects
+                        open++;
+
                         const card = document.createElement('div');
                         card.className = "bg-zinc-900 rounded-3xl p-6 hover:ring-2 hover:ring-cyan-400 cursor-pointer transition-all";
 
-                        const statusHTML = p.status === "in-progress" 
-                            ? `<span class="px-4 py-1 text-xs rounded-full bg-amber-500/20 text-amber-400">In Progress</span>` 
-                            : (p.status === "completed" 
-                                ? `<span class="px-4 py-1 text-xs rounded-full bg-emerald-500/20 text-emerald-400">Completed</span>` 
-                                : `<span class="px-4 py-1 text-xs rounded-full ${p.type === 'build' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-violet-500/20 text-violet-400'}">
-                                    ${p.type === 'build' ? 'Build Request' : 'Funding Request'}
-                                   </span>`);
+                        const statusHTML = `<span class="px-4 py-1 text-xs rounded-full ${p.type === 'build' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-violet-500/20 text-violet-400'}">
+                            ${p.type === 'build' ? 'Build Request' : 'Funding Request'}
+                           </span>`;
 
                         card.innerHTML = `
                             <div class="flex justify-between items-start mb-4">
@@ -801,14 +809,22 @@
                         card.onclick = () => showProjectDetail(doc.id, p);
                         grid.appendChild(card);
 
-                        // Count stats
-                        if (p.status === "open" || !p.status) open++;
-                        else if (p.status === "in-progress") inprogress++;
-                        else if (p.status === "completed") completed++;
-
                         if (p.nqv8Awarded) totalNQV8 += Number(p.nqv8Awarded) || 0;
                     });
                 }
+
+                // Update Live Stats (still count in-progress projects)
+                document.getElementById('stat-open').textContent = open;
+                document.getElementById('stat-inprogress').textContent = inprogress;
+                document.getElementById('stat-completed').textContent = completed;
+                document.getElementById('stat-nqv8-awarded').textContent = totalNQV8.toLocaleString();
+                document.getElementById('stat-total-funding').textContent = "$0";
+
+            } catch (e) {
+                console.error(e);
+                grid.innerHTML = `<p class="text-red-400">Error loading projects</p>`;
+            }
+        }
 
                 // Update Live Stats
                 document.getElementById('stat-open').textContent = open;
@@ -950,74 +966,129 @@
 
         async function showProjectDetail(projectId, project) {
             currentProject = project;
-            currentProjectId = projectId;   // Important for deliverables
+            currentProjectId = projectId;
 
             const modal = document.getElementById('project-detail-modal');
             const content = document.getElementById('detail-content');
 
             const isPoster = currentUser && project.posterUid === currentUser.uid;
             const isWorker = currentUser && project.acceptedBidderUid === currentUser.uid;
+            const isInProgress = project.status === "in-progress";
 
-            let bidsHTML = '';
+            let mainHTML = '';
 
-            if (isPoster && project.bids && project.bids.length > 0) {
-                bidsHTML = project.bids.map((b, index) => `
-                    <div onclick="showBidDetail('${projectId}', ${index})" 
-                         class="bg-zinc-800 p-4 rounded-2xl mb-3 cursor-pointer hover:ring-2 hover:ring-cyan-400 transition-all">
-                        <strong>${b.bidderName}</strong><br>
-                        <span class="text-cyan-400">${b.amount}</span>
+            if (isInProgress) {
+                // === IN-PROGRESS PROJECT VIEW ===
+                mainHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <h2 class="text-4xl font-bold">${project.title}</h2>
+                        <span class="px-4 py-1 text-xs rounded-full bg-amber-500/20 text-amber-400">In Progress</span>
                     </div>
-                `).join('');
-            } else if (project.bids && project.bids.length > 0) {
-                bidsHTML = `<p class="text-zinc-500">${project.bids.length} bid(s) received</p>`;
-            } else {
-                bidsHTML = `<p class="text-zinc-500">No bids yet.</p>`;
-            }
+                    
+                    <p class="text-emerald-400 mb-6">✅ Accepted • Working with @${project.acceptedBid?.bidderName || 'the winner'}</p>
+                    
+                    <div class="bg-zinc-800 rounded-3xl p-6 mb-8">
+                        <p class="text-sm text-zinc-400">Agreed Terms</p>
+                        <p class="text-xl font-semibold">${project.compensation}</p>
+                        ${project.deadline ? `<p class="text-sm text-zinc-400 mt-2">Deadline: ${project.deadline}</p>` : ''}
+                    </div>
 
-            // NEW: Action button for worker / funder
-            let actionHTML = '';
-            if (isWorker && project.status === "in-progress") {
-                const btnText = project.type === 'fund' ? 'Submit Funding Agreement' : 'Submit Deliverables';
-                const icon = project.type === 'fund' ? 'fa-file-contract' : 'fa-upload';
-                
-                actionHTML = `
-                    <div class="border-t border-zinc-700 pt-6 mt-8">
-                        <button onclick="showSubmitWorkModal('${projectId}', currentProject)" 
-                                class="w-full py-5 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-3xl flex items-center justify-center gap-3">
-                            <i class="fa-solid ${icon}"></i> ${btnText}
+                    <div class="flex gap-3 mb-8">
+                        <button onclick="messageBidderFromDetail()" 
+                                class="flex-1 py-4 border border-cyan-400 text-cyan-400 font-semibold rounded-3xl">
+                            💬 Open Chat
                         </button>
-                    </div>`;
+                    </div>
+
+                    <!-- Submissions Section -->
+                    <h3 class="text-2xl font-semibold mb-4">Submissions</h3>
+                    <div id="submissions-list" class="space-y-4 mb-8"></div>
+
+                    ${isWorker ? `
+                    <button onclick="showSubmitWorkModal('${projectId}', currentProject)" 
+                            class="w-full py-5 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-3xl flex items-center justify-center gap-3">
+                        <i class="fa-solid ${project.type === 'fund' ? 'fa-file-contract' : 'fa-upload'}"></i>
+                        ${project.type === 'fund' ? 'Submit Funding Agreement' : 'Submit Deliverables'}
+                    </button>` : ''}
+                `;
+            } else {
+                // === OPEN PROJECT VIEW (unchanged) ===
+                let bidsHTML = '';
+                if (isPoster && project.bids && project.bids.length > 0) {
+                    bidsHTML = project.bids.map((b, index) => `
+                        <div onclick="showBidDetail('${projectId}', ${index})" 
+                             class="bg-zinc-800 p-4 rounded-2xl mb-3 cursor-pointer hover:ring-2 hover:ring-cyan-400 transition-all">
+                            <strong>${b.bidderName}</strong><br>
+                            <span class="text-cyan-400">${b.amount}</span>
+                        </div>
+                    `).join('');
+                } else if (project.bids && project.bids.length > 0) {
+                    bidsHTML = `<p class="text-zinc-500">${project.bids.length} bid(s) received</p>`;
+                } else {
+                    bidsHTML = `<p class="text-zinc-500">No bids yet.</p>`;
+                }
+
+                mainHTML = `
+                    <div class="flex justify-between items-start mb-4">
+                        <h2 class="text-4xl font-bold">${project.title}</h2>
+                    </div>
+                    
+                    <p onclick="viewUserProfile('${project.posterUid}')" 
+                       class="text-cyan-400 hover:underline cursor-pointer inline-block mb-6">
+                        Posted by @${project.posterUsername || project.posterName || 'anonymous'}
+                    </p>
+
+                    <p class="text-cyan-400 mb-6">${project.type === 'build' ? '🔨 Build Request' : '💰 Funding Request'} • ${project.compensation}</p>
+                    <p class="text-zinc-300 leading-relaxed mb-8">${project.description}</p>
+                    
+                    <h3 class="text-2xl font-semibold mb-4">Offers / Bids</h3>
+                    <div class="mb-8">${bidsHTML}</div>
+
+                    ${!isPoster ? `
+                    <div class="border-t border-zinc-700 pt-6">
+                        <input id="bid-amount" type="text" placeholder="Your bid (e.g. $800 or 5% equity)" 
+                               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+                        <button onclick="placeBid('${projectId}')" 
+                                class="w-full py-5 bg-white text-black font-semibold rounded-3xl">Place Bid ($0.01 NQV8)</button>
+                    </div>
+                    ` : ''}
+                `;
             }
 
-            content.innerHTML = `
-                <div class="flex justify-between items-start mb-4">
-                    <h2 class="text-4xl font-bold">${project.title}</h2>
-                </div>
-                
-                <p onclick="viewUserProfile('${project.posterUid}')" 
-                   class="text-cyan-400 hover:underline cursor-pointer inline-block mb-6">
-                    Posted by @${project.posterUsername || project.posterName || 'anonymous'}
-                </p>
-
-                <p class="text-cyan-400 mb-6">${project.type === 'build' ? '🔨 Build Request' : '💰 Funding Request'} • ${project.compensation}</p>
-                <p class="text-zinc-300 leading-relaxed mb-8">${project.description}</p>
-                
-                <h3 class="text-2xl font-semibold mb-4">Offers / Bids</h3>
-                <div class="mb-8">${bidsHTML}</div>
-
-                ${!isPoster ? `
-                <div class="border-t border-zinc-700 pt-6">
-                    <input id="bid-amount" type="text" placeholder="Your bid (e.g. $800 or 5% equity)" 
-                           class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
-                    <button onclick="placeBid('${projectId}')" 
-                            class="w-full py-5 bg-white text-black font-semibold rounded-3xl">Place Bid ($0.01 NQV8)</button>
-                </div>
-                ` : ''}
-
-                ${actionHTML}
-            `;
+            content.innerHTML = mainHTML;
             modal.classList.remove('hidden');
+
+            // Load submissions if this is an in-progress project
+            if (isInProgress) {
+                renderSubmissions(project);
+            }
         }
+
+        function renderSubmissions(project) {
+            const container = document.getElementById('submissions-list');
+            if (!project.submissions || project.submissions.length === 0) {
+                container.innerHTML = `<p class="text-zinc-400">No submissions yet.</p>`;
+                return;
+            }
+
+            let html = '';
+            project.submissions.forEach((sub, index) => {
+                const isFunding = sub.type === 'funding-agreement';
+                html += `
+                    <div class="bg-zinc-800 rounded-3xl p-6">
+                        <div class="flex justify-between">
+                            <p class="font-medium">${isFunding ? 'Funding Agreement' : 'Deliverables'} • ${sub.submitterName}</p>
+                            <span class="text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400">${sub.status}</span>
+                        </div>
+                        <p class="text-zinc-300 mt-3">${sub.description}</p>
+                        ${sub.link ? `<p class="text-cyan-400 text-sm mt-2">🔗 <a href="${sub.link}" target="_blank">${sub.link}</a></p>` : ''}
+                        ${sub.files && sub.files.length > 0 ? 
+                            `<p class="text-xs text-violet-400 mt-3">📎 ${sub.files.length} file(s) attached</p>` : ''}
+                    </div>`;
+            });
+            container.innerHTML = html;
+        }
+    
         function hideProjectDetailModal() {
             document.getElementById('project-detail-modal').classList.add('hidden');
         }
@@ -1183,6 +1254,20 @@
                 console.error(e);
                 alert("Failed to accept bid: " + e.message);
             }
+        }
+
+        function messageBidderFromDetail() {
+            if (!currentProject || !currentProject.acceptedBidderUid) {
+                return alert("Chat not available yet.");
+            }
+            // Open chat with the other party
+            const otherUid = currentProject.posterUid === currentUser.uid 
+                ? currentProject.acceptedBidderUid 
+                : currentProject.posterUid;
+            
+            openChatWithUser(otherUid);   // We'll use existing logic
+            hideProjectDetailModal();
+            navigateToChat();
         }
 
         // ====================== SUBMIT WORK / FUNDING AGREEMENT ======================
