@@ -825,19 +825,6 @@
                 grid.innerHTML = `<p class="text-red-400">Error loading projects</p>`;
             }
         }
-
-                // Update Live Stats
-                document.getElementById('stat-open').textContent = open;
-                document.getElementById('stat-inprogress').textContent = inprogress;
-                document.getElementById('stat-completed').textContent = completed;
-                document.getElementById('stat-nqv8-awarded').textContent = totalNQV8.toLocaleString();
-                document.getElementById('stat-total-funding').textContent = "$0"; // Future expansion
-
-            } catch (e) {
-                console.error(e);
-                grid.innerHTML = `<p class="text-red-400">Error loading projects</p>`;
-            }
-        }
     
         async function loadLeaderboard() {
             const grid = document.getElementById('leaderboard-grid');
