@@ -991,7 +991,7 @@
                     <h3 class="text-2xl font-semibold mb-4">Submissions</h3>
                     <div id="submissions-list" class="space-y-4 mb-8"></div>
 
-                    ${isWorker ? `
+                    ${isWorker && (!project.submissions || !project.submissions.some(s => s.type === 'funding-agreement' || s.type === 'deliverable')) ? `
                     <button onclick="showSubmitWorkModal('${projectId}', currentProject)" 
                             class="w-full py-5 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-3xl flex items-center justify-center gap-3">
                         <i class="fa-solid ${project.type === 'fund' ? 'fa-file-contract' : 'fa-upload'}"></i>
@@ -1045,7 +1045,6 @@
             content.innerHTML = mainHTML;
             modal.classList.remove('hidden');
 
-            // Load submissions if this is an in-progress project
             if (isInProgress) {
                 renderSubmissions(project);
             }
@@ -1059,18 +1058,17 @@
             }
 
             let html = '';
-            project.submissions.forEach((sub, index) => {
+            project.submissions.forEach((sub) => {
                 const isFunding = sub.type === 'funding-agreement';
                 html += `
                     <div class="bg-zinc-800 rounded-3xl p-6">
-                        <div class="flex justify-between">
+                        <div class="flex justify-between items-start">
                             <p class="font-medium">${isFunding ? 'Funding Agreement' : 'Deliverables'} • ${sub.submitterName}</p>
                             <span class="text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400">${sub.status}</span>
                         </div>
-                        <p class="text-zinc-300 mt-3">${sub.description}</p>
-                        ${sub.link ? `<p class="text-cyan-400 text-sm mt-2">🔗 <a href="${sub.link}" target="_blank">${sub.link}</a></p>` : ''}
-                        ${sub.files && sub.files.length > 0 ? 
-                            `<p class="text-xs text-violet-400 mt-3">📎 ${sub.files.length} file(s) attached</p>` : ''}
+                        <p class="text-zinc-300 mt-3 line-clamp-4">${sub.description}</p>
+                        ${sub.link ? `<p class="text-cyan-400 text-sm mt-2">🔗 <a href="${sub.link}" target="_blank" class="hover:underline">${sub.link}</a></p>` : ''}
+                        ${sub.files && sub.files.length > 0 ? `<p class="text-xs text-violet-400 mt-3">📎 ${sub.files.length} file(s) attached</p>` : ''}
                     </div>`;
             });
             container.innerHTML = html;
