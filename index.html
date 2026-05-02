@@ -622,6 +622,22 @@
 <script>
         console.log("✅ SCRIPT LOADED SUCCESSFULLY");
 
+        const firebaseConfig = {
+          apiKey: "AIzaSyDnUVkD4WZ_jpHK1cY1G_1DOvHSfkUropU",
+          authDomain: "nqv8-9092f.firebaseapp.com",
+          projectId: "nqv8-9092f",
+          storageBucket: "nqv8-9092f.firebasestorage.app",
+          messagingSenderId: "199645894982",
+          appId: "1:199645894982:web:c5a192a4b553b9747e2d47"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+        const storage = firebase.storage();
+
+        let currentUser = null;
+
                 // ====================== NOTIFICATIONS ======================
         let notifUnsubscribe = null;
         
@@ -763,21 +779,7 @@
         }
     
 
-        const firebaseConfig = {
-          apiKey: "AIzaSyDnUVkD4WZ_jpHK1cY1G_1DOvHSfkUropU",
-          authDomain: "nqv8-9092f.firebaseapp.com",
-          projectId: "nqv8-9092f",
-          storageBucket: "nqv8-9092f.firebasestorage.app",
-          messagingSenderId: "199645894982",
-          appId: "1:199645894982:web:c5a192a4b553b9747e2d47"
-        };
 
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.firestore();
-        const auth = firebase.auth();
-        const storage = firebase.storage();
-
-        let currentUser = null;
 
         // ====================== UTILITY FUNCTIONS ======================
         function safeClassList(id, action) {
