@@ -258,6 +258,27 @@
         </div>
     </div>
 
+        <!-- MUTUAL REVIEW MODAL -->
+    <div id="review-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[100000]">
+        <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-8">
+            <h2 class="text-3xl font-bold mb-2 text-center">Project Complete!</h2>
+            <p id="review-project-name" class="text-center text-zinc-400 mb-8"></p>
+
+            <p class="text-center text-sm text-zinc-400 mb-4">Rate your experience (1–5 stars)</p>
+            <div class="flex justify-center gap-4 mb-8" id="star-rating">
+                <!-- Stars populated by JS -->
+            </div>
+
+            <textarea id="review-text" placeholder="Leave a review about working with the other party..." 
+                      class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6" rows="4"></textarea>
+
+            <button onclick="submitReview()" 
+                    class="w-full py-5 bg-white text-black font-semibold rounded-3xl">
+                Submit Review & Release Funds
+            </button>
+        </div>
+    </div>
+
         <!-- WELCOME MODAL -->
     <div id="welcome-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
         <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-10 text-center">
@@ -1220,15 +1241,16 @@
         }
 
         function messageBidderFromDetail() {
-            if (!currentProject || !currentProject.acceptedBidderUid) {
-                return alert("Chat not available yet.");
-            }
-            // Open chat with the other party
+            if (!currentProject) return alert("No project selected");
+
             const otherUid = currentProject.posterUid === currentUser.uid 
                 ? currentProject.acceptedBidderUid 
                 : currentProject.posterUid;
-            
-            openChatWithUser(otherUid);   // We'll use existing logic
+
+            if (!otherUid) return alert("Chat partner not found");
+
+            // Use existing initiateChat logic
+            initiateChat(otherUid, { uid: otherUid, fullName: "Project Partner", username: "partner" });
             hideProjectDetailModal();
             navigateToChat();
         }
@@ -1403,7 +1425,8 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
 
         async function acceptSubmission(submissionIndex) {
             if (!currentProjectId || !currentProject) return;
-            if (!confirm("Accept this agreement and mark the project as COMPLETED?\n\nFunds will be released.")) return;
+
+            if (!confirm("Accept this agreement and mark the project as COMPLETED?\n\nBoth parties must leave a review before funds are fully released.")) return;
 
             try {
                 const projectRef = db.collection("projects").doc(currentProjectId);
@@ -1416,9 +1439,13 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                     completedAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
 
-                alert("🎉 Project successfully completed!\nFunds released.");
-
                 hideProjectDetailModal();
+
+                // Trigger review for the poster
+                setTimeout(() => {
+                    showReviewModal(currentProjectId, currentProject.title);
+                }, 600);
+
                 loadMarketplace();
                 loadProfileData();
             } catch (e) {
@@ -1452,6 +1479,62 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                 alert("Failed to send feedback: " + e.message);
             }
         }
+
+        // ====================== MANDATORY MUTUAL REVIEW ======================
+        let currentReviewProjectId = null;
+        let currentReviewRating = 0;
+
+        function showReviewModal(projectId, projectTitle) {
+            currentReviewProjectId = projectId;
+            document.getElementById('review-project-name').textContent = projectTitle;
+            currentReviewRating = 0;
+            renderStars();
+            document.getElementById('review-modal').classList.remove('hidden');
+        }
+
+        function renderStars() {
+            const container = document.getElementById('star-rating');
+            let html = '';
+            for (let i = 1; i <= 5; i++) {
+                html += `<span onclick="setReviewRating(${i})" class="text-5xl cursor-pointer ${i <= currentReviewRating ? 'text-yellow-400' : 'text-zinc-600'}">★</span>`;
+            }
+            container.innerHTML = html;
+        }
+
+        function setReviewRating(rating) {
+            currentReviewRating = rating;
+            renderStars();
+        }
+
+        async function submitReview() {
+            const text = document.getElementById('review-text').value.trim();
+            if (currentReviewRating === 0) return alert("Please give a star rating");
+            if (!text) return alert("Please write a review");
+
+            try {
+                const projectRef = db.collection("projects").doc(currentReviewProjectId);
+
+                await projectRef.update({
+                    reviews: firebase.firestore.FieldValue.arrayUnion({
+                        reviewerUid: currentUser.uid,
+                        reviewerName: currentUser.fullName || currentUser.username,
+                        rating: currentReviewRating,
+                        text: text,
+                        createdAt: new Date()
+                    })
+                });
+
+                alert("✅ Review submitted! Thank you.");
+
+                document.getElementById('review-modal').classList.add('hidden');
+                hideProjectDetailModal();
+                loadProfileData();
+            } catch (e) {
+                console.error(e);
+                alert("Failed to submit review");
+            }
+        }
+
     
         // ====================== CHAT FUNCTIONS ======================
         let currentChatId = null;
@@ -1769,12 +1852,13 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                     postedGrid.innerHTML = `<p class="text-red-400">Error loading posted projects</p>`;
                 }
 
-                // Projects I'm Working On
+                // Projects I'm Working On - ONLY in-progress
                 const workingGrid = document.getElementById('working-on-projects');
                 workingGrid.innerHTML = '<p class="col-span-full text-zinc-400">Loading...</p>';
                 try {
                     const workingSnap = await db.collection("projects")
                         .where("acceptedBidderUid", "==", currentUser.uid)
+                        .where("status", "==", "in-progress")
                         .get();
 
                     workingGrid.innerHTML = workingSnap.empty ? 
