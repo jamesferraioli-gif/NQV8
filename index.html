@@ -1050,114 +1050,7 @@
             }
         }
 
-        function renderSubmissions(project) {
-            const container = document.getElementById('submissions-list');
-            if (!project.submissions || project.submissions.length === 0) {
-                container.innerHTML = `<p class="text-zinc-400">No submissions yet.</p>`;
-                return;
-            }
 
-            let html = '';
-            project.submissions.forEach((sub, index) => {
-                const isFunding = sub.type === 'funding-agreement';
-                const isPoster = currentUser && currentUser.uid === project.posterUid;
-
-                html += `
-                    <div class="bg-zinc-800 rounded-3xl p-6">
-                        <div class="flex justify-between items-start">
-                            <p class="font-medium">${isFunding ? 'Funding Agreement' : 'Deliverables'} • ${sub.submitterName}</p>
-                            <span class="text-xs px-3 py-1 rounded-full ${sub.status === 'accepted' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}">
-                                ${sub.status}
-                            </span>
-                        </div>
-                        <p class="text-zinc-300 mt-3 line-clamp-6">${sub.description}</p>
-                        ${sub.link ? `<p class="text-cyan-400 text-sm mt-2">🔗 <a href="${sub.link}" target="_blank" class="hover:underline">${sub.link}</a></p>` : ''}
-                        ${sub.files && sub.files.length > 0 ? `<p class="text-xs text-violet-400 mt-3">📎 ${sub.files.length} file(s) attached</p>` : ''}
-                        
-                        ${sub.feedback ? `
-                        <div class="mt-4 p-4 bg-red-900/30 border border-red-500/30 rounded-2xl">
-                            <p class="text-red-400 text-sm font-medium">Feedback from Project Owner:</p>
-                            <p class="text-zinc-300 text-sm">${sub.feedback}</p>
-                        </div>` : ''}
-
-                        <!-- Poster-only action buttons -->
-                        ${isPoster && sub.status !== 'accepted' ? `
-                        <div class="flex gap-3 mt-6">
-                            <button onclick="acceptSubmission(${index})" 
-                                    class="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-2xl">
-                                ✅ Accept
-                            </button>
-                            <button onclick="requestChanges(${index})" 
-                                    class="flex-1 py-3 border border-zinc-400 hover:bg-zinc-700 text-white font-medium rounded-2xl">
-                                Request Changes
-                            </button>
-                        </div>` : ''}
-                    </div>`;
-            });
-            container.innerHTML = html;
-        }
-
-
-        // ====================== POSTER REVIEW & APPROVAL ======================
-        async function acceptSubmission(submissionIndex) {
-            if (!currentProjectId || !currentProject) return;
-
-            if (!confirm("Accept this agreement and mark the project as COMPLETED?\n\nFunds will be released to the funder.")) return;
-
-            try {
-                const projectRef = db.collection("projects").doc(currentProjectId);
-                const updatedSubmissions = [...currentProject.submissions];
-                updatedSubmissions[submissionIndex].status = 'accepted';
-
-                await projectRef.update({
-                    submissions: updatedSubmissions,
-                    status: "completed",
-                    completedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-
-                alert("🎉 Project successfully completed!\n\nFunds released. Both parties will be prompted to leave reviews.");
-
-                hideProjectDetailModal();
-                loadMarketplace();
-                loadProfileData();
-
-                // Simple mutual review prompt (can be expanded later)
-                setTimeout(() => {
-                    if (confirm("Would you like to leave a review for the funder now?")) {
-                        alert("Review system coming in next update — thank you for building on NQVate!");
-                    }
-                }, 800);
-            } catch (e) {
-                console.error(e);
-                alert("Failed to accept: " + e.message);
-            }
-        }
-
-        async function requestChanges(submissionIndex) {
-            if (!currentProjectId || !currentProject) return;
-
-            const feedback = prompt("What changes would you like the funder to make?\n\nBe specific:");
-
-            if (feedback === null || feedback.trim() === "") return;
-
-            try {
-                const projectRef = db.collection("projects").doc(currentProjectId);
-                const updatedSubmissions = [...currentProject.submissions];
-                updatedSubmissions[submissionIndex].status = 'changes-requested';
-                updatedSubmissions[submissionIndex].feedback = feedback.trim();
-                updatedSubmissions[submissionIndex].feedbackAt = new Date();
-
-                await projectRef.update({ submissions: updatedSubmissions });
-
-                alert("✅ Feedback sent to the funder.");
-
-                hideProjectDetailModal();
-                loadMarketplace();
-            } catch (e) {
-                console.error(e);
-                alert("Failed to send feedback: " + e.message);
-            }
-        }
     
         function hideProjectDetailModal() {
             document.getElementById('project-detail-modal').classList.add('hidden');
@@ -1340,24 +1233,26 @@
             navigateToChat();
         }
 
-        // ====================== SUBMIT WORK / FUNDING AGREEMENT ======================
+        // ====================== FULL REVIEW & BACK-AND-FORTH WORKFLOW ======================
         let currentSubmitProjectId = null;
         let currentSubmitProjectType = null;
+        let currentRevisionIndex = null;   // for resubmissions
 
-        function showSubmitWorkModal(projectId, project) {
+        function showSubmitWorkModal(projectId, project, revisionIndex = null) {
             currentSubmitProjectId = projectId;
             currentSubmitProjectType = project.type;
+            currentRevisionIndex = revisionIndex;
 
             const modal = document.getElementById('submit-work-modal');
             
             if (project.type === 'fund') {
-                document.getElementById('submit-modal-title').innerHTML = 'Submit Funding Agreement';
+                document.getElementById('submit-modal-title').innerHTML = revisionIndex !== null ? 'Revise Funding Agreement' : 'Submit Funding Agreement';
                 document.getElementById('submit-modal-subtitle').innerHTML = `You are committing to provide <strong>${project.compensation}</strong> for equity in this project.`;
                 document.getElementById('boilerplate-btn').classList.remove('hidden');
                 document.getElementById('file-label').textContent = 'Upload signed agreement or supporting documents';
                 document.getElementById('submit-desc').placeholder = 'Notes about your funding commitment...';
             } else {
-                document.getElementById('submit-modal-title').innerHTML = 'Submit Deliverables';
+                document.getElementById('submit-modal-title').innerHTML = revisionIndex !== null ? 'Revise Deliverables' : 'Submit Deliverables';
                 document.getElementById('submit-modal-subtitle').innerHTML = `Project: <strong>${project.title}</strong>`;
                 document.getElementById('boilerplate-btn').classList.add('hidden');
                 document.getElementById('file-label').textContent = 'Upload files (code, builds, screenshots, etc.)';
@@ -1370,6 +1265,7 @@
 
         function hideSubmitWorkModal() {
             document.getElementById('submit-work-modal').classList.add('hidden');
+            currentRevisionIndex = null;
         }
 
         function generateFundingBoilerplate() {
@@ -1431,14 +1327,27 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                     status: 'submitted'
                 };
 
-                await projectRef.update({
-                    submissions: firebase.firestore.FieldValue.arrayUnion(submission),
-                    lastSubmittedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
+                let updateData = {};
 
-                alert(currentSubmitProjectType === 'fund' 
-                    ? "✅ Funding agreement submitted! The project owner has been notified." 
-                    : "✅ Deliverables submitted successfully!");
+                if (currentRevisionIndex !== null) {
+                    // This is a revision
+                    const updatedSubmissions = [...currentProject.submissions];
+                    updatedSubmissions[currentRevisionIndex] = { ...updatedSubmissions[currentRevisionIndex], ...submission, status: 'revised' };
+                    updateData.submissions = updatedSubmissions;
+                } else {
+                    // New submission
+                    updateData.submissions = firebase.firestore.FieldValue.arrayUnion(submission);
+                }
+
+                updateData.lastSubmittedAt = firebase.firestore.FieldValue.serverTimestamp();
+
+                await projectRef.update(updateData);
+
+                const msg = currentSubmitProjectType === 'fund' 
+                    ? "✅ Funding agreement submitted / revised! The project owner has been notified." 
+                    : "✅ Deliverables submitted successfully!";
+
+                alert(msg);
 
                 hideSubmitWorkModal();
                 hideProjectDetailModal();
@@ -1448,6 +1357,102 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                 alert("Failed to submit: " + e.message);
             }
         }
+
+        function renderSubmissions(project) {
+            const container = document.getElementById('submissions-list');
+            if (!project.submissions || project.submissions.length === 0) {
+                container.innerHTML = `<p class="text-zinc-400">No submissions yet.</p>`;
+                return;
+            }
+
+            let html = '';
+            project.submissions.forEach((sub, index) => {
+                const isFunding = sub.type === 'funding-agreement';
+                const isPoster = currentUser && currentUser.uid === project.posterUid;
+                const canRespond = isPoster ? sub.status !== 'accepted' : sub.status === 'changes-requested';
+
+                html += `
+                    <div class="bg-zinc-800 rounded-3xl p-6">
+                        <div class="flex justify-between items-start">
+                            <p class="font-medium">${isFunding ? 'Funding Agreement' : 'Deliverables'} • ${sub.submitterName}</p>
+                            <span class="text-xs px-3 py-1 rounded-full ${sub.status === 'accepted' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}">
+                                ${sub.status}
+                            </span>
+                        </div>
+                        <p class="text-zinc-300 mt-3 line-clamp-6">${sub.description}</p>
+                        ${sub.link ? `<p class="text-cyan-400 text-sm mt-2">🔗 <a href="${sub.link}" target="_blank" class="hover:underline">${sub.link}</a></p>` : ''}
+                        ${sub.files && sub.files.length > 0 ? `<p class="text-xs text-violet-400 mt-3">📎 ${sub.files.length} file(s) attached</p>` : ''}
+                        
+                        ${sub.feedback ? `
+                        <div class="mt-4 p-4 bg-red-900/30 border border-red-500/30 rounded-2xl">
+                            <p class="text-red-400 text-sm font-medium">Feedback from Project Owner:</p>
+                            <p class="text-zinc-300 text-sm">${sub.feedback}</p>
+                        </div>` : ''}
+
+                        ${canRespond ? `
+                        <div class="flex gap-3 mt-6">
+                            ${isPoster ? `
+                            <button onclick="acceptSubmission(${index})" class="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-2xl">✅ Accept</button>
+                            <button onclick="requestChanges(${index})" class="flex-1 py-3 border border-zinc-400 hover:bg-zinc-700 text-white font-medium rounded-2xl">Request Changes</button>` : `
+                            <button onclick="showSubmitWorkModal('${currentProjectId}', currentProject, ${index})" class="flex-1 py-3 bg-violet-500 hover:bg-violet-600 text-white font-semibold rounded-2xl">Resubmit Revised Agreement</button>`}
+                        </div>` : ''}
+                    </div>`;
+            });
+            container.innerHTML = html;
+        }
+
+        async function acceptSubmission(submissionIndex) {
+            if (!currentProjectId || !currentProject) return;
+            if (!confirm("Accept this agreement and mark the project as COMPLETED?\n\nFunds will be released.")) return;
+
+            try {
+                const projectRef = db.collection("projects").doc(currentProjectId);
+                const updatedSubmissions = [...currentProject.submissions];
+                updatedSubmissions[submissionIndex].status = 'accepted';
+
+                await projectRef.update({
+                    submissions: updatedSubmissions,
+                    status: "completed",
+                    completedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                alert("🎉 Project successfully completed!\nFunds released.");
+
+                hideProjectDetailModal();
+                loadMarketplace();
+                loadProfileData();
+            } catch (e) {
+                console.error(e);
+                alert("Failed to accept: " + e.message);
+            }
+        }
+
+        async function requestChanges(submissionIndex) {
+            if (!currentProjectId || !currentProject) return;
+
+            const feedback = prompt("What changes would you like the other party to make?\n\nBe specific:");
+
+            if (feedback === null || feedback.trim() === "") return;
+
+            try {
+                const projectRef = db.collection("projects").doc(currentProjectId);
+                const updatedSubmissions = [...currentProject.submissions];
+                updatedSubmissions[submissionIndex].status = 'changes-requested';
+                updatedSubmissions[submissionIndex].feedback = feedback.trim();
+                updatedSubmissions[submissionIndex].feedbackAt = new Date();
+
+                await projectRef.update({ submissions: updatedSubmissions });
+
+                alert("✅ Feedback sent.");
+
+                hideProjectDetailModal();
+                loadMarketplace();
+            } catch (e) {
+                console.error(e);
+                alert("Failed to send feedback: " + e.message);
+            }
+        }
+    
         // ====================== CHAT FUNCTIONS ======================
         let currentChatId = null;
         let currentChatPartnerUid = null;
