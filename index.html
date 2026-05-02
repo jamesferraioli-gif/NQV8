@@ -70,21 +70,20 @@
 
     <!-- MARKETPLACE PAGE -->
     <div id="marketplace-page" class="max-w-6xl mx-auto pt-8 px-6">
+
         <div class="mb-10">
             <h1 class="text-5xl font-bold tracking-tighter mb-4">Marketplace</h1>
-            <p class="text-xl text-zinc-400 max-w-3xl">
-                Get building! 
-            </p>
+            <p class="text-xl text-zinc-400 max-w-3xl">Get building!</p>
         </div>
 
         <!-- Controls + Live Stats -->
         <div class="flex flex-col md:flex-row gap-4 mb-8 items-end">
-            <input id="search-input" type="text" 
-                   placeholder="Search projects..." 
+            <input id="search-input" type="text"
+                   placeholder="Search projects..."
                    onkeyup="if(event.key === 'Enter') searchProjects()"
                    class="flex-1 bg-zinc-900 border border-zinc-700 rounded-3xl px-6 py-4 outline-none text-lg">
-
-            <button onclick="showPostProjectModal()" 
+            
+            <button onclick="showPostProjectModal()"
                     class="bg-white text-black font-semibold px-8 py-4 rounded-3xl flex items-center gap-3 hover:bg-cyan-400 transition-colors">
                 <i class="fa-solid fa-plus"></i> Post New Project
             </button>
@@ -92,32 +91,15 @@
 
         <!-- Live Stats -->
         <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10 text-center">
-            <div class="bg-zinc-900 rounded-3xl p-6">
-                <p id="stat-open" class="text-4xl font-bold text-cyan-400">0</p>
-                <p class="text-xs text-zinc-400">Open for Bidding</p>
-            </div>
-            <div class="bg-zinc-900 rounded-3xl p-6">
-                <p id="stat-inprogress" class="text-4xl font-bold text-amber-400">0</p>
-                <p class="text-xs text-zinc-400">Actively Building</p>
-            </div>
-            <div class="bg-zinc-900 rounded-3xl p-6">
-                <p id="stat-completed" class="text-4xl font-bold text-emerald-400">0</p>
-                <p class="text-xs text-zinc-400">Completed</p>
-            </div>
-            <div class="bg-zinc-900 rounded-3xl p-6">
-                <p id="stat-nqv8-awarded" class="text-4xl font-bold text-violet-400">0</p>
-                <p class="text-xs text-zinc-400">NQV8 Awarded</p>
-            </div>
-            <div class="bg-zinc-900 rounded-3xl p-6">
-                <p id="stat-total-funding" class="text-4xl font-bold">$0</p>
-                <p class="text-xs text-zinc-400">Total Funding</p>
-            </div>
+            <!-- stats cards here -->
         </div>
 
-    <!-- Projects Grid -->
-    <div id="projects-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <!-- Projects Grid -->
+        <div id="projects-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <!-- Populated by JS -->
-    </div>   <!-- ←←← ADD THIS LINE (closes marketplace-page) -->
+        </div>
+
+    </div> <!-- ←←← CORRECTLY closes #marketplace-page -->
     
     <!-- POST PROJECT MODAL -->
     <div id="post-project-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
