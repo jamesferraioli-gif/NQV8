@@ -1058,20 +1058,105 @@
             }
 
             let html = '';
-            project.submissions.forEach((sub) => {
+            project.submissions.forEach((sub, index) => {
                 const isFunding = sub.type === 'funding-agreement';
+                const isPoster = currentUser && currentUser.uid === project.posterUid;
+
                 html += `
                     <div class="bg-zinc-800 rounded-3xl p-6">
                         <div class="flex justify-between items-start">
                             <p class="font-medium">${isFunding ? 'Funding Agreement' : 'Deliverables'} • ${sub.submitterName}</p>
-                            <span class="text-xs px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400">${sub.status}</span>
+                            <span class="text-xs px-3 py-1 rounded-full ${sub.status === 'accepted' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}">
+                                ${sub.status}
+                            </span>
                         </div>
-                        <p class="text-zinc-300 mt-3 line-clamp-4">${sub.description}</p>
+                        <p class="text-zinc-300 mt-3 line-clamp-6">${sub.description}</p>
                         ${sub.link ? `<p class="text-cyan-400 text-sm mt-2">🔗 <a href="${sub.link}" target="_blank" class="hover:underline">${sub.link}</a></p>` : ''}
                         ${sub.files && sub.files.length > 0 ? `<p class="text-xs text-violet-400 mt-3">📎 ${sub.files.length} file(s) attached</p>` : ''}
+                        
+                        ${sub.feedback ? `
+                        <div class="mt-4 p-4 bg-red-900/30 border border-red-500/30 rounded-2xl">
+                            <p class="text-red-400 text-sm font-medium">Feedback from Project Owner:</p>
+                            <p class="text-zinc-300 text-sm">${sub.feedback}</p>
+                        </div>` : ''}
+
+                        <!-- Poster-only action buttons -->
+                        ${isPoster && sub.status !== 'accepted' ? `
+                        <div class="flex gap-3 mt-6">
+                            <button onclick="acceptSubmission(${index})" 
+                                    class="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-2xl">
+                                ✅ Accept
+                            </button>
+                            <button onclick="requestChanges(${index})" 
+                                    class="flex-1 py-3 border border-zinc-400 hover:bg-zinc-700 text-white font-medium rounded-2xl">
+                                Request Changes
+                            </button>
+                        </div>` : ''}
                     </div>`;
             });
             container.innerHTML = html;
+        }
+
+
+        // ====================== POSTER REVIEW & APPROVAL ======================
+        async function acceptSubmission(submissionIndex) {
+            if (!currentProjectId || !currentProject) return;
+
+            if (!confirm("Accept this agreement and mark the project as COMPLETED?\n\nFunds will be released to the funder.")) return;
+
+            try {
+                const projectRef = db.collection("projects").doc(currentProjectId);
+                const updatedSubmissions = [...currentProject.submissions];
+                updatedSubmissions[submissionIndex].status = 'accepted';
+
+                await projectRef.update({
+                    submissions: updatedSubmissions,
+                    status: "completed",
+                    completedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                alert("🎉 Project successfully completed!\n\nFunds released. Both parties will be prompted to leave reviews.");
+
+                hideProjectDetailModal();
+                loadMarketplace();
+                loadProfileData();
+
+                // Simple mutual review prompt (can be expanded later)
+                setTimeout(() => {
+                    if (confirm("Would you like to leave a review for the funder now?")) {
+                        alert("Review system coming in next update — thank you for building on NQVate!");
+                    }
+                }, 800);
+            } catch (e) {
+                console.error(e);
+                alert("Failed to accept: " + e.message);
+            }
+        }
+
+        async function requestChanges(submissionIndex) {
+            if (!currentProjectId || !currentProject) return;
+
+            const feedback = prompt("What changes would you like the funder to make?\n\nBe specific:");
+
+            if (feedback === null || feedback.trim() === "") return;
+
+            try {
+                const projectRef = db.collection("projects").doc(currentProjectId);
+                const updatedSubmissions = [...currentProject.submissions];
+                updatedSubmissions[submissionIndex].status = 'changes-requested';
+                updatedSubmissions[submissionIndex].feedback = feedback.trim();
+                updatedSubmissions[submissionIndex].feedbackAt = new Date();
+
+                await projectRef.update({ submissions: updatedSubmissions });
+
+                alert("✅ Feedback sent to the funder.");
+
+                hideProjectDetailModal();
+                loadMarketplace();
+            } catch (e) {
+                console.error(e);
+                alert("Failed to send feedback: " + e.message);
+            }
         }
     
         function hideProjectDetailModal() {
