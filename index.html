@@ -44,6 +44,25 @@
                     <a onclick="navigateTo('leaderboard')" class="hover:text-cyan-400 cursor-pointer">Leaderboard</a>
                 </div>
 
+                <!-- Notification Bell -->
+                <div class="relative">
+                    <button onclick="toggleNotifications()" class="relative p-2">
+                        <i class="fa-solid fa-bell text-xl hover:text-cyan-400"></i>
+                        <span id="notif-count" class="hidden absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">0</span>
+                    </button>
+                
+                    <!-- Dropdown -->
+                    <div id="notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-zinc-900 border border-zinc-700 rounded-3xl shadow-2xl z-[99999] max-h-96 overflow-auto">
+                        <div class="px-6 py-4 border-b border-zinc-700 flex justify-between items-center">
+                            <p class="font-semibold">Notifications</p>
+                            <button onclick="markAllRead()" class="text-xs text-cyan-400 hover:underline">Mark all read</button>
+                        </div>
+                        <div id="notif-list" class="py-2">
+                            <p class="text-zinc-400 text-center py-8 text-sm">No notifications yet</p>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- RIGHT: Wallet + Profile -->
                 <div id="right-section" class="hidden flex items-center gap-4 ml-auto">
                     <button onclick="connectWallet()" class="flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-cyan-400 text-cyan-400 px-5 py-2.5 rounded-2xl text-sm font-medium">
@@ -591,6 +610,147 @@
         
 <script>
         console.log("✅ SCRIPT LOADED SUCCESSFULLY");
+
+                // ====================== NOTIFICATIONS ======================
+        let notifUnsubscribe = null;
+        
+        function listenForNotifications() {
+            if (!currentUser) return;
+            if (notifUnsubscribe) notifUnsubscribe();
+        
+            notifUnsubscribe = db.collection("notifications")
+                .where("recipientUid", "==", currentUser.uid)
+                .where("read", "==", false)
+                .orderBy("createdAt", "desc")
+                .onSnapshot(snapshot => {
+                    const count = snapshot.size;
+                    const countEl = document.getElementById('notif-count');
+                    
+                    if (count > 0) {
+                        countEl.textContent = count > 9 ? '9+' : count;
+                        countEl.classList.remove('hidden');
+                    } else {
+                        countEl.classList.add('hidden');
+                    }
+                });
+        }
+        
+        async function toggleNotifications() {
+            const dropdown = document.getElementById('notif-dropdown');
+            dropdown.classList.toggle('hidden');
+            if (!dropdown.classList.contains('hidden')) {
+                await loadNotifications();
+            }
+        }
+        
+        async function loadNotifications() {
+            const list = document.getElementById('notif-list');
+            list.innerHTML = '<p class="text-zinc-400 text-center py-8 text-sm">Loading...</p>';
+        
+            try {
+                const snap = await db.collection("notifications")
+                    .where("recipientUid", "==", currentUser.uid)
+                    .orderBy("createdAt", "desc")
+                    .limit(20)
+                    .get();
+        
+                if (snap.empty) {
+                    list.innerHTML = '<p class="text-zinc-400 text-center py-8 text-sm">No notifications yet</p>';
+                    return;
+                }
+        
+                list.innerHTML = '';
+                snap.forEach(doc => {
+                    const n = doc.data();
+                    const div = document.createElement('div');
+                    div.className = `px-6 py-4 hover:bg-zinc-800 cursor-pointer border-b border-zinc-800 ${!n.read ? 'bg-zinc-800/50' : ''}`;
+                    div.innerHTML = `
+                        <div class="flex items-start gap-3">
+                            <span class="text-xl">${getNotifIcon(n.type)}</span>
+                            <div class="flex-1">
+                                <p class="text-sm">${n.message}</p>
+                                <p class="text-xs text-zinc-500 mt-1">${timeAgo(n.createdAt?.toDate())}</p>
+                            </div>
+                            ${!n.read ? '<div class="w-2 h-2 bg-cyan-400 rounded-full mt-1 flex-shrink-0"></div>' : ''}
+                        </div>
+                    `;
+                    div.onclick = () => handleNotifClick(doc.id, n);
+                    list.appendChild(div);
+                });
+            } catch (e) {
+                console.error(e);
+                list.innerHTML = '<p class="text-red-400 text-center py-8 text-sm">Error loading notifications</p>';
+            }
+        }
+        
+        function getNotifIcon(type) {
+            const icons = {
+                'bid':       '💰',
+                'bid_accepted': '🎉',
+                'message':   '💬',
+                'comment':   '🗨️',
+                'like':      '👍',
+                'submission':'📦',
+                'review':    '⭐',
+                'changes':   '🔁'
+            };
+            return icons[type] || '🔔';
+        }
+        
+        function timeAgo(date) {
+            if (!date) return '';
+            const seconds = Math.floor((new Date() - date) / 1000);
+            if (seconds < 60) return 'just now';
+            if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+            if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+            return Math.floor(seconds / 86400) + 'd ago';
+        }
+        
+        async function handleNotifClick(notifId, notif) {
+            // Mark as read
+            await db.collection("notifications").doc(notifId).update({ read: true });
+        
+            // Navigate to relevant page
+            document.getElementById('notif-dropdown').classList.add('hidden');
+        
+            if (notif.projectId) {
+                const snap = await db.collection("projects").doc(notif.projectId).get();
+                if (snap.exists) showProjectDetail(notif.projectId, snap.data());
+            } else if (notif.type === 'message') {
+                navigateToChat();
+            } else if (notif.postId) {
+                const snap = await db.collection("posts").doc(notif.postId).get();
+                if (snap.exists) viewPostDetail(notif.postId, snap.data());
+            }
+        }
+        
+        async function markAllRead() {
+            const snap = await db.collection("notifications")
+                .where("recipientUid", "==", currentUser.uid)
+                .where("read", "==", false)
+                .get();
+        
+            const batch = db.batch();
+            snap.forEach(doc => batch.update(doc.ref, { read: true }));
+            await batch.commit();
+        
+            document.getElementById('notif-count').classList.add('hidden');
+            loadNotifications();
+        }
+        
+        async function createNotification(recipientUid, type, message, extras = {}) {
+            if (recipientUid === currentUser.uid) return; // never notify yourself
+            
+            await db.collection("notifications").add({
+                recipientUid,
+                type,
+                message,
+                read: false,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                ...extras
+            });
+        }
+    
 
         const firebaseConfig = {
           apiKey: "AIzaSyDnUVkD4WZ_jpHK1cY1G_1DOvHSfkUropU",
@@ -1180,6 +1340,12 @@
                 });
 
                 alert("✅ Bid placed successfully! ($0.01 NQV8 deducted in future version)");
+                await createNotification(
+                    project.posterUid,
+                    'bid',
+                    `@${currentUser.username} placed a bid on your project: ${project.title}`,
+                    { projectId }
+                );
                 hideProjectDetailModal();
                 loadMarketplace();
             } catch (e) {
@@ -1304,6 +1470,12 @@
                 await db.collection("chats").add(chatData);
 
                 alert(`✅ Bid accepted with ${deadline} deadline!\n\nProject is now locked.`);
+                await createNotification(
+                    bid.bidderUid,
+                    'bid_accepted',
+                    `Your bid was accepted on: ${currentProject.title}! 🎉`,
+                    { projectId: currentProjectId }
+                );
 
                 hideBidDetailModal();
                 hideProjectDetailModal();
@@ -1444,6 +1616,12 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                     : "✅ Deliverables submitted successfully!";
 
                 alert(msg);
+                await createNotification(
+                    currentProject.posterUid,
+                    'submission',
+                    `@${currentUser.username} submitted deliverables for: ${currentProject.title}`,
+                    { projectId: currentSubmitProjectId }
+                );
 
                 hideSubmitWorkModal();
                 hideProjectDetailModal();
@@ -1545,6 +1723,12 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                 await projectRef.update({ submissions: updatedSubmissions });
 
                 alert("✅ Feedback sent.");
+                await createNotification(
+                    currentProject.acceptedBidderUid,
+                    'changes',
+                    `Changes were requested on your submission for: ${currentProject.title}`,
+                    { projectId: currentProjectId }
+                );
 
                 hideProjectDetailModal();
                 loadMarketplace();
@@ -1800,6 +1984,11 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                 });
 
                 input.value = '';
+                await createNotification(
+                    currentChatPartnerUid,
+                    'message',
+                    `@${currentUser.username} sent you a message`
+                );
             } catch (e) {
                 console.error(e);
                 alert("Failed to send message");
@@ -2263,6 +2452,13 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                 });
 
                 alert("✅ Comment posted! ($0.01 NQV8 deducted)");
+                const post = (await db.collection("posts").doc(currentPostId).get()).data();
+                await createNotification(
+                    post.posterUid,
+                    'comment',
+                    `@${currentUser.username} commented on your post: ${post.title}`,
+                    { postId: currentPostId }
+                );
                 document.getElementById('new-comment').value = '';
 
                 // Refresh the current post
