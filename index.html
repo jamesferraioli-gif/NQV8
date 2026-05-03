@@ -105,7 +105,7 @@
 
 <div id="mobile-menu" class="hidden md:hidden bg-zinc-900 border-b border-zinc-800 px-6 py-4 space-y-4 sticky top-[72px] z-40">
     <a onclick="navigateTo('marketplace'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏪 Marketplace</a>
-    <a onclick="navigateTo('ideas'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">💡 Ideas</a>
+    <a onclick="navigateTo('ideas'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🔎 Explore</a>
     <a onclick="navigateToChat(); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">💬 Chat</a>
     <a onclick="navigateTo('leaderboard'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏆 Leaderboard</a>
     <a onclick="viewProfile(); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">👤 My Profile</a>
@@ -344,9 +344,9 @@
 
             <input id="idea-title" type="text" placeholder="Title" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
 
-            <!-- Link field - shown for News and Project -->
+            <!-- Link field - required for News & Project -->
             <div id="link-group">
-                <input id="idea-link" type="text" placeholder="Paste link here (required for News & Project)" 
+                <input id="idea-link" type="text" placeholder="Paste full link here (required for News & Project)" 
                        class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
             </div>
 
@@ -2436,15 +2436,20 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                         <p class="text-zinc-400 line-clamp-3 mt-2">${post.description}</p>
                         
                         ${post.link ? `
-                        <div class="mt-4 bg-black/50 border border-zinc-700 rounded-2xl p-3 flex items-center gap-3">
+                        <div id="preview-${doc.id}" class="mt-4 bg-black/50 border border-zinc-700 rounded-2xl p-3 flex items-center gap-3 animate-pulse">
                             <span class="text-cyan-400">🔗</span>
-                            <a href="${post.link}" target="_blank" class="text-cyan-400 hover:underline text-sm truncate flex-1">${post.link}</a>
+                            <div class="flex-1">
+                                <p class="text-cyan-400 text-sm truncate">${post.link}</p>
+                            </div>
                         </div>` : ''}
                         
                         <p class="text-xs text-violet-400 mt-4">Posted by @${post.username}</p>
                     `;
                     card.onclick = () => viewPostDetail(doc.id, post);
                     grid.appendChild(card);
+
+                    // Load real preview if link exists
+                    if (post.link) loadLinkPreview(doc.id, post.link);
                 });
             } catch (e) {
                 console.error(e);
@@ -2452,7 +2457,30 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             }
         }
 
-        // ====================== FULL IDEAS / NEWS DETAIL VIEW ======================
+        async function loadLinkPreview(postId, url) {
+            try {
+                const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
+                const data = await res.json();
+                
+                const previewContainer = document.getElementById(`preview-${postId}`);
+                if (!previewContainer || !data.data) return;
+
+                previewContainer.innerHTML = `
+                    <div class="flex gap-3">
+                        ${data.data.image ? `<img src="${data.data.image.url}" class="w-12 h-12 object-cover rounded-xl flex-shrink-0">` : ''}
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium text-sm line-clamp-1">${data.data.title || 'Untitled'}</p>
+                            <p class="text-xs text-zinc-400 line-clamp-2">${data.data.description || ''}</p>
+                            <p class="text-cyan-400 text-xs mt-1 truncate">${url}</p>
+                        </div>
+                    </div>
+                `;
+            } catch(e) {
+                // Fallback to simple link if preview fails
+            }
+        }
+
+        // ====================== FULL EXPLORE DETAIL VIEW ======================
         let currentPostId = null;
 
         function viewPostDetail(postId, post) {
@@ -2473,10 +2501,16 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                     <span class="text-xs text-zinc-500">${post.comments ? post.comments.length : 0} comments</span>
                 </div>
                 <p class="text-zinc-400 mb-8">${post.description}</p>
-                ${post.link ? `<p class="text-cyan-400 mb-8">🔗 <a href="${post.link}" target="_blank" class="hover:underline">${post.link}</a></p>` : ''}
-                <p class="text-xs text-violet-400 mb-8">Posted by @${post.username}</p>
+                
+                ${post.link ? `
+                <div id="detail-preview" class="mt-6 bg-black/50 border border-zinc-700 rounded-3xl p-4">
+                    <p class="text-xs text-zinc-400 mb-2">LINK PREVIEW</p>
+                    <div class="animate-pulse">Loading preview...</div>
+                </div>` : ''}
+                
+                <p class="text-xs text-violet-400 mt-8">Posted by @${post.username}</p>
 
-                <h3 class="text-2xl font-semibold mb-4">Comments</h3>
+                <h3 class="text-2xl font-semibold mb-4 mt-10">Comments</h3>
                 <div id="comments-list" class="space-y-4 mb-8"></div>
 
                 <div class="border-t border-zinc-700 pt-6">
@@ -2490,6 +2524,31 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             content.innerHTML = html;
             modal.classList.remove('hidden');
             renderComments(post);
+
+            // Load real preview in detail view
+            if (post.link) {
+                loadLinkPreviewDetail(post.link);
+            }
+        }
+
+        async function loadLinkPreviewDetail(url) {
+            try {
+                const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
+                const data = await res.json();
+                const container = document.getElementById('detail-preview');
+                if (!container || !data.data) return;
+
+                container.innerHTML = `
+                    <div class="flex gap-4">
+                        ${data.data.image ? `<img src="${data.data.image.url}" class="w-20 h-20 object-cover rounded-2xl flex-shrink-0">` : ''}
+                        <div>
+                            <p class="font-semibold">${data.data.title || 'Untitled Page'}</p>
+                            <p class="text-sm text-zinc-400 line-clamp-3">${data.data.description || ''}</p>
+                            <a href="${url}" target="_blank" class="text-cyan-400 text-xs hover:underline mt-2 block">${url}</a>
+                        </div>
+                    </div>
+                `;
+            } catch(e) {}
         }
 
 
