@@ -344,11 +344,14 @@
 
             <input id="idea-title" type="text" placeholder="Title" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
 
-            <textarea id="idea-desc" placeholder="Your idea, comment, or project description..." rows="5" class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6"></textarea>
-
-            <div id="news-link-group">
-                <input id="idea-link" type="text" placeholder="Link (optional for Idea/Project, required for News)" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-6">
+            <!-- Link field - shown for News and Project -->
+            <div id="link-group">
+                <input id="idea-link" type="text" placeholder="Paste link here (required for News & Project)" 
+                       class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
             </div>
+
+            <textarea id="idea-desc" placeholder="Your comment or description..." rows="5" 
+                      class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6"></textarea>
 
             <div class="flex gap-3">
                 <button onclick="hidePostIdeaModal()" class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
@@ -2358,7 +2361,10 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                 t.classList.toggle('text-white', i === tab);
                 t.classList.toggle('text-zinc-400', i !== tab);
             });
-            document.getElementById('news-link-group').classList.toggle('hidden', tab !== 1);
+
+            // Show link field only for News and Project
+            const isIdea = tab === 0;
+            document.getElementById('link-group').classList.toggle('hidden', isIdea);
         }
 
         async function submitIdeaPost() {
@@ -2373,7 +2379,9 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             if (activeTab === 'tab-project') type = 'project';
 
             if (!title || !desc) return alert("Title and description required");
-            if (type === 'news' && !link) return alert("News stories require a link");
+            if ((type === 'news' || type === 'project') && !link) {
+                return alert("News and Project posts require a link");
+            }
 
             try {
                 await db.collection("posts").add({
@@ -2426,7 +2434,13 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                         </div>
                         <h3 class="text-2xl font-bold mt-3">${post.title}</h3>
                         <p class="text-zinc-400 line-clamp-3 mt-2">${post.description}</p>
-                        ${post.link ? `<p class="text-cyan-400 text-sm mt-3">🔗 ${post.link}</p>` : ''}
+                        
+                        ${post.link ? `
+                        <div class="mt-4 bg-black/50 border border-zinc-700 rounded-2xl p-3 flex items-center gap-3">
+                            <span class="text-cyan-400">🔗</span>
+                            <a href="${post.link}" target="_blank" class="text-cyan-400 hover:underline text-sm truncate flex-1">${post.link}</a>
+                        </div>` : ''}
+                        
                         <p class="text-xs text-violet-400 mt-4">Posted by @${post.username}</p>
                     `;
                     card.onclick = () => viewPostDetail(doc.id, post);
