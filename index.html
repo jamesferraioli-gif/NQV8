@@ -176,56 +176,218 @@
 
     </div> <!-- ←←← CORRECTLY closes #marketplace-page -->
     
-    <!-- POST PROJECT MODAL -->
-    <div id="post-project-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
-        <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8">
-            <h2 class="text-3xl font-bold mb-6">Post New Project</h2>
+    <!-- POST PROJECT MODAL - Step 1: Choose or Create Company -->
+<div id="post-project-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999] overflow-auto">
+    <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8 my-8">
+        
+        <!-- Step indicator -->
+        <div class="flex items-center gap-2 mb-8">
+            <div id="step-dot-1" class="w-3 h-3 rounded-full bg-cyan-400"></div>
+            <div class="flex-1 h-px bg-zinc-700"></div>
+            <div id="step-dot-2" class="w-3 h-3 rounded-full bg-zinc-600"></div>
+            <div class="flex-1 h-px bg-zinc-700"></div>
+            <div id="step-dot-3" class="w-3 h-3 rounded-full bg-zinc-600"></div>
+        </div>
 
-            <!-- Tabs -->
-            <div class="flex border-b border-zinc-700 mb-6">
-                <button onclick="switchProjectTab(0)" id="tab-build" 
-                        class="flex-1 pb-4 text-lg font-semibold border-b-2 border-cyan-400">🔨 Build Request</button>
-                <button onclick="switchProjectTab(1)" id="tab-fund" 
-                        class="flex-1 pb-4 text-lg font-semibold text-zinc-400">💰 Funding Request</button>
+        <!-- STEP 1: Company Selection -->
+        <div id="modal-step-1">
+            <h2 class="text-3xl font-bold mb-2">Select Company</h2>
+            <p class="text-zinc-400 mb-6">Projects belong to a company or entity.</p>
+            
+            <div id="company-list-modal" class="space-y-3 mb-6">
+                <!-- Populated by JS -->
             </div>
+            
+            <button onclick="showCreateCompanyForm()" 
+                    class="w-full py-4 border border-dashed border-zinc-600 rounded-3xl text-zinc-400 hover:border-cyan-400 hover:text-cyan-400 transition-colors">
+                + Create New Company / Entity
+            </button>
+
+            <!-- Create Company Form (hidden by default) -->
+            <div id="create-company-form" class="hidden mt-6 space-y-4">
+                <input id="company-name" type="text" placeholder="Company / Entity Name" 
+                       class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                <select id="company-type" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                    <option value="">Entity Type</option>
+                    <option value="LLC">LLC</option>
+                    <option value="SPV">SPV</option>
+                    <option value="Corporation">Corporation</option>
+                    <option value="Sole Proprietor">Sole Proprietor</option>
+                    <option value="DAO">DAO</option>
+                    <option value="Other">Other</option>
+                </select>
+                <button onclick="createCompany()" 
+                        class="w-full py-4 bg-cyan-400 text-black font-semibold rounded-3xl">
+                    Create Entity
+                </button>
+            </div>
+
+            <div class="flex gap-3 mt-8">
+                <button onclick="hidePostProjectModal()" 
+                        class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+                <button onclick="goToStep2()" 
+                        class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Next →</button>
+            </div>
+        </div>
+
+        <!-- STEP 2: Project Details + Type -->
+        <div id="modal-step-2" class="hidden">
+            <h2 class="text-3xl font-bold mb-2">Create Project</h2>
+            <p id="step2-company-label" class="text-cyan-400 mb-6"></p>
 
             <input id="project-title" type="text" placeholder="Project Title" 
                    class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
 
-            <textarea id="project-desc" placeholder="Describe the project in detail..." rows="4" 
+            <textarea id="project-desc" placeholder="Describe the project..." rows="3" 
                       class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6"></textarea>
 
-            <!-- Category -->
-            <div class="mb-6">
-                <p class="text-sm text-zinc-400 mb-3">Category</p>
-                <select id="project-category" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
-                    <option value="">Select Category</option>
-                    <option value="AI/ML">AI / Machine Learning</option>
-                    <option value="Blockchain">Crypto / Blockchain</option>
-                    <option value="DeFi">DeFi / Finance</option>
-                    <option value="Gaming">Gaming / Metaverse</option>
-                    <option value="Infrastructure">Infrastructure / Tools</option>
-                    <option value="Social">Social / Community</option>
-                    <option value="Other">Other</option>
-                </select>
+            <!-- Project Type Selection -->
+            <p class="text-sm text-zinc-400 mb-3">Project Type</p>
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <button onclick="selectProjectType('cash')" id="type-cash"
+                        class="p-5 rounded-3xl border-2 border-cyan-400 bg-cyan-400/10 text-left">
+                    <p class="text-xl mb-1">💵</p>
+                    <p class="font-semibold">Cash Only</p>
+                    <p class="text-xs text-zinc-400 mt-1">Bounties, milestones, cash payments. Free, no verification.</p>
+                </button>
+                <button onclick="selectProjectType('equity')" id="type-equity"
+                        class="p-5 rounded-3xl border-2 border-zinc-600 text-left opacity-70">
+                    <p class="text-xl mb-1">🏛️</p>
+                    <p class="font-semibold">Equity-Enabled</p>
+                    <p class="text-xs text-zinc-400 mt-1">Issue equity tokens. Requires LLC/SPV verification.</p>
+                </button>
             </div>
 
-            <!-- Compensation -->
-            <div class="mb-6">
-                <p id="compensation-label" class="text-sm text-zinc-400 mb-3">Compensation</p>
-                <input id="project-compensation" type="text" placeholder="e.g. $2,500 USDC or $1,000 + 5% equity" 
-                       class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+            <!-- Equity warning -->
+            <div id="equity-warning" class="hidden bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6">
+                <p class="text-amber-400 text-sm font-medium">⚠️ Verification Required</p>
+                <p class="text-zinc-400 text-xs mt-1">You'll need to upload your LLC/SPV documents and pay a verification fee before equity features are unlocked.</p>
             </div>
 
-            <div class="flex gap-3">
-                <button onclick="hidePostProjectModal()" 
-                        class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
-                <button onclick="submitNewProject()" 
-                        class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Post Project ($1.00 NQV8)</button>
+            <div class="flex gap-3 mt-4">
+                <button onclick="goToStep1()" 
+                        class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">← Back</button>
+                <button onclick="goToStep3()" 
+                        class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Next →</button>
             </div>
         </div>
-    </div>
 
+        <!-- STEP 3: Subproject / First Posting -->
+        <div id="modal-step-3" class="hidden">
+            <h2 class="text-3xl font-bold mb-2">Post a Task</h2>
+            <p class="text-zinc-400 mb-6">Create the first subproject to put out for bidding.</p>
+
+            <input id="subproject-title" type="text" placeholder="Task Title" 
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+
+            <textarea id="subproject-desc" placeholder="Describe what you need built or done..." rows="3" 
+                      class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-4"></textarea>
+
+            <select id="subproject-category" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+                <option value="">Select Category</option>
+                <option value="AI/ML">AI / Machine Learning</option>
+                <option value="Blockchain">Crypto / Blockchain</option>
+                <option value="DeFi">DeFi / Finance</option>
+                <option value="Gaming">Gaming / Metaverse</option>
+                <option value="Infrastructure">Infrastructure / Tools</option>
+                <option value="Social">Social / Community</option>
+                <option value="Other">Other</option>
+            </select>
+
+            <!-- Compensation type -->
+            <div id="subproject-comp-options" class="mb-4">
+                <p class="text-sm text-zinc-400 mb-3">Compensation Type</p>
+                <div id="cash-comp-option" class="space-y-3">
+                    <input id="subproject-compensation" type="text" placeholder="e.g. $2,500 USDC" 
+                           class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                </div>
+                <div id="equity-comp-option" class="hidden space-y-3">
+                    <select id="subproject-comp-type" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                        <option value="cash">💵 Cash Payment</option>
+                        <option value="equity">🏛️ Equity Only</option>
+                        <option value="mixed">💵 + 🏛️ Cash + Equity</option>
+                    </select>
+                    <input id="subproject-compensation" type="text" placeholder="e.g. $1,000 + 0.5% equity" 
+                           class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                </div>
+            </div>
+
+            <div class="flex gap-3 mt-4">
+                <button onclick="goToStep2()" 
+                        class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">← Back</button>
+                <button onclick="submitFullProject()" 
+                        class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Post Project</button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+
+        <!-- EQUITY VERIFICATION MODAL -->
+        <div id="verification-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
+            <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8">
+                <h2 class="text-3xl font-bold mb-2">Entity Verification</h2>
+                <p class="text-zinc-400 mb-8">Upload your LLC/SPV documents to unlock equity features.</p>
+        
+                <!-- Status banner -->
+                <div id="verif-status-banner" class="hidden mb-6 p-4 rounded-2xl">
+                    <p id="verif-status-text" class="font-medium"></p>
+                </div>
+        
+                <div class="space-y-4 mb-6">
+                    <div>
+                        <p class="text-sm text-zinc-400 mb-2">Articles of Incorporation / Formation</p>
+                        <input type="file" id="doc-incorporation" accept=".pdf,.jpg,.png" 
+                               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none">
+                    </div>
+                    <div>
+                        <p class="text-sm text-zinc-400 mb-2">EIN / Tax ID Document</p>
+                        <input type="file" id="doc-ein" accept=".pdf,.jpg,.png" 
+                               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none">
+                    </div>
+                    <div>
+                        <p class="text-sm text-zinc-400 mb-2">Government-Issued ID (Authorized Representative)</p>
+                        <input type="file" id="doc-id" accept=".pdf,.jpg,.png" 
+                               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none">
+                    </div>
+                </div>
+        
+                <!-- Fee breakdown -->
+                <div class="bg-black/50 rounded-2xl p-5 mb-6">
+                    <p class="text-sm text-zinc-400 mb-3">Fee Breakdown</p>
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="text-zinc-300">KYB Verification Fee</span>
+                        <span>$150 USDC</span>
+                    </div>
+                    <div class="flex justify-between text-sm mb-2">
+                        <span class="text-zinc-300">NQVate Processing Fee</span>
+                        <span>$50 USDC</span>
+                    </div>
+                    <div class="border-t border-zinc-700 mt-3 pt-3 flex justify-between font-semibold">
+                        <span>Total</span>
+                        <span class="text-cyan-400">$200 USDC</span>
+                    </div>
+                </div>
+        
+                <p class="text-xs text-zinc-500 mb-6 text-center">
+                    Payment will be charged to your connected wallet. Cash-only projects remain free.
+                </p>
+        
+                <div class="flex gap-3">
+                    <button onclick="hideVerificationModal()" 
+                            class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+                    <button onclick="submitVerification()" 
+                            class="flex-1 py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-3xl">
+                        Upload & Pay $200 USDC
+                    </button>
+                </div>
+            </div>
+        </div>
+
+
+
+    
     <!-- PROJECT DETAIL MODAL -->
     <div id="project-detail-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
         <div class="bg-zinc-900 w-full max-w-2xl mx-4 rounded-3xl p-4 md:p-8 max-h-[90vh] overflow-auto">
@@ -398,7 +560,7 @@
     <div id="auth-modal" class="fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
         <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-4 md:p-10">
             <div class="flex border-b border-zinc-700 mb-6">
-                <button onclick="switchTab(0)" id="tab-create"
+                <button onclick="switchTab(0)" id="tab-create" class="flex-1 pb-4 text-lg font-semibold border-b-2 border-cyan-400">Create Account</button>
                 <button onclick="switchTab(1)" id="tab-login" class="flex-1 pb-4 text-lg font-semibold text-zinc-400">Login</button>
             </div>
 
@@ -644,9 +806,36 @@
         </div>
     </div>
 
+    <!-- ADD SUBPROJECT MODAL -->
+    <div id="add-subproject-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
+        <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8">
+            <h2 class="text-3xl font-bold mb-6">Add Task</h2>
+            
+            <input id="new-sub-title" type="text" placeholder="Task Title" 
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+            <textarea id="new-sub-desc" placeholder="Describe the task..." rows="3" 
+                      class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-4"></textarea>
+            <select id="new-sub-category" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+                <option value="">Select Category</option>
+                <option value="AI/ML">AI / Machine Learning</option>
+                <option value="Blockchain">Crypto / Blockchain</option>
+                <option value="DeFi">DeFi / Finance</option>
+                <option value="Gaming">Gaming / Metaverse</option>
+                <option value="Infrastructure">Infrastructure / Tools</option>
+                <option value="Social">Social / Community</option>
+                <option value="Other">Other</option>
+            </select>
+            <input id="new-sub-comp" type="text" placeholder="Compensation (e.g. $500 USDC)" 
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-6">
 
-
-        
+            <div class="flex gap-3">
+                <button onclick="document.getElementById('add-subproject-modal').classList.add('hidden')" 
+                        class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+                <button onclick="submitNewSubproject()" 
+                        class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Post Task</button>
+            </div>
+        </div>
+    </div>
 <script>
         console.log("✅ SCRIPT LOADED SUCCESSFULLY");
 
@@ -805,6 +994,305 @@
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 ...extras
             });
+        }
+
+
+        // ====================== COMPANY & PROJECT SYSTEM ======================
+        let selectedCompanyId = null;
+        let selectedProjectType = 'cash';
+        let currentModalStep = 1;
+        
+        async function loadUserCompanies() {
+            if (!currentUser) return;
+            const snap = await db.collection("companies")
+                .where("ownerUid", "==", currentUser.uid)
+                .orderBy("createdAt", "desc")
+                .get();
+            return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        }
+        
+        async function showPostProjectModal() {
+            if (!currentUser) return alert("Please log in first");
+            document.getElementById('post-project-modal').classList.remove('hidden');
+            goToStep1();
+            await populateCompanyList();
+        }
+        
+        async function populateCompanyList() {
+            const list = document.getElementById('company-list-modal');
+            list.innerHTML = '<p class="text-zinc-500 text-sm">Loading...</p>';
+            
+            const companies = await loadUserCompanies();
+            
+            if (companies.length === 0) {
+                list.innerHTML = '<p class="text-zinc-500 text-sm">No companies yet. Create one below.</p>';
+                return;
+            }
+        
+            list.innerHTML = '';
+            companies.forEach(company => {
+                const verifiedBadge = company.equityUnlocked 
+                    ? `<span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full">✅ Equity Verified</span>`
+                    : `<span class="text-xs bg-zinc-700 text-zinc-400 px-2 py-1 rounded-full">Cash Only</span>`;
+        
+                const div = document.createElement('div');
+                div.className = `p-4 rounded-2xl border cursor-pointer transition-all ${selectedCompanyId === company.id ? 'border-cyan-400 bg-cyan-400/10' : 'border-zinc-700 hover:border-zinc-500'}`;
+                div.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <p class="font-semibold">${company.name}</p>
+                            <p class="text-xs text-zinc-400">${company.type}</p>
+                        </div>
+                        ${verifiedBadge}
+                    </div>
+                `;
+                div.onclick = () => {
+                    selectedCompanyId = company.id;
+                    document.querySelectorAll('#company-list-modal > div').forEach(d => {
+                        d.classList.remove('border-cyan-400', 'bg-cyan-400/10');
+                        d.classList.add('border-zinc-700');
+                    });
+                    div.classList.add('border-cyan-400', 'bg-cyan-400/10');
+                    div.classList.remove('border-zinc-700');
+                };
+                list.appendChild(div);
+            });
+        }
+        
+        function showCreateCompanyForm() {
+            document.getElementById('create-company-form').classList.toggle('hidden');
+        }
+        
+        async function createCompany() {
+            const name = document.getElementById('company-name').value.trim();
+            const type = document.getElementById('company-type').value;
+            if (!name || !type) return alert("Please fill in company name and type");
+        
+            try {
+                const ref = await db.collection("companies").add({
+                    ownerUid: currentUser.uid,
+                    name,
+                    type,
+                    verificationStatus: 'unverified',
+                    verificationDocUrls: [],
+                    equityUnlocked: false,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                selectedCompanyId = ref.id;
+                document.getElementById('create-company-form').classList.add('hidden');
+                document.getElementById('company-name').value = '';
+                document.getElementById('company-type').value = '';
+                await populateCompanyList();
+                alert("✅ Company created!");
+            } catch(e) {
+                alert("Failed to create company: " + e.message);
+            }
+        }
+        
+        function goToStep1() {
+            currentModalStep = 1;
+            document.getElementById('modal-step-1').classList.remove('hidden');
+            document.getElementById('modal-step-2').classList.add('hidden');
+            document.getElementById('modal-step-3').classList.add('hidden');
+            updateStepDots();
+        }
+        
+        async function goToStep2() {
+            if (!selectedCompanyId) return alert("Please select or create a company first");
+            currentModalStep = 2;
+            document.getElementById('modal-step-1').classList.add('hidden');
+            document.getElementById('modal-step-2').classList.remove('hidden');
+            document.getElementById('modal-step-3').classList.add('hidden');
+            
+            // Show company name in step 2
+            const companySnap = await db.collection("companies").doc(selectedCompanyId).get();
+            const company = companySnap.data();
+            document.getElementById('step2-company-label').textContent = `Company: ${company.name}`;
+            
+            // Default to cash
+            selectProjectType('cash');
+            updateStepDots();
+        }
+        
+        async function goToStep3() {
+            const title = document.getElementById('project-title').value.trim();
+            const desc = document.getElementById('project-desc').value.trim();
+            if (!title || !desc) return alert("Please fill in project title and description");
+        
+            // If equity type, check verification
+            if (selectedProjectType === 'equity') {
+                const companySnap = await db.collection("companies").doc(selectedCompanyId).get();
+                const company = companySnap.data();
+                if (!company.equityUnlocked) {
+                    if (confirm("Equity features require verification. Would you like to start the verification process now?")) {
+                        hidePostProjectModal();
+                        showVerificationModal(selectedCompanyId);
+                    }
+                    return;
+                }
+            }
+        
+            currentModalStep = 3;
+            document.getElementById('modal-step-2').classList.add('hidden');
+            document.getElementById('modal-step-3').classList.remove('hidden');
+            
+            // Show equity comp options if equity project
+            if (selectedProjectType === 'equity') {
+                document.getElementById('cash-comp-option').classList.add('hidden');
+                document.getElementById('equity-comp-option').classList.remove('hidden');
+            } else {
+                document.getElementById('cash-comp-option').classList.remove('hidden');
+                document.getElementById('equity-comp-option').classList.add('hidden');
+            }
+            updateStepDots();
+        }
+        
+        function selectProjectType(type) {
+            selectedProjectType = type;
+            const cashBtn = document.getElementById('type-cash');
+            const equityBtn = document.getElementById('type-equity');
+            const warning = document.getElementById('equity-warning');
+        
+            if (type === 'cash') {
+                cashBtn.classList.add('border-cyan-400', 'bg-cyan-400/10');
+                cashBtn.classList.remove('border-zinc-600', 'opacity-70');
+                equityBtn.classList.remove('border-cyan-400', 'bg-cyan-400/10');
+                equityBtn.classList.add('border-zinc-600', 'opacity-70');
+                warning.classList.add('hidden');
+            } else {
+                equityBtn.classList.add('border-cyan-400', 'bg-cyan-400/10');
+                equityBtn.classList.remove('border-zinc-600', 'opacity-70');
+                cashBtn.classList.remove('border-cyan-400', 'bg-cyan-400/10');
+                cashBtn.classList.add('border-zinc-600', 'opacity-70');
+                warning.classList.remove('hidden');
+            }
+        }
+        
+        function updateStepDots() {
+            for (let i = 1; i <= 3; i++) {
+                const dot = document.getElementById(`step-dot-${i}`);
+                if (i === currentModalStep) {
+                    dot.classList.add('bg-cyan-400');
+                    dot.classList.remove('bg-zinc-600');
+                } else if (i < currentModalStep) {
+                    dot.classList.add('bg-emerald-400');
+                    dot.classList.remove('bg-cyan-400', 'bg-zinc-600');
+                } else {
+                    dot.classList.add('bg-zinc-600');
+                    dot.classList.remove('bg-cyan-400', 'bg-emerald-400');
+                }
+            }
+        }
+        
+        async function submitFullProject() {
+            const projectTitle = document.getElementById('project-title').value.trim();
+            const projectDesc = document.getElementById('project-desc').value.trim();
+            const subTitle = document.getElementById('subproject-title').value.trim();
+            const subDesc = document.getElementById('subproject-desc').value.trim();
+            const category = document.getElementById('subproject-category').value;
+            const compensation = document.getElementById('subproject-compensation').value.trim();
+        
+            if (!subTitle || !subDesc || !category || !compensation) {
+                return alert("Please fill in all task fields");
+            }
+        
+            try {
+                // Create the parent project
+                const projectRef = await db.collection("projects").add({
+                    companyId: selectedCompanyId,
+                    ownerUid: currentUser.uid,
+                    ownerUsername: currentUser.username,
+                    title: projectTitle,
+                    description: projectDesc,
+                    projectType: selectedProjectType,
+                    status: 'active',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+        
+                // Create the first subproject
+                await db.collection("subprojects").add({
+                    projectId: projectRef.id,
+                    companyId: selectedCompanyId,
+                    ownerUid: currentUser.uid,
+                    ownerUsername: currentUser.username,
+                    posterName: currentUser.fullName || currentUser.username,
+                    title: subTitle,
+                    description: subDesc,
+                    category,
+                    compensation,
+                    compensationType: selectedProjectType === 'equity' 
+                        ? (document.getElementById('subproject-comp-type')?.value || 'cash') 
+                        : 'cash',
+                    bids: [],
+                    bidsOpen: true,
+                    status: 'open',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+        
+                alert("✅ Project and first task posted!");
+                hidePostProjectModal();
+                loadMarketplace();
+            } catch(e) {
+                console.error(e);
+                alert("Failed to post: " + e.message);
+            }
+        }
+        
+        function hidePostProjectModal() {
+            document.getElementById('post-project-modal').classList.add('hidden');
+            selectedCompanyId = null;
+            selectedProjectType = 'cash';
+        }
+        
+        // ====================== VERIFICATION ======================
+        let verificationCompanyId = null;
+        
+        function showVerificationModal(companyId) {
+            verificationCompanyId = companyId;
+            document.getElementById('verification-modal').classList.remove('hidden');
+        }
+        
+        function hideVerificationModal() {
+            document.getElementById('verification-modal').classList.add('hidden');
+            verificationCompanyId = null;
+        }
+        
+        async function submitVerification() {
+            const docIncorporation = document.getElementById('doc-incorporation').files[0];
+            const docEin = document.getElementById('doc-ein').files[0];
+            const docId = document.getElementById('doc-id').files[0];
+        
+            if (!docIncorporation || !docEin || !docId) {
+                return alert("Please upload all three required documents");
+            }
+        
+            if (!verificationCompanyId) return alert("No company selected");
+        
+            try {
+                const uploadFile = async (file, name) => {
+                    const ref = storage.ref(`verification/${verificationCompanyId}/${name}-${Date.now()}`);
+                    await ref.put(file);
+                    return ref.getDownloadURL();
+                };
+        
+                const [url1, url2, url3] = await Promise.all([
+                    uploadFile(docIncorporation, 'incorporation'),
+                    uploadFile(docEin, 'ein'),
+                    uploadFile(docId, 'id')
+                ]);
+        
+                await db.collection("companies").doc(verificationCompanyId).update({
+                    verificationStatus: 'pending',
+                    verificationDocUrls: [url1, url2, url3],
+                    verificationSubmittedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+        
+                alert("✅ Documents submitted! Verification typically takes 1-3 business days.\n\nPayment processing coming soon — for now your submission is logged.");
+                hideVerificationModal();
+            } catch(e) {
+                console.error(e);
+                alert("Failed to submit: " + e.message);
+            }
         }
     
 
@@ -1047,7 +1535,7 @@
             grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 py-12">Loading projects...</p>';
 
             try {
-                const snapshot = await db.collection("projects").orderBy("createdAt", "desc").get();
+                const snapshot = await db.collection("subprojects").orderBy("createdAt", "desc").get();
                 grid.innerHTML = '';
 
                 let open = 0, inprogress = 0, completed = 0, totalNQV8 = 0;
@@ -1095,7 +1583,7 @@
                                 Posted by @${p.posterUsername || p.posterName || 'anonymous'}
                             </p>
                         `;
-                        card.onclick = () => showProjectDetail(doc.id, p);
+                        card.onclick = () => showSubprojectDetail(doc.id, p);
                         grid.appendChild(card);
                     });
                 }
@@ -1158,85 +1646,7 @@
                 grid.innerHTML = `<p class="text-red-400">Error loading leaderboard</p>`;
             }
         }
-    
-
-        function showPostProjectModal() {
-            if (!currentUser) return alert("Please log in first");
-            document.getElementById('post-project-modal').classList.remove('hidden');
-            switchProjectTab(0);   // Start on Build tab
-        }
-
-        function hidePostProjectModal() {
-            document.getElementById('post-project-modal').classList.add('hidden');
-        }
         
-        function switchProjectTab(tab) {
-            const isBuild = tab === 0;
-            
-            document.getElementById('tab-build').classList.toggle('border-b-2', isBuild);
-            document.getElementById('tab-build').classList.toggle('border-cyan-400', isBuild);
-            document.getElementById('tab-build').classList.toggle('text-white', isBuild);
-            
-            document.getElementById('tab-fund').classList.toggle('border-b-2', !isBuild);
-            document.getElementById('tab-fund').classList.toggle('border-cyan-400', !isBuild);
-            document.getElementById('tab-fund').classList.toggle('text-white', !isBuild);
-
-            // Change placeholder text
-            const input = document.getElementById('project-compensation');
-            input.placeholder = isBuild 
-                ? "e.g. $2,500 USDC or $1,000 + 5% equity" 
-                : "e.g. $10,000 for 1% equity";
-        }
-
-        async function submitNewProject() {
-            const title = document.getElementById('project-title').value.trim();
-            const desc = document.getElementById('project-desc').value.trim();
-            const compensation = document.getElementById('project-compensation').value.trim();
-            const category = document.getElementById('project-category').value;
-            const isBuild = document.getElementById('tab-build').classList.contains('border-cyan-400');
-
-            if (!title || !desc || !compensation) {
-                alert("❌ Title, Description, and Compensation are required");
-                return;
-            }
-
-            if (!category) {
-                alert("❌ Please select a category");
-                return;
-            }
-
-            try {
-                const projectData = {
-                    title,
-                    description: desc,
-                    compensation,
-                    category,                    // ← Added
-                    type: isBuild ? 'build' : 'fund',
-                    posterUid: currentUser.uid,
-                    posterName: currentUser.fullName || currentUser.username,
-                    posterUsername: currentUser.username,   // ← ADD THIS LINE
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    bids: [],
-                    bidsOpen: true,
-                    status: "open"
-                };
-
-                await db.collection("projects").add(projectData);
-                
-                alert("✅ Project posted successfully!");
-                hidePostProjectModal();
-                loadMarketplace();
-
-                // Clear form
-                document.getElementById('project-title').value = '';
-                document.getElementById('project-desc').value = '';
-                document.getElementById('project-compensation').value = '';
-                document.getElementById('project-category').value = '';
-            } catch (e) {
-                console.error(e);
-                alert("Failed to post project: " + e.message);
-            }
-        }
 
         async function showProjectDetail(projectId, project) {
             currentProject = project;
@@ -1358,6 +1768,9 @@
             if (isInProgress) renderSubmissions(project);
         }
 
+        function showSubprojectDetail(id, data) {
+            showProjectDetail(id, data);
+        }
 
     
         function hideProjectDetailModal() {
@@ -2148,7 +2561,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                 postedGrid.innerHTML = '<p class="col-span-full text-zinc-400">Loading...</p>';
                 try {
                     const postedSnap = await db.collection("projects")
-                        .where("posterUid", "==", currentUser.uid)
+                        .where("ownerUid", "==", currentUser.uid)
                         .orderBy("createdAt", "desc")
                         .get();
 
@@ -2160,7 +2573,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                         const card = document.createElement('div');
                         card.className = "bg-zinc-800 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-cyan-400";
                         card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs ${p.status === 'in-progress' ? 'text-amber-400' : 'text-zinc-400'}">${p.type} • ${p.compensation}</span>`;
-                        card.onclick = () => showProjectDetail(doc.id, p);
+                        card.onclick = () => showParentProjectDetail(doc.id, p);
                         postedGrid.appendChild(card);
                     });
                 } catch (e) {
@@ -2236,8 +2649,105 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             }
         }
 
-        // Update existing updateProfileUI to also call loadProfileData
-        // (we'll modify it in the next step)
+
+        async function showParentProjectDetail(projectId, project) {
+            const subSnap = await db.collection("subprojects")
+                .where("projectId", "==", projectId)
+                .orderBy("createdAt", "desc")
+                .get();
+        
+            const modal = document.getElementById('project-detail-modal');
+            const content = document.getElementById('detail-content');
+        
+            let subHTML = '';
+            if (subSnap.empty) {
+                subHTML = `<p class="text-zinc-400">No tasks posted yet.</p>`;
+            } else {
+                subSnap.forEach(doc => {
+                    const sub = doc.data();
+                    subHTML += `
+                        <div class="bg-zinc-800 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-cyan-400"
+                             onclick="showProjectDetail('${doc.id}', ${JSON.stringify(sub).replace(/"/g, '&quot;')})">
+                            <div class="flex justify-between items-start">
+                                <p class="font-semibold">${sub.title}</p>
+                                <span class="text-xs px-2 py-1 rounded-full ${sub.status === 'open' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-amber-500/20 text-amber-400'}">
+                                    ${sub.status}
+                                </span>
+                            </div>
+                            <p class="text-zinc-400 text-sm mt-1 line-clamp-2">${sub.description}</p>
+                            <p class="text-cyan-400 text-sm mt-2">${sub.compensation}</p>
+                            <p class="text-xs text-zinc-500 mt-2">${sub.bids ? sub.bids.length : 0} bids</p>
+                        </div>
+                    `;
+                });
+            }
+        
+            content.innerHTML = `
+                <div class="flex justify-between items-start mb-6">
+                    <div>
+                        <h2 class="text-3xl font-bold">${project.title}</h2>
+                        <span class="text-xs px-3 py-1 rounded-full mt-2 inline-block ${project.projectType === 'equity' ? 'bg-violet-500/20 text-violet-400' : 'bg-cyan-500/20 text-cyan-400'}">
+                            ${project.projectType === 'equity' ? '🏛️ Equity-Enabled' : '💵 Cash Only'}
+                        </span>
+                    </div>
+                </div>
+                <p class="text-zinc-300 mb-8">${project.description}</p>
+                
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-xl font-semibold">Tasks / Subprojects</h3>
+                    <button onclick="showAddSubprojectModal('${projectId}')" 
+                            class="px-4 py-2 bg-white text-black text-sm font-semibold rounded-2xl">
+                        + Add Task
+                    </button>
+                </div>
+                <div class="space-y-3">${subHTML}</div>
+            `;
+            modal.classList.remove('hidden');
+        }
+        
+        let currentParentProjectId = null;
+        
+        function showAddSubprojectModal(projectId) {
+            currentParentProjectId = projectId;
+            document.getElementById('add-subproject-modal').classList.remove('hidden');
+        }
+        
+        async function submitNewSubproject() {
+            const title = document.getElementById('new-sub-title').value.trim();
+            const desc = document.getElementById('new-sub-desc').value.trim();
+            const category = document.getElementById('new-sub-category').value;
+            const compensation = document.getElementById('new-sub-comp').value.trim();
+        
+            if (!title || !desc || !category || !compensation) return alert("Please fill in all fields");
+        
+            try {
+                const projectSnap = await db.collection("projects").doc(currentParentProjectId).get();
+                const project = projectSnap.data();
+        
+                await db.collection("subprojects").add({
+                    projectId: currentParentProjectId,
+                    companyId: project.companyId,
+                    ownerUid: currentUser.uid,
+                    ownerUsername: currentUser.username,
+                    posterName: currentUser.fullName || currentUser.username,
+                    title,
+                    description: desc,
+                    category,
+                    compensation,
+                    compensationType: 'cash',
+                    bids: [],
+                    bidsOpen: true,
+                    status: 'open',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+        
+                alert("✅ Task posted!");
+                document.getElementById('add-subproject-modal').classList.add('hidden');
+                showParentProjectDetail(currentParentProjectId, project);
+            } catch(e) {
+                alert("Failed: " + e.message);
+            }
+        }
 
         // ====================== VIEW OTHER USER PROFILE ======================
         async function viewUserProfile(uid) {
@@ -2614,6 +3124,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             } catch(e) {}
         }
 
+    
         function switchMarketplaceTab(tab) {
             currentMarketplaceFilter = tab === 0 ? 'build' : 'fund';
 
@@ -2635,7 +3146,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             loadMarketplace();
         }
 
-    </script>
+    </script>    
 </body>
 </html>
 
