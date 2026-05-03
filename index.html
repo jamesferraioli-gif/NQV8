@@ -157,6 +157,18 @@
             </div>
         </div>
 
+        <!-- Marketplace Sub-Tabs: Build Requests vs Funding Requests -->
+        <div class="flex border-b border-zinc-700 mb-8">
+            <button onclick="switchMarketplaceTab(0)" id="tab-build-market" 
+                    class="flex-1 pb-4 text-lg font-semibold border-b-2 border-cyan-400 flex items-center justify-center gap-2">
+                🔨 Build Requests
+            </button>
+            <button onclick="switchMarketplaceTab(1)" id="tab-fund-market" 
+                    class="flex-1 pb-4 text-lg font-semibold text-zinc-400 flex items-center justify-center gap-2">
+                💰 Funding Requests
+            </button>
+        </div>
+
         <!-- Projects Grid -->
         <div id="projects-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <!-- Populated by JS -->
@@ -653,6 +665,7 @@
         const storage = firebase.storage();
 
         let currentUser = null;
+        let currentMarketplaceFilter = 'build'; // default to Build Requests
 
                 // ====================== NOTIFICATIONS ======================
         let notifUnsubscribe = null;
@@ -1045,15 +1058,21 @@
                     snapshot.forEach(doc => {
                         const p = doc.data();
 
-                        // IMPORTANT: Hide accepted/in-progress projects from Marketplace
+                        // Count ALL projects for global stats
+                        if (p.status === "in-progress") inprogress++;
+                        else if (p.status === "completed") completed++;
+                        if (p.nqv8Awarded) totalNQV8 += Number(p.nqv8Awarded) || 0;
+
+                        // Skip completed / in-progress from the main grid
                         if (p.status === "in-progress" || p.status === "completed") {
-                            if (p.status === "in-progress") inprogress++;
-                            else if (p.status === "completed") completed++;
-                            if (p.nqv8Awarded) totalNQV8 += Number(p.nqv8Awarded) || 0;
-                            return; // skip rendering
+                            return;
                         }
 
-                        // Only render OPEN projects
+                        // NEW: Filter by active sub-tab
+                        if (currentMarketplaceFilter && p.type !== currentMarketplaceFilter) {
+                            return;
+                        }
+
                         open++;
 
                         const card = document.createElement('div');
@@ -1078,12 +1097,10 @@
                         `;
                         card.onclick = () => showProjectDetail(doc.id, p);
                         grid.appendChild(card);
-
-                        if (p.nqv8Awarded) totalNQV8 += Number(p.nqv8Awarded) || 0;
                     });
                 }
 
-                // Update Live Stats (still count in-progress projects)
+                // Update Live Stats (global, not filtered)
                 document.getElementById('stat-open').textContent = open;
                 document.getElementById('stat-inprogress').textContent = inprogress;
                 document.getElementById('stat-completed').textContent = completed;
@@ -2597,9 +2614,27 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             } catch(e) {}
         }
 
+        function switchMarketplaceTab(tab) {
+            currentMarketplaceFilter = tab === 0 ? 'build' : 'fund';
 
+            const buildTab = document.getElementById('tab-build-market');
+            const fundTab = document.getElementById('tab-fund-market');
 
-    
+            if (tab === 0) {
+                buildTab.classList.add('border-b-2', 'border-cyan-400');
+                buildTab.classList.remove('text-zinc-400');
+                fundTab.classList.remove('border-b-2', 'border-cyan-400');
+                fundTab.classList.add('text-zinc-400');
+            } else {
+                fundTab.classList.add('border-b-2', 'border-cyan-400');
+                fundTab.classList.remove('text-zinc-400');
+                buildTab.classList.remove('border-b-2', 'border-cyan-400');
+                buildTab.classList.add('text-zinc-400');
+            }
+
+            loadMarketplace();
+        }
+
     </script>
 </body>
 </html>
