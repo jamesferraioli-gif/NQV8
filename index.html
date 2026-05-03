@@ -2458,25 +2458,53 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
         }
 
         async function loadLinkPreview(postId, url) {
-            try {
-                const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
-                const data = await res.json();
-                
-                const previewContainer = document.getElementById(`preview-${postId}`);
-                if (!previewContainer || !data.data) return;
+            const container = document.getElementById(`preview-${postId}`);
+            if (!container) return;
 
-                previewContainer.innerHTML = `
+            // Special clean fallback for our own site
+            if (url.includes('nqvate.com') || url.includes('vercel.app')) {
+                container.innerHTML = `
                     <div class="flex gap-3">
-                        ${data.data.image ? `<img src="${data.data.image.url}" class="w-12 h-12 object-cover rounded-xl flex-shrink-0">` : ''}
+                        <div class="w-12 h-12 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-2xl flex items-center justify-center text-3xl flex-shrink-0">🚀</div>
                         <div class="flex-1 min-w-0">
-                            <p class="font-medium text-sm line-clamp-1">${data.data.title || 'Untitled'}</p>
-                            <p class="text-xs text-zinc-400 line-clamp-2">${data.data.description || ''}</p>
+                            <p class="font-medium text-sm line-clamp-1">NQVate — Innovate. Incubate. Incuvate.</p>
+                            <p class="text-xs text-zinc-400 line-clamp-2">A decentralized marketplace for builders and ideas. The future is on-chain.</p>
                             <p class="text-cyan-400 text-xs mt-1 truncate">${url}</p>
                         </div>
                     </div>
                 `;
+                return;
+            }
+
+            try {
+                const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
+                const data = await res.json();
+                
+                if (data.data && data.data.title && data.data.title !== 'Untitled') {
+                    container.innerHTML = `
+                        <div class="flex gap-3">
+                            ${data.data.image ? `<img src="${data.data.image.url}" class="w-12 h-12 object-cover rounded-xl flex-shrink-0">` : ''}
+                            <div class="flex-1 min-w-0">
+                                <p class="font-medium text-sm line-clamp-1">${data.data.title}</p>
+                                <p class="text-xs text-zinc-400 line-clamp-2">${data.data.description || ''}</p>
+                                <p class="text-cyan-400 text-xs mt-1 truncate">${url}</p>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    // Generic clean fallback for any other site
+                    container.innerHTML = `
+                        <div class="flex gap-3">
+                            <span class="text-cyan-400 text-2xl">🔗</span>
+                            <div class="flex-1 min-w-0">
+                                <p class="font-medium text-sm line-clamp-1">External Link</p>
+                                <p class="text-xs text-zinc-400 line-clamp-2">${url}</p>
+                            </div>
+                        </div>
+                    `;
+                }
             } catch(e) {
-                // Fallback to simple link if preview fails
+                // Silent fallback
             }
         }
 
@@ -2532,22 +2560,40 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
         }
 
         async function loadLinkPreviewDetail(url) {
-            try {
-                const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
-                const data = await res.json();
-                const container = document.getElementById('detail-preview');
-                if (!container || !data.data) return;
+            const container = document.getElementById('detail-preview');
+            if (!container) return;
 
+            // Same special handling for our own domain
+            if (url.includes('nqvate.com') || url.includes('vercel.app')) {
                 container.innerHTML = `
                     <div class="flex gap-4">
-                        ${data.data.image ? `<img src="${data.data.image.url}" class="w-20 h-20 object-cover rounded-2xl flex-shrink-0">` : ''}
-                        <div>
-                            <p class="font-semibold">${data.data.title || 'Untitled Page'}</p>
-                            <p class="text-sm text-zinc-400 line-clamp-3">${data.data.description || ''}</p>
-                            <a href="${url}" target="_blank" class="text-cyan-400 text-xs hover:underline mt-2 block">${url}</a>
+                        <div class="w-20 h-20 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-2xl flex items-center justify-center text-5xl flex-shrink-0">🚀</div>
+                        <div class="flex-1">
+                            <p class="font-semibold text-xl">NQVate — Innovate. Incubate. Incuvate.</p>
+                            <p class="text-sm text-zinc-400">A decentralized marketplace for builders and ideas. The future is on-chain.</p>
+                            <a href="${url}" target="_blank" class="text-cyan-400 text-xs hover:underline mt-3 block">${url}</a>
                         </div>
                     </div>
                 `;
+                return;
+            }
+
+            try {
+                const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
+                const data = await res.json();
+                
+                if (data.data && data.data.title && data.data.title !== 'Untitled') {
+                    container.innerHTML = `
+                        <div class="flex gap-4">
+                            ${data.data.image ? `<img src="${data.data.image.url}" class="w-20 h-20 object-cover rounded-2xl flex-shrink-0">` : ''}
+                            <div>
+                                <p class="font-semibold">${data.data.title}</p>
+                                <p class="text-sm text-zinc-400 line-clamp-3">${data.data.description || ''}</p>
+                                <a href="${url}" target="_blank" class="text-cyan-400 text-xs hover:underline mt-2 block">${url}</a>
+                            </div>
+                        </div>
+                    `;
+                }
             } catch(e) {}
         }
 
