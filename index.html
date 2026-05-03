@@ -50,7 +50,7 @@
                 <!-- CENTER: Navigation -->
                 <div id="nav-loggedin" class="hidden md:flex flex-1 justify-center items-center gap-8 text-sm font-medium mx-10">
                     <a onclick="navigateTo('marketplace')" class="hover:text-cyan-400 cursor-pointer">Marketplace</a>
-                    <a onclick="navigateTo('ideas')" class="hover:text-cyan-400 cursor-pointer">Ideas</a>
+                    <a onclick="navigateTo('ideas')" class="hover:text-cyan-400 cursor-pointer">Explore</a>                    
                     <a onclick="navigateToChat()" class="hover:text-cyan-400 cursor-pointer">Chat</a>
                     <a onclick="navigateTo('leaderboard')" class="hover:text-cyan-400 cursor-pointer">Leaderboard</a>
                 </div>
@@ -217,7 +217,7 @@
     <!-- PROJECT DETAIL MODAL -->
     <div id="project-detail-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
         <div class="bg-zinc-900 w-full max-w-2xl mx-4 rounded-3xl p-4 md:p-8 max-h-[90vh] overflow-auto">
-            <button onclick="hideProjectDetailModal()"
+            <button onclick="hideProjectDetailModal()" class="float-right text-3xl leading-none">×</button>
             <div id="detail-content"></div>
         </div>
     </div>
@@ -225,10 +225,8 @@
     <!-- BID DETAIL MODAL (for project owner) -->
     <div id="bid-detail-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
         <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-4 md:p-8">
-            <button onclick="hideBidDetailModal()"
-            
+            <button onclick="hideBidDetailModal()" class="float-right text-3xl leading-none mb-4">×</button>
             <h2 class="text-2xl font-bold mb-6" id="bid-detail-title">Bid Details</h2>
-            
             <div id="bid-detail-content" class="space-y-6">
                 <!-- Filled by JS -->
             </div>
@@ -263,7 +261,7 @@
     <!-- SUBMIT WORK / FUNDING MODAL (handles both deliverables and funding) -->
     <div id="submit-work-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
         <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8">
-            <h2 id="submit-modal-title"
+            <h2 id="submit-modal-title" class="text-3xl font-bold mb-2"></h2>
             <p id="submit-modal-subtitle" class="text-zinc-400 mb-6"></p>
 
             <textarea id="submit-desc" placeholder="Describe your submission..." 
@@ -300,10 +298,10 @@
         </div>
     </div>
 
-    <!-- POST DETAIL MODAL (Ideas & News) -->
+    <!-- POST DETAIL MODAL (Explore) -->
     <div id="post-detail-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
         <div class="bg-zinc-900 w-full max-w-2xl mx-4 rounded-3xl p-4 md:p-8 max-h-[90vh] overflow-auto">
-            <button onclick="hidePostDetailModal()"
+            <button onclick="hidePostDetailModal()" class="float-right text-3xl leading-none">×</button>
             
             <div id="post-detail-content">
                 <!-- Populated by JS -->
@@ -333,22 +331,23 @@
         </div>
     </div>
 
-        <!-- POST IDEA / NEWS MODAL -->
+        <!-- POST TO EXPLORE MODAL (Idea / News / Project) -->
     <div id="post-idea-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
         <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8">
-            <h2 class="text-3xl font-bold mb-6">Post Idea or News</h2>
+            <h2 class="text-3xl font-bold mb-6">Post to Explore</h2>
             
             <div class="flex border-b border-zinc-700 mb-6">
                 <button onclick="switchIdeaTab(0)" id="tab-idea" class="flex-1 pb-4 text-lg font-semibold border-b-2 border-cyan-400">💡 Idea</button>
-                <button onclick="switchIdeaTab(1)" id="tab-news" class="flex-1 pb-4 text-lg font-semibold text-zinc-400">📰 News Story</button>
+                <button onclick="switchIdeaTab(1)" id="tab-news" class="flex-1 pb-4 text-lg font-semibold text-zinc-400">📰 News</button>
+                <button onclick="switchIdeaTab(2)" id="tab-project" class="flex-1 pb-4 text-lg font-semibold text-zinc-400">🚀 Project</button>
             </div>
 
             <input id="idea-title" type="text" placeholder="Title" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
 
-            <textarea id="idea-desc" placeholder="Your idea or comment..." rows="5" class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6"></textarea>
+            <textarea id="idea-desc" placeholder="Your idea, comment, or project description..." rows="5" class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6"></textarea>
 
             <div id="news-link-group">
-                <input id="idea-link" type="text" placeholder="Link to news story (required for News)" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-6">
+                <input id="idea-link" type="text" placeholder="Link (optional for Idea/Project, required for News)" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-6">
             </div>
 
             <div class="flex gap-3">
@@ -616,8 +615,8 @@
         <!-- ==================== IDEAS PAGE ==================== -->
     <div id="ideas-page" class="max-w-6xl mx-auto pt-8 px-6 hidden">
         <div class="mb-10">
-            <h1 class="text-3xl md:text-5xl font-bold tracking-tighter mb-4">Ideas & News</h1>
-            <p class="text-xl text-zinc-400">Share ideas or news stories with the community. Cost: $0.01 NQV8 per post</p>
+            <h1 class="text-3xl md:text-5xl font-bold tracking-tighter mb-4">Explore</h1>
+            <p class="text-xl text-zinc-400">Share ideas, news stories, or completed projects with the community. Cost: $0.01 NQV8 per post</p>
         </div>
 
         <button onclick="showPostIdeaModal()" 
@@ -2349,29 +2348,39 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
         }
 
         function switchIdeaTab(tab) {
-            const isIdea = tab === 0;
-            document.getElementById('tab-idea').classList.toggle('border-b-2', isIdea);
-            document.getElementById('tab-idea').classList.toggle('text-white', isIdea);
-            document.getElementById('tab-news').classList.toggle('border-b-2', !isIdea);
-            document.getElementById('tab-news').classList.toggle('text-white', !isIdea);
-            document.getElementById('news-link-group').classList.toggle('hidden', isIdea);
+            const tabs = [
+                document.getElementById('tab-idea'),
+                document.getElementById('tab-news'),
+                document.getElementById('tab-project')
+            ];
+            tabs.forEach((t, i) => {
+                t.classList.toggle('border-b-2', i === tab);
+                t.classList.toggle('text-white', i === tab);
+                t.classList.toggle('text-zinc-400', i !== tab);
+            });
+            document.getElementById('news-link-group').classList.toggle('hidden', tab !== 1);
         }
 
         async function submitIdeaPost() {
             const title = document.getElementById('idea-title').value.trim();
             const desc = document.getElementById('idea-desc').value.trim();
             const link = document.getElementById('idea-link').value.trim();
-            const isNews = !document.getElementById('tab-idea').classList.contains('border-b-2');
+
+            const activeTab = document.querySelector('#post-idea-modal button.border-b-2').id;
+
+            let type = 'idea';
+            if (activeTab === 'tab-news') type = 'news';
+            if (activeTab === 'tab-project') type = 'project';
 
             if (!title || !desc) return alert("Title and description required");
-            if (isNews && !link) return alert("News stories require a link");
+            if (type === 'news' && !link) return alert("News stories require a link");
 
             try {
                 await db.collection("posts").add({
-                    type: isNews ? 'news' : 'idea',
+                    type: type,
                     title,
                     description: desc,
-                    link: isNews ? link : null,
+                    link: link || null,
                     username: currentUser.username,
                     posterUid: currentUser.uid,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -2388,6 +2397,47 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             }
         }
 
+        async function loadIdeas() {
+            const grid = document.getElementById('ideas-grid');
+            grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 py-12">Loading Explore...</p>';
+
+            try {
+                const snapshot = await db.collection("posts").orderBy("createdAt", "desc").get();
+                grid.innerHTML = '';
+
+                if (snapshot.empty) {
+                    grid.innerHTML = `<p class="col-span-full text-center text-zinc-400 py-12">No posts yet. Be the first!</p>`;
+                    return;
+                }
+
+                snapshot.forEach(doc => {
+                    const post = doc.data();
+                    const card = document.createElement('div');
+                    card.className = "bg-zinc-900 rounded-3xl p-6 hover:ring-2 hover:ring-cyan-400 cursor-pointer transition-all";
+
+                    let typeIcon = '💡';
+                    if (post.type === 'news') typeIcon = '📰';
+                    if (post.type === 'project') typeIcon = '🚀';
+
+                    card.innerHTML = `
+                        <div class="flex justify-between">
+                            <span class="text-2xl">${typeIcon}</span>
+                            <span class="text-xs text-zinc-500">${post.comments ? post.comments.length : 0} comments</span>
+                        </div>
+                        <h3 class="text-2xl font-bold mt-3">${post.title}</h3>
+                        <p class="text-zinc-400 line-clamp-3 mt-2">${post.description}</p>
+                        ${post.link ? `<p class="text-cyan-400 text-sm mt-3">🔗 ${post.link}</p>` : ''}
+                        <p class="text-xs text-violet-400 mt-4">Posted by @${post.username}</p>
+                    `;
+                    card.onclick = () => viewPostDetail(doc.id, post);
+                    grid.appendChild(card);
+                });
+            } catch (e) {
+                console.error(e);
+                grid.innerHTML = `<p class="text-red-400">Error loading posts</p>`;
+            }
+        }
+
         // ====================== FULL IDEAS / NEWS DETAIL VIEW ======================
         let currentPostId = null;
 
@@ -2396,7 +2446,9 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             const modal = document.getElementById('post-detail-modal');
             const content = document.getElementById('post-detail-content');
 
-            const typeIcon = post.type === 'news' ? '📰' : '💡';
+            let typeIcon = '💡';
+            if (post.type === 'news') typeIcon = '📰';
+            if (post.type === 'project') typeIcon = '🚀';
 
             let html = `
                 <div class="flex justify-between items-start mb-4">
@@ -2423,107 +2475,6 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
 
             content.innerHTML = html;
             modal.classList.remove('hidden');
-            renderComments(post);
-        }
-
-        function hidePostDetailModal() {
-            document.getElementById('post-detail-modal').classList.add('hidden');
-        }
-
-        function renderComments(post) {
-            const container = document.getElementById('comments-list');
-            if (!post.comments || post.comments.length === 0) {
-                container.innerHTML = `<p class="text-zinc-400">No comments yet. Be the first!</p>`;
-                return;
-            }
-
-            // Sort comments by likes (most liked first)
-            const sortedComments = [...post.comments].sort((a, b) => (b.likes || 0) - (a.likes || 0));
-
-            let html = '';
-            sortedComments.forEach((comment, index) => {
-                const timestamp = comment.createdAt 
-                    ? new Date(comment.createdAt).toLocaleString('en-US', { 
-                        month: 'short', 
-                        day: 'numeric', 
-                        hour: 'numeric', 
-                        minute: '2-digit' 
-                      }) 
-                    : 'Just now';
-
-                html += `
-                    <div class="bg-zinc-800 rounded-3xl p-5">
-                        <div class="flex justify-between items-start">
-                            <p class="font-medium">@${comment.username}</p>
-                            <div class="flex items-center gap-4 text-sm">
-                                <span onclick="likeComment(${index})" class="cursor-pointer hover:text-emerald-400">👍 ${comment.likes || 0}</span>
-                                <span onclick="dislikeComment(${index})" class="cursor-pointer hover:text-red-400">👎 ${comment.dislikes || 0}</span>
-                            </div>
-                        </div>
-                        <p class="text-xs text-zinc-500 mt-1">${timestamp}</p>
-                        <p class="text-zinc-300 mt-2">${comment.text}</p>
-                    </div>`;
-            });
-            container.innerHTML = html;
-        }
-
-        async function postComment() {
-            const text = document.getElementById('new-comment').value.trim();
-            if (!text) return alert("Comment cannot be empty");
-
-            try {
-                const postRef = db.collection("posts").doc(currentPostId);
-                const newComment = {
-                    username: currentUser.username,
-                    text: text,
-                    likes: 0,
-                    dislikes: 0,
-                    createdAt: new Date()
-                };
-
-                await postRef.update({
-                    comments: firebase.firestore.FieldValue.arrayUnion(newComment)
-                });
-
-                alert("✅ Comment posted! ($0.01 NQV8 deducted)");
-                const post = (await db.collection("posts").doc(currentPostId).get()).data();
-                await createNotification(
-                    post.posterUid,
-                    'comment',
-                    `@${currentUser.username} commented on your post: ${post.title}`,
-                    { postId: currentPostId }
-                );
-                document.getElementById('new-comment').value = '';
-
-                // Refresh the current post
-                const postSnap = await db.collection("posts").doc(currentPostId).get();
-                renderComments(postSnap.data());
-            } catch (e) {
-                console.error(e);
-                alert("Failed to post comment");
-            }
-        }
-
-        async function likeComment(commentIndex) {
-            // Simple implementation - increment likes
-            const postRef = db.collection("posts").doc(currentPostId);
-            const postSnap = await postRef.get();
-            const post = postSnap.data();
-            const comments = [...post.comments];
-            comments[commentIndex].likes = (comments[commentIndex].likes || 0) + 1;
-
-            await postRef.update({ comments });
-            renderComments(post);
-        }
-
-        async function dislikeComment(commentIndex) {
-            const postRef = db.collection("posts").doc(currentPostId);
-            const postSnap = await postRef.get();
-            const post = postSnap.data();
-            const comments = [...post.comments];
-            comments[commentIndex].dislikes = (comments[commentIndex].dislikes || 0) + 1;
-
-            await postRef.update({ comments });
             renderComments(post);
         }
 
