@@ -654,9 +654,17 @@
             </div>
         </div>
 
+        <!-- My Companies -->
+        <div class="mb-10">
+            <h2 class="text-2xl font-semibold mb-4">My Companies</h2>
+            <div id="my-companies" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
         <!-- My Posted Projects -->
         <div class="mb-10">
-            <h2 class="text-2xl font-semibold mb-4">My Posted Projects</h2>
+            <h2 class="text-2xl font-semibold mb-4">My Postings</h2>
             <div id="my-posted-projects" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <!-- Populated by JS -->
             </div>
@@ -672,7 +680,7 @@
 
         <!-- Completed Projects -->
         <div class="mb-10">
-            <h2 class="text-2xl font-semibold mb-4">Completed Projects</h2>
+            <h2 class="text-2xl font-semibold mb-4">Completed Postings</h2>
             <div id="completed-projects" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <!-- Populated by JS -->
             </div>
@@ -2619,6 +2627,55 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
         async function loadProfileData() {
             if (!currentUser) return;
             try {
+                // My Companies
+                const companiesGrid = document.getElementById('my-companies');
+                companiesGrid.innerHTML = '<p class="text-zinc-400">Loading...</p>';
+                try {
+                    const companiesSnap = await db.collection("companies")
+                        .where("ownerUid", "==", currentUser.uid)
+                        .orderBy("createdAt", "desc")
+                        .get();
+        
+                    companiesGrid.innerHTML = companiesSnap.empty ?
+                        `<p class="text-zinc-400">No companies yet. Create one when posting a project.</p>` : '';
+        
+                    companiesSnap.forEach(doc => {
+                        const c = doc.data();
+                        const card = document.createElement('div');
+                        card.className = "bg-zinc-800 rounded-2xl p-5 hover:ring-2 hover:ring-cyan-400 cursor-pointer";
+                        card.innerHTML = `
+                            <div class="flex justify-between items-start mb-3">
+                                <div>
+                                    <p class="font-bold text-lg">${c.name}</p>
+                                    <p class="text-xs text-zinc-400">${c.type}</p>
+                                </div>
+                                <span class="px-3 py-1 rounded-full text-xs ${
+                                    c.verificationStatus === 'verified' ? 'bg-emerald-500/20 text-emerald-400' :
+                                    c.verificationStatus === 'pending' ? 'bg-amber-500/20 text-amber-400' :
+                                    'bg-zinc-700 text-zinc-400'
+                                }">
+                                    ${c.verificationStatus === 'verified' ? '✅ Verified' :
+                                      c.verificationStatus === 'pending' ? '⏳ Pending Review' :
+                                      'Unverified'}
+                                </span>
+                            </div>
+                            <div class="flex gap-3 mt-3">
+                                ${!c.equityUnlocked ? `
+                                <button onclick="event.stopPropagation(); showVerificationModal('${doc.id}')"
+                                        class="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs rounded-xl">
+                                    🔐 Submit for Verification
+                                </button>` : `
+                                <span class="px-4 py-2 bg-emerald-500/20 text-emerald-400 text-xs rounded-xl">
+                                    🏛️ Equity Enabled
+                                </span>`}
+                            </div>
+                        `;
+                        companiesGrid.appendChild(card);
+                    });
+                } catch(e) {
+                    console.error("Companies error:", e);
+                    companiesGrid.innerHTML = `<p class="text-red-400">Error loading companies</p>`;
+                }
                 // My Posted Projects
                 const postedGrid = document.getElementById('my-posted-projects');
                 postedGrid.innerHTML = '<p class="col-span-full text-zinc-400">Loading...</p>';
