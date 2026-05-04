@@ -134,7 +134,7 @@
         </div>
 
         <!-- Live Stats -->
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10 text-center">
+        <div class="grid grid-cols-2 md:grid-cols-6 gap-4 mb-10 text-center">
             <div class="bg-zinc-900 rounded-3xl p-5">
                 <p id="stat-open" class="text-3xl font-bold text-cyan-400">0</p>
                 <p class="text-sm text-zinc-400">Open</p>
@@ -154,6 +154,10 @@
             <div class="bg-zinc-900 rounded-3xl p-5">
                 <p id="stat-total-funding" class="text-3xl font-bold text-white">$0</p>
                 <p class="text-sm text-zinc-400">Total Funding</p>
+            </div>
+            <div class="bg-zinc-900 rounded-3xl p-5">
+                <p id="stat-equity-traded" class="text-3xl font-bold text-pink-400">0</p>
+                <p class="text-sm text-zinc-400">Equity Listings</p>
             </div>
         </div>
 
@@ -1645,6 +1649,8 @@
                 document.getElementById('stat-completed').textContent = completed;
                 document.getElementById('stat-nqv8-awarded').textContent = totalNQV8.toLocaleString();
                 document.getElementById('stat-total-funding').textContent = "$0";
+                loadEquityCount();
+
 
             } catch (e) {
                 console.error(e);
@@ -3362,6 +3368,17 @@ async function deleteEquityListing(listingId) {
         loadEquityListings();
     } catch (e) {
         alert("Failed: " + e.message);
+    }
+}
+
+    async function loadEquityCount() {
+    try {
+        const snap = await db.collection("equityListings")
+            .where("status", "==", "active")
+            .get();
+        document.getElementById('stat-equity-traded').textContent = snap.size;
+    } catch(e) {
+        console.error("Equity count error:", e);
     }
 }
 
