@@ -321,114 +321,82 @@
     }
 
     // ====================== VERIFICATIONS ======================
-    async function loadVerifications() {
-        const list = document.getElementById('verifications-list');
-        list.innerHTML = '<p class="text-zinc-400">Loading...</p>';
+async function loadVerifications() {
+    const list = document.getElementById('verifications-list');
+    list.innerHTML = '<p class="text-zinc-400">Loading...</p>';
 
-        try {
-            const snap = await db.collection("companies")
-                .orderBy("createdAt", "desc")
-                .get();
-
-            if (snap.empty) {
-                list.innerHTML = '<div class="bg-zinc-900 rounded-2xl p-8 text-center text-zinc-400">✅ No pending verifications</div>';
-                return;
-            }
-
-            list.innerHTML = '';
-            for (const doc of snap.docs) {
-                const company = doc.data();
-
-                // Get owner info
-                let ownerInfo = { fullName: 'Unknown', email: '', username: '' };
-                try {
-                    const ownerDoc = await db.collection("users").doc(company.ownerUid).get();
-                    if (ownerDoc.exists) ownerInfo = ownerDoc.data();
-                } catch(e) {}
-
-                const submittedDate = company.verificationSubmittedAt?.toDate?.()?.toLocaleDateString() || 'Unknown';
-                const docUrls = company.verificationDocUrls || [];
-
-                const card = document.createElement('div');
-                card.className = 'bg-zinc-900 rounded-3xl p-8 border border-amber-500/30';
-                card.innerHTML = `
-                    <div class="flex flex-col md:flex-row justify-between gap-6">
-                        <div class="flex-1">
-                            <div class="flex items-center gap-3 mb-4">
-                                <span class="px-3 py-1 bg-amber-500/20 text-amber-400 text-xs rounded-full">⏳ Pending Review</span>
-                                <span class="text-xs text-zinc-500">Submitted: ${submittedDate}</span>
-                            </div>
-
-                            <h3 class="text-2xl font-bold mb-1">${company.name}</h3>
-                            <p class="text-zinc-400 text-sm mb-1">Type: ${company.type}</p>
-                            <p class="text-zinc-400 text-sm mb-1">Owner: ${ownerInfo.fullName} (@${ownerInfo.username})</p>
-                            <p class="text-zinc-400 text-sm mb-6">Email: ${ownerInfo.email}</p>
-
-                            <!-- Documents -->
-                            <p class="text-sm font-semibold mb-3 text-zinc-300">Submitted Documents:</p>
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
-                                ${docUrls.length > 0 ? docUrls.map((url, i) => `
-                                    <button onclick="viewDoc('${url}', 'Document ${i+1}')"
-                                            class="flex items-center gap-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 rounded-2xl px-4 py-3 text-left transition-colors">
-                                        <i class="fa-solid fa-file text-cyan-400"></i>
-                                        <div>
-                                            <p class="text-sm font-medium">${getDocLabel(i)}</p>
-                                            <p class="text-xs text-cyan-400 hover:underline">Click to view</p>
-                                        </div>
-                                    </button>
-                                `).join('') : '<p class="text-zinc-500 text-sm">No documents uploaded</p>'}
-                            </div>
-
-                            <!-- Verification Checklist -->
-                            <div class="bg-black/40 rounded-2xl p-5 mb-6">
-                                <p class="text-sm font-semibold mb-3 text-zinc-300">Verification Checklist</p>
-                                <div class="space-y-2">
-                                    ${['Documents are clear and legible', 
-                                       'Business name matches application',
-                                       'EIN/Tax ID is valid format',
-                                       'Government ID matches authorized representative',
-                                       'Entity type is consistent across documents'].map((item, i) => `
-                                        <label class="flex items-center gap-3 cursor-pointer">
-                                            <input type="checkbox" id="check-${doc.id}-${i}" 
-                                                   class="w-4 h-4 accent-cyan-400">
-                                            <span class="text-sm text-zinc-300">${item}</span>
-                                        </label>
-                                    `).join('')}
-                                </div>
-                            </div>
-
-                            <!-- Notes -->
-                            <textarea id="notes-${doc.id}" placeholder="Internal admin notes (not shown to user)..."
-                                      class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm mb-4" rows="2"></textarea>
-                        </div>
-                    </div>
-
-                    <!-- Action Buttons -->
-                    <div class="flex gap-4">
-                        <button onclick="approveVerification('${doc.id}', '${company.ownerUid}', '${company.name}')"
-                                class="flex-1 py-4 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-2xl flex items-center justify-center gap-2">
-                            ✅ Approve & Unlock Equity
-                        </button>
-                        <button onclick="openRejectModal('${doc.id}', '${company.ownerUid}')"
-                                class="flex-1 py-4 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-2xl flex items-center justify-center gap-2">
-                            ❌ Reject
-                        </button>
-                        <button onclick="requestMoreInfo('${doc.id}', '${company.ownerUid}')"
-                                class="flex-1 py-4 border border-zinc-600 hover:bg-zinc-800 text-white font-semibold rounded-2xl flex items-center justify-center gap-2">
-                            📋 Request More Info
-                        </button>
-                    </div>
-                `;
-                list.appendChild(card);
-            }
-
-            // Update stat
-            document.getElementById('stat-pending-verif').textContent = snap.size;
-        } catch(e) {
-            console.error(e);
-            list.innerHTML = `<p class="text-red-400">Error: ${e.message}</p>`;
+    try {
+        // First just try to get ALL companies with no filters at all
+        const snap = await db.collection("companies").get();
+        
+        console.log("Total companies found:", snap.size);
+        
+        if (snap.empty) {
+            list.innerHTML = '<div class="bg-zinc-900 rounded-2xl p-8 text-center"><p class="text-amber-400 font-semibold mb-2">No companies collection found</p><p class="text-zinc-400 text-sm">No one has created a company entity yet in the main app.</p></div>';
+            return;
         }
+
+        list.innerHTML = '';
+        
+        // Show ALL companies regardless of status so we can debug
+        snap.forEach(doc => {
+            const company = doc.data();
+            console.log("Company:", company.name, "| Status:", company.verificationStatus, "| Docs:", company.verificationDocUrls?.length);
+            
+            const card = document.createElement('div');
+            card.className = 'bg-zinc-900 rounded-2xl p-6 border border-zinc-700 mb-4';
+            card.innerHTML = `
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 class="text-xl font-bold">${company.name || 'Unnamed'}</h3>
+                        <p class="text-zinc-400 text-sm">Type: ${company.type || '-'}</p>
+                        <p class="text-zinc-400 text-sm">Owner UID: ${company.ownerUid || '-'}</p>
+                    </div>
+                    <span class="px-3 py-1 rounded-full text-xs ${
+                        company.verificationStatus === 'verified' ? 'bg-emerald-500/20 text-emerald-400' :
+                        company.verificationStatus === 'pending' ? 'bg-amber-500/20 text-amber-400' :
+                        company.verificationStatus === 'rejected' ? 'bg-red-500/20 text-red-400' :
+                        'bg-zinc-700 text-zinc-400'
+                    }">${company.verificationStatus || 'unverified'}</span>
+                </div>
+                
+                <p class="text-sm text-zinc-400 mb-2">Documents uploaded: ${company.verificationDocUrls?.length || 0}</p>
+                
+                ${company.verificationDocUrls && company.verificationDocUrls.length > 0 ? `
+                <div class="flex gap-3 mb-4">
+                    ${company.verificationDocUrls.map((url, i) => `
+                        <button onclick="viewDoc('${url}', 'Document ${i+1}')"
+                                class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 rounded-xl text-sm">
+                            📄 View Doc ${i+1}
+                        </button>
+                    `).join('')}
+                </div>` : '<p class="text-zinc-500 text-sm mb-4">No documents uploaded yet</p>'}
+                
+                <div class="flex gap-3">
+                    <button onclick="approveVerification('${doc.id}', '${company.ownerUid}', '${company.name}')"
+                            class="px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-xl text-sm">
+                        ✅ Approve & Unlock Equity
+                    </button>
+                    <button onclick="openRejectModal('${doc.id}', '${company.ownerUid}')"
+                            class="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl text-sm">
+                        ❌ Reject
+                    </button>
+                </div>
+            `;
+            list.appendChild(card);
+        });
+
+    } catch(e) {
+        console.error("Full error:", e);
+        list.innerHTML = `
+            <div class="bg-red-900/20 border border-red-500/30 rounded-2xl p-6">
+                <p class="text-red-400 font-semibold mb-2">Error loading companies</p>
+                <p class="text-zinc-400 text-sm">${e.message}</p>
+                <p class="text-zinc-500 text-xs mt-2">Code: ${e.code}</p>
+            </div>
+        `;
     }
+}
 
     function getDocLabel(index) {
         const labels = ['Articles of Incorporation', 'EIN / Tax ID', 'Government ID'];
