@@ -3432,6 +3432,29 @@ async function deleteEquityListing(listingId) {
     }
 }
 
+
+    async function approveVerification(companyId) {
+    await db.collection("companies").doc(companyId).update({
+        equityUnlocked: true,
+        verificationStatus: 'verified',
+        verifiedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+    alert("✅ Company verified and equity unlocked.");
+}
+
+async function loadPendingVerifications() {
+    const snap = await db.collection("companies")
+        .where("verificationStatus", "==", "pending")
+        .get();
+    
+    snap.forEach(doc => {
+        const company = doc.data();
+        console.log(`Company: ${company.name}`);
+        console.log(`Docs: ${company.verificationDocUrls}`);
+        // Render in your admin UI
+    });
+}
+
     </script>    
 </body>
 </html>
