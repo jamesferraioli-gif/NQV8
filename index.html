@@ -3251,8 +3251,10 @@ async function loadEquityListings() {
             grid.appendChild(card);
         });
     } catch (e) {
-        console.error(e);
-        grid.innerHTML = `<p class="text-red-400 col-span-full text-center py-12">Error loading listings</p>`;
+        console.error("Equity listings error:", e);
+        console.error("Error code:", e.code);
+        console.error("Error message:", e.message);
+        grid.innerHTML = `<p class="text-red-400 col-span-full text-center py-12">Error: ${e.message}</p>`;
     }
 }
 
