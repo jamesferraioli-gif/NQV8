@@ -3384,7 +3384,6 @@ function showEquityDetail(listingId, listing) {
             <h2 class="text-4xl font-bold">${listing.projectName}</h2>
             <span class="px-4 py-1 text-xs rounded-full bg-violet-500/20 text-violet-400">📈 Equity Stake</span>
         </div>
-
         <div class="grid grid-cols-2 gap-4 mb-8">
             <div class="bg-zinc-800 rounded-2xl p-5">
                 <p class="text-sm text-zinc-400">Equity Offered</p>
@@ -3395,25 +3394,31 @@ function showEquityDetail(listingId, listing) {
                 <p class="text-2xl font-bold text-cyan-400">${listing.askPrice}</p>
             </div>
         </div>
-
         <p class="text-zinc-300 leading-relaxed mb-6">${listing.description}</p>
-
         <p class="text-sm text-zinc-400 mb-8">Listed by 
             <span onclick="viewUserProfile('${listing.sellerUid}')" class="text-cyan-400 hover:underline cursor-pointer">
                 @${listing.sellerUsername || 'anonymous'}
             </span>
         </p>
-
         <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-8">
             <p class="text-amber-400 text-sm font-medium">⚠️ Disclaimer</p>
             <p class="text-zinc-400 text-xs mt-1">NQVate is not a broker or party to this transaction. Always do your own due diligence and consult a legal professional before purchasing equity.</p>
         </div>
-
         ${!isOwner ? `
-        <button onclick="initiateChat('${listing.sellerUid}', { uid: '${listing.sellerUid}', username: '${listing.sellerUsername}', fullName: '${listing.sellerName}' }); hideProjectDetailModal(); navigateToChat();"
-                class="w-full py-5 bg-white text-black font-semibold rounded-3xl mb-3">
-            💬 Contact Seller
-        </button>` : `
+        <div class="space-y-3">
+            <button onclick="showAcquireEquityModal('${listingId}', '${listing.askPrice}', '${listing.percentage}', '${listing.projectName}')"
+                    class="w-full py-5 bg-white text-black font-semibold rounded-3xl">
+                ✅ Acquire Stake at ${listing.askPrice}
+            </button>
+            <button onclick="showCounterOfferModal('${listingId}', '${listing.sellerUid}', '${listing.sellerUsername}', '${listing.askPrice}', '${listing.percentage}', '${listing.projectName}')"
+                    class="w-full py-5 border border-cyan-400 text-cyan-400 font-semibold rounded-3xl">
+                💬 Make Counter Offer
+            </button>
+            <button onclick="initiateChat('${listing.sellerUid}', { uid: '${listing.sellerUid}', username: '${listing.sellerUsername}', fullName: '${listing.sellerName}' }); hideProjectDetailModal(); navigateToChat();"
+                    class="w-full py-5 border border-zinc-600 text-zinc-400 font-semibold rounded-3xl">
+                💬 Contact Seller
+            </button>
+        </div>` : `
         <div class="space-y-3">
             <button onclick="markEquitySold('${listingId}', '${listing.askPrice}')"
                     class="w-full py-5 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-3xl">
@@ -3427,6 +3432,63 @@ function showEquityDetail(listingId, listing) {
     `;
     modal.classList.remove('hidden');
 }
+
+    function showAcquireEquityModal(listingId, askPrice, percentage, projectName) {
+        if (!confirm(`Acquire ${percentage} equity in "${projectName}" for ${askPrice}?\n\nThis will notify the seller and open a chat to finalize the transaction. NQVate is not a party to this transaction.`)) return;
+    
+        db.collection("equityListings").doc(listingId).update({
+            acquisitionPending: true,
+            buyerUid: currentUser.uid,
+            buyerUsername: currentUser.username,
+            buyerName: currentUser.fullName || currentUser.username,
+            acquisitionRequestedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }).then(() => {
+            createNotification(
+                currentProject.sellerUid,
+                'bid',
+                `@${currentUser.username} wants to acquire your ${percentage} equity stake in "${projectName}" at ${askPrice}. Check your chats.`
+            );
+            hideProjectDetailModal();
+            initiateChat(currentProject.sellerUid, {
+                uid: currentProject.sellerUid,
+                username: currentProject.sellerUsername,
+                fullName: currentProject.sellerName
+            });
+            navigateToChat();
+        }).catch(e => alert("Failed: " + e.message));
+    }
+    
+    function showCounterOfferModal(listingId, sellerUid, sellerUsername, askPrice, percentage, projectName) {
+        const offer = prompt(`Make a counter offer for ${percentage} equity in "${projectName}".\n\nSeller is asking ${askPrice}.\n\nEnter your offer amount:`);
+        if (!offer || !offer.trim()) return;
+    
+        createNotification(
+            sellerUid,
+            'bid',
+            `@${currentUser.username} made a counter offer of ${offer.trim()} for your ${percentage} equity stake in "${projectName}". Check your chats.`
+        );
+    
+        hideProjectDetailModal();
+        initiateChat(sellerUid, {
+            uid: sellerUid,
+            username: sellerUsername,
+            fullName: sellerUsername
+        });
+    
+        setTimeout(async () => {
+            if (currentChatId) {
+                await db.collection("chats").doc(currentChatId).update({
+                    messages: firebase.firestore.FieldValue.arrayUnion({
+                        senderUid: currentUser.uid,
+                        text: `💰 Counter Offer: I'd like to acquire your ${percentage} equity stake in "${projectName}" for ${offer.trim()} (you listed at ${askPrice}).`,
+                        timestamp: new Date()
+                    })
+                });
+            }
+        }, 1500);
+    
+        navigateToChat();
+    }
 
 async function deleteEquityListing(listingId) {
     if (!confirm("Remove this equity listing?")) return;
