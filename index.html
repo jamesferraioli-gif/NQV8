@@ -327,7 +327,7 @@
                         <option value="equity">🏛️ Equity Only</option>
                         <option value="mixed">💵 + 🏛️ Cash + Equity</option>
                     </select>
-                    <input id="subproject-compensation" type="text" placeholder="e.g. $1,000 + 0.5% equity" 
+                    <input id="subproject-compensation-equity" type="text" placeholder="e.g. $1,000 + 0.5% equity"
                            class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
                 </div>
             </div>
@@ -1245,7 +1245,10 @@
             const subTitle = document.getElementById('subproject-title').value.trim();
             const subDesc = document.getElementById('subproject-desc').value.trim();
             const category = document.getElementById('subproject-category').value;
-            const compensation = document.getElementById('subproject-compensation').value.trim();
+            const compensation = selectedProjectType === 'equity'
+                ? document.getElementById('subproject-compensation-equity').value.trim()
+                : document.getElementById('subproject-compensation').value.trim();
+            
         
             if (!subTitle || !subDesc || !category || !compensation) {
                 return alert("Please fill in all task fields");
