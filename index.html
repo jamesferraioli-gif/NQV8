@@ -1656,7 +1656,7 @@
             const modal = document.getElementById('project-detail-modal');
             const content = document.getElementById('detail-content');
 
-            const isPoster = currentUser && project.posterUid === currentUser.uid;
+            const isPoster = currentUser && (project.posterUid === currentUser.uid || project.ownerUid === currentUser.uid);
             const isWorker = currentUser && project.acceptedBidderUid === currentUser.uid;
             const isInProgress = project.status === "in-progress";
             const isCompleted = project.status === "completed";
@@ -1702,7 +1702,7 @@
                 `;
 } else {
     // OPEN PROJECT
-    const isPoster = currentUser && project.posterUid === currentUser.uid;
+    const isPoster = currentUser && (project.posterUid === currentUser.uid || project.ownerUid === currentUser.uid);
     const alreadyBid = project.bids && project.bids.some(b => b.bidderUid === currentUser?.uid);
 
     mainHTML = `
@@ -1787,7 +1787,7 @@
                 const projectSnap = await projectRef.get();
                 const project = projectSnap.data();
 
-                if (project.posterUid === currentUser.uid) {
+                if (project.ownerUid === currentUser.uid || project.posterUid === currentUser.uid) {
                     return alert("❌ You cannot bid on your own project.");
                 }
 
