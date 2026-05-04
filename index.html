@@ -167,11 +167,27 @@
                     class="flex-1 pb-4 text-lg font-semibold text-zinc-400 flex items-center justify-center gap-2">
                 💰 Funding Requests
             </button>
+            <button onclick="switchMarketplaceTab(2)" id="tab-equity-market" 
+                    class="flex-1 pb-4 text-lg font-semibold text-zinc-400 flex items-center justify-center gap-2">
+                📈 Equity Exchange
+            </button>
         </div>
 
         <!-- Projects Grid -->
         <div id="projects-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             <!-- Populated by JS -->
+        </div>
+            <!-- Equity Exchange Grid -->
+        <div id="equity-grid" class="hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <!-- Populated by JS -->
+        </div>
+
+        <!-- Post Equity Listing Button (only shown on equity tab) -->
+        <div id="equity-post-btn-wrap" class="hidden mb-8">
+            <button onclick="showPostEquityModal()"
+                    class="bg-white text-black font-semibold px-8 py-4 rounded-3xl flex items-center gap-3 hover:bg-cyan-400 transition-colors">
+                <i class="fa-solid fa-plus"></i> List an Equity Stake
+            </button>
         </div>
 
     </div> <!-- ←←← CORRECTLY closes #marketplace-page -->
@@ -836,6 +852,40 @@
             </div>
         </div>
     </div>
+
+    <!-- POST EQUITY LISTING MODAL -->
+    <div id="post-equity-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999] overflow-auto">
+        <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8 my-8">
+            <h2 class="text-3xl font-bold mb-2">List an Equity Stake</h2>
+            <p class="text-zinc-400 mb-6">Sell or auction equity you've earned or acquired through funding.</p>
+    
+            <input id="equity-project-name" type="text" placeholder="Project / Company Name"
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+    
+            <input id="equity-percentage" type="text" placeholder="Equity % being sold (e.g. 1.5%)"
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+    
+            <input id="equity-ask-price" type="text" placeholder="Asking Price (e.g. $5,000 USDC)"
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+    
+            <textarea id="equity-desc" placeholder="Describe the project, its traction, and why this stake is valuable..." rows="4"
+                      class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6"></textarea>
+    
+            <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6">
+                <p class="text-amber-400 text-sm font-medium">⚠️ Important</p>
+                <p class="text-zinc-400 text-xs mt-1">NQVate is not a broker or party to any equity transaction. Both parties are responsible for completing their own legal agreements. Only list equity you legitimately own.</p>
+            </div>
+    
+            <div class="flex gap-3">
+                <button onclick="hidePostEquityModal()"
+                        class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+                <button onclick="submitEquityListing()"
+                        class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">List Stake</button>
+            </div>
+        </div>
+    </div>
+
+    
 <script>
         console.log("✅ SCRIPT LOADED SUCCESSFULLY");
 
@@ -3126,27 +3176,192 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             } catch(e) {}
         }
 
+        
+    function switchMarketplaceTab(tab) {
+        const buildTab = document.getElementById('tab-build-market');
+        const fundTab = document.getElementById('tab-fund-market');
+        const equityTab = document.getElementById('tab-equity-market');
+        const projectsGrid = document.getElementById('projects-grid');
+        const equityGrid = document.getElementById('equity-grid');
+        const equityPostBtn = document.getElementById('equity-post-btn-wrap');
     
-        function switchMarketplaceTab(tab) {
+        // Reset all tabs
+        [buildTab, fundTab, equityTab].forEach(t => {
+            t.classList.remove('border-b-2', 'border-cyan-400');
+            t.classList.add('text-zinc-400');
+        });
+    
+        if (tab === 2) {
+            // Equity Exchange tab
+            currentMarketplaceFilter = 'equity-exchange';
+            equityTab.classList.add('border-b-2', 'border-cyan-400');
+            equityTab.classList.remove('text-zinc-400');
+            projectsGrid.classList.add('hidden');
+            equityGrid.classList.remove('hidden');
+            equityPostBtn.classList.remove('hidden');
+            loadEquityListings();
+        } else {
+            // Build or Fund tabs
             currentMarketplaceFilter = tab === 0 ? 'build' : 'fund';
-
-            const buildTab = document.getElementById('tab-build-market');
-            const fundTab = document.getElementById('tab-fund-market');
-
-            if (tab === 0) {
-                buildTab.classList.add('border-b-2', 'border-cyan-400');
-                buildTab.classList.remove('text-zinc-400');
-                fundTab.classList.remove('border-b-2', 'border-cyan-400');
-                fundTab.classList.add('text-zinc-400');
-            } else {
-                fundTab.classList.add('border-b-2', 'border-cyan-400');
-                fundTab.classList.remove('text-zinc-400');
-                buildTab.classList.remove('border-b-2', 'border-cyan-400');
-                buildTab.classList.add('text-zinc-400');
-            }
-
+            const activeTab = tab === 0 ? buildTab : fundTab;
+            activeTab.classList.add('border-b-2', 'border-cyan-400');
+            activeTab.classList.remove('text-zinc-400');
+            projectsGrid.classList.remove('hidden');
+            equityGrid.classList.add('hidden');
+            equityPostBtn.classList.add('hidden');
             loadMarketplace();
         }
+    }
+
+    // ====================== EQUITY EXCHANGE ======================
+async function loadEquityListings() {
+    const grid = document.getElementById('equity-grid');
+    grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 py-12">Loading equity listings...</p>';
+
+    try {
+        const snapshot = await db.collection("equityListings")
+            .where("status", "==", "active")
+            .orderBy("createdAt", "desc")
+            .get();
+
+        grid.innerHTML = '';
+
+        if (snapshot.empty) {
+            grid.innerHTML = `<p class="col-span-full text-center text-zinc-400 py-12">No equity listings yet. Be the first to list a stake!</p>`;
+            return;
+        }
+
+        snapshot.forEach(doc => {
+            const l = doc.data();
+            const isOwner = currentUser && l.sellerUid === currentUser.uid;
+            const card = document.createElement('div');
+            card.className = "bg-zinc-900 rounded-3xl p-6 hover:ring-2 hover:ring-violet-400 cursor-pointer transition-all";
+            card.innerHTML = `
+                <div class="flex justify-between items-start mb-4">
+                    <span class="px-4 py-1 text-xs rounded-full bg-violet-500/20 text-violet-400">📈 Equity Stake</span>
+                    ${isOwner ? `<span class="text-xs text-zinc-500">Your listing</span>` : ''}
+                </div>
+                <h3 class="text-2xl font-bold mb-1">${l.projectName}</h3>
+                <p class="text-violet-400 text-lg font-semibold mb-2">${l.percentage} equity</p>
+                <p class="text-zinc-400 line-clamp-3 mb-4">${l.description}</p>
+                <div class="text-cyan-400 font-medium">Asking: ${l.askPrice}</div>
+                <p class="text-xs text-zinc-500 mt-3">Listed by @${l.sellerUsername || 'anonymous'}</p>
+            `;
+            card.onclick = () => showEquityDetail(doc.id, l);
+            grid.appendChild(card);
+        });
+    } catch (e) {
+        console.error(e);
+        grid.innerHTML = `<p class="text-red-400 col-span-full text-center py-12">Error loading listings</p>`;
+    }
+}
+
+function showPostEquityModal() {
+    if (!currentUser) return alert("Please log in first");
+    document.getElementById('post-equity-modal').classList.remove('hidden');
+}
+
+function hidePostEquityModal() {
+    document.getElementById('post-equity-modal').classList.add('hidden');
+}
+
+async function submitEquityListing() {
+    const projectName = document.getElementById('equity-project-name').value.trim();
+    const percentage = document.getElementById('equity-percentage').value.trim();
+    const askPrice = document.getElementById('equity-ask-price').value.trim();
+    const desc = document.getElementById('equity-desc').value.trim();
+
+    if (!projectName || !percentage || !askPrice || !desc) {
+        return alert("Please fill in all fields");
+    }
+
+    try {
+        await db.collection("equityListings").add({
+            projectName,
+            percentage,
+            askPrice,
+            description: desc,
+            sellerUid: currentUser.uid,
+            sellerUsername: currentUser.username,
+            sellerName: currentUser.fullName || currentUser.username,
+            status: 'active',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        alert("✅ Equity stake listed!");
+        hidePostEquityModal();
+        document.getElementById('equity-project-name').value = '';
+        document.getElementById('equity-percentage').value = '';
+        document.getElementById('equity-ask-price').value = '';
+        document.getElementById('equity-desc').value = '';
+        loadEquityListings();
+    } catch (e) {
+        console.error(e);
+        alert("Failed to list: " + e.message);
+    }
+}
+
+function showEquityDetail(listingId, listing) {
+    currentProject = listing;
+    currentProjectId = listingId;
+    const modal = document.getElementById('project-detail-modal');
+    const content = document.getElementById('detail-content');
+    const isOwner = currentUser && listing.sellerUid === currentUser.uid;
+
+    content.innerHTML = `
+        <div class="flex justify-between items-start mb-4">
+            <h2 class="text-4xl font-bold">${listing.projectName}</h2>
+            <span class="px-4 py-1 text-xs rounded-full bg-violet-500/20 text-violet-400">📈 Equity Stake</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-8">
+            <div class="bg-zinc-800 rounded-2xl p-5">
+                <p class="text-sm text-zinc-400">Equity Offered</p>
+                <p class="text-2xl font-bold text-violet-400">${listing.percentage}</p>
+            </div>
+            <div class="bg-zinc-800 rounded-2xl p-5">
+                <p class="text-sm text-zinc-400">Asking Price</p>
+                <p class="text-2xl font-bold text-cyan-400">${listing.askPrice}</p>
+            </div>
+        </div>
+
+        <p class="text-zinc-300 leading-relaxed mb-6">${listing.description}</p>
+
+        <p class="text-sm text-zinc-400 mb-8">Listed by 
+            <span onclick="viewUserProfile('${listing.sellerUid}')" class="text-cyan-400 hover:underline cursor-pointer">
+                @${listing.sellerUsername || 'anonymous'}
+            </span>
+        </p>
+
+        <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-8">
+            <p class="text-amber-400 text-sm font-medium">⚠️ Disclaimer</p>
+            <p class="text-zinc-400 text-xs mt-1">NQVate is not a broker or party to this transaction. Always do your own due diligence and consult a legal professional before purchasing equity.</p>
+        </div>
+
+        ${!isOwner ? `
+        <button onclick="initiateChat('${listing.sellerUid}', { uid: '${listing.sellerUid}', username: '${listing.sellerUsername}', fullName: '${listing.sellerName}' }); hideProjectDetailModal(); navigateToChat();"
+                class="w-full py-5 bg-white text-black font-semibold rounded-3xl">
+            💬 Contact Seller
+        </button>` : `
+        <button onclick="deleteEquityListing('${listingId}')"
+                class="w-full py-5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-3xl">
+            🗑️ Remove Listing
+        </button>`}
+    `;
+    modal.classList.remove('hidden');
+}
+
+async function deleteEquityListing(listingId) {
+    if (!confirm("Remove this equity listing?")) return;
+    try {
+        await db.collection("equityListings").doc(listingId).update({ status: 'removed' });
+        alert("✅ Listing removed.");
+        hideProjectDetailModal();
+        loadEquityListings();
+    } catch (e) {
+        alert("Failed: " + e.message);
+    }
+}
 
     </script>    
 </body>
