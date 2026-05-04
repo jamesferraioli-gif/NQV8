@@ -1179,8 +1179,9 @@
                 const company = companySnap.data();
                 if (!company.equityUnlocked) {
                     if (confirm("Equity features require verification. Would you like to start the verification process now?")) {
+                        const companyIdToVerify = selectedCompanyId;
                         hidePostProjectModal();
-                        showVerificationModal(selectedCompanyId);
+                        showVerificationModal(companyIdToVerify);
                     }
                     return;
                 }
