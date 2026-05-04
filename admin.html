@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NQVate Admin</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>tailwind.config = { content: [] };</script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" />
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+</head>
+<body class="bg-black text-white min-h-screen">
+
+    <!-- AUTH GATE -->
+    <div id="auth-gate" class="fixed inset-0 bg-black flex items-center justify-center z-50">
+        <div class="bg-zinc-900 rounded-3xl p-10 w-full max-w-md mx-4 text-center">
+            <div class="w-16 h-16 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-2xl flex items-center justify-center text-2xl font-bold mx-auto mb-6">
+                NQV8
+            </div>
+            <h1 class="text-2xl font-bold mb-2">Admin Access</h1>
+            <p class="text-zinc-400 mb-8">Sign in with your admin account</p>
+            <input id="admin-email" type="email" placeholder="Email"
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
+            <input id="admin-password" type="password" placeholder="Password"
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-6">
+            <button onclick="adminLogin()"
+                    class="w-full py-4 bg-white text-black font-semibold rounded-2xl">
+                Sign In
+            </button>
+            <p id="auth-error" class="text-red-400 text-sm mt-4 hidden"></p>
+        </div>
+    </div>
+
+    <!-- ADMIN PANEL -->
+    <div id="admin-panel" class="hidden">
+
+        <!-- Navbar -->
+        <nav class="bg-zinc-900 border-b border-zinc-800 px-8 py-4 flex justify-between items-center sticky top-0 z-40">
+            <div class="flex items-center gap-4">
+                <div class="w-10 h-10 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-xl flex items-center justify-center font-bold">
+                    NQV8
+                </div>
+                <div>
+                    <p class="font-bold">NQVate Admin</p>
+                    <p class="text-xs text-zinc-400">Control Panel</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-6">
+                <p id="admin-user-label" class="text-xs text-zinc-400"></p>
+                <button onclick="adminLogout()" class="text-red-400 text-sm hover:underline">Logout</button>
+            </div>
+        </nav>
+
+        <!-- Stats Bar -->
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 px-8 py-6 bg-black border-b border-zinc-800">
+            <div class="bg-zinc-900 rounded-2xl p-4 text-center">
+                <p id="stat-pending-verif" class="text-3xl font-bold text-amber-400">0</p>
+                <p class="text-xs text-zinc-400">Pending Verifications</p>
+            </div>
+            <div class="bg-zinc-900 rounded-2xl p-4 text-center">
+                <p id="stat-total-users" class="text-3xl font-bold text-cyan-400">0</p>
+                <p class="text-xs text-zinc-400">Total Users</p>
+            </div>
+            <div class="bg-zinc-900 rounded-2xl p-4 text-center">
+                <p id="stat-total-projects" class="text-3xl font-bold text-violet-400">0</p>
+                <p class="text-xs text-zinc-400">Total Projects</p>
+            </div>
+            <div class="bg-zinc-900 rounded-2xl p-4 text-center">
+                <p id="stat-total-companies" class="text-3xl font-bold text-emerald-400">0</p>
+                <p class="text-xs text-zinc-400">Companies</p>
+            </div>
+            <div class="bg-zinc-900 rounded-2xl p-4 text-center">
+                <p id="stat-equity-traded" class="text-3xl font-bold text-pink-400">$0</p>
+                <p class="text-xs text-zinc-400">Equity Traded</p>
+            </div>
+        </div>
+
+        <!-- Tab Navigation -->
+        <div class="flex border-b border-zinc-800 bg-zinc-900 px-8">
+            <button onclick="switchAdminTab('verifications')" id="tab-verifications"
+                    class="py-4 px-6 text-sm font-semibold border-b-2 border-cyan-400 text-white">
+                🔐 Verifications
+            </button>
+            <button onclick="switchAdminTab('users')" id="tab-users"
+                    class="py-4 px-6 text-sm font-semibold text-zinc-400">
+                👥 Users
+            </button>
+            <button onclick="switchAdminTab('projects')" id="tab-projects"
+                    class="py-4 px-6 text-sm font-semibold text-zinc-400">
+                🔨 Projects
+            </button>
+            <button onclick="switchAdminTab('companies')" id="tab-companies"
+                    class="py-4 px-6 text-sm font-semibold text-zinc-400">
+                🏛️ Companies
+            </button>
+            <button onclick="switchAdminTab('equity')" id="tab-equity"
+                    class="py-4 px-6 text-sm font-semibold text-zinc-400">
+                📈 Equity Listings
+            </button>
+            <button onclick="switchAdminTab('reports')" id="tab-reports"
+                    class="py-4 px-6 text-sm font-semibold text-zinc-400">
+                🚩 Reports
+            </button>
+        </div>
+
+        <div class="max-w-7xl mx-auto px-8 py-8">
+
+            <!-- ===== VERIFICATIONS TAB ===== -->
+            <div id="tab-content-verifications">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">Pending Verifications</h2>
+                    <button onclick="loadVerifications()" class="text-cyan-400 text-sm hover:underline">↻ Refresh</button>
+                </div>
+                <div id="verifications-list" class="space-y-6">
+                    <p class="text-zinc-400">Loading...</p>
+                </div>
+            </div>
+
+            <!-- ===== USERS TAB ===== -->
+            <div id="tab-content-users" class="hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">All Users</h2>
+                    <input id="user-search" type="text" placeholder="Search by username or email..."
+                           oninput="filterUsers()"
+                           class="bg-zinc-900 border border-zinc-700 rounded-2xl px-5 py-3 outline-none text-sm w-72">
+                </div>
+                <div id="users-list" class="space-y-3">
+                    <p class="text-zinc-400">Loading...</p>
+                </div>
+            </div>
+
+            <!-- ===== PROJECTS TAB ===== -->
+            <div id="tab-content-projects" class="hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">All Projects</h2>
+                    <button onclick="loadProjects()" class="text-cyan-400 text-sm hover:underline">↻ Refresh</button>
+                </div>
+                <div id="projects-list" class="space-y-3">
+                    <p class="text-zinc-400">Loading...</p>
+                </div>
+            </div>
+
+            <!-- ===== COMPANIES TAB ===== -->
+            <div id="tab-content-companies" class="hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">All Companies</h2>
+                    <button onclick="loadCompanies()" class="text-cyan-400 text-sm hover:underline">↻ Refresh</button>
+                </div>
+                <div id="companies-list" class="space-y-3">
+                    <p class="text-zinc-400">Loading...</p>
+                </div>
+            </div>
+
+            <!-- ===== EQUITY TAB ===== -->
+            <div id="tab-content-equity" class="hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">Equity Listings</h2>
+                    <button onclick="loadEquityAdmin()" class="text-cyan-400 text-sm hover:underline">↻ Refresh</button>
+                </div>
+                <div id="equity-list" class="space-y-3">
+                    <p class="text-zinc-400">Loading...</p>
+                </div>
+            </div>
+
+            <!-- ===== REPORTS TAB ===== -->
+            <div id="tab-content-reports" class="hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-2xl font-bold">Reported Content</h2>
+                    <button onclick="loadReports()" class="text-cyan-400 text-sm hover:underline">↻ Refresh</button>
+                </div>
+                <div id="reports-list" class="space-y-3">
+                    <p class="text-zinc-400">No reports yet.</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- DOCUMENT VIEWER MODAL -->
+    <div id="doc-viewer-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
+        <div class="bg-zinc-900 w-full max-w-4xl mx-4 rounded-3xl overflow-hidden" style="height: 90vh; display: flex; flex-direction: column;">
+            <div class="flex justify-between items-center px-8 py-5 border-b border-zinc-700">
+                <h3 id="doc-viewer-title" class="text-xl font-bold">Document Viewer</h3>
+                <button onclick="closeDocViewer()" class="text-3xl leading-none hover:text-red-400">×</button>
+            </div>
+            <iframe id="doc-viewer-frame" src="" class="flex-1 w-full border-none bg-white"></iframe>
+        </div>
+    </div>
+
+    <!-- REJECT MODAL -->
+    <div id="reject-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
+        <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-8">
+            <h3 class="text-2xl font-bold mb-4">Reject Verification</h3>
+            <p class="text-zinc-400 mb-4">Provide a reason so the user knows what to fix and resubmit.</p>
+            <textarea id="reject-reason" rows="4" placeholder="e.g. Documents are unclear, please resubmit with higher quality scans..."
+                      class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none mb-6"></textarea>
+            <div class="flex gap-3">
+                <button onclick="closeRejectModal()" class="flex-1 py-4 border border-zinc-700 rounded-2xl">Cancel</button>
+                <button onclick="confirmReject()" class="flex-1 py-4 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-2xl">Reject</button>
+            </div>
+        </div>
+    </div>
+
+<script>
+    const ADMIN_UIDS = [
+        'PASTE_YOUR_UID_HERE',   // your UID from Firebase Auth console
+        // add more admin UIDs here if needed
+    ];
+
+    const firebaseConfig = {
+        apiKey: "AIzaSyDnUVkD4WZ_jpHK1cY1G_1DOvHSfkUropU",
+        authDomain: "nqv8-9092f.firebaseapp.com",
+        projectId: "nqv8-9092f",
+        storageBucket: "nqv8-9092f.firebasestorage.app",
+        messagingSenderId: "199645894982",
+        appId: "1:199645894982:web:c5a192a4b553b9747e2d47"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.firestore();
+    const auth = firebase.auth();
+
+    let currentAdmin = null;
+    let allUsers = [];
+    let currentRejectCompanyId = null;
+
+    // ====================== AUTH ======================
+    async function adminLogin() {
+        const email = document.getElementById('admin-email').value.trim();
+        const password = document.getElementById('admin-password').value;
+        const errorEl = document.getElementById('auth-error');
+        errorEl.classList.add('hidden');
+
+        try {
+            const cred = await auth.signInWithEmailAndPassword(email, password);
+            if (!ADMIN_UIDS.includes(cred.user.uid)) {
+                await auth.signOut();
+                errorEl.textContent = '❌ Access denied. Not an admin account.';
+                errorEl.classList.remove('hidden');
+                return;
+            }
+        } catch (e) {
+            errorEl.textContent = '❌ ' + e.message;
+            errorEl.classList.remove('hidden');
+        }
+    }
+
+    function adminLogout() {
+        auth.signOut();
+    }
+
+    auth.onAuthStateChanged(async user => {
+        if (user && ADMIN_UIDS.includes(user.uid)) {
+            currentAdmin = user;
+            document.getElementById('auth-gate').classList.add('hidden');
+            document.getElementById('admin-panel').classList.remove('hidden');
+            document.getElementById('admin-user-label').textContent = user.email;
+            initAdmin();
+        } else {
+            document.getElementById('auth-gate').classList.remove('hidden');
+            document.getElementById('admin-panel').classList.add('hidden');
+        }
+    });
+
+    // ====================== INIT ======================
+    async function initAdmin() {
+        await Promise.all([
+            loadStats(),
+            loadVerifications(),
+            loadUsers(),
+        ]);
+    }
+
+    // ====================== STATS ======================
+    async function loadStats() {
+        try {
+            const [users, projects, companies, equitySnap, statsDoc] = await Promise.all([
+                db.collection("users").get(),
+                db.collection("subprojects").get(),
+                db.collection("companies").get(),
+                db.collection("equityListings").where("status", "==", "active").get(),
+                db.collection("platformStats").doc("equity").get()
+            ]);
+
+            const pending = await db.collection("companies")
+                .where("verificationStatus", "==", "pending").get();
+
+            document.getElementById('stat-pending-verif').textContent = pending.size;
+            document.getElementById('stat-total-users').textContent = users.size;
+            document.getElementById('stat-total-projects').textContent = projects.size;
+            document.getElementById('stat-total-companies').textContent = companies.size;
+
+            const total = statsDoc.exists ? (statsDoc.data().totalEquityTraded || 0) : 0;
+            const formatted = total >= 1000000 ? '$' + (total/1000000).toFixed(1) + 'M'
+                : total >= 1000 ? '$' + (total/1000).toFixed(1) + 'K'
+                : '$' + total.toLocaleString();
+            document.getElementById('stat-equity-traded').textContent = formatted;
+        } catch(e) {
+            console.error("Stats error:", e);
+        }
+    }
+
+    // ====================== TAB SWITCHING ======================
+    function switchAdminTab(tab) {
+        const tabs = ['verifications', 'users', 'projects', 'companies', 'equity', 'reports'];
+        tabs.forEach(t => {
+            document.getElementById(`tab-${t}`).classList.remove('border-b-2', 'border-cyan-400', 'text-white');
+            document.getElementById(`tab-${t}`).classList.add('text-zinc-400');
+            document.getElementById(`tab-content-${t}`).classList.add('hidden');
+        });
+        document.getElementById(`tab-${tab}`).classList.add('border-b-2', 'border-cyan-400', 'text-white');
+        document.getElementById(`tab-${tab}`).classList.remove('text-zinc-400');
+        document.getElementById(`tab-content-${tab}`).classList.remove('hidden');
+
+        if (tab === 'projects') loadProjects();
+        if (tab === 'companies') loadCompanies();
+        if (tab === 'equity') loadEquityAdmin();
+        if (tab === 'reports') loadReports();
+    }
+
+    // ====================== VERIFICATIONS ======================
+    async function loadVerifications() {
+        const list = document.getElementById('verifications-list');
+        list.innerHTML = '<p class="text-zinc-400">Loading...</p>';
+
+        try {
+            const snap = await db.collection("companies")
+                .where("verificationStatus", "==", "pending")
+                .orderBy("verificationSubmittedAt", "desc")
+                .get();
+
+            if (snap.empty) {
+                list.innerHTML = '<div class="bg-zinc-900 rounded-2xl p-8 text-center text-zinc-400">✅ No pending verifications</div>';
+                return;
+            }
+
+            list.innerHTML = '';
+            for (const doc of snap.docs) {
+                const company = doc.data();
+
+                // Get owner info
+                let ownerInfo = { fullName: 'Unknown', email: '', username: '' };
+                try {
+                    const ownerDoc = await db.collection("users").doc(company.ownerUid).get();
+                    if (ownerDoc.exists) ownerInfo = ownerDoc.data();
+                } catch(e) {}
+
+                const submittedDate = company.verificationSubmittedAt?.toDate?.()?.toLocaleDateString() || 'Unknown';
+                const docUrls = company.verificationDocUrls || [];
+
+                const card = document.createElement('div');
+                card.className = 'bg-zinc-900 rounded-3xl p-8 border border-amber-500/30';
+                card.innerHTML = `
+                    <div class="flex flex-col md:flex-row justify-between gap-6">
+                        <div class="flex-1">
+                            <div class="flex items-center gap-3 mb-4">
+                                <span class="px-3 py-1 bg-amber-500/20 text-amber-400 text-xs rounded-full">⏳ Pending Review</span>
+                                <span class="text-xs text-zinc-500">Submitted: ${submittedDate}</span>
+                            </div>
+
+                            <h3 class="text-2xl font-bold mb-1">${company.name}</h3>
+                            <p class="text-zinc-400 text-sm mb-1">Type: ${company.type}</p>
+                            <p class="text-zinc-400 text-sm mb-1">Owner: ${ownerInfo.fullName} (@${ownerInfo.username})</p>
+                            <p class="text-zinc-400 text-sm mb-6">Email: ${ownerInfo.email}</p>
+
+                            <!-- Documents -->
+                            <p class="text-sm font-semibold mb-3 text-zinc-300">Submitted Documents:</p>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
+                                ${docUrls.length > 0 ? docUrls.map((url, i) => `
+                                    <button onclick="viewDoc('${url}', 'Document ${i+1}')"
+                                            class="flex items-center gap-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-600 rounded-2xl px-4 py-3 text-left transition-colors">
+                                        <i class="fa-solid fa-file text-cyan-400"></i>
+                                        <div>
+                                            <p class="text-sm font-medium">${getDocLabel(i)}</p>
+                                            <p class="text-xs text-cyan-400 hover:underline">Click to view</p>
+                                        </div>
+                                    </button>
+                                `).join('') : '<p class="text-zinc-500 text-sm">No documents uploaded</p>'}
+                            </div>
+
+                            <!-- Verification Checklist -->
+                            <div class="bg-black/40 rounded-2xl p-5 mb-6">
+                                <p class="text-sm font-semibold mb-3 text-zinc-300">Verification Checklist</p>
+                                <div class="space-y-2">
+                                    ${['Documents are clear and legible', 
+                                       'Business name matches application',
+                                       'EIN/Tax ID is valid format',
+                                       'Government ID matches authorized representative',
+                                       'Entity type is consistent across documents'].map((item, i) => `
+                                        <label class="flex items-center gap-3 cursor-pointer">
+                                            <input type="checkbox" id="check-${doc.id}-${i}" 
+                                                   class="w-4 h-4 accent-cyan-400">
+                                            <span class="text-sm text-zinc-300">${item}</span>
+                                        </label>
+                                    `).join('')}
+                                </div>
+                            </div>
+
+                            <!-- Notes -->
+                            <textarea id="notes-${doc.id}" placeholder="Internal admin notes (not shown to user)..."
+                                      class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm mb-4" rows="2"></textarea>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="flex gap-4">
+                        <button onclick="approveVerification('${doc.id}', '${company.ownerUid}', '${company.name}')"
+                                class="flex-1 py-4 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-2xl flex items-center justify-center gap-2">
+                            ✅ Approve & Unlock Equity
+                        </button>
+                        <button onclick="openRejectModal('${doc.id}', '${company.ownerUid}')"
+                                class="flex-1 py-4 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-2xl flex items-center justify-center gap-2">
+                            ❌ Reject
+                        </button>
+                        <button onclick="requestMoreInfo('${doc.id}', '${company.ownerUid}')"
+                                class="flex-1 py-4 border border-zinc-600 hover:bg-zinc-800 text-white font-semibold rounded-2xl flex items-center justify-center gap-2">
+                            📋 Request More Info
+                        </button>
+                    </div>
+                `;
+                list.appendChild(card);
+            }
+
+            // Update stat
+            document.getElementById('stat-pending-verif').textContent = snap.size;
+        } catch(e) {
+            console.error(e);
+            list.innerHTML = `<p class="text-red-400">Error: ${e.message}</p>`;
+        }
+    }
+
+    function getDocLabel(index) {
+        const labels = ['Articles of Incorporation', 'EIN / Tax ID', 'Government ID'];
+        return labels[index] || `Document ${index + 1}`;
+    }
+
+    async function approveVerification(companyId, ownerUid, companyName) {
+        if (!confirm(`Approve verification for "${companyName}"?\n\nThis will unlock equity features for this entity.`)) return;
+
+        try {
+            await db.collection("companies").doc(companyId).update({
+                equityUnlocked: true,
+                verificationStatus: 'verified',
+                verifiedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                verifiedBy: currentAdmin.uid
+            });
+
+            // Notify the user
+            await db.collection("notifications").add({
+                recipientUid: ownerUid,
+                type: 'verification',
+                message: `✅ Your entity "${companyName}" has been verified! Equity features are now unlocked.`,
+                read: false,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            alert(`✅ Verified! Equity features unlocked for ${companyName}.`);
+            loadVerifications();
+            loadStats();
+        } catch(e) {
+            alert("Error: " + e.message);
+        }
+    }
+
+    function openRejectModal(companyId, ownerUid) {
+        currentRejectCompanyId = { companyId, ownerUid };
+        document.getElementById('reject-reason').value = '';
+        document.getElementById('reject-modal').classList.remove('hidden');
+    }
+
+    function closeRejectModal() {
+        document.getElementById('reject-modal').classList.add('hidden');
+        currentRejectCompanyId = null;
+    }
+
+    async function confirmReject() {
+        const reason = document.getElementById('reject-reason').value.trim();
+        if (!reason) return alert("Please provide a rejection reason");
+
+        const { companyId, ownerUid } = currentRejectCompanyId;
+
+        try {
+            await db.collection("companies").doc(companyId).update({
+                verificationStatus: 'rejected',
+                rejectedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                rejectionReason: reason,
+                rejectedBy: currentAdmin.uid
+            });
+
+            await db.collection("notifications").add({
+                recipientUid: ownerUid,
+                type: 'verification',
+                message: `❌ Verification rejected. Reason: ${reason}. You may resubmit after addressing these issues.`,
+                read: false,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            alert("Verification rejected and user notified.");
+            closeRejectModal();
+            loadVerifications();
+            loadStats();
+        } catch(e) {
+            alert("Error: " + e.message);
+        }
+    }
+
+    async function requestMoreInfo(companyId, ownerUid) {
+        const info = prompt("What additional information do you need from the user?");
+        if (!info) return;
+
+        try {
+            await db.collection("notifications").add({
+                recipientUid: ownerUid,
+                type: 'verification',
+                message: `📋 Additional information requested for your verification: ${info}`,
+                read: false,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+
+            alert("✅ User notified.");
+        } catch(e) {
+            alert("Error: " + e.message);
+        }
+    }
+
+    // ====================== DOCUMENT VIEWER ======================
+    function viewDoc(url, title) {
+        document.getElementById('doc-viewer-title').textContent = title;
+        document.getElementById('doc-viewer-frame').src = url;
+        document.getElementById('doc-viewer-modal').classList.remove('hidden');
+    }
+
+    function closeDocViewer() {
+        document.getElementById('doc-viewer-modal').classList.add('hidden');
+        document.getElementById('doc-viewer-frame').src = '';
+    }
+
+    // ====================== USERS ======================
+    async function loadUsers() {
+        const list = document.getElementById('users-list');
+        list.innerHTML = '<p class="text-zinc-400">Loading...</p>';
+
+        try {
+            const snap = await db.collection("users")
+                .orderBy("createdAt", "desc")
+                .get();
+
+            allUsers = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            renderUsers(allUsers);
+        } catch(e) {
+            list.innerHTML = `<p class="text-red-400">Error: ${e.message}</p>`;
+        }
+    }
+
+    function renderUsers(users) {
+        const list = document.getElementById('users-list');
+
+        if (users.length === 0) {
+            list.innerHTML = '<p class="text-zinc-400">No users found</p>';
+            return;
+        }
+
+        list.innerHTML = `
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-zinc-400 border-b border-zinc-800">
+                            <th class="text-left py-3 pr-6">User</th>
+                            <th class="text-left py-3 pr-6">Username</th>
+                            <th class="text-left py-3 pr-6">Email</th>
+                            <th class="text-left py-3 pr-6">NQV8 Balance</th>
+                            <th class="text-left py-3 pr-6">Joined</th>
+                            <th class="text-left py-3">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="users-tbody">
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        const tbody = document.getElementById('users-tbody');
+        users.forEach(user => {
+            const joined = user.createdAt?.toDate?.()?.toLocaleDateString() || 'Unknown';
+            const isAdmin = ADMIN_UIDS.includes(user.uid);
+            const tr = document.createElement('tr');
+            tr.className = 'border-b border-zinc-800/50 hover:bg-zinc-900/50';
+            tr.innerHTML = `
+                <td class="py-4 pr-6">
+                    <div class="flex items-center gap-3">
+                        <div class="w-8 h-8 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 overflow-hidden">
+                            ${user.photoURL ? `<img src="${user.photoURL}" class="w-full h-full object-cover">` : (user.fullName || '?')[0]}
+                        </div>
+                        <div>
+                            <p class="font-medium">${user.fullName || 'Unknown'}</p>
+                            ${isAdmin ? '<span class="text-xs bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded-full">Admin</span>' : ''}
+                        </div>
+                    </div>
+                </td>
+                <td class="py-4 pr-6 text-zinc-400">@${user.username || '-'}</td>
+                <td class="py-4 pr-6 text-zinc-400">${user.email || '-'}</td>
+                <td class="py-4 pr-6 text-cyan-400 font-medium">${(user.nqv8Balance || 0).toLocaleString()}</td>
+                <td class="py-4 pr-6 text-zinc-400">${joined}</td>
+                <td class="py-4">
+                    <div class="flex gap-2">
+                        <button onclick="adjustNQV8('${user.id}', '${user.fullName}')"
+                                class="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs rounded-xl">
+                            Adjust NQV8
+                        </button>
+                        <button onclick="suspendUser('${user.id}', '${user.fullName}')"
+                                class="px-3 py-1.5 bg-zinc-700 hover:bg-red-600 text-white text-xs rounded-xl">
+                            Suspend
+                        </button>
+                    </div>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    function filterUsers() {
+        const term = document.getElementById('user-search').value.toLowerCase();
+        const filtered = allUsers.filter(u =>
+            (u.username || '').toLowerCase().includes(term) ||
+            (u.email || '').toLowerCase().includes(term) ||
+            (u.fullName || '').toLowerCase().includes(term)
+        );
+        renderUsers(filtered);
+    }
+
+    async function adjustNQV8(userId, userName) {
+        const amount = prompt(`Adjust NQV8 balance for ${userName}.\n\nEnter amount (positive to add, negative to subtract):`);
+        if (amount === null) return;
+        const num = parseInt(amount);
+        if (isNaN(num)) return alert("Please enter a valid number");
+
+        try {
+            await db.collection("users").doc(userId).update({
+                nqv8Balance: firebase.firestore.FieldValue.increment(num),
+                totalNQV8Earned: num > 0 ? firebase.firestore.FieldValue.increment(num) : firebase.firestore.FieldValue.increment(0)
+            });
+            alert(`✅ NQV8 balance adjusted by ${num} for ${userName}`);
+            loadUsers();
+        } catch(e) {
+            alert("Error: " + e.message);
+        }
+    }
+
+    async function suspendUser(userId, userName) {
+        if (!confirm(`Suspend user ${userName}? They will not be able to log in.`)) return;
+        try {
+            await db.collection("users").doc(userId).update({
+                suspended: true,
+                suspendedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                suspendedBy: currentAdmin.uid
+            });
+            alert(`✅ ${userName} suspended.`);
+            loadUsers();
+        } catch(e) {
+            alert("Error: " + e.message);
+        }
+    }
+
+    // ====================== PROJECTS ======================
+    async function loadProjects() {
+        const list = document.getElementById('projects-list');
+        list.innerHTML = '<p class="text-zinc-400">Loading...</p>';
+
+        try {
+            const snap = await db.collection("subprojects")
+                .orderBy("createdAt", "desc")
+                .limit(50)
+                .get();
+
+            if (snap.empty) {
+                list.innerHTML = '<p class="text-zinc-400">No projects yet</p>';
+                return;
+            }
+
+            list.innerHTML = `
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-zinc-400 border-b border-zinc-800">
+                                <th class="text-left py-3 pr-6">Title</th>
+                                <th class="text-left py-3 pr-6">Type</th>
+                                <th class="text-left py-3 pr-6">Status</th>
+                                <th class="text-left py-3 pr-6">Compensation</th>
+                                <th class="text-left py-3 pr-6">Posted By</th>
+                                <th class="text-left py-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="projects-tbody"></tbody>
+                    </table>
+                </div>
+            `;
+
+            const tbody = document.getElementById('projects-tbody');
+            snap.forEach(doc => {
+                const p = doc.data();
+                const statusColor = p.status === 'open' ? 'text-cyan-400' : p.status === 'in-progress' ? 'text-amber-400' : 'text-emerald-400';
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-zinc-800/50 hover:bg-zinc-900/50';
+                tr.innerHTML = `
+                    <td class="py-4 pr-6 font-medium max-w-xs">
+                        <p class="truncate">${p.title}</p>
+                        ${p.category ? `<p class="text-xs text-violet-400">${p.category}</p>` : ''}
+                    </td>
+                    <td class="py-4 pr-6">
+                        <span class="px-2 py-1 rounded-full text-xs ${p.type === 'build' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-violet-500/20 text-violet-400'}">
+                            ${p.type || 'build'}
+                        </span>
+                    </td>
+                    <td class="py-4 pr-6 ${statusColor} font-medium">${p.status || 'open'}</td>
+                    <td class="py-4 pr-6 text-zinc-300">${p.compensation || '-'}</td>
+                    <td class="py-4 pr-6 text-zinc-400">@${p.posterName || p.ownerUsername || '-'}</td>
+                    <td class="py-4">
+                        <button onclick="removeProject('${doc.id}', '${p.title?.replace(/'/g, '')}')"
+                                class="px-3 py-1.5 bg-zinc-700 hover:bg-red-600 text-white text-xs rounded-xl">
+                            Remove
+                        </button>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch(e) {
+            list.innerHTML = `<p class="text-red-400">Error: ${e.message}</p>`;
+        }
+    }
+
+    async function removeProject(projectId, title) {
+        if (!confirm(`Remove project "${title}"? This cannot be undone.`)) return;
+        try {
+            await db.collection("subprojects").doc(projectId).update({
+                status: 'removed',
+                removedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                removedBy: currentAdmin.uid
+            });
+            alert("✅ Project removed");
+            loadProjects();
+        } catch(e) {
+            alert("Error: " + e.message);
+        }
+    }
+
+    // ====================== COMPANIES ======================
+    async function loadCompanies() {
+        const list = document.getElementById('companies-list');
+        list.innerHTML = '<p class="text-zinc-400">Loading...</p>';
+
+        try {
+            const snap = await db.collection("companies")
+                .orderBy("createdAt", "desc")
+                .get();
+
+            if (snap.empty) {
+                list.innerHTML = '<p class="text-zinc-400">No companies yet</p>';
+                return;
+            }
+
+            list.innerHTML = `
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-zinc-400 border-b border-zinc-800">
+                                <th class="text-left py-3 pr-6">Company</th>
+                                <th class="text-left py-3 pr-6">Type</th>
+                                <th class="text-left py-3 pr-6">Verification</th>
+                                <th class="text-left py-3 pr-6">Equity Unlocked</th>
+                                <th class="text-left py-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="companies-tbody"></tbody>
+                    </table>
+                </div>
+            `;
+
+            const tbody = document.getElementById('companies-tbody');
+            snap.forEach(doc => {
+                const c = doc.data();
+                const statusColor = c.verificationStatus === 'verified' ? 'text-emerald-400'
+                    : c.verificationStatus === 'pending' ? 'text-amber-400'
+                    : c.verificationStatus === 'rejected' ? 'text-red-400'
+                    : 'text-zinc-400';
+
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-zinc-800/50 hover:bg-zinc-900/50';
+                tr.innerHTML = `
+                    <td class="py-4 pr-6 font-medium">${c.name}</td>
+                    <td class="py-4 pr-6 text-zinc-400">${c.type}</td>
+                    <td class="py-4 pr-6 ${statusColor} font-medium">${c.verificationStatus || 'unverified'}</td>
+                    <td class="py-4 pr-6">${c.equityUnlocked ? '<span class="text-emerald-400">✅ Yes</span>' : '<span class="text-zinc-500">No</span>'}</td>
+                    <td class="py-4">
+                        <div class="flex gap-2">
+                            ${!c.equityUnlocked ? `
+                            <button onclick="forceApprove('${doc.id}')"
+                                    class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs rounded-xl">
+                                Force Approve
+                            </button>` : ''}
+                            ${c.verificationStatus === 'pending' ? `
+                            <button onclick="openRejectModal('${doc.id}', '${c.ownerUid}')"
+                                    class="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white text-xs rounded-xl">
+                                Reject
+                            </button>` : ''}
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch(e) {
+            list.innerHTML = `<p class="text-red-400">Error: ${e.message}</p>`;
+        }
+    }
+
+    async function forceApprove(companyId) {
+        if (!confirm("Force approve this company without document review?")) return;
+        try {
+            await db.collection("companies").doc(companyId).update({
+                equityUnlocked: true,
+                verificationStatus: 'verified',
+                verifiedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                verifiedBy: currentAdmin.uid,
+                forceApproved: true
+            });
+            alert("✅ Force approved");
+            loadCompanies();
+        } catch(e) {
+            alert("Error: " + e.message);
+        }
+    }
+
+    // ====================== EQUITY LISTINGS ======================
+    async function loadEquityAdmin() {
+        const list = document.getElementById('equity-list');
+        list.innerHTML = '<p class="text-zinc-400">Loading...</p>';
+
+        try {
+            const snap = await db.collection("equityListings")
+                .orderBy("createdAt", "desc")
+                .get();
+
+            if (snap.empty) {
+                list.innerHTML = '<p class="text-zinc-400">No equity listings yet</p>';
+                return;
+            }
+
+            list.innerHTML = `
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="text-zinc-400 border-b border-zinc-800">
+                                <th class="text-left py-3 pr-6">Project</th>
+                                <th class="text-left py-3 pr-6">Equity %</th>
+                                <th class="text-left py-3 pr-6">Ask Price</th>
+                                <th class="text-left py-3 pr-6">Status</th>
+                                <th class="text-left py-3 pr-6">Seller</th>
+                                <th class="text-left py-3">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="equity-tbody"></tbody>
+                    </table>
+                </div>
+            `;
+
+            const tbody = document.getElementById('equity-tbody');
+            snap.forEach(doc => {
+                const l = doc.data();
+                const statusColor = l.status === 'active' ? 'text-cyan-400'
+                    : l.status === 'sold' ? 'text-emerald-400'
+                    : 'text-zinc-400';
+                const tr = document.createElement('tr');
+                tr.className = 'border-b border-zinc-800/50 hover:bg-zinc-900/50';
+                tr.innerHTML = `
+                    <td class="py-4 pr-6 font-medium">${l.projectName}</td>
+                    <td class="py-4 pr-6 text-violet-400">${l.percentage}</td>
+                    <td class="py-4 pr-6 text-cyan-400">${l.askPrice}</td>
+                    <td class="py-4 pr-6 ${statusColor} font-medium">${l.status}</td>
+                    <td class="py-4 pr-6 text-zinc-400">@${l.sellerUsername || '-'}</td>
+                    <td class="py-4">
+                        ${l.status === 'active' ? `
+                        <button onclick="removeEquityListing('${doc.id}')"
+                                class="px-3 py-1.5 bg-zinc-700 hover:bg-red-600 text-white text-xs rounded-xl">
+                            Remove
+                        </button>` : '-'}
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        } catch(e) {
+            list.innerHTML = `<p class="text-red-400">Error: ${e.message}</p>`;
+        }
+    }
+
+    async function removeEquityListing(listingId) {
+        if (!confirm("Remove this equity listing?")) return;
+        try {
+            await db.collection("equityListings").doc(listingId).update({
+                status: 'removed',
+                removedBy: currentAdmin.uid,
+                removedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            alert("✅ Listing removed");
+            loadEquityAdmin();
+        } catch(e) {
+            alert("Error: " + e.message);
+        }
+    }
+
+    // ====================== REPORTS ======================
+    async function loadReports() {
+        const list = document.getElementById('reports-list');
+        try {
+            const snap = await db.collection("reports")
+                .orderBy("createdAt", "desc")
+                .get();
+
+            if (snap.empty) {
+                list.innerHTML = '<div class="bg-zinc-900 rounded-2xl p-8 text-center text-zinc-400">No reports yet</div>';
+                return;
+            }
+
+            list.innerHTML = '';
+            snap.forEach(doc => {
+                const r = doc.data();
+                const card = document.createElement('div');
+                card.className = 'bg-zinc-900 rounded-2xl p-6 flex justify-between items-start gap-6';
+                card.innerHTML = `
+                    <div>
+                        <p class="font-semibold mb-1">${r.reason}</p>
+                        <p class="text-zinc-400 text-sm">${r.details || ''}</p>
+                        <p class="text-xs text-zinc-500 mt-2">Reported by @${r.reporterUsername} • ${r.createdAt?.toDate?.()?.toLocaleDateString()}</p>
+                    </div>
+                    <button onclick="dismissReport('${doc.id}')"
+                            class="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white text-xs rounded-xl flex-shrink-0">
+                        Dismiss
+                    </button>
+                `;
+                list.appendChild(card);
+            });
+        } catch(e) {
+            list.innerHTML = `<p class="text-zinc-400">No reports collection yet.</p>`;
+        }
+    }
+
+    async function dismissReport(reportId) {
+        try {
+            await db.collection("reports").doc(reportId).update({ status: 'dismissed' });
+            loadReports();
+        } catch(e) {
+            alert("Error: " + e.message);
+        }
+    }
+</script>
+</body>
+</html>
