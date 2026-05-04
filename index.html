@@ -1223,6 +1223,7 @@
                     compensationType: selectedProjectType === 'equity' 
                         ? (document.getElementById('subproject-comp-type')?.value || 'cash') 
                         : 'cash',
+                        type: currentMarketplaceFilter, // 'build' or 'fund'
                     bids: [],
                     bidsOpen: true,
                     status: 'open',
@@ -1782,7 +1783,7 @@
             if (!amount) return alert("Enter your bid amount");
 
             try {
-                const projectRef = db.collection("projects").doc(projectId);
+                const projectRef = db.collection("subprojects").doc(projectId);
                 const projectSnap = await projectRef.get();
                 const project = projectSnap.data();
 
@@ -1904,10 +1905,10 @@
             if (!confirm(`Accept this bid with a ${deadline} deadline? This will lock the project.`)) return;
 
             try {
-                const projectRef = db.collection("projects").doc(currentProjectId);
+                const projectRef = db.collection("subprojects").doc(currentProjectId);
                 const projectSnap = await projectRef.get();
                 const project = projectSnap.data();
-
+                
                 if (project.status === "in-progress" || project.acceptedBid) {
                     return alert("This project has already been accepted.");
                 }
@@ -2735,6 +2736,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                     category,
                     compensation,
                     compensationType: 'cash',
+                    type: currentMarketplaceFilter,
                     bids: [],
                     bidsOpen: true,
                     status: 'open',
