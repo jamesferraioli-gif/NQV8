@@ -205,7 +205,7 @@
 
 <script>
     const ADMIN_UIDS = [
-        'PASTE_YOUR_UID_HERE',   // your UID from Firebase Auth console
+        qjlwc04BzVagFvxANDh2qLK19nS2,   // your UID from Firebase Auth console
         // add more admin UIDs here if needed
     ];
 
@@ -327,8 +327,7 @@
 
         try {
             const snap = await db.collection("companies")
-                .where("verificationStatus", "==", "pending")
-                .orderBy("verificationSubmittedAt", "desc")
+                .orderBy("createdAt", "desc")
                 .get();
 
             if (snap.empty) {
