@@ -3678,56 +3678,98 @@ async function loadPendingVerifications() {
     });
 }
 
-    async function showCompanyDetail(companyId, company) {
-    const modal = document.getElementById('project-detail-modal');
-    const content = document.getElementById('detail-content');
-    const isOwner = company.ownerUid === currentUser.uid;
+        async function showCompanyDetail(companyId, company) {
+            const modal = document.getElementById('project-detail-modal');
+            const content = document.getElementById('detail-content');
+            const isOwner = currentUser && company.ownerUid === currentUser.uid;
 
-    // Load subprojects if owner
-    let subHTML = '';
-    if (isOwner) {
-        const subSnap = await db.collection("subprojects")
-            .where("companyId", "==", companyId)
-            .orderBy("createdAt", "desc")
-            .get();
+            // Load subprojects for this company
+            let subHTML = '<p class="text-zinc-400 text-sm">No tasks yet.</p>';
+            try {
+                const subSnap = await db.collection("subprojects")
+                    .where("companyId", "==", companyId)
+                    .orderBy("createdAt", "desc")
+                    .get();
 
-        if (!subSnap.empty) {
-            const byStatus = { open: [], 'in-progress': [], completed: [] };
-            subSnap.forEach(doc => {
-                const s = doc.data();
-                const status = s.status || 'open';
-                if (byStatus[status]) byStatus[status].push({ id: doc.id, ...s });
-            });
+                if (!subSnap.empty) {
+                    subHTML = '';
+                    subSnap.forEach(doc => {
+                        const sub = doc.data();
+                        subHTML += `
+                            <div onclick="showProjectDetail('${doc.id}', ${JSON.stringify(sub).replace(/"/g, '&quot;')})" 
+                                 class="bg-zinc-800 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-cyan-400 flex justify-between items-center">
+                                <div>
+                                    <p class="font-semibold">${sub.title}</p>
+                                    <p class="text-xs text-zinc-400">${sub.compensation || ''}</p>
+                                </div>
+                                <span class="px-3 py-1 text-xs rounded-full ${sub.status === 'open' ? 'bg-cyan-400 text-black' : sub.status === 'in-progress' ? 'bg-amber-400 text-black' : 'bg-emerald-400 text-black'}">
+                                    ${sub.status || 'open'}
+                                </span>
+                            </div>`;
+                    });
+                }
+            } catch (e) {
+                console.error(e);
+                subHTML = `<p class="text-red-400">Error loading tasks</p>`;
+            }
 
-            const renderTask = (task) => `
-                <div class="bg-zinc-800 rounded-xl p-3 flex justify-between items-center cursor-pointer hover:ring-1 hover:ring-cyan-400"
-                     onclick="showProjectDetail('${task.id}', ${JSON.stringify(task).replace(/"/g, '&quot;')})">
-                    <div>
-                        <p class="font-medium text-sm">${task.title}</p>
-                        <p class="text-xs text-zinc-500">${task.compensation || ''}</p>
+            // Shareholders
+            let shareholdersHTML = '';
+            if (isOwner && company.shareholders && company.shareholders.length > 0) {
+                shareholdersHTML = `<div class="mb-6"><h3 class="text-lg font-semibold mb-3">👥 Shareholders</h3><div class="space-y-3">`;
+                company.shareholders.forEach(s => {
+                    shareholdersHTML += `
+                        <div class="bg-zinc-800 rounded-2xl p-3 flex justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="w-8 h-8 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-2xl flex items-center justify-center text-xs font-bold">${(s.name || '?')[0]}</div>
+                                <p class="text-sm">@${s.username || s.name}</p>
+                            </div>
+                            <span class="text-violet-400 font-semibold">${s.percentage}</span>
+                        </div>`;
+                });
+                shareholdersHTML += `</div></div>`;
+            }
+
+            // Company stats
+            const statsHTML = `
+                <div class="bg-zinc-800 rounded-3xl p-6 mb-8">
+                    <div class="flex justify-between mb-4">
+                        <h3 class="font-semibold text-lg">📊 Live Stats</h3>
+                        ${isOwner ? `<button onclick="showEditCompanyStats('${companyId}', ${JSON.stringify(company).replace(/"/g, '&quot;')})" class="px-5 py-2 bg-white text-black text-sm rounded-2xl">✏️ Update Stats</button>` : ''}
                     </div>
-                    <span class="text-xs px-2 py-1 rounded-full ${task.status === 'open' ? 'bg-cyan-500/20 text-cyan-400' : task.status === 'in-progress' ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}">
-                        ${task.status}
-                    </span>
+                    <div class="grid grid-cols-2 gap-6 text-sm">
+                        <div><span class="text-zinc-400">Status:</span> <span class="font-medium ${company.isActive ? 'text-emerald-400' : 'text-amber-400'}">${company.isActive ? '🟢 Active' : '🔨 In Build-Out'}</span></div>
+                        <div><span class="text-zinc-400">Revenue:</span> <span class="font-medium">${company.revenue || 'Not disclosed'}</span></div>
+                        <div><span class="text-zinc-400">Users:</span> <span class="font-medium">${company.userCount || 'Not disclosed'}</span></div>
+                        <div><span class="text-zinc-400">Website:</span> ${company.website ? `<a href="${company.website}" target="_blank" class="text-cyan-400 hover:underline">${company.website}</a>` : '<span class="text-zinc-500">Not listed</span>'}</div>
+                    </div>
+                    ${company.statsUpdatedAt ? `<p class="text-xs text-zinc-500 mt-4">Last updated: ${new Date(company.statsUpdatedAt).toLocaleDateString()}</p>` : ''}
                 </div>`;
 
-            subHTML = `
-                <div class="mb-6">
-                    <h3 class="text-lg font-semibold mb-3">📋 Project Breakdown</h3>
-                    ${byStatus.open.length > 0 ? `
-                        <p class="text-xs text-zinc-500 mb-2">OPEN</p>
-                        <div class="space-y-2 mb-4">${byStatus.open.map(renderTask).join('')}</div>` : ''}
-                    ${byStatus['in-progress'].length > 0 ? `
-                        <p class="text-xs text-zinc-500 mb-2">IN PROGRESS</p>
-                        <div class="space-y-2 mb-4">${byStatus['in-progress'].map(renderTask).join('')}</div>` : ''}
-                    ${byStatus.completed.length > 0 ? `
-                        <p class="text-xs text-zinc-500 mb-2">COMPLETED</p>
-                        <div class="space-y-2 mb-4">${byStatus.completed.map(renderTask).join('')}</div>` : ''}
-                </div>`;
-        } else {
-            subHTML = `<p class="text-zinc-400 text-sm mb-6">No tasks yet.</p>`;
+            content.innerHTML = `
+                <div class="flex justify-between items-start mb-6">
+                    <div>
+                        <h2 class="text-4xl font-bold">${company.name}</h2>
+                        <p class="text-zinc-400">${company.type}</p>
+                    </div>
+                    <span class="px-4 py-1 text-xs rounded-full ${company.verificationStatus === 'verified' ? 'bg-emerald-400 text-black' : 'bg-zinc-700 text-zinc-400'}">
+                        ${company.verificationStatus === 'verified' ? '✅ Verified' : company.verificationStatus || 'Unverified'}
+                    </span>
+                </div>
+
+                ${statsHTML}
+                ${shareholdersHTML}
+                <h3 class="text-xl font-semibold mb-4">📋 Tasks / Subprojects</h3>
+                <div class="space-y-3">${subHTML}</div>
+
+                ${isOwner ? `
+                <div class="mt-8 pt-6 border-t border-zinc-700">
+                    <button onclick="hideProjectDetailModal()" class="w-full py-4 border border-zinc-700 rounded-3xl">Close</button>
+                </div>` : ''}
+            `;
+
+            modal.classList.remove('hidden');
         }
-    }
 
     // Stats section (visible to all shareholders)
     const statsHTML = `
