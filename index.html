@@ -1649,7 +1649,8 @@
                 document.getElementById('stat-completed').textContent = completed;
                 document.getElementById('stat-nqv8-awarded').textContent = totalNQV8.toLocaleString();
                 document.getElementById('stat-total-funding').textContent = "$0";
-                loadEquityCount();
+                loadEquityTradedStat();
+
 
 
             } catch (e) {
@@ -3348,13 +3349,19 @@ function showEquityDetail(listingId, listing) {
 
         ${!isOwner ? `
         <button onclick="initiateChat('${listing.sellerUid}', { uid: '${listing.sellerUid}', username: '${listing.sellerUsername}', fullName: '${listing.sellerName}' }); hideProjectDetailModal(); navigateToChat();"
-                class="w-full py-5 bg-white text-black font-semibold rounded-3xl">
+                class="w-full py-5 bg-white text-black font-semibold rounded-3xl mb-3">
             💬 Contact Seller
         </button>` : `
-        <button onclick="deleteEquityListing('${listingId}')"
-                class="w-full py-5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-3xl">
-            🗑️ Remove Listing
-        </button>`}
+        <div class="space-y-3">
+            <button onclick="markEquitySold('${listingId}', '${listing.askPrice}')"
+                    class="w-full py-5 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-3xl">
+                ✅ Mark as Sold
+            </button>
+            <button onclick="deleteEquityListing('${listingId}')"
+                    class="w-full py-5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-3xl">
+                🗑️ Remove Listing
+            </button>
+        </div>`}
     `;
     modal.classList.remove('hidden');
 }
@@ -3371,14 +3378,57 @@ async function deleteEquityListing(listingId) {
     }
 }
 
-    async function loadEquityCount() {
+    async function loadEquityTradedStat() {
+        try {
+            const doc = await db.collection("platformStats").doc("equity").get();
+            const total = doc.exists ? (doc.data().totalEquityTraded || 0) : 0;
+            const formatted = total >= 1000000
+                ? '$' + (total / 1000000).toFixed(1) + 'M'
+                : total >= 1000
+                ? '$' + (total / 1000).toFixed(1) + 'K'
+                : '$' + total.toLocaleString();
+            document.getElementById('stat-equity-traded').textContent = formatted;
+        } catch(e) {
+            console.error("Equity stat error:", e);
+        }
+}
+
+    async function markEquitySold(listingId, askPrice) {
+    const soldPrice = prompt(`Confirm the final sale price:\n(Press OK to confirm at ${askPrice}, or type a different amount)`);
+    if (soldPrice === null) return; // cancelled
+
+    const finalPrice = soldPrice.trim() || askPrice;
+
+    // Extract numeric value from price string e.g. "$5,000 USDC" → 5000
+    const numericValue = parseFloat(finalPrice.replace(/[^0-9.]/g, '')) || 0;
+
     try {
-        const snap = await db.collection("equityListings")
-            .where("status", "==", "active")
-            .get();
-        document.getElementById('stat-equity-traded').textContent = snap.size;
-    } catch(e) {
-        console.error("Equity count error:", e);
+        const batch = db.batch();
+
+        // Mark listing as sold
+        const listingRef = db.collection("equityListings").doc(listingId);
+        batch.update(listingRef, {
+            status: 'sold',
+            soldAt: firebase.firestore.FieldValue.serverTimestamp(),
+            finalSalePrice: finalPrice,
+            finalSaleValue: numericValue
+        });
+
+        // Update or create the global stats document
+        const statsRef = db.collection("platformStats").doc("equity");
+        batch.set(statsRef, {
+            totalEquityTraded: firebase.firestore.FieldValue.increment(numericValue)
+        }, { merge: true });
+
+        await batch.commit();
+
+        alert(`✅ Listing marked as sold at ${finalPrice}!`);
+        hideProjectDetailModal();
+        loadEquityListings();
+        loadEquityTradedStat();
+    } catch (e) {
+        console.error(e);
+        alert("Failed: " + e.message);
     }
 }
 
