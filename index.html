@@ -865,37 +865,41 @@
         </div>
     </div>
 
-    <!-- POST EQUITY LISTING MODAL -->
-    <div id="post-equity-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999] overflow-auto">
-        <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8 my-8">
-            <h2 class="text-3xl font-bold mb-2">List an Equity Stake</h2>
-            <p class="text-zinc-400 mb-6">Sell or auction equity you've earned or acquired through funding.</p>
-    
-            <input id="equity-project-name" type="text" placeholder="Project / Company Name"
-                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
-    
-            <input id="equity-percentage" type="text" placeholder="Equity % being sold (e.g. 1.5%)"
-                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
-    
-            <input id="equity-ask-price" type="text" placeholder="Asking Price (e.g. $5,000 USDC)"
-                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
-    
-            <textarea id="equity-desc" placeholder="Describe the project, its traction, and why this stake is valuable..." rows="4"
-                      class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6"></textarea>
-    
-            <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6">
-                <p class="text-amber-400 text-sm font-medium">⚠️ Important</p>
-                <p class="text-zinc-400 text-xs mt-1">NQVate is not a broker or party to any equity transaction. Both parties are responsible for completing their own legal agreements. Only list equity you legitimately own.</p>
-            </div>
-    
-            <div class="flex gap-3">
-                <button onclick="hidePostEquityModal()"
-                        class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
-                <button onclick="submitEquityListing()"
-                        class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">List Stake</button>
-            </div>
+<!-- POST EQUITY LISTING MODAL -->
+<div id="post-equity-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999] overflow-auto">
+    <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8 my-8">
+        <h2 class="text-3xl font-bold mb-2">List an Equity Stake</h2>
+        <p class="text-zinc-400 mb-6">Sell or auction equity you've earned or acquired.</p>
+
+        <!-- Company selector (replaces free text) -->
+        <p class="text-sm text-zinc-400 mb-2">Select Company</p>
+        <select id="equity-company-select"
+                class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+            <option value="">Select a company...</option>
+        </select>
+
+        <input id="equity-percentage" type="text" placeholder="Equity % being sold (e.g. 1.5%)"
+               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+
+        <input id="equity-ask-price" type="text" placeholder="Asking Price (e.g. $5,000 USDC)"
+               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+
+        <textarea id="equity-desc" placeholder="Describe the stake and why it's valuable..." rows="4"
+                  class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6"></textarea>
+
+        <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6">
+            <p class="text-amber-400 text-sm font-medium">⚠️ Important</p>
+            <p class="text-zinc-400 text-xs mt-1">NQVate is not a broker or party to any equity transaction. Both parties are responsible for completing their own legal agreements. Only list equity you legitimately own.</p>
+        </div>
+
+        <div class="flex gap-3">
+            <button onclick="hidePostEquityModal()"
+                    class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+            <button onclick="submitEquityListing()"
+                    class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">List Stake</button>
         </div>
     </div>
+</div>
 
     
 <script>
@@ -2627,49 +2631,90 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
         async function loadProfileData() {
             if (!currentUser) return;
             try {
-                // My Companies
+                // My Companies — owned + shareholder
                 const companiesGrid = document.getElementById('my-companies');
                 companiesGrid.innerHTML = '<p class="text-zinc-400">Loading...</p>';
                 try {
-                    const companiesSnap = await db.collection("companies")
+                    // Get companies I own
+                    const ownedSnap = await db.collection("companies")
                         .where("ownerUid", "==", currentUser.uid)
                         .orderBy("createdAt", "desc")
                         .get();
-        
-                    companiesGrid.innerHTML = companiesSnap.empty ?
+                
+                    // Get companies I'm a shareholder in
+                    const shareholderSnap = await db.collection("companies")
+                        .where("shareholders", "array-contains-any", [{ uid: currentUser.uid }])
+                        .get();
+                
+                    // Note: array-contains-any with objects is unreliable in Firestore.
+                    // We'll use a simpler approach - query equityListings for buyer
+                    const acquiredSnap = await db.collection("equityListings")
+                        .where("buyerUid", "==", currentUser.uid)
+                        .where("status", "==", "active")
+                        .get();
+                
+                    // Build set of company IDs to avoid duplicates
+                    const companyIds = new Set();
+                    const allCompanies = [];
+                
+                    ownedSnap.forEach(doc => {
+                        companyIds.add(doc.id);
+                        allCompanies.push({ id: doc.id, ...doc.data(), role: 'owner' });
+                    });
+                
+                    // Fetch companies from acquired listings
+                    for (const doc of acquiredSnap.docs) {
+                        const listing = doc.data();
+                        if (listing.companyId && !companyIds.has(listing.companyId)) {
+                            companyIds.add(listing.companyId);
+                            const companyDoc = await db.collection("companies").doc(listing.companyId).get();
+                            if (companyDoc.exists) {
+                                allCompanies.push({
+                                    id: companyDoc.id,
+                                    ...companyDoc.data(),
+                                    role: 'shareholder',
+                                    myPercentage: listing.percentage
+                                });
+                            }
+                        }
+                    }
+                
+                    companiesGrid.innerHTML = allCompanies.length === 0 ?
                         `<p class="text-zinc-400">No companies yet. Create one when posting a project.</p>` : '';
-        
-                    companiesSnap.forEach(doc => {
-                        const c = doc.data();
+                
+                    allCompanies.forEach(c => {
                         const card = document.createElement('div');
                         card.className = "bg-zinc-800 rounded-2xl p-5 hover:ring-2 hover:ring-cyan-400 cursor-pointer";
+                
+                        const roleBadge = c.role === 'owner'
+                            ? `<span class="text-xs bg-cyan-500/20 text-cyan-400 px-2 py-1 rounded-full">Founder</span>`
+                            : `<span class="text-xs bg-violet-500/20 text-violet-400 px-2 py-1 rounded-full">${c.myPercentage} Shareholder</span>`;
+                
+                        const statusBadge = c.verificationStatus === 'verified'
+                            ? `<span class="px-3 py-1 rounded-full text-xs bg-emerald-500/20 text-emerald-400">✅ Verified</span>`
+                            : c.verificationStatus === 'pending'
+                            ? `<span class="px-3 py-1 rounded-full text-xs bg-amber-500/20 text-amber-400">⏳ Pending</span>`
+                            : `<span class="px-3 py-1 rounded-full text-xs bg-zinc-700 text-zinc-400">Unverified</span>`;
+                
                         card.innerHTML = `
                             <div class="flex justify-between items-start mb-3">
                                 <div>
                                     <p class="font-bold text-lg">${c.name}</p>
                                     <p class="text-xs text-zinc-400">${c.type}</p>
                                 </div>
-                                <span class="px-3 py-1 rounded-full text-xs ${
-                                    c.verificationStatus === 'verified' ? 'bg-emerald-500/20 text-emerald-400' :
-                                    c.verificationStatus === 'pending' ? 'bg-amber-500/20 text-amber-400' :
-                                    'bg-zinc-700 text-zinc-400'
-                                }">
-                                    ${c.verificationStatus === 'verified' ? '✅ Verified' :
-                                      c.verificationStatus === 'pending' ? '⏳ Pending Review' :
-                                      'Unverified'}
-                                </span>
+                                ${statusBadge}
                             </div>
-                            <div class="flex gap-3 mt-3">
-                                ${!c.equityUnlocked ? `
-                                <button onclick="event.stopPropagation(); showVerificationModal('${doc.id}')"
-                                        class="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs rounded-xl">
-                                    🔐 Submit for Verification
-                                </button>` : `
-                                <span class="px-4 py-2 bg-emerald-500/20 text-emerald-400 text-xs rounded-xl">
-                                    🏛️ Equity Enabled
-                                </span>`}
+                            <div class="flex gap-2 mb-3">
+                                ${roleBadge}
+                                ${c.isActive ? `<span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full">🟢 Active</span>` : `<span class="text-xs bg-zinc-700 text-zinc-400 px-2 py-1 rounded-full">🔨 Building</span>`}
                             </div>
+                            ${c.role === 'owner' && !c.equityUnlocked ? `
+                            <button onclick="event.stopPropagation(); showVerificationModal('${c.id}')"
+                                    class="px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-xs rounded-xl">
+                                🔐 Submit for Verification
+                            </button>` : ''}
                         `;
+                        card.onclick = () => showCompanyDetail(c.id, c);
                         companiesGrid.appendChild(card);
                     });
                 } catch(e) {
@@ -3327,8 +3372,32 @@ async function loadEquityListings() {
     }
 }
 
-function showPostEquityModal() {
+async function showPostEquityModal() {
     if (!currentUser) return alert("Please log in first");
+
+    // Load user's verified companies
+    const snap = await db.collection("companies")
+        .where("ownerUid", "==", currentUser.uid)
+        .where("equityUnlocked", "==", true)
+        .get();
+
+    if (snap.empty) {
+        alert("You need a verified company to list equity. Go to your profile and submit for verification first.");
+        return;
+    }
+
+    // Populate company dropdown
+    const select = document.getElementById('equity-company-select');
+    select.innerHTML = '<option value="">Select a company...</option>';
+    snap.forEach(doc => {
+        const c = doc.data();
+        const opt = document.createElement('option');
+        opt.value = doc.id;
+        opt.textContent = `${c.name} (${c.type})`;
+        opt.dataset.name = c.name;
+        select.appendChild(opt);
+    });
+
     document.getElementById('post-equity-modal').classList.remove('hidden');
 }
 
@@ -3337,18 +3406,20 @@ function hidePostEquityModal() {
 }
 
 async function submitEquityListing() {
-    const projectName = document.getElementById('equity-project-name').value.trim();
+    const companySelect = document.getElementById('equity-company-select');
+    const companyId = companySelect.value;
+    const companyName = companySelect.options[companySelect.selectedIndex]?.dataset.name || '';
     const percentage = document.getElementById('equity-percentage').value.trim();
     const askPrice = document.getElementById('equity-ask-price').value.trim();
     const desc = document.getElementById('equity-desc').value.trim();
 
-    if (!projectName || !percentage || !askPrice || !desc) {
-        return alert("Please fill in all fields");
-    }
+    if (!companyId) return alert("Please select a company");
+    if (!percentage || !askPrice || !desc) return alert("Please fill in all fields");
 
     try {
         await db.collection("equityListings").add({
-            projectName,
+            companyId,
+            projectName: companyName,
             percentage,
             askPrice,
             description: desc,
@@ -3359,12 +3430,24 @@ async function submitEquityListing() {
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
+        // Also record the stake on the company document
+        await db.collection("companies").doc(companyId).update({
+            shareholders: firebase.firestore.FieldValue.arrayUnion({
+                uid: currentUser.uid,
+                username: currentUser.username,
+                name: currentUser.fullName || currentUser.username,
+                percentage: percentage,
+                acquiredVia: 'listing',
+                listedAt: new Date().toISOString()
+            })
+        });
+
         alert("✅ Equity stake listed!");
         hidePostEquityModal();
-        document.getElementById('equity-project-name').value = '';
         document.getElementById('equity-percentage').value = '';
         document.getElementById('equity-ask-price').value = '';
         document.getElementById('equity-desc').value = '';
+        document.getElementById('equity-company-select').value = '';
         loadEquityListings();
     } catch (e) {
         console.error(e);
@@ -3433,30 +3516,46 @@ function showEquityDetail(listingId, listing) {
     modal.classList.remove('hidden');
 }
 
-    function showAcquireEquityModal(listingId, askPrice, percentage, projectName) {
-        if (!confirm(`Acquire ${percentage} equity in "${projectName}" for ${askPrice}?\n\nThis will notify the seller and open a chat to finalize the transaction. NQVate is not a party to this transaction.`)) return;
-    
-        db.collection("equityListings").doc(listingId).update({
-            acquisitionPending: true,
-            buyerUid: currentUser.uid,
-            buyerUsername: currentUser.username,
-            buyerName: currentUser.fullName || currentUser.username,
-            acquisitionRequestedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }).then(() => {
-            createNotification(
-                currentProject.sellerUid,
-                'bid',
-                `@${currentUser.username} wants to acquire your ${percentage} equity stake in "${projectName}" at ${askPrice}. Check your chats.`
-            );
-            hideProjectDetailModal();
-            initiateChat(currentProject.sellerUid, {
-                uid: currentProject.sellerUid,
-                username: currentProject.sellerUsername,
-                fullName: currentProject.sellerName
+function showAcquireEquityModal(listingId, askPrice, percentage, projectName) {
+    if (!confirm(`Acquire ${percentage} equity in "${projectName}" for ${askPrice}?\n\nThis will notify the seller and open a chat to finalize the transaction. NQVate is not a party to this transaction.`)) return;
+
+    const listing = currentProject;
+
+    db.collection("equityListings").doc(listingId).update({
+        acquisitionPending: true,
+        buyerUid: currentUser.uid,
+        buyerUsername: currentUser.username,
+        buyerName: currentUser.fullName || currentUser.username,
+        acquisitionRequestedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }).then(async () => {
+        // Record buyer as shareholder on the company
+        if (listing.companyId) {
+            await db.collection("companies").doc(listing.companyId).update({
+                shareholders: firebase.firestore.FieldValue.arrayUnion({
+                    uid: currentUser.uid,
+                    username: currentUser.username,
+                    name: currentUser.fullName || currentUser.username,
+                    percentage: percentage,
+                    acquiredVia: 'exchange',
+                    acquiredAt: new Date().toISOString()
+                })
             });
-            navigateToChat();
-        }).catch(e => alert("Failed: " + e.message));
-    }
+        }
+
+        createNotification(
+            listing.sellerUid,
+            'bid',
+            `@${currentUser.username} wants to acquire your ${percentage} equity stake in "${projectName}" at ${askPrice}. Check your chats.`
+        );
+        hideProjectDetailModal();
+        initiateChat(listing.sellerUid, {
+            uid: listing.sellerUid,
+            username: listing.sellerUsername,
+            fullName: listing.sellerName
+        });
+        navigateToChat();
+    }).catch(e => alert("Failed: " + e.message));
+}
     
     function showCounterOfferModal(listingId, sellerUid, sellerUsername, askPrice, percentage, projectName) {
         const offer = prompt(`Make a counter offer for ${percentage} equity in "${projectName}".\n\nSeller is asking ${askPrice}.\n\nEnter your offer amount:`);
@@ -3577,6 +3676,169 @@ async function loadPendingVerifications() {
         console.log(`Docs: ${company.verificationDocUrls}`);
         // Render in your admin UI
     });
+}
+
+    async function showCompanyDetail(companyId, company) {
+    const modal = document.getElementById('project-detail-modal');
+    const content = document.getElementById('detail-content');
+    const isOwner = company.ownerUid === currentUser.uid;
+
+    // Load subprojects if owner
+    let subHTML = '';
+    if (isOwner) {
+        const subSnap = await db.collection("subprojects")
+            .where("companyId", "==", companyId)
+            .orderBy("createdAt", "desc")
+            .get();
+
+        if (!subSnap.empty) {
+            const byStatus = { open: [], 'in-progress': [], completed: [] };
+            subSnap.forEach(doc => {
+                const s = doc.data();
+                const status = s.status || 'open';
+                if (byStatus[status]) byStatus[status].push({ id: doc.id, ...s });
+            });
+
+            const renderTask = (task) => `
+                <div class="bg-zinc-800 rounded-xl p-3 flex justify-between items-center cursor-pointer hover:ring-1 hover:ring-cyan-400"
+                     onclick="showProjectDetail('${task.id}', ${JSON.stringify(task).replace(/"/g, '&quot;')})">
+                    <div>
+                        <p class="font-medium text-sm">${task.title}</p>
+                        <p class="text-xs text-zinc-500">${task.compensation || ''}</p>
+                    </div>
+                    <span class="text-xs px-2 py-1 rounded-full ${task.status === 'open' ? 'bg-cyan-500/20 text-cyan-400' : task.status === 'in-progress' ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}">
+                        ${task.status}
+                    </span>
+                </div>`;
+
+            subHTML = `
+                <div class="mb-6">
+                    <h3 class="text-lg font-semibold mb-3">📋 Project Breakdown</h3>
+                    ${byStatus.open.length > 0 ? `
+                        <p class="text-xs text-zinc-500 mb-2">OPEN</p>
+                        <div class="space-y-2 mb-4">${byStatus.open.map(renderTask).join('')}</div>` : ''}
+                    ${byStatus['in-progress'].length > 0 ? `
+                        <p class="text-xs text-zinc-500 mb-2">IN PROGRESS</p>
+                        <div class="space-y-2 mb-4">${byStatus['in-progress'].map(renderTask).join('')}</div>` : ''}
+                    ${byStatus.completed.length > 0 ? `
+                        <p class="text-xs text-zinc-500 mb-2">COMPLETED</p>
+                        <div class="space-y-2 mb-4">${byStatus.completed.map(renderTask).join('')}</div>` : ''}
+                </div>`;
+        } else {
+            subHTML = `<p class="text-zinc-400 text-sm mb-6">No tasks yet.</p>`;
+        }
+    }
+
+    // Stats section (visible to all shareholders)
+    const statsHTML = `
+        <div class="bg-zinc-800 rounded-2xl p-5 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-semibold">📊 Company Stats</h3>
+                ${isOwner ? `<button onclick="showEditCompanyStats('${companyId}', ${JSON.stringify(company).replace(/"/g, '&quot;')})"
+                        class="px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 text-xs rounded-xl">✏️ Update</button>` : ''}
+            </div>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div>
+                    <p class="text-xs text-zinc-400">Status</p>
+                    <p class="font-semibold ${company.isActive ? 'text-emerald-400' : 'text-amber-400'}">
+                        ${company.isActive ? '🟢 Active & Operational' : '🔨 In Build-Out'}
+                    </p>
+                </div>
+                <div>
+                    <p class="text-xs text-zinc-400">Revenue</p>
+                    <p class="font-semibold">${company.revenue || 'Not disclosed'}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-zinc-400">Users / Customers</p>
+                    <p class="font-semibold">${company.userCount || 'Not disclosed'}</p>
+                </div>
+                <div>
+                    <p class="text-xs text-zinc-400">Website</p>
+                    ${company.website 
+                        ? `<a href="${company.website}" target="_blank" class="text-cyan-400 text-sm hover:underline truncate block">${company.website}</a>`
+                        : `<p class="text-zinc-500 text-sm">Not listed</p>`}
+                </div>
+            </div>
+            ${company.statsUpdatedAt ? `<p class="text-xs text-zinc-500">Last updated: ${new Date(company.statsUpdatedAt).toLocaleDateString()}</p>` : ''}
+        </div>`;
+
+    // Shareholders section (owner only)
+    let shareholdersHTML = '';
+    if (isOwner && company.shareholders && company.shareholders.length > 0) {
+        shareholdersHTML = `
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold mb-3">👥 Shareholders</h3>
+                <div class="space-y-2">
+                    <div class="bg-zinc-800 rounded-xl p-3 flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-full flex items-center justify-center text-xs font-bold">
+                                ${(currentUser.fullName || '?')[0]}
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium">${currentUser.fullName} (You)</p>
+                                <p class="text-xs text-zinc-400">Founder</p>
+                            </div>
+                        </div>
+                        <span class="text-cyan-400 font-semibold text-sm">Majority</span>
+                    </div>
+                    ${company.shareholders.map(s => `
+                    <div class="bg-zinc-800 rounded-xl p-3 flex justify-between items-center">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-xs font-bold">
+                                ${(s.name || '?')[0]}
+                            </div>
+                            <div>
+                                <p class="text-sm font-medium">@${s.username || s.name}</p>
+                                <p class="text-xs text-zinc-400">via ${s.acquiredVia || 'unknown'}</p>
+                            </div>
+                        </div>
+                        <span class="text-violet-400 font-semibold text-sm">${s.percentage}</span>
+                    </div>`).join('')}
+                </div>
+            </div>`;
+    }
+
+    content.innerHTML = `
+        <div class="flex justify-between items-start mb-6">
+            <div>
+                <h2 class="text-3xl font-bold">${company.name}</h2>
+                <p class="text-zinc-400 text-sm mt-1">${company.type}</p>
+                ${isOwner ? '<span class="text-xs bg-cyan-500/20 text-cyan-400 px-2 py-1 rounded-full mt-2 inline-block">Founder</span>' : `<span class="text-xs bg-violet-500/20 text-violet-400 px-2 py-1 rounded-full mt-2 inline-block">${company.myPercentage || ''} Shareholder</span>`}
+            </div>
+            <span class="px-3 py-1 rounded-full text-xs ${company.verificationStatus === 'verified' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-700 text-zinc-400'}">
+                ${company.verificationStatus === 'verified' ? '✅ Verified' : company.verificationStatus || 'Unverified'}
+            </span>
+        </div>
+
+        ${statsHTML}
+        ${shareholdersHTML}
+        ${subHTML}
+    `;
+
+    modal.classList.remove('hidden');
+}
+
+function showEditCompanyStats(companyId, company) {
+    const website = prompt("Website URL:", company.website || '');
+    if (website === null) return;
+    const revenue = prompt("Monthly Revenue (e.g. $12,000/mo or 'Pre-revenue'):", company.revenue || '');
+    if (revenue === null) return;
+    const userCount = prompt("Users / Customers:", company.userCount || '');
+    if (userCount === null) return;
+    const isActiveStr = prompt("Is the company active and operational? (yes/no):", company.isActive ? 'yes' : 'no');
+    if (isActiveStr === null) return;
+
+    db.collection("companies").doc(companyId).update({
+        website: website.trim(),
+        revenue: revenue.trim(),
+        userCount: userCount.trim(),
+        isActive: isActiveStr.toLowerCase().startsWith('y'),
+        statsUpdatedAt: new Date().toISOString()
+    }).then(() => {
+        alert("✅ Company stats updated!");
+        hideProjectDetailModal();
+        loadProfileData();
+    }).catch(e => alert("Error: " + e.message));
 }
 
     </script>    
