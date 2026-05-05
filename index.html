@@ -196,15 +196,79 @@
             <!-- Populated by JS -->
         </div>
 
-        <!-- Post Equity Listing Button (only shown on equity tab) -->
-        <div id="equity-post-btn-wrap" class="hidden mb-8">
-            <button onclick="showPostEquityModal()"
-                    class="bg-white text-black font-semibold px-8 py-4 rounded-3xl flex items-center gap-3 hover:bg-cyan-400 transition-colors">
-                <i class="fa-solid fa-plus"></i> List an Equity Stake
-            </button>
+    </div> <!-- ←←← CORRECTLY closes #marketplace-page -->
+
+
+    <!-- POST BOUNTY MODAL -->
+<div id="post-bounty-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999] overflow-auto">
+    <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8 my-8">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-3xl font-bold">Post a Build Request</h2>
+            <button onclick="hidePostBountyModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
+        </div>
+        <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 mb-6">
+            <p class="text-amber-400 text-xs">💰 Cost: $1.00 USDC or 100 NQV8</p>
         </div>
 
-    </div> <!-- ←←← CORRECTLY closes #marketplace-page -->
+        <!-- STEP 1: Pick project -->
+        <div id="bounty-step-1">
+            <p class="text-sm text-zinc-400 mb-2">Which project is this task for?</p>
+            <div id="bounty-project-list" class="space-y-3 mb-4 max-h-48 overflow-auto"></div>
+            <button onclick="showCreateProjectModal(); hidePostBountyModal()"
+                    class="w-full py-3 border border-dashed border-zinc-600 rounded-2xl text-zinc-400 hover:border-cyan-400 hover:text-cyan-400 text-sm mb-6">
+                + Create a new project first
+            </button>
+            <div class="flex gap-3">
+                <button onclick="hidePostBountyModal()" class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+                <button onclick="bountyGoToStep2()" class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Next →</button>
+            </div>
+        </div>
+
+        <!-- STEP 2: Task details -->
+        <div id="bounty-step-2" class="hidden">
+            <p id="bounty-project-label" class="text-cyan-400 font-medium mb-4"></p>
+
+            <input id="bounty-title" type="text" placeholder="Task Title"
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+
+            <textarea id="bounty-desc" placeholder="Describe what you need built..." rows="3"
+                      class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-4"></textarea>
+
+            <select id="bounty-category" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+                <option value="">Select Category</option>
+                <option value="AI/ML">AI / Machine Learning</option>
+                <option value="Blockchain">Crypto / Blockchain</option>
+                <option value="DeFi">DeFi / Finance</option>
+                <option value="Gaming">Gaming / Metaverse</option>
+                <option value="Infrastructure">Infrastructure / Tools</option>
+                <option value="Social">Social / Community</option>
+                <option value="Other">Other</option>
+            </select>
+
+            <p class="text-sm text-zinc-400 mb-3">Compensation Type</p>
+            <div class="grid grid-cols-3 gap-3 mb-4">
+                <button onclick="selectBountyCompType('cash')" id="bcomp-cash"
+                        class="p-3 rounded-2xl border-2 border-cyan-400 bg-cyan-400/10 text-sm font-medium">💵 Cash</button>
+                <button onclick="selectBountyCompType('equity')" id="bcomp-equity"
+                        class="p-3 rounded-2xl border-2 border-zinc-600 opacity-60 text-sm font-medium">🏛️ Equity</button>
+                <button onclick="selectBountyCompType('mixed')" id="bcomp-mixed"
+                        class="p-3 rounded-2xl border-2 border-zinc-600 opacity-60 text-sm font-medium">💵+🏛️ Mixed</button>
+            </div>
+
+            <div id="bounty-equity-warning" class="hidden bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 mb-4">
+                <p class="text-amber-400 text-xs">⚠️ Equity compensation requires a verified entity.</p>
+            </div>
+
+            <input id="bounty-compensation" type="text" placeholder="Compensation (e.g. $2,500 USDC)"
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-6">
+
+            <div class="flex gap-3">
+                <button onclick="bountyGoToStep1()" class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">← Back</button>
+                <button onclick="submitBountyPosting()" class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Post ($1 USDC or 100 NQV8)</button>
+            </div>
+        </div>
+    </div>
+</div>
     
     <!-- CREATE PROJECT MODAL (free, no company linking required) -->
     <div id="create-project-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999] overflow-auto">
@@ -926,7 +990,7 @@
                 <button onclick="hidePostEquityModal()"
                         class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
                 <button onclick="submitEquityListing()"
-                        class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">List Stake ($1 USDC)</button>
+                        class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">List Stake ($1 USDC or 100 NQV8)</button>
             </div>
         </div>
 
@@ -3333,7 +3397,6 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
         const equityTab = document.getElementById('tab-equity-market');
         const projectsGrid = document.getElementById('projects-grid');
         const equityGrid = document.getElementById('equity-grid');
-        const equityPostBtn = document.getElementById('equity-post-btn-wrap');
     
         // Reset all tabs
         [buildTab, fundTab, equityTab].forEach(t => {
@@ -3348,7 +3411,6 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             equityTab.classList.remove('text-zinc-400');
             projectsGrid.classList.add('hidden');
             equityGrid.classList.remove('hidden');
-            equityPostBtn.classList.remove('hidden');
             loadEquityListings();
         } else {
             // Build or Fund tabs
@@ -3358,7 +3420,6 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             activeTab.classList.remove('text-zinc-400');
             projectsGrid.classList.remove('hidden');
             equityGrid.classList.add('hidden');
-            equityPostBtn.classList.add('hidden');
             loadMarketplace();
         }
     }
@@ -4043,6 +4104,17 @@ async function submitFundingPosting() {
 
     if (!ask || !desc) return alert("Please fill in funding amount and description");
 
+    // Check for existing active funding request for this project
+    const existing = await db.collection("subprojects")
+        .where("projectId", "==", selectedFundingProjectId)
+        .where("type", "==", "fund")
+        .where("status", "==", "open")
+        .get();
+    
+    if (!existing.empty) {
+        return alert("❌ You already have an active funding request for this project. Close or complete it before posting a new one.");
+    }
+
     try {
         const projectSnap = await db.collection("companies").doc(selectedFundingProjectId).get();
         const project = projectSnap.data();
@@ -4082,37 +4154,41 @@ async function showPostEquityModal() {
     document.getElementById('equity-listing-form').classList.add('hidden');
     document.getElementById('equity-no-companies').classList.add('hidden');
 
-    const snap = await db.collection("companies")
-        .where("ownerUid", "==", currentUser.uid)
-        .where("equityUnlocked", "==", true)
-        .get();
-
     const list = document.getElementById('equity-stake-list');
+    list.innerHTML = '<p class="text-zinc-500 text-sm">Loading your equity stakes...</p>';
+    list.classList.remove('hidden');
+
+    // Only show stakes acquired via bounties or exchange — NOT companies you founded
+    const snap = await db.collection("equityListings")
+        .where("buyerUid", "==", currentUser.uid)
+        .where("status", "==", "active")
+        .get();
 
     if (snap.empty) {
         list.classList.add('hidden');
+        document.getElementById('equity-no-companies').innerHTML = `
+            <p class="text-zinc-400 mb-2">You have no equity stakes available to sell.</p>
+            <p class="text-zinc-500 text-sm">You can only sell stakes you acquired by completing bounties or purchasing on the exchange.</p>`;
         document.getElementById('equity-no-companies').classList.remove('hidden');
         return;
     }
 
     list.innerHTML = '';
-    list.classList.remove('hidden');
 
     snap.forEach(doc => {
-        const c = doc.data();
+        const l = doc.data();
         const div = document.createElement('div');
         div.className = "p-4 rounded-2xl border border-zinc-700 hover:border-pink-400 cursor-pointer transition-all";
         div.innerHTML = `
             <div class="flex justify-between items-center">
                 <div>
-                    <p class="font-semibold">${c.name}</p>
-                    <p class="text-xs text-zinc-400">${c.entityType || c.type || ''} · ✅ Verified</p>
+                    <p class="font-semibold">${l.projectName}</p>
+                    <p class="text-xs text-zinc-400">${l.percentage} stake · acquired via ${l.acquiredVia || 'exchange'}</p>
                 </div>
                 <span class="text-xs text-pink-400">Select →</span>
             </div>
         `;
         div.onclick = () => {
-            // Highlight selection
             document.querySelectorAll('#equity-stake-list > div').forEach(d => {
                 d.classList.remove('border-pink-400', 'bg-pink-400/10');
                 d.classList.add('border-zinc-700');
@@ -4120,19 +4196,75 @@ async function showPostEquityModal() {
             div.classList.add('border-pink-400', 'bg-pink-400/10');
             div.classList.remove('border-zinc-700');
 
-            // Store company id and show form
-            div.dataset.companyId = doc.id;
-            div.dataset.companyName = c.name;
-            document.getElementById('equity-company-select') && (document.getElementById('equity-company-select').value = doc.id);
-            document.getElementById('equity-selected-company-label').textContent = `Listing stake in: ${c.name}`;
-            document.getElementById('equity-listing-form').classList.remove('hidden');
+            window._selectedEquityCompanyId = l.companyId;
+            window._selectedEquityCompanyName = l.projectName;
+            window._selectedEquityMaxPercentage = parseFloat(l.percentage) || 100;
 
-            // Store selected company for submitEquityListing
-            window._selectedEquityCompanyId = doc.id;
-            window._selectedEquityCompanyName = c.name;
+            document.getElementById('equity-selected-company-label').textContent = `Listing stake in: ${l.projectName} (you own ${l.percentage})`;
+            document.getElementById('equity-listing-form').classList.remove('hidden');
         };
         list.appendChild(div);
     });
+}
+
+
+    function hidePostEquityModal() {
+    document.getElementById('post-equity-modal').classList.add('hidden');
+    window._selectedEquityCompanyId = null;
+    window._selectedEquityCompanyName = null;
+}
+
+async function submitEquityListing() {
+    const companyId = window._selectedEquityCompanyId;
+    const companyName = window._selectedEquityCompanyName || '';
+    const percentage = document.getElementById('equity-percentage').value.trim();
+    const askPrice = document.getElementById('equity-ask-price').value.trim();
+    const desc = document.getElementById('equity-desc').value.trim();
+
+    if (!companyId) return alert("Please select a company first");
+    if (!percentage || !askPrice || !desc) return alert("Please fill in all fields");
+
+    const pct = parseFloat(percentage);
+    const maxPct = window._selectedEquityMaxPercentage || 100;
+    if (isNaN(pct) || pct <= 0 || pct > maxPct) {
+        return alert(`❌ You can only sell up to ${maxPct}% — that is your full stake in this company.`);
+    }
+
+    try {
+        await db.collection("equityListings").add({
+            companyId,
+            projectName: companyName,
+            percentage,
+            askPrice,
+            description: desc,
+            sellerUid: currentUser.uid,
+            sellerUsername: currentUser.username,
+            sellerName: currentUser.fullName || currentUser.username,
+            status: 'active',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        await db.collection("companies").doc(companyId).update({
+            shareholders: firebase.firestore.FieldValue.arrayUnion({
+                uid: currentUser.uid,
+                username: currentUser.username,
+                name: currentUser.fullName || currentUser.username,
+                percentage: percentage,
+                acquiredVia: 'listing',
+                listedAt: new Date().toISOString()
+            })
+        });
+
+        alert("✅ Equity stake listed!");
+        hidePostEquityModal();
+        document.getElementById('equity-percentage').value = '';
+        document.getElementById('equity-ask-price').value = '';
+        document.getElementById('equity-desc').value = '';
+        loadEquityListings();
+    } catch (e) {
+        console.error(e);
+        alert("Failed to list: " + e.message);
+    }
 }
 
     </script>    
