@@ -960,69 +960,69 @@
 
     
     <!-- ==================== LEADERBOARD PAGE ==================== -->
-    <div id="leaderboard-page" class="max-w-6xl mx-auto pt-8 px-6 hidden">
-            <div class="mb-8">
-                <h1 class="text-3xl md:text-5xl font-bold tracking-tighter mb-3">Leaderboard</h1>
-                <p class="text-zinc-400">Aggregated on-chain activity — bounties earned, projects funded, and total value contributed.</p>
-            </div>
-    
-            <!-- Summary stats bar -->
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-                <div class="bg-zinc-900 rounded-2xl p-4 text-center">
-                    <p id="lb-stat-builders" class="text-2xl font-bold text-cyan-400">—</p>
-                    <p class="text-xs text-zinc-400 mt-1">Total Builders</p>
-                </div>
-                <div class="bg-zinc-900 rounded-2xl p-4 text-center">
-                    <p id="lb-stat-bounties" class="text-2xl font-bold text-emerald-400">—</p>
-                    <p class="text-xs text-zinc-400 mt-1">Bounties Completed</p>
-                </div>
-                <div class="bg-zinc-900 rounded-2xl p-4 text-center">
-                    <p id="lb-stat-value" class="text-2xl font-bold text-violet-400">—</p>
-                    <p class="text-xs text-zinc-400 mt-1">Total Bounty Value</p>
-                </div>
-                <div class="bg-zinc-900 rounded-2xl p-4 text-center">
-                        <p id="lb-stat-funded" class="text-2xl font-bold text-amber-400">—</p>
-                        <p class="text-xs text-zinc-400 mt-1">Total Funding Provided</p>
-                    </div>
-                    <div class="bg-zinc-900 rounded-2xl p-4 text-center">
-                        <p id="lb-stat-rating" class="text-2xl font-bold text-yellow-400">—</p>
-                        <p class="text-xs text-zinc-400 mt-1">Avg Platform Rating</p>
-                    </div>
-                </div>
-            </div>
-    
-            <!-- Sort controls -->
-            <div class="flex flex-wrap gap-2 mb-5">
-                <span class="text-sm text-zinc-500 self-center mr-2">Sort by:</span>
-                <button onclick="sortLeaderboard('bountyValue')" id="lb-sort-bountyValue"
-                        class="px-4 py-2 rounded-2xl text-sm font-medium bg-cyan-500 text-black">Bounty Value</button>
-                <button onclick="sortLeaderboard('bountiesCompleted')" id="lb-sort-bountiesCompleted"
-                        class="px-4 py-2 rounded-2xl text-sm font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700">Bounties Completed</button>
-                <button onclick="sortLeaderboard('projectsFunded')" id="lb-sort-projectsFunded"
-                        class="px-4 py-2 rounded-2xl text-sm font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700">Projects Funded</button>
-                <button onclick="sortLeaderboard('fundingValue')" id="lb-sort-fundingValue"
-                        class="px-4 py-2 rounded-2xl text-sm font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700">Funding Value</button>
-                <button onclick="sortLeaderboard('avgRating')" id="lb-sort-avgRating"
-                        class="px-4 py-2 rounded-2xl text-sm font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700">⭐ Rating</button>
-            </div>
+<div id="leaderboard-page" class="max-w-6xl mx-auto pt-8 px-6 pb-16 hidden">
 
-    
-            <!-- Table header -->
-            <div class="hidden md:grid grid-cols-[48px_1fr_140px_140px_140px_140px_110px] gap-3 px-4 mb-2 text-xs text-zinc-500 uppercase tracking-wider">
-                <div>#</div>
-                <div>Builder</div>
-                <div class="text-right">Bounty Value</div>
-                <div class="text-right">Bounties Done</div>
-                <div class="text-right">Projects Funded</div>
-                <div class="text-right">Funding Value</div>
-                <div class="text-right">Rating</div>
+        <div class="mb-8">
+            <h1 class="text-3xl md:text-5xl font-bold tracking-tighter mb-3">Leaderboard</h1>
+            <p class="text-zinc-400">Aggregated on-chain activity — bounties earned, projects funded, and total value contributed.</p>
+        </div>
+
+        <!-- Summary stats bar: 5 cards, 3 cols mobile → 5 cols desktop -->
+        <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 mb-8">
+            <div class="bg-zinc-900 rounded-2xl p-5 text-center">
+                <p class="text-xs text-zinc-500 uppercase tracking-wider mb-2">Builders</p>
+                <p id="lb-stat-builders" class="text-3xl font-bold text-cyan-400">—</p>
             </div>
-    
-            <!-- Leaderboard rows -->
-            <div id="leaderboard-grid" class="space-y-2">
-                <!-- Populated by JS -->
+            <div class="bg-zinc-900 rounded-2xl p-5 text-center">
+                <p class="text-xs text-zinc-500 uppercase tracking-wider mb-2">Bounties Done</p>
+                <p id="lb-stat-bounties" class="text-3xl font-bold text-emerald-400">—</p>
+            </div>
+            <div class="bg-zinc-900 rounded-2xl p-5 text-center">
+                <p class="text-xs text-zinc-500 uppercase tracking-wider mb-2">Bounty Value</p>
+                <p id="lb-stat-value" class="text-3xl font-bold text-violet-400">—</p>
+            </div>
+            <div class="bg-zinc-900 rounded-2xl p-5 text-center">
+                <p class="text-xs text-zinc-500 uppercase tracking-wider mb-2">Funding Provided</p>
+                <p id="lb-stat-funded" class="text-3xl font-bold text-amber-400">—</p>
+            </div>
+            <div class="bg-zinc-900 rounded-2xl p-5 text-center">
+                <p class="text-xs text-zinc-500 uppercase tracking-wider mb-2">Avg Rating</p>
+                <p id="lb-stat-rating" class="text-3xl font-bold text-yellow-400">—</p>
             </div>
         </div>
+
+        <!-- Sort controls -->
+        <div class="flex flex-wrap gap-2 mb-6 items-center">
+            <span class="text-sm text-zinc-500 mr-1">Sort by:</span>
+            <button onclick="sortLeaderboard('bountyValue')" id="lb-sort-bountyValue"
+                    class="px-4 py-2 rounded-2xl text-sm font-medium bg-cyan-500 text-black">Bounty Value</button>
+            <button onclick="sortLeaderboard('bountiesCompleted')" id="lb-sort-bountiesCompleted"
+                    class="px-4 py-2 rounded-2xl text-sm font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700">Bounties Completed</button>
+            <button onclick="sortLeaderboard('projectsFunded')" id="lb-sort-projectsFunded"
+                    class="px-4 py-2 rounded-2xl text-sm font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700">Projects Funded</button>
+            <button onclick="sortLeaderboard('fundingValue')" id="lb-sort-fundingValue"
+                    class="px-4 py-2 rounded-2xl text-sm font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700">Funding Value</button>
+            <button onclick="sortLeaderboard('avgRating')" id="lb-sort-avgRating"
+                    class="px-4 py-2 rounded-2xl text-sm font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700">⭐ Rating</button>
+        </div>
+
+        <!-- Table header (desktop only) -->
+        <div class="hidden md:grid grid-cols-[52px_1fr_140px_140px_140px_140px_110px] gap-3 px-5 mb-2 text-xs text-zinc-600 uppercase tracking-widest font-medium border-b border-zinc-800 pb-3">
+            <div>#</div>
+            <div>Builder</div>
+            <div class="text-right">Bounty Value</div>
+            <div class="text-right">Bounties Done</div>
+            <div class="text-right">Projects Funded</div>
+            <div class="text-right">Funding Value</div>
+            <div class="text-right">Rating</div>
+        </div>
+
+        <!-- Leaderboard rows -->
+        <div id="leaderboard-grid" class="space-y-2 mt-2">
+            <!-- Populated by JS -->
+        </div>
+
+    </div>
 
         <!-- ==================== IDEAS PAGE ==================== -->
     <div id="ideas-page" class="max-w-6xl mx-auto pt-8 px-6 hidden">
