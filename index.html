@@ -961,17 +961,59 @@
     
     <!-- ==================== LEADERBOARD PAGE ==================== -->
     <div id="leaderboard-page" class="max-w-6xl mx-auto pt-8 px-6 hidden">
-        <div class="mb-10">
-            <h1 class="text-3xl md:text-5xl font-bold tracking-tighter mb-4">Leaderboard</h1>
-            <p class="text-xl text-zinc-400 max-w-3xl">
-                Top builders ranked by total NQV8 earned
-            </p>
+            <div class="mb-8">
+                <h1 class="text-3xl md:text-5xl font-bold tracking-tighter mb-3">Leaderboard</h1>
+                <p class="text-zinc-400">Aggregated on-chain activity — bounties earned, projects funded, and total value contributed.</p>
+            </div>
+    
+            <!-- Summary stats bar -->
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                <div class="bg-zinc-900 rounded-2xl p-4 text-center">
+                    <p id="lb-stat-builders" class="text-2xl font-bold text-cyan-400">—</p>
+                    <p class="text-xs text-zinc-400 mt-1">Total Builders</p>
+                </div>
+                <div class="bg-zinc-900 rounded-2xl p-4 text-center">
+                    <p id="lb-stat-bounties" class="text-2xl font-bold text-emerald-400">—</p>
+                    <p class="text-xs text-zinc-400 mt-1">Bounties Completed</p>
+                </div>
+                <div class="bg-zinc-900 rounded-2xl p-4 text-center">
+                    <p id="lb-stat-value" class="text-2xl font-bold text-violet-400">—</p>
+                    <p class="text-xs text-zinc-400 mt-1">Total Bounty Value</p>
+                </div>
+                <div class="bg-zinc-900 rounded-2xl p-4 text-center">
+                    <p id="lb-stat-funded" class="text-2xl font-bold text-amber-400">—</p>
+                    <p class="text-xs text-zinc-400 mt-1">Total Funding Provided</p>
+                </div>
+            </div>
+    
+            <!-- Sort controls -->
+            <div class="flex flex-wrap gap-2 mb-5">
+                <span class="text-sm text-zinc-500 self-center mr-2">Sort by:</span>
+                <button onclick="sortLeaderboard('bountyValue')" id="lb-sort-bountyValue"
+                        class="px-4 py-2 rounded-2xl text-sm font-medium bg-cyan-500 text-black">Bounty Value</button>
+                <button onclick="sortLeaderboard('bountiesCompleted')" id="lb-sort-bountiesCompleted"
+                        class="px-4 py-2 rounded-2xl text-sm font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700">Bounties Completed</button>
+                <button onclick="sortLeaderboard('projectsFunded')" id="lb-sort-projectsFunded"
+                        class="px-4 py-2 rounded-2xl text-sm font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700">Projects Funded</button>
+                <button onclick="sortLeaderboard('fundingValue')" id="lb-sort-fundingValue"
+                        class="px-4 py-2 rounded-2xl text-sm font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700">Funding Value</button>
+            </div>
+    
+            <!-- Table header -->
+            <div class="hidden md:grid grid-cols-[48px_1fr_160px_160px_160px_160px] gap-3 px-4 mb-2 text-xs text-zinc-500 uppercase tracking-wider">
+                <div>#</div>
+                <div>Builder</div>
+                <div class="text-right">Bounty Value</div>
+                <div class="text-right">Bounties Done</div>
+                <div class="text-right">Projects Funded</div>
+                <div class="text-right">Funding Value</div>
+            </div>
+    
+            <!-- Leaderboard rows -->
+            <div id="leaderboard-grid" class="space-y-2">
+                <!-- Populated by JS -->
+            </div>
         </div>
-
-        <div id="leaderboard-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Populated by JS -->
-        </div>
-    </div>
 
         <!-- ==================== IDEAS PAGE ==================== -->
     <div id="ideas-page" class="max-w-6xl mx-auto pt-8 px-6 hidden">
@@ -1843,50 +1885,213 @@
             }
         }
     
+// Holds the full aggregated dataset so sort is client-side (no re-fetch)
+        let _leaderboardData = [];
+        let _lbSortKey = 'bountyValue';
+
         async function loadLeaderboard() {
             const grid = document.getElementById('leaderboard-grid');
-            grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 py-12">Loading leaderboard...</p>';
+            grid.innerHTML = '<p class="text-center text-zinc-500 py-12">Aggregating on-chain data...</p>';
 
             try {
-                const snapshot = await db.collection("users").orderBy("totalNQV8Earned", "desc").limit(12).get();
-                grid.innerHTML = '';
+                // ── 1. Pull all completed subprojects (bounties) ──────────────────
+                // These are the historical point-in-time records of work done and paid
+                const bountiesSnap = await db.collection("subprojects")
+                    .where("status", "==", "completed")
+                    .get();
 
-                if (snapshot.empty) {
-                    grid.innerHTML = `<p class="col-span-full text-center text-zinc-400 py-12">No users on the leaderboard yet.</p>`;
+                // ── 2. Pull all completed funding requests ────────────────────────
+                const fundingSnap = await db.collection("subprojects")
+                    .where("type", "==", "fund")
+                    .where("status", "==", "completed")
+                    .get();
+
+                // ── 3. Aggregate per user ─────────────────────────────────────────
+                // Map: uid → { username, fullName, photoURL, bountyValue, bountiesCompleted, projectsFunded, fundingValue }
+                const userMap = {};
+
+                const ensureUser = (uid, name, username, photo) => {
+                    if (!userMap[uid]) {
+                        userMap[uid] = {
+                            uid, name, username, photo,
+                            bountyValue: 0,       // total $ value of bounties earned
+                            bountiesCompleted: 0, // count of bounties completed
+                            projectsFunded: 0,    // count of funding rounds they participated in
+                            fundingValue: 0       // total $ value of funding provided
+                        };
+                    }
+                };
+
+                // Parse a compensation string like "$2,500 USDC" → 2500
+                const parseDollar = (str) => {
+                    if (!str) return 0;
+                    const num = parseFloat(String(str).replace(/[^0-9.]/g, ''));
+                    return isNaN(num) ? 0 : num;
+                };
+
+                // Bounties: credit the acceptedBidderUid (the person who did the work)
+                bountiesSnap.forEach(doc => {
+                    const p = doc.data();
+                    if (!p.acceptedBidderUid) return;
+                    ensureUser(p.acceptedBidderUid, p.acceptedBid?.bidderName || 'Builder', p.acceptedBidderUsername || '', '');
+                    const val = parseDollar(p.acceptedBid?.amount || p.compensation);
+                    userMap[p.acceptedBidderUid].bountiesCompleted += 1;
+                    userMap[p.acceptedBidderUid].bountyValue += val;
+                });
+
+                // Funding: credit the ownerUid of the project that received funding
+                // (the funder is the acceptedBidderUid on fund-type subprojects)
+                fundingSnap.forEach(doc => {
+                    const p = doc.data();
+                    if (!p.acceptedBidderUid) return;
+                    ensureUser(p.acceptedBidderUid, p.acceptedBid?.bidderName || 'Funder', p.acceptedBidderUsername || '', '');
+                    const val = parseDollar(p.acceptedBid?.amount || p.compensation);
+                    userMap[p.acceptedBidderUid].projectsFunded += 1;
+                    userMap[p.acceptedBidderUid].fundingValue += val;
+                });
+
+                // ── 4. Hydrate usernames / display names from users collection ────
+                // Only fetch users we actually have activity for (avoids full table scan)
+                const uids = Object.keys(userMap);
+                if (uids.length === 0) {
+                    grid.innerHTML = `<p class="text-center text-zinc-400 py-12">No completed activity yet — be the first to finish a bounty!</p>`;
+                    // Zero out summary stats
+                    ['lb-stat-builders','lb-stat-bounties','lb-stat-value','lb-stat-funded'].forEach(id => {
+                        document.getElementById(id).textContent = '0';
+                    });
                     return;
                 }
 
-                let rank = 1;
-                snapshot.forEach(doc => {
-                    const u = doc.data();
-                    const card = document.createElement('div');
-                    card.className = "bg-zinc-900 rounded-3xl p-6 hover:ring-2 hover:ring-cyan-400 cursor-pointer transition-all";
+                // Firestore 'in' queries support up to 30 items; chunk if needed
+                const chunks = [];
+                for (let i = 0; i < uids.length; i += 30) chunks.push(uids.slice(i, i + 30));
 
-                    card.innerHTML = `
-                        <div class="flex justify-between items-start mb-4">
-                            <span class="text-4xl font-bold text-cyan-400">#${rank}</span>
-                            <span class="text-xs text-emerald-400">${u.totalNQV8Earned || 0} NQV8</span>
-                        </div>
-                        <div class="flex items-center gap-4">
-                            <div class="w-12 h-12 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-2xl flex items-center justify-center text-2xl font-bold flex-shrink-0 overflow-hidden">
-                                ${u.photoURL 
-                                    ? `<img src="${u.photoURL}" class="w-full h-full object-cover">` 
-                                    : (u.fullName || u.username || '?')[0]}
-                            </div>
-                            <div>
-                                <p class="font-bold">${u.fullName || u.username}</p>
-                                <p class="text-cyan-400 text-sm">@${u.username || ''}</p>
-                            </div>
-                        </div>
-                    `;
-                    card.onclick = () => viewUserProfile(doc.id);
-                    grid.appendChild(card);
-                    rank++;
-                });
+                for (const chunk of chunks) {
+                    const usersSnap = await db.collection("users").where("uid", "in", chunk).get();
+                    usersSnap.forEach(doc => {
+                        const u = doc.data();
+                        if (userMap[u.uid]) {
+                            userMap[u.uid].name     = u.fullName || u.username || userMap[u.uid].name;
+                            userMap[u.uid].username = u.username || userMap[u.uid].username;
+                            userMap[u.uid].photo    = u.photoURL || '';
+                        }
+                    });
+                }
+
+                // ── 5. Build sorted array ─────────────────────────────────────────
+                _leaderboardData = Object.values(userMap);
+
+                // ── 6. Summary stats ──────────────────────────────────────────────
+                const totalBountyValue  = _leaderboardData.reduce((s, u) => s + u.bountyValue,  0);
+                const totalBountiesCompleted = _leaderboardData.reduce((s, u) => s + u.bountiesCompleted, 0);
+                const totalFundingValue = _leaderboardData.reduce((s, u) => s + u.fundingValue, 0);
+
+                document.getElementById('lb-stat-builders').textContent  = _leaderboardData.length.toLocaleString();
+                document.getElementById('lb-stat-bounties').textContent  = totalBountiesCompleted.toLocaleString();
+                document.getElementById('lb-stat-value').textContent     = '$' + Math.round(totalBountyValue).toLocaleString();
+                document.getElementById('lb-stat-funded').textContent    = '$' + Math.round(totalFundingValue).toLocaleString();
+
+                renderLeaderboard();
+
             } catch (e) {
                 console.error(e);
-                grid.innerHTML = `<p class="text-red-400">Error loading leaderboard</p>`;
+                document.getElementById('leaderboard-grid').innerHTML =
+                    `<p class="text-red-400 text-center py-8">Error loading leaderboard: ${e.message}</p>`;
             }
+        }
+
+        function sortLeaderboard(key) {
+            _lbSortKey = key;
+
+            // Update sort button styles
+            ['bountyValue','bountiesCompleted','projectsFunded','fundingValue'].forEach(k => {
+                const btn = document.getElementById('lb-sort-' + k);
+                if (!btn) return;
+                if (k === key) {
+                    btn.className = 'px-4 py-2 rounded-2xl text-sm font-medium bg-cyan-500 text-black';
+                } else {
+                    btn.className = 'px-4 py-2 rounded-2xl text-sm font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700';
+                }
+            });
+
+            renderLeaderboard();
+        }
+
+        function renderLeaderboard() {
+            const grid = document.getElementById('leaderboard-grid');
+            grid.innerHTML = '';
+
+            const sorted = [..._leaderboardData].sort((a, b) => b[_lbSortKey] - a[_lbSortKey]);
+
+            if (sorted.length === 0) {
+                grid.innerHTML = `<p class="text-center text-zinc-400 py-12">No data yet.</p>`;
+                return;
+            }
+
+            sorted.forEach((u, i) => {
+                const rank = i + 1;
+
+                // Medal colours for top 3
+                const medalClass = rank === 1 ? 'text-amber-400' : rank === 2 ? 'text-zinc-300' : rank === 3 ? 'text-amber-600' : 'text-zinc-500';
+                const rowBg = rank === 1 ? 'bg-amber-400/5 border border-amber-400/20' :
+                              rank === 2 ? 'bg-zinc-400/5 border border-zinc-400/15' :
+                              rank === 3 ? 'bg-amber-700/5 border border-amber-700/15' :
+                              'bg-zinc-900 border border-transparent';
+
+                const row = document.createElement('div');
+
+                // Mobile: stacked card. Desktop: grid row.
+                row.className = `${rowBg} rounded-2xl px-4 py-4 cursor-pointer hover:ring-1 hover:ring-cyan-400 transition-all`;
+                row.innerHTML = `
+                    <!-- Desktop row -->
+                    <div class="hidden md:grid grid-cols-[48px_1fr_160px_160px_160px_160px] gap-3 items-center">
+                        <div class="font-bold text-lg ${medalClass}">${rank <= 3 ? ['🥇','🥈','🥉'][rank-1] : '#' + rank}</div>
+                        <div class="flex items-center gap-3 min-w-0">
+                            <div class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 overflow-hidden">
+                                ${u.photo ? `<img src="${u.photo}" class="w-full h-full object-cover">` : (u.name || '?')[0].toUpperCase()}
+                            </div>
+                            <div class="min-w-0">
+                                <p class="font-semibold truncate">${u.name || u.username || 'Builder'}</p>
+                                <p class="text-xs text-cyan-400 truncate">@${u.username || '—'}</p>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-semibold text-emerald-400">$${Math.round(u.bountyValue).toLocaleString()}</p>
+                            <p class="text-xs text-zinc-500">USDC earned</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-semibold">${u.bountiesCompleted.toLocaleString()}</p>
+                            <p class="text-xs text-zinc-500">completed</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-semibold text-violet-400">${u.projectsFunded.toLocaleString()}</p>
+                            <p class="text-xs text-zinc-500">projects</p>
+                        </div>
+                        <div class="text-right">
+                            <p class="font-semibold text-amber-400">$${Math.round(u.fundingValue).toLocaleString()}</p>
+                            <p class="text-xs text-zinc-500">provided</p>
+                        </div>
+                    </div>
+
+                    <!-- Mobile card -->
+                    <div class="md:hidden flex items-center gap-3">
+                        <span class="font-bold text-lg w-8 flex-shrink-0 ${medalClass}">${rank <= 3 ? ['🥇','🥈','🥉'][rank-1] : '#'+rank}</span>
+                        <div class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 overflow-hidden">
+                            ${u.photo ? `<img src="${u.photo}" class="w-full h-full object-cover">` : (u.name || '?')[0].toUpperCase()}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-semibold truncate">${u.name || u.username || 'Builder'}</p>
+                            <p class="text-xs text-cyan-400">@${u.username || '—'}</p>
+                        </div>
+                        <div class="text-right flex-shrink-0">
+                            <p class="text-sm font-semibold text-emerald-400">$${Math.round(u.bountyValue).toLocaleString()}</p>
+                            <p class="text-xs text-zinc-500">${u.bountiesCompleted} bounties</p>
+                        </div>
+                    </div>
+                `;
+                row.onclick = () => viewUserProfile(u.uid);
+                grid.appendChild(row);
+            });
         }
         
 
