@@ -981,8 +981,13 @@
                     <p class="text-xs text-zinc-400 mt-1">Total Bounty Value</p>
                 </div>
                 <div class="bg-zinc-900 rounded-2xl p-4 text-center">
-                    <p id="lb-stat-funded" class="text-2xl font-bold text-amber-400">—</p>
-                    <p class="text-xs text-zinc-400 mt-1">Total Funding Provided</p>
+                        <p id="lb-stat-funded" class="text-2xl font-bold text-amber-400">—</p>
+                        <p class="text-xs text-zinc-400 mt-1">Total Funding Provided</p>
+                    </div>
+                    <div class="bg-zinc-900 rounded-2xl p-4 text-center">
+                        <p id="lb-stat-rating" class="text-2xl font-bold text-yellow-400">—</p>
+                        <p class="text-xs text-zinc-400 mt-1">Avg Platform Rating</p>
+                    </div>
                 </div>
             </div>
     
@@ -997,16 +1002,20 @@
                         class="px-4 py-2 rounded-2xl text-sm font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700">Projects Funded</button>
                 <button onclick="sortLeaderboard('fundingValue')" id="lb-sort-fundingValue"
                         class="px-4 py-2 rounded-2xl text-sm font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700">Funding Value</button>
+                <button onclick="sortLeaderboard('avgRating')" id="lb-sort-avgRating"
+                        class="px-4 py-2 rounded-2xl text-sm font-medium bg-zinc-800 text-zinc-300 hover:bg-zinc-700">⭐ Rating</button>
             </div>
+
     
             <!-- Table header -->
-            <div class="hidden md:grid grid-cols-[48px_1fr_160px_160px_160px_160px] gap-3 px-4 mb-2 text-xs text-zinc-500 uppercase tracking-wider">
+            <div class="hidden md:grid grid-cols-[48px_1fr_140px_140px_140px_140px_110px] gap-3 px-4 mb-2 text-xs text-zinc-500 uppercase tracking-wider">
                 <div>#</div>
                 <div>Builder</div>
                 <div class="text-right">Bounty Value</div>
                 <div class="text-right">Bounties Done</div>
                 <div class="text-right">Projects Funded</div>
                 <div class="text-right">Funding Value</div>
+                <div class="text-right">Rating</div>
             </div>
     
             <!-- Leaderboard rows -->
@@ -1914,10 +1923,13 @@
                     if (!userMap[uid]) {
                         userMap[uid] = {
                             uid, name, username, photo,
-                            bountyValue: 0,       // total $ value of bounties earned
-                            bountiesCompleted: 0, // count of bounties completed
-                            projectsFunded: 0,    // count of funding rounds they participated in
-                            fundingValue: 0       // total $ value of funding provided
+                            bountyValue: 0,
+                            bountiesCompleted: 0,
+                            projectsFunded: 0,
+                            fundingValue: 0,
+                            ratingTotal: 0,    // sum of all star ratings received
+                            ratingCount: 0,    // number of reviews received
+                            avgRating: 0       // computed after aggregation
                         };
                     }
                 };
@@ -1948,6 +1960,25 @@
                     const val = parseDollar(p.acceptedBid?.amount || p.compensation);
                     userMap[p.acceptedBidderUid].projectsFunded += 1;
                     userMap[p.acceptedBidderUid].fundingValue += val;
+                });
+
+                // ── 3b. Pull all reviews and aggregate ratings per user ───────────
+                const reviewsSnap = await db.collection("reviews").get();
+                reviewsSnap.forEach(doc => {
+                    const r = doc.data();
+                    // revieweeUid is the user being rated
+                    const uid = r.revieweeUid;
+                    if (!uid || typeof r.rating !== 'number') return;
+                    ensureUser(uid, '', '', '');
+                    userMap[uid].ratingTotal += r.rating;
+                    userMap[uid].ratingCount += 1;
+                });
+
+                // Compute average rating for all users
+                Object.values(userMap).forEach(u => {
+                    u.avgRating = u.ratingCount > 0
+                        ? Math.round((u.ratingTotal / u.ratingCount) * 10) / 10
+                        : 0;
                 });
 
                 // ── 4. Hydrate usernames / display names from users collection ────
@@ -1986,10 +2017,18 @@
                 const totalBountiesCompleted = _leaderboardData.reduce((s, u) => s + u.bountiesCompleted, 0);
                 const totalFundingValue = _leaderboardData.reduce((s, u) => s + u.fundingValue, 0);
 
+                const avgPlatformRating = _leaderboardData.filter(u => u.ratingCount > 0).length > 0
+                                    ? (_leaderboardData.reduce((s, u) => s + u.ratingTotal, 0) /
+                                       _leaderboardData.reduce((s, u) => s + u.ratingCount, 0))
+                                    : 0;
+                
                 document.getElementById('lb-stat-builders').textContent  = _leaderboardData.length.toLocaleString();
                 document.getElementById('lb-stat-bounties').textContent  = totalBountiesCompleted.toLocaleString();
                 document.getElementById('lb-stat-value').textContent     = '$' + Math.round(totalBountyValue).toLocaleString();
                 document.getElementById('lb-stat-funded').textContent    = '$' + Math.round(totalFundingValue).toLocaleString();
+                document.getElementById('lb-stat-rating').textContent    = avgPlatformRating > 0
+                    ? '⭐ ' + avgPlatformRating.toFixed(1)
+                    : '—';
 
                 renderLeaderboard();
 
@@ -2004,7 +2043,7 @@
             _lbSortKey = key;
 
             // Update sort button styles
-            ['bountyValue','bountiesCompleted','projectsFunded','fundingValue'].forEach(k => {
+            ['bountyValue','bountiesCompleted','projectsFunded','fundingValue','avgRating'].forEach(k => {
                 const btn = document.getElementById('lb-sort-' + k);
                 if (!btn) return;
                 if (k === key) {
@@ -2044,7 +2083,7 @@
                 row.className = `${rowBg} rounded-2xl px-4 py-4 cursor-pointer hover:ring-1 hover:ring-cyan-400 transition-all`;
                 row.innerHTML = `
                     <!-- Desktop row -->
-                    <div class="hidden md:grid grid-cols-[48px_1fr_160px_160px_160px_160px] gap-3 items-center">
+                    <div class="hidden md:grid grid-cols-[48px_1fr_140px_140px_140px_140px_110px] gap-3 items-center">
                         <div class="font-bold text-lg ${medalClass}">${rank <= 3 ? ['🥇','🥈','🥉'][rank-1] : '#' + rank}</div>
                         <div class="flex items-center gap-3 min-w-0">
                             <div class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 overflow-hidden">
@@ -2070,6 +2109,14 @@
                         <div class="text-right">
                             <p class="font-semibold text-amber-400">$${Math.round(u.fundingValue).toLocaleString()}</p>
                             <p class="text-xs text-zinc-500">provided</p>
+                        </div>
+                        <div class="text-right">
+                            ${u.ratingCount > 0
+                                ? `<p class="font-semibold text-yellow-400">⭐ ${u.avgRating.toFixed(1)}</p>
+                                   <p class="text-xs text-zinc-500">${u.ratingCount} review${u.ratingCount !== 1 ? 's' : ''}</p>`
+                                : `<p class="text-zinc-600 text-sm">—</p>
+                                   <p class="text-xs text-zinc-600">no reviews</p>`
+                            }
                         </div>
                     </div>
 
