@@ -852,14 +852,16 @@
 
             <!-- Sidebar -->
             <div class="w-full md:w-80 border-b md:border-b-0 md:border-r border-zinc-700 flex flex-col h-44 md:h-auto">
-                <div class="p-4 border-b border-zinc-700">
-                    <input id="chat-search" type="text" placeholder="Search users by username..." 
-                           onkeyup="searchUsersForChat()" 
+                <div class="p-4 border-b border-zinc-700 space-y-2">
+                    <input id="chat-search" type="text" placeholder="Search users by username..."
+                           onkeyup="searchUsersForChat()"
                            class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 outline-none">
+                    <button onclick="showGroupChatModal()"
+                            class="w-full py-2.5 bg-zinc-800 border border-cyan-400/40 text-cyan-400 rounded-2xl text-sm font-medium hover:bg-cyan-400/10 transition-colors flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-users"></i> New Group Chat
+                    </button>
                 </div>
-                <div id="chat-list" class="flex-1 overflow-auto p-2">
-                    <!-- Populated by JS -->
-                </div>
+                <div id="chat-list" class="flex-1 overflow-auto p-2"></div>
             </div>
 
             <!-- Main Chat Area -->
@@ -892,6 +894,52 @@
             </div>
         </div>
     </div>
+
+    <!-- GROUP CHAT MODAL -->
+    <div id="group-chat-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
+        <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-6">
+            <div class="flex justify-between items-center mb-2">
+                <h2 class="text-2xl font-bold">New Group Chat</h2>
+                <button onclick="hideGroupChatModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
+            </div>
+            <p class="text-zinc-500 text-sm mb-5">$0.01 / 1 NQV8 per person added</p>
+    
+            <input id="group-chat-name" type="text" placeholder="Group name (optional)"
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 outline-none mb-4">
+            <input id="group-user-search" type="text" placeholder="Search users to add..."
+                   oninput="searchGroupUsers()"
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 outline-none mb-3">
+    
+            <div id="group-user-results" class="max-h-40 overflow-auto space-y-1 mb-4"></div>
+    
+            <div id="group-selected-list" class="flex flex-wrap gap-2 mb-4 min-h-[32px]"></div>
+    
+            <div class="bg-zinc-800 rounded-2xl p-4 mb-5">
+                <div class="flex justify-between text-sm mb-1">
+                    <span class="text-zinc-400">People added</span>
+                    <span id="group-count" class="text-cyan-400 font-medium">0</span>
+                </div>
+                <div class="flex justify-between text-sm mb-1">
+                    <span class="text-zinc-400">Cost per person</span>
+                    <span class="text-zinc-400">$0.01 / 1 NQV8</span>
+                </div>
+                <div class="flex justify-between text-sm font-semibold border-t border-zinc-700 mt-2 pt-2">
+                    <span>Total</span>
+                    <span id="group-total" class="text-cyan-400">$0.00 / 0 NQV8</span>
+                </div>
+            </div>
+    
+            <div class="flex gap-3">
+                <button onclick="hideGroupChatModal()" class="flex-1 py-3 border border-zinc-700 rounded-3xl">Cancel</button>
+                <button onclick="createGroupChat()" id="create-group-btn" disabled
+                        class="flex-1 py-3 bg-cyan-500 text-black font-semibold rounded-3xl disabled:opacity-40 disabled:cursor-not-allowed">
+                    Create Group
+                </button>
+            </div>
+        </div>
+    </div>
+
+    
     <!-- ==================== LEADERBOARD PAGE ==================== -->
     <div id="leaderboard-page" class="max-w-6xl mx-auto pt-8 px-6 hidden">
         <div class="mb-10">
@@ -2445,90 +2493,110 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             loadChatList("");        // Load previous chats by default
         }
 
-        async function loadChatList(searchTerm = "") {
-            const list = document.getElementById('chat-list');
-            
-            list.innerHTML = searchTerm ? 
-                '<p class="text-center text-zinc-500 py-8">Searching...</p>' : 
-                '<p class="text-center text-zinc-500 py-8">Loading your chats...</p>';
+async function loadChatList(searchTerm = "") {
+    const list = document.getElementById('chat-list');
+    list.innerHTML = searchTerm
+        ? '<p class="text-center text-zinc-500 py-8">Searching...</p>'
+        : '<p class="text-center text-zinc-500 py-8">Loading your chats...</p>';
 
-            try {
-                if (searchTerm.trim()) {
-                    // ====================== SEARCH USERS MODE ======================
-                    const term = searchTerm.toLowerCase().trim();
-                    const usersSnap = await db.collection("users")
-                        .where("username", ">=", term)
-                        .where("username", "<=", term + "\uf8ff")
-                        .limit(30)
-                        .get();
+    try {
+        if (searchTerm.trim()) {
+            // SEARCH USERS MODE (unchanged)
+            const term = searchTerm.toLowerCase().trim();
+            const usersSnap = await db.collection("users")
+                .where("username", ">=", term)
+                .where("username", "<=", term + "\uf8ff")
+                .limit(30).get();
+            list.innerHTML = '';
+            if (usersSnap.empty) {
+                list.innerHTML = `<p class="text-center text-zinc-400 py-8">No users found for "${searchTerm}"</p>`;
+                return;
+            }
+            usersSnap.forEach(doc => {
+                const u = doc.data();
+                if (u.uid === currentUser.uid) return;
+                const div = document.createElement('div');
+                div.className = "flex items-center gap-3 p-3 hover:bg-zinc-800 rounded-2xl cursor-pointer mx-2 my-1";
+                div.innerHTML = `
+                    <div class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
+                        ${(u.fullName || u.username || '?')[0]}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="font-medium truncate">${u.fullName || u.username}</p>
+                        <p class="text-xs text-zinc-400 truncate">@${u.username || 'user'}</p>
+                    </div>`;
+                div.onclick = () => initiateChat(u.uid, u);
+                list.appendChild(div);
+            });
 
-                    list.innerHTML = '';
+        } else {
+            // CHAT HISTORY MODE — deduplicated
+            const chatsSnap = await db.collection("chats")
+                .where("participants", "array-contains", currentUser.uid)
+                .orderBy("createdAt", "desc")
+                .get();
 
-                    if (usersSnap.empty) {
-                        list.innerHTML = `<p class="text-center text-zinc-400 py-8">No users found for "${searchTerm}"</p>`;
-                        return;
-                    }
+            list.innerHTML = '';
+            if (chatsSnap.empty) {
+                list.innerHTML = `<p class="text-center text-zinc-400 py-8">No chats yet.<br>Search users above to start one.</p>`;
+                return;
+            }
 
-                    usersSnap.forEach(doc => {
-                        const u = doc.data();
-                        if (u.uid === currentUser.uid) return;
+            // ✅ KEY FIX: track seen partners so only the most recent chat per partner shows
+            const seenPartners = new Set();
 
-                        const div = document.createElement('div');
-                        div.className = "flex items-center gap-3 p-3 hover:bg-zinc-800 rounded-2xl cursor-pointer mx-2 my-1";
-                        div.innerHTML = `
-                            <div class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
-                                ${(u.fullName || u.username || '?')[0]}
+            for (const doc of chatsSnap.docs) {
+                const chat = doc.data();
+                const isGroup = chat.type === 'group';
+
+                if (isGroup) {
+                    // Render group chat
+                    const memberCount = (chat.participants || []).length;
+                    const div = document.createElement('div');
+                    div.className = "flex items-center gap-3 p-3 hover:bg-zinc-800 rounded-2xl cursor-pointer mx-2 my-1";
+                    div.innerHTML = `
+                        <div class="relative w-9 h-9 flex-shrink-0">
+                            <div class="w-9 h-9 bg-gradient-to-br from-emerald-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold">
+                                ${(chat.groupName || 'G')[0]}
                             </div>
-                            <div class="flex-1 min-w-0">
-                                <p class="font-medium truncate">${u.fullName || u.username}</p>
-                                <p class="text-xs text-zinc-400 truncate">@${u.username || 'user'}</p>
-                            </div>
-                        `;
-                        div.onclick = () => initiateChat(u.uid, u);
-                        list.appendChild(div);
-                    });
+                            <span class="absolute -bottom-1 -right-1 bg-cyan-500 text-black text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center">${memberCount}</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium truncate">${chat.groupName || 'Group Chat'}</p>
+                            <p class="text-xs text-zinc-400 truncate">${memberCount} members</p>
+                        </div>`;
+                    div.onclick = () => openGroupChat(doc.id, chat);
+                    list.appendChild(div);
 
                 } else {
-                    // ====================== CHAT HISTORY MODE ======================
-                    const chatsSnap = await db.collection("chats")
-                        .where("participants", "array-contains", currentUser.uid)
-                        .orderBy("createdAt", "desc")
-                        .get();
+                    // DM: deduplicate by partner UID
+                    const otherUid = chat.participants.find(uid => uid !== currentUser.uid);
+                    if (!otherUid || seenPartners.has(otherUid)) continue; // ✅ skip duplicates
+                    seenPartners.add(otherUid);
 
-                    list.innerHTML = '';
+                    const userDoc = await db.collection("users").doc(otherUid).get();
+                    const otherUser = userDoc.exists ? userDoc.data() : { username: otherUid.substring(0, 8) };
 
-                    if (chatsSnap.empty) {
-                        list.innerHTML = `<p class="text-center text-zinc-400 py-8">No chats yet.<br>Search users above to start one.</p>`;
-                        return;
-                    }
-
-                    for (const doc of chatsSnap.docs) {
-                        const chat = doc.data();
-                        const otherUid = chat.participants.find(uid => uid !== currentUser.uid);
-                        
-                        const userDoc = await db.collection("users").doc(otherUid).get();
-                        const otherUser = userDoc.exists ? userDoc.data() : { username: otherUid ? otherUid.substring(0,8) : 'user' };
-
-                        const div = document.createElement('div');
-                        div.className = "flex items-center gap-3 p-3 hover:bg-zinc-800 rounded-2xl cursor-pointer mx-2 my-1";
-                        div.innerHTML = `
-                            <div class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
-                                ${(otherUser.fullName || otherUser.username || '?')[0]}
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <p class="font-medium truncate">${otherUser.fullName || otherUser.username}</p>
-                                <p class="text-xs text-emerald-400 truncate">@${otherUser.username || otherUid.substring(0,8)}</p>
-                            </div>
-                        `;
-                        div.onclick = () => openChat(doc.id, otherUser);
-                        list.appendChild(div);
-                    }
+                    const div = document.createElement('div');
+                    div.className = "flex items-center gap-3 p-3 hover:bg-zinc-800 rounded-2xl cursor-pointer mx-2 my-1";
+                    div.innerHTML = `
+                        <div class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0">
+                            ${(otherUser.fullName || otherUser.username || '?')[0]}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="font-medium truncate">${otherUser.fullName || otherUser.username}</p>
+                            <p class="text-xs text-emerald-400 truncate">@${otherUser.username || otherUid.substring(0, 8)}</p>
+                        </div>`;
+                    div.onclick = () => openChat(doc.id, otherUser);
+                    list.appendChild(div);
                 }
-            } catch (e) {
-                console.error(e);
-                list.innerHTML = `<p class="text-red-400 text-center py-8">Error loading chats</p>`;
             }
         }
+    } catch (e) {
+        console.error(e);
+        list.innerHTML = `<p class="text-red-400 text-center py-8">Error loading chats</p>`;
+    }
+}
     
         async function initiateChat(partnerUid, partnerData) {
             if (partnerUid === currentUser.uid) return alert("You cannot chat with yourself.");
@@ -2612,24 +2680,20 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             const input = document.getElementById('chat-input');
             const text = input.value.trim();
             if (!text || !currentChatId) return;
-
             try {
                 const newMsg = {
                     senderUid: currentUser.uid,
-                    text: text,
+                    senderUsername: currentUser.username,  // ✅ add this
+                    text,
                     timestamp: new Date()
                 };
-
                 await db.collection("chats").doc(currentChatId).update({
                     messages: firebase.firestore.FieldValue.arrayUnion(newMsg)
                 });
-
                 input.value = '';
-                await createNotification(
-                    currentChatPartnerUid,
-                    'message',
-                    `@${currentUser.username} sent you a message`
-                );
+                if (currentChatPartnerUid) {
+                    await createNotification(currentChatPartnerUid, 'message', `@${currentUser.username} sent you a message`);
+                }
             } catch (e) {
                 console.error(e);
                 alert("Failed to send message");
@@ -4265,6 +4329,148 @@ async function submitEquityListing() {
         console.error(e);
         alert("Failed to list: " + e.message);
     }
+}
+
+    let groupSelectedUsers = {};
+
+function showGroupChatModal() {
+    groupSelectedUsers = {};
+    document.getElementById('group-chat-modal').classList.remove('hidden');
+    document.getElementById('group-user-results').innerHTML = '';
+    document.getElementById('group-selected-list').innerHTML = '';
+    document.getElementById('group-user-search').value = '';
+    document.getElementById('group-chat-name').value = '';
+    updateGroupCost();
+}
+
+function hideGroupChatModal() {
+    document.getElementById('group-chat-modal').classList.add('hidden');
+}
+
+async function searchGroupUsers() {
+    const term = document.getElementById('group-user-search').value.toLowerCase().trim();
+    const results = document.getElementById('group-user-results');
+    if (!term) { results.innerHTML = ''; return; }
+
+    const snap = await db.collection("users")
+        .where("username", ">=", term)
+        .where("username", "<=", term + "\uf8ff")
+        .limit(10).get();
+
+    results.innerHTML = '';
+    snap.forEach(doc => {
+        const u = doc.data();
+        if (u.uid === currentUser.uid || groupSelectedUsers[u.uid]) return;
+        const div = document.createElement('div');
+        div.className = "flex items-center gap-3 p-2 hover:bg-zinc-800 rounded-xl cursor-pointer";
+        div.innerHTML = `
+            <div class="w-8 h-8 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0">
+                ${(u.fullName || u.username || '?')[0]}
+            </div>
+            <div><p class="text-sm font-medium">${u.fullName || u.username}</p>
+            <p class="text-xs text-zinc-400">@${u.username}</p></div>`;
+        div.onclick = () => addToGroup(u);
+        results.appendChild(div);
+    });
+}
+
+function addToGroup(user) {
+    if (groupSelectedUsers[user.uid]) return;
+    groupSelectedUsers[user.uid] = user;
+    document.getElementById('group-user-search').value = '';
+    document.getElementById('group-user-results').innerHTML = '';
+    renderGroupSelected();
+    updateGroupCost();
+}
+
+function removeFromGroup(uid) {
+    delete groupSelectedUsers[uid];
+    renderGroupSelected();
+    updateGroupCost();
+}
+
+function renderGroupSelected() {
+    const container = document.getElementById('group-selected-list');
+    container.innerHTML = '';
+    Object.values(groupSelectedUsers).forEach(u => {
+        const tag = document.createElement('span');
+        tag.className = "flex items-center gap-1 bg-zinc-700 rounded-full px-3 py-1 text-sm";
+        tag.innerHTML = `@${u.username} <button onclick="removeFromGroup('${u.uid}')" class="text-zinc-400 hover:text-white ml-1">×</button>`;
+        container.appendChild(tag);
+    });
+}
+
+function updateGroupCost() {
+    const n = Object.keys(groupSelectedUsers).length;
+    document.getElementById('group-count').textContent = n;
+    document.getElementById('group-total').textContent = `$${(n * 0.01).toFixed(2)} / ${n} NQV8`;
+    document.getElementById('create-group-btn').disabled = n < 2;
+}
+
+async function createGroupChat() {
+    const members = Object.keys(groupSelectedUsers);
+    if (members.length < 2) return alert("Add at least 2 people to create a group chat.");
+
+    const nameInput = document.getElementById('group-chat-name').value.trim();
+    const groupName = nameInput || Object.values(groupSelectedUsers).map(u => u.username).join(', ');
+    const cost = members.length * 0.01;
+
+    if (!confirm(`Create group chat with ${members.length} people?\nCost: $${cost.toFixed(2)} USDC / ${members.length} NQV8`)) return;
+
+    try {
+        const participants = [currentUser.uid, ...members].sort();
+        const chatRef = await db.collection("chats").add({
+            type: 'group',
+            groupName,
+            participants,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            messages: [],
+            createdBy: currentUser.uid
+        });
+
+        // Deduct NQV8 (update your billing logic here as needed)
+        await db.collection("users").doc(currentUser.uid).update({
+            nqv8Balance: firebase.firestore.FieldValue.increment(-(members.length))
+        });
+
+        hideGroupChatModal();
+        loadChatList("");
+        openGroupChat(chatRef.id, { groupName, participants });
+    } catch (e) {
+        console.error(e);
+        alert("Failed to create group: " + e.message);
+    }
+}
+
+function openGroupChat(chatId, chatData) {
+    currentChatId = chatId;
+    currentChatPartnerUid = null;
+
+    document.getElementById('chat-with-name').textContent = chatData.groupName || 'Group Chat';
+    document.getElementById('chat-with-username').textContent = `${(chatData.participants || []).length} members`;
+
+    const messagesDiv = document.getElementById('chat-messages');
+    messagesDiv.innerHTML = '';
+    if (currentChatUnsubscribe) currentChatUnsubscribe();
+
+    currentChatUnsubscribe = db.collection("chats").doc(chatId).onSnapshot(doc => {
+        const chat = doc.data();
+        messagesDiv.innerHTML = '';
+        if (chat && chat.messages) {
+            chat.messages.forEach(msg => {
+                const isMe = msg.senderUid === currentUser.uid;
+                const bubble = document.createElement('div');
+                bubble.className = `flex flex-col ${isMe ? 'items-end' : 'items-start'}`;
+                bubble.innerHTML = `
+                    ${!isMe ? `<p class="text-xs text-zinc-500 mb-1 px-2">@${msg.senderUsername || 'user'}</p>` : ''}
+                    <div class="${isMe ? 'bg-cyan-500 text-black' : 'bg-zinc-700'} max-w-[70%] rounded-3xl px-5 py-3">
+                        ${msg.text}
+                    </div>`;
+                messagesDiv.appendChild(bubble);
+            });
+        }
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
 }
 
     </script>    
