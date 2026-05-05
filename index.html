@@ -603,33 +603,52 @@
     </div>
 
         <!-- POST TO EXPLORE MODAL (Idea / News / Project) -->
-    <div id="post-idea-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
-        <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8">
-            <h2 class="text-3xl font-bold mb-6">Post to Explore</h2>
-            
-            <div class="flex border-b border-zinc-700 mb-6">
-                <button onclick="switchIdeaTab(0)" id="tab-idea" class="flex-1 pb-4 text-lg font-semibold border-b-2 border-cyan-400">💡 Idea</button>
-                <button onclick="switchIdeaTab(1)" id="tab-news" class="flex-1 pb-4 text-lg font-semibold text-zinc-400">📰 News</button>
-                <button onclick="switchIdeaTab(2)" id="tab-project" class="flex-1 pb-4 text-lg font-semibold text-zinc-400">🚀 Project</button>
-            </div>
-
-            <input id="idea-title" type="text" placeholder="Title" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
-
-            <!-- Link field - required for News & Project -->
-            <div id="link-group">
-                <input id="idea-link" type="text" placeholder="Paste full link here (required for News & Project)" 
-                       class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
-            </div>
-
-            <textarea id="idea-desc" placeholder="Your comment or description..." rows="5" 
-                      class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6"></textarea>
-
-            <div class="flex gap-3">
-                <button onclick="hidePostIdeaModal()" class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
-                <button onclick="submitIdeaPost()" class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Post ($0.01 USDC or 1 NQV8)</button>
+        <div id="post-idea-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
+            <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8">
+                <h2 class="text-3xl font-bold mb-6">Post to Explore</h2>
+                
+                <div class="flex border-b border-zinc-700 mb-6">
+                    <button onclick="switchIdeaTab(0)" id="tab-idea" class="flex-1 pb-4 text-lg font-semibold border-b-2 border-cyan-400">💡 Idea</button>
+                    <button onclick="switchIdeaTab(1)" id="tab-news" class="flex-1 pb-4 text-lg font-semibold text-zinc-400">📰 News</button>
+                    <button onclick="switchIdeaTab(2)" id="tab-project" class="flex-1 pb-4 text-lg font-semibold text-zinc-400">🚀 Project</button>
+                </div>
+        
+                <!-- Title: shown for Idea and Project, hidden for News -->
+                <div id="title-group">
+                    <input id="idea-title" type="text" placeholder="Title"
+                           class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+                </div>
+        
+                <!-- Link: shown for News and Project -->
+                <div id="link-group" class="hidden">
+                    <input id="idea-link" type="text" placeholder="Paste article URL here..."
+                           oninput="debounceNewsPreview()"
+                           class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-3">
+                    <!-- Live link preview (News only) -->
+                    <div id="news-link-preview" class="hidden mb-4 bg-black/60 border border-zinc-700 rounded-2xl overflow-hidden">
+                        <div id="news-preview-inner" class="flex gap-3 p-4 items-start">
+                            <div id="preview-thumb" class="hidden w-20 h-16 rounded-xl bg-zinc-800 flex-shrink-0 overflow-hidden">
+                                <img id="preview-img" src="" class="w-full h-full object-cover" />
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p id="preview-site" class="text-xs text-zinc-500 mb-1"></p>
+                                <p id="preview-headline" class="text-sm font-semibold leading-snug"></p>
+                                <p id="preview-excerpt" class="text-xs text-zinc-400 mt-1 line-clamp-2"></p>
+                            </div>
+                        </div>
+                        <div id="preview-loading" class="hidden px-4 py-5 text-sm text-zinc-500 animate-pulse">Fetching preview...</div>
+                    </div>
+                </div>
+        
+                <textarea id="idea-desc" placeholder="Your comment or description..." rows="4"
+                          class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6"></textarea>
+        
+                <div class="flex gap-3">
+                    <button onclick="hidePostIdeaModal()" class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+                    <button onclick="submitIdeaPost()" class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Post ($0.01 USDC or 1 NQV8)</button>
+                </div>
             </div>
         </div>
-    </div>
 
         <!-- WELCOME MODAL -->
     <div id="welcome-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
@@ -3274,7 +3293,7 @@ async function loadChatList(searchTerm = "") {
             document.getElementById('post-idea-modal').classList.add('hidden');
         }
 
-        function switchIdeaTab(tab) {
+function switchIdeaTab(tab) {
             const tabs = [
                 document.getElementById('tab-idea'),
                 document.getElementById('tab-news'),
@@ -3286,31 +3305,122 @@ async function loadChatList(searchTerm = "") {
                 t.classList.toggle('text-zinc-400', i !== tab);
             });
 
-            // Show link field only for News and Project
+            const isNews = tab === 1;
             const isIdea = tab === 0;
+
+            // Title field: hidden for News (no title needed), shown for Idea + Project
+            document.getElementById('title-group').classList.toggle('hidden', isNews);
+
+            // Link field: shown for News and Project, hidden for Idea
             document.getElementById('link-group').classList.toggle('hidden', isIdea);
+
+            // Clear and hide preview when switching away from News
+            if (!isNews) {
+                document.getElementById('news-link-preview').classList.add('hidden');
+                document.getElementById('idea-link').value = '';
+            }
+
+            // Update textarea placeholder to match tab
+            const desc = document.getElementById('idea-desc');
+            if (isNews) desc.placeholder = 'Add your comment on this article...';
+            else if (tab === 2) desc.placeholder = 'Describe your project...';
+            else desc.placeholder = 'Describe your idea...';
+        }
+
+        // Debounce so preview only fires 600ms after the user stops typing
+        let _previewTimer = null;
+        function debounceNewsPreview() {
+            clearTimeout(_previewTimer);
+            const url = document.getElementById('idea-link').value.trim();
+            if (!url) {
+                document.getElementById('news-link-preview').classList.add('hidden');
+                return;
+            }
+            _previewTimer = setTimeout(() => fetchNewsPreview(url), 600);
+        }
+
+        async function fetchNewsPreview(url) {
+            const preview = document.getElementById('news-link-preview');
+            const loading = document.getElementById('preview-loading');
+            const inner = document.getElementById('news-preview-inner');
+
+            preview.classList.remove('hidden');
+            loading.classList.remove('hidden');
+            inner.classList.add('hidden');
+
+            try {
+                // Use allorigins as a CORS proxy to fetch Open Graph meta tags
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+                const res = await fetch(proxyUrl);
+                const data = await res.json();
+                const html = data.contents || '';
+
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+
+                const getMeta = (prop) =>
+                    doc.querySelector(`meta[property="${prop}"]`)?.getAttribute('content') ||
+                    doc.querySelector(`meta[name="${prop}"]`)?.getAttribute('content') || '';
+
+                const headline = getMeta('og:title') || getMeta('twitter:title') || doc.title || url;
+                const excerpt  = getMeta('og:description') || getMeta('twitter:description') || getMeta('description') || '';
+                const image    = getMeta('og:image') || getMeta('twitter:image') || '';
+                const site     = getMeta('og:site_name') || new URL(url).hostname.replace('www.', '');
+
+                document.getElementById('preview-site').textContent = site;
+                document.getElementById('preview-headline').textContent = headline;
+                document.getElementById('preview-excerpt').textContent = excerpt;
+
+                const thumb = document.getElementById('preview-thumb');
+                const img   = document.getElementById('preview-img');
+                if (image) {
+                    img.src = image;
+                    thumb.classList.remove('hidden');
+                } else {
+                    thumb.classList.add('hidden');
+                }
+
+                loading.classList.add('hidden');
+                inner.classList.remove('hidden');
+            } catch (e) {
+                // Preview failed silently — just show the raw URL
+                document.getElementById('preview-site').textContent = '';
+                document.getElementById('preview-headline').textContent = url;
+                document.getElementById('preview-excerpt').textContent = 'Could not load preview';
+                document.getElementById('preview-thumb').classList.add('hidden');
+                loading.classList.add('hidden');
+                inner.classList.remove('hidden');
+            }
         }
 
         async function submitIdeaPost() {
-            const title = document.getElementById('idea-title').value.trim();
-            const desc = document.getElementById('idea-desc').value.trim();
-            const link = document.getElementById('idea-link').value.trim();
-
             const activeTab = document.querySelector('#post-idea-modal button.border-b-2').id;
-
             let type = 'idea';
             if (activeTab === 'tab-news') type = 'news';
             if (activeTab === 'tab-project') type = 'project';
 
-            if (!title || !desc) return alert("Title and description required");
+            const isNews = type === 'news';
+            const title  = isNews ? '' : document.getElementById('idea-title').value.trim();
+            const desc   = document.getElementById('idea-desc').value.trim();
+            const link   = document.getElementById('idea-link').value.trim();
+
+            // Validation
+            if (!isNews && !title) return alert("Please enter a title");
+            if (!desc) return alert("Please add a comment or description");
             if ((type === 'news' || type === 'project') && !link) {
-                return alert("News and Project posts require a link");
+                return alert("Please paste a link for this post type");
+            }
+
+            // For news, use the previewed headline as the stored title
+            let storedTitle = title;
+            if (isNews) {
+                storedTitle = document.getElementById('preview-headline').textContent || link;
             }
 
             try {
                 await db.collection("posts").add({
-                    type: type,
-                    title,
+                    type,
+                    title: storedTitle,
                     description: desc,
                     link: link || null,
                     username: currentUser.username,
@@ -3328,7 +3438,6 @@ async function loadChatList(searchTerm = "") {
                 alert("Failed to post: " + e.message);
             }
         }
-
         async function loadIdeas() {
             const grid = document.getElementById('ideas-grid');
             grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 py-12">Loading Explore...</p>';
