@@ -127,10 +127,20 @@
                    onkeyup="if(event.key === 'Enter') searchProjects()"
                    class="flex-1 bg-zinc-900 border border-zinc-700 rounded-3xl px-6 py-4 outline-none text-lg">
             
-            <button onclick="showPostProjectModal()"
-                    class="bg-white text-black font-semibold px-8 py-4 rounded-3xl flex items-center gap-3 hover:bg-cyan-400 transition-colors">
-                <i class="fa-solid fa-plus"></i> Post New Project
-            </button>
+            <div class="flex gap-3">
+                <button onclick="showCreateProjectModal()"
+                        class="bg-zinc-800 border border-cyan-400 text-cyan-400 font-semibold px-6 py-4 rounded-3xl flex items-center gap-2 hover:bg-cyan-400/10 transition-colors">
+                    <i class="fa-solid fa-folder-plus"></i>
+                    <span class="hidden md:inline">New Project</span>
+                    <span class="md:hidden">Project</span>
+                </button>
+                <button onclick="showNewMarketplacePostingModal()"
+                        class="bg-white text-black font-semibold px-6 py-4 rounded-3xl flex items-center gap-2 hover:bg-cyan-400 transition-colors">
+                    <i class="fa-solid fa-plus"></i>
+                    <span class="hidden md:inline">New Marketplace Posting</span>
+                    <span class="md:hidden">Post</span>
+                </button>
+            </div>
         </div>
 
         <!-- Live Stats -->
@@ -196,114 +206,19 @@
 
     </div> <!-- ←←← CORRECTLY closes #marketplace-page -->
     
-    <!-- POST PROJECT MODAL - Step 1: Choose or Create Company -->
-<div id="post-project-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999] overflow-auto">
-    <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8 my-8">
-        
-        <!-- Step indicator -->
-        <div class="flex items-center gap-2 mb-8">
-            <div id="step-dot-1" class="w-3 h-3 rounded-full bg-cyan-400"></div>
-            <div class="flex-1 h-px bg-zinc-700"></div>
-            <div id="step-dot-2" class="w-3 h-3 rounded-full bg-zinc-600"></div>
-            <div class="flex-1 h-px bg-zinc-700"></div>
-            <div id="step-dot-3" class="w-3 h-3 rounded-full bg-zinc-600"></div>
-        </div>
-
-        <!-- STEP 1: Company Selection -->
-        <div id="modal-step-1">
-            <h2 class="text-3xl font-bold mb-2">Select Company</h2>
-            <p class="text-zinc-400 mb-6">Projects belong to a company or entity.</p>
-            
-            <div id="company-list-modal" class="space-y-3 mb-6">
-                <!-- Populated by JS -->
+    <!-- CREATE PROJECT MODAL (free, no company linking required) -->
+    <div id="create-project-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999] overflow-auto">
+        <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8 my-8">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold">Create New Project</h2>
+                <button onclick="hideCreateProjectModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
             </div>
-            
-            <button onclick="showCreateCompanyForm()" 
-                    class="w-full py-4 border border-dashed border-zinc-600 rounded-3xl text-zinc-400 hover:border-cyan-400 hover:text-cyan-400 transition-colors">
-                + Create New Company / Entity
-            </button>
-
-            <!-- Create Company Form (hidden by default) -->
-            <div id="create-company-form" class="hidden mt-6 space-y-4">
-                <input id="company-name" type="text" placeholder="Company / Entity Name" 
-                       class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
-                <select id="company-type" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
-                    <option value="">Entity Type</option>
-                    <option value="LLC">LLC</option>
-                    <option value="SPV">SPV</option>
-                    <option value="Corporation">Corporation</option>
-                    <option value="Sole Proprietor">Sole Proprietor</option>
-                    <option value="DAO">DAO</option>
-                    <option value="Other">Other</option>
-                </select>
-                <button onclick="createCompany()" 
-                        class="w-full py-4 bg-cyan-400 text-black font-semibold rounded-3xl">
-                    Create Entity
-                </button>
-            </div>
-
-            <div class="flex gap-3 mt-8">
-                <button onclick="hidePostProjectModal()" 
-                        class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
-                <button onclick="goToStep2()" 
-                        class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Next →</button>
-            </div>
-        </div>
-
-        <!-- STEP 2: Project Details + Type -->
-        <div id="modal-step-2" class="hidden">
-            <h2 class="text-3xl font-bold mb-2">Create Project</h2>
-            <p id="step2-company-label" class="text-cyan-400 mb-6"></p>
-
-            <input id="project-title" type="text" placeholder="Project Title" 
+            <p class="text-zinc-400 mb-6">Projects are your portfolio. Free to create. Attach marketplace postings to them later.</p>
+    
+            <input id="new-project-name" type="text" placeholder="Project Name"
                    class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
-
-            <textarea id="project-desc" placeholder="Describe the project..." rows="3" 
-                      class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6"></textarea>
-
-            <!-- Project Type Selection -->
-            <p class="text-sm text-zinc-400 mb-3">Project Type</p>
-            <div class="grid grid-cols-2 gap-4 mb-6">
-                <button onclick="selectProjectType('cash')" id="type-cash"
-                        class="p-5 rounded-3xl border-2 border-cyan-400 bg-cyan-400/10 text-left">
-                    <p class="text-xl mb-1">💵</p>
-                    <p class="font-semibold">Cash Only</p>
-                    <p class="text-xs text-zinc-400 mt-1">Bounties, milestones, cash payments. Free, no verification.</p>
-                </button>
-                <button onclick="selectProjectType('equity')" id="type-equity"
-                        class="p-5 rounded-3xl border-2 border-zinc-600 text-left opacity-70">
-                    <p class="text-xl mb-1">🏛️</p>
-                    <p class="font-semibold">Equity-Enabled</p>
-                    <p class="text-xs text-zinc-400 mt-1">Issue equity tokens. Requires LLC/SPV verification.</p>
-                </button>
-            </div>
-
-            <!-- Equity warning -->
-            <div id="equity-warning" class="hidden bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6">
-                <p class="text-amber-400 text-sm font-medium">⚠️ Verification Required</p>
-                <p class="text-zinc-400 text-xs mt-1">You'll need to upload your LLC/SPV documents and pay a verification fee before equity features are unlocked.</p>
-            </div>
-
-            <div class="flex gap-3 mt-4">
-                <button onclick="goToStep1()" 
-                        class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">← Back</button>
-                <button onclick="goToStep3()" 
-                        class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Next →</button>
-            </div>
-        </div>
-
-        <!-- STEP 3: Subproject / First Posting -->
-        <div id="modal-step-3" class="hidden">
-            <h2 class="text-3xl font-bold mb-2">Post a Task</h2>
-            <p class="text-zinc-400 mb-6">Create the first subproject to put out for bidding.</p>
-
-            <input id="subproject-title" type="text" placeholder="Task Title" 
-                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
-
-            <textarea id="subproject-desc" placeholder="Describe what you need built or done..." rows="3" 
-                      class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-4"></textarea>
-
-            <select id="subproject-category" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+    
+            <select id="new-project-category" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
                 <option value="">Select Category</option>
                 <option value="AI/ML">AI / Machine Learning</option>
                 <option value="Blockchain">Crypto / Blockchain</option>
@@ -313,98 +228,196 @@
                 <option value="Social">Social / Community</option>
                 <option value="Other">Other</option>
             </select>
-
-            <!-- Compensation type -->
-            <div id="subproject-comp-options" class="mb-4">
-                <p class="text-sm text-zinc-400 mb-3">Compensation Type</p>
-                <div id="cash-comp-option" class="space-y-3">
-                    <input id="subproject-compensation" type="text" placeholder="e.g. $2,500 USDC" 
-                           class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
-                </div>
-                <div id="equity-comp-option" class="hidden space-y-3">
-                    <select id="subproject-comp-type" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
-                        <option value="cash">💵 Cash Payment</option>
-                        <option value="equity">🏛️ Equity Only</option>
-                        <option value="mixed">💵 + 🏛️ Cash + Equity</option>
-                    </select>
-                    <input id="subproject-compensation-equity" type="text" placeholder="e.g. $1,000 + 0.5% equity"
-                           class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
-                </div>
+    
+            <textarea id="new-project-desc" placeholder="Brief description of the project..." rows="3"
+                      class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-4"></textarea>
+    
+            <!-- Entity type (optional) -->
+            <div class="mb-4">
+                <p class="text-sm text-zinc-400 mb-3">Entity Type (optional — required for equity features)</p>
+                <select id="new-project-entity-type" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                    <option value="">No entity / Solo project</option>
+                    <option value="LLC">LLC</option>
+                    <option value="SPV">SPV</option>
+                    <option value="Corporation">Corporation</option>
+                    <option value="Sole Proprietor">Sole Proprietor</option>
+                    <option value="DAO">DAO</option>
+                    <option value="Other">Other</option>
+                </select>
             </div>
-
-            <div class="flex gap-3 mt-4">
-                <button onclick="goToStep2()" 
-                        class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">← Back</button>
-                <button onclick="submitFullProject()" 
-                        class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Post Project</button>
+    
+            <!-- Verification prompt (shown if entity selected) -->
+            <div id="new-project-verif-prompt" class="hidden bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-4">
+                <p class="text-amber-400 text-sm font-medium">🔐 Want equity features?</p>
+                <p class="text-zinc-400 text-xs mt-1">After creating the project you can submit verification docs from your profile. Verification unlocks equity bounties and the ability to list stakes for sale.</p>
+            </div>
+    
+            <p class="text-xs text-zinc-500 mb-6">✅ Free to create. No payment required.</p>
+    
+            <div class="flex gap-3">
+                <button onclick="hideCreateProjectModal()"
+                        class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+                <button onclick="submitCreateProject()"
+                        class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Create Project</button>
             </div>
         </div>
+    </div>
+    
+    
+        <!-- NEW MARKETPLACE POSTING MODAL — choose type -->
+    <div id="new-marketplace-posting-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999] overflow-auto">
+        <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8 my-8">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-3xl font-bold">New Marketplace Posting</h2>
+                <button onclick="hideNewMarketplacePostingModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
+            </div>
+            <p class="text-zinc-400 mb-2">Choose what you want to post.</p>
+            <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 mb-6">
+                <p class="text-amber-400 text-xs font-medium">💰 Cost: $1.00 USDC or 100 NQV8 per posting</p>
+            </div>
+    
+            <div class="space-y-4">
+                <button onclick="hideNewMarketplacePostingModal(); showPostBountyModal()"
+                        class="w-full p-6 rounded-3xl border-2 border-zinc-700 hover:border-cyan-400 hover:bg-cyan-400/5 text-left transition-all">
+                    <div class="flex items-start gap-4">
+                        <span class="text-3xl">🔨</span>
+                        <div>
+                            <p class="font-bold text-lg">Build Request (Bounty)</p>
+                            <p class="text-zinc-400 text-sm mt-1">Post a task for builders to bid on. Cash or cash + equity compensation.</p>
+                        </div>
+                    </div>
+                </button>
+    
+                <button onclick="hideNewMarketplacePostingModal(); showPostFundingModal()"
+                        class="w-full p-6 rounded-3xl border-2 border-zinc-700 hover:border-violet-400 hover:bg-violet-400/5 text-left transition-all">
+                    <div class="flex items-start gap-4">
+                        <span class="text-3xl">💰</span>
+                        <div>
+                            <p class="font-bold text-lg">Funding Request</p>
+                            <p class="text-zinc-400 text-sm mt-1">Put your project up for investment. Requires verified entity for equity terms.</p>
+                        </div>
+                    </div>
+                </button>
+    
+                <button onclick="hideNewMarketplacePostingModal(); showPostEquityModal()"
+                        class="w-full p-6 rounded-3xl border-2 border-zinc-700 hover:border-pink-400 hover:bg-pink-400/5 text-left transition-all">
+                    <div class="flex items-start gap-4">
+                        <span class="text-3xl">📈</span>
+                        <div>
+                            <p class="font-bold text-lg">Equity Stake for Sale</p>
+                            <p class="text-zinc-400 text-sm mt-1">List a stake you own for sale on the Equity Exchange.</p>
+                        </div>
+                    </div>
+                </button>
+            </div>
+    
+            <button onclick="hideNewMarketplacePostingModal()"
+                    class="w-full mt-6 py-4 border border-zinc-700 rounded-3xl font-medium text-zinc-400">Cancel</button>
+        </div>
+    </div>
 
+    <!-- POST FUNDING REQUEST MODAL -->
+<div id="post-funding-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999] overflow-auto">
+    <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8 my-8">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-3xl font-bold">Post a Funding Request</h2>
+            <button onclick="hidePostFundingModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
+        </div>
+        <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 mb-6">
+            <p class="text-amber-400 text-xs">💰 Cost: $1.00 USDC or 100 NQV8</p>
+        </div>
+
+        <p class="text-sm text-zinc-400 mb-2">Which project are you seeking funding for?</p>
+        <div id="funding-project-list" class="space-y-3 mb-4 max-h-48 overflow-auto">
+            <!-- Populated by JS -->
+        </div>
+        <button onclick="showCreateProjectModal(); hidePostFundingModal()"
+                class="w-full py-3 border border-dashed border-zinc-600 rounded-2xl text-zinc-400 hover:border-violet-400 hover:text-violet-400 text-sm mb-6">
+            + Create a new project first
+        </button>
+
+        <div id="funding-verif-notice" class="hidden bg-violet-500/10 border border-violet-500/30 rounded-2xl p-4 mb-4">
+            <p class="text-violet-400 text-sm font-medium">🔐 Verification Required for Equity Terms</p>
+            <p class="text-zinc-400 text-xs mt-1">This project's entity is not verified. You can post a funding request, but equity terms require verification first.</p>
+            <button onclick="startFundingVerification()" class="mt-3 px-4 py-2 bg-violet-600 text-white text-xs rounded-xl">Submit Verification Docs</button>
+        </div>
+
+        <input id="funding-ask" type="text" placeholder="Funding Amount (e.g. $50,000 USDC)"
+               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+
+        <textarea id="funding-desc" placeholder="Describe the funding round, what it's for, and what you're offering investors..." rows="4"
+                  class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6"></textarea>
+
+        <div class="flex gap-3">
+            <button onclick="hidePostFundingModal()"
+                    class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+            <button onclick="submitFundingPosting()"
+                    class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Post ($1 USDC)</button>
+        </div>
     </div>
 </div>
-
-
-        <!-- EQUITY VERIFICATION MODAL -->
-        <div id="verification-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
-            <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8">
-                <h2 class="text-3xl font-bold mb-2">Entity Verification</h2>
-                <p class="text-zinc-400 mb-8">Upload your LLC/SPV documents to unlock equity features.</p>
-        
-                <!-- Status banner -->
-                <div id="verif-status-banner" class="hidden mb-6 p-4 rounded-2xl">
-                    <p id="verif-status-text" class="font-medium"></p>
-                </div>
-        
-                <div class="space-y-4 mb-6">
-                    <div>
-                        <p class="text-sm text-zinc-400 mb-2">Articles of Incorporation / Formation</p>
-                        <input type="file" id="doc-incorporation" accept=".pdf,.jpg,.png" 
-                               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none">
+    
+            <!-- EQUITY VERIFICATION MODAL -->
+            <div id="verification-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
+                <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8">
+                    <h2 class="text-3xl font-bold mb-2">Entity Verification</h2>
+                    <p class="text-zinc-400 mb-8">Upload your LLC/SPV documents to unlock equity features.</p>
+            
+                    <!-- Status banner -->
+                    <div id="verif-status-banner" class="hidden mb-6 p-4 rounded-2xl">
+                        <p id="verif-status-text" class="font-medium"></p>
                     </div>
-                    <div>
-                        <p class="text-sm text-zinc-400 mb-2">EIN / Tax ID Document</p>
-                        <input type="file" id="doc-ein" accept=".pdf,.jpg,.png" 
-                               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none">
+            
+                    <div class="space-y-4 mb-6">
+                        <div>
+                            <p class="text-sm text-zinc-400 mb-2">Articles of Incorporation / Formation</p>
+                            <input type="file" id="doc-incorporation" accept=".pdf,.jpg,.png" 
+                                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none">
+                        </div>
+                        <div>
+                            <p class="text-sm text-zinc-400 mb-2">EIN / Tax ID Document</p>
+                            <input type="file" id="doc-ein" accept=".pdf,.jpg,.png" 
+                                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none">
+                        </div>
+                        <div>
+                            <p class="text-sm text-zinc-400 mb-2">Government-Issued ID (Authorized Representative)</p>
+                            <input type="file" id="doc-id" accept=".pdf,.jpg,.png" 
+                                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none">
+                        </div>
                     </div>
-                    <div>
-                        <p class="text-sm text-zinc-400 mb-2">Government-Issued ID (Authorized Representative)</p>
-                        <input type="file" id="doc-id" accept=".pdf,.jpg,.png" 
-                               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none">
+            
+                    <!-- Fee breakdown -->
+                    <div class="bg-black/50 rounded-2xl p-5 mb-6">
+                        <p class="text-sm text-zinc-400 mb-3">Fee Breakdown</p>
+                        <div class="flex justify-between text-sm mb-2">
+                            <span class="text-zinc-300">KYB Verification Fee</span>
+                            <span>$150 USDC</span>
+                        </div>
+                        <div class="flex justify-between text-sm mb-2">
+                            <span class="text-zinc-300">NQVate Processing Fee</span>
+                            <span>$50 USDC</span>
+                        </div>
+                        <div class="border-t border-zinc-700 mt-3 pt-3 flex justify-between font-semibold">
+                            <span>Total</span>
+                            <span class="text-cyan-400">$200 USDC</span>
+                        </div>
                     </div>
-                </div>
-        
-                <!-- Fee breakdown -->
-                <div class="bg-black/50 rounded-2xl p-5 mb-6">
-                    <p class="text-sm text-zinc-400 mb-3">Fee Breakdown</p>
-                    <div class="flex justify-between text-sm mb-2">
-                        <span class="text-zinc-300">KYB Verification Fee</span>
-                        <span>$150 USDC</span>
+            
+                    <p class="text-xs text-zinc-500 mb-6 text-center">
+                        Payment will be charged to your connected wallet. Cash-only projects remain free.
+                    </p>
+            
+                    <div class="flex gap-3">
+                        <button onclick="hideVerificationModal()" 
+                                class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+                        <button onclick="submitVerification()" 
+                                class="flex-1 py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-3xl">
+                            Upload & Pay $200 USDC
+                        </button>
                     </div>
-                    <div class="flex justify-between text-sm mb-2">
-                        <span class="text-zinc-300">NQVate Processing Fee</span>
-                        <span>$50 USDC</span>
-                    </div>
-                    <div class="border-t border-zinc-700 mt-3 pt-3 flex justify-between font-semibold">
-                        <span>Total</span>
-                        <span class="text-cyan-400">$200 USDC</span>
-                    </div>
-                </div>
-        
-                <p class="text-xs text-zinc-500 mb-6 text-center">
-                    Payment will be charged to your connected wallet. Cash-only projects remain free.
-                </p>
-        
-                <div class="flex gap-3">
-                    <button onclick="hideVerificationModal()" 
-                            class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
-                    <button onclick="submitVerification()" 
-                            class="flex-1 py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-3xl">
-                        Upload & Pay $200 USDC
-                    </button>
                 </div>
             </div>
-        </div>
-
+    
 
 
     
@@ -877,42 +890,53 @@
         </div>
     </div>
 
-<!-- POST EQUITY LISTING MODAL -->
+<!-- POST EQUITY LISTING MODAL — shows stakes you own -->
 <div id="post-equity-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999] overflow-auto">
     <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8 my-8">
-        <h2 class="text-3xl font-bold mb-2">List an Equity Stake</h2>
-        <p class="text-zinc-400 mb-6">Sell or auction equity you've earned or acquired.</p>
-
-        <!-- Company selector (replaces free text) -->
-        <p class="text-sm text-zinc-400 mb-2">Select Company</p>
-        <select id="equity-company-select"
-                class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
-            <option value="">Select a company...</option>
-        </select>
-
-        <input id="equity-percentage" type="text" placeholder="Equity % being sold (e.g. 1.5%)"
-               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
-
-        <input id="equity-ask-price" type="text" placeholder="Asking Price (e.g. $5,000 USDC)"
-               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
-
-        <textarea id="equity-desc" placeholder="Describe the stake and why it's valuable..." rows="4"
-                  class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6"></textarea>
-
-        <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6">
-            <p class="text-amber-400 text-sm font-medium">⚠️ Important</p>
-            <p class="text-zinc-400 text-xs mt-1">NQVate is not a broker or party to any equity transaction. Both parties are responsible for completing their own legal agreements. Only list equity you legitimately own.</p>
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-3xl font-bold">List an Equity Stake</h2>
+            <button onclick="hidePostEquityModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
+        </div>
+        <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 mb-6">
+            <p class="text-amber-400 text-xs">💰 Cost: $1.00 USDC or 100 NQV8 · Only list stakes you legitimately own</p>
         </div>
 
-        <div class="flex gap-3">
-            <button onclick="hidePostEquityModal()"
-                    class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
-            <button onclick="submitEquityListing()"
-                    class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">List Stake</button>
+        <p class="text-sm text-zinc-400 mb-2">Select a verified company to list a stake for</p>
+        <div id="equity-stake-list" class="space-y-3 mb-6 max-h-52 overflow-auto">
+            <!-- Populated by JS — shows verified companies -->
+        </div>
+
+        <div id="equity-listing-form" class="hidden">
+            <p id="equity-selected-company-label" class="text-cyan-400 font-medium mb-4"></p>
+
+            <input id="equity-percentage" type="text" placeholder="Equity % being sold (e.g. 1.5%)"
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+
+            <input id="equity-ask-price" type="text" placeholder="Asking Price (e.g. $5,000 USDC)"
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+
+            <textarea id="equity-desc" placeholder="Describe the stake and why it's valuable..." rows="3"
+                      class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-4"></textarea>
+
+            <div class="bg-zinc-800 rounded-2xl p-4 mb-6">
+                <p class="text-xs text-zinc-400">NQVate is not a broker or party to any equity transaction. Both parties are responsible for their own legal agreements.</p>
+            </div>
+
+            <div class="flex gap-3">
+                <button onclick="hidePostEquityModal()"
+                        class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+                <button onclick="submitEquityListing()"
+                        class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">List Stake ($1 USDC)</button>
+            </div>
+        </div>
+
+        <div id="equity-no-companies" class="hidden text-center py-8">
+            <p class="text-zinc-400 mb-4">You need a verified company to list equity stakes.</p>
+            <button onclick="hidePostEquityModal(); showCreateProjectModal()"
+                    class="px-6 py-3 bg-violet-600 text-white rounded-2xl text-sm">Create & Verify a Project</button>
         </div>
     </div>
 </div>
-
     
 <script>
         console.log("✅ SCRIPT LOADED SUCCESSFULLY");
@@ -1892,7 +1916,7 @@
                     bids: firebase.firestore.FieldValue.arrayUnion(newBid)
                 });
 
-                alert("✅ Bid placed successfully! ($0.01 NQV8 deducted in future version)");
+                alert("✅ Bid placed! $0.01 USDC or 1 NQV8 will be charged when payment is integrated.");
                 await createNotification(
                     project.posterUid,
                     'bid',
@@ -3384,89 +3408,6 @@ async function loadEquityListings() {
     }
 }
 
-async function showPostEquityModal() {
-    if (!currentUser) return alert("Please log in first");
-
-    // Load user's verified companies
-    const snap = await db.collection("companies")
-        .where("ownerUid", "==", currentUser.uid)
-        .where("equityUnlocked", "==", true)
-        .get();
-
-    if (snap.empty) {
-        alert("You need a verified company to list equity. Go to your profile and submit for verification first.");
-        return;
-    }
-
-    // Populate company dropdown
-    const select = document.getElementById('equity-company-select');
-    select.innerHTML = '<option value="">Select a company...</option>';
-    snap.forEach(doc => {
-        const c = doc.data();
-        const opt = document.createElement('option');
-        opt.value = doc.id;
-        opt.textContent = `${c.name} (${c.type})`;
-        opt.dataset.name = c.name;
-        select.appendChild(opt);
-    });
-
-    document.getElementById('post-equity-modal').classList.remove('hidden');
-}
-
-function hidePostEquityModal() {
-    document.getElementById('post-equity-modal').classList.add('hidden');
-}
-
-async function submitEquityListing() {
-    const companySelect = document.getElementById('equity-company-select');
-    const companyId = companySelect.value;
-    const companyName = companySelect.options[companySelect.selectedIndex]?.dataset.name || '';
-    const percentage = document.getElementById('equity-percentage').value.trim();
-    const askPrice = document.getElementById('equity-ask-price').value.trim();
-    const desc = document.getElementById('equity-desc').value.trim();
-
-    if (!companyId) return alert("Please select a company");
-    if (!percentage || !askPrice || !desc) return alert("Please fill in all fields");
-
-    try {
-        await db.collection("equityListings").add({
-            companyId,
-            projectName: companyName,
-            percentage,
-            askPrice,
-            description: desc,
-            sellerUid: currentUser.uid,
-            sellerUsername: currentUser.username,
-            sellerName: currentUser.fullName || currentUser.username,
-            status: 'active',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
-        // Also record the stake on the company document
-        await db.collection("companies").doc(companyId).update({
-            shareholders: firebase.firestore.FieldValue.arrayUnion({
-                uid: currentUser.uid,
-                username: currentUser.username,
-                name: currentUser.fullName || currentUser.username,
-                percentage: percentage,
-                acquiredVia: 'listing',
-                listedAt: new Date().toISOString()
-            })
-        });
-
-        alert("✅ Equity stake listed!");
-        hidePostEquityModal();
-        document.getElementById('equity-percentage').value = '';
-        document.getElementById('equity-ask-price').value = '';
-        document.getElementById('equity-desc').value = '';
-        document.getElementById('equity-company-select').value = '';
-        loadEquityListings();
-    } catch (e) {
-        console.error(e);
-        alert("Failed to list: " + e.message);
-    }
-}
-
 function showEquityDetail(listingId, listing) {
     currentProject = listing;
     currentProjectId = listingId;
@@ -3804,6 +3745,394 @@ function showEditCompanyStats(companyId, company) {
         hideProjectDetailModal();
         loadProfileData();
     }).catch(e => alert("Error: " + e.message));
+}
+
+    // ====================== CREATE PROJECT (FREE) ======================
+function showCreateProjectModal() {
+    document.getElementById('create-project-modal').classList.remove('hidden');
+    document.getElementById('new-project-name').value = '';
+    document.getElementById('new-project-category').value = '';
+    document.getElementById('new-project-desc').value = '';
+    document.getElementById('new-project-entity-type').value = '';
+    document.getElementById('new-project-verif-prompt').classList.add('hidden');
+}
+
+function hideCreateProjectModal() {
+    document.getElementById('create-project-modal').classList.add('hidden');
+}
+
+// Show verification hint when entity type is selected
+document.addEventListener('DOMContentLoaded', () => {
+    const entitySelect = document.getElementById('new-project-entity-type');
+    if (entitySelect) {
+        entitySelect.addEventListener('change', () => {
+            const prompt = document.getElementById('new-project-verif-prompt');
+            prompt.classList.toggle('hidden', !entitySelect.value);
+        });
+    }
+});
+
+async function submitCreateProject() {
+    const name = document.getElementById('new-project-name').value.trim();
+    const category = document.getElementById('new-project-category').value;
+    const desc = document.getElementById('new-project-desc').value.trim();
+    const entityType = document.getElementById('new-project-entity-type').value;
+
+    if (!name || !category || !desc) return alert("Please fill in project name, category, and description");
+
+    try {
+        const projectData = {
+            ownerUid: currentUser.uid,
+            ownerUsername: currentUser.username,
+            name,
+            category,
+            description: desc,
+            entityType: entityType || null,
+            verificationStatus: 'unverified',
+            equityUnlocked: false,
+            status: 'active',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        await db.collection("companies").add(projectData);
+
+        alert("✅ Project created! You can now attach marketplace postings to it.");
+        hideCreateProjectModal();
+        loadProfileData();
+    } catch (e) {
+        alert("Failed to create project: " + e.message);
+    }
+}
+
+// ====================== NEW MARKETPLACE POSTING SELECTOR ======================
+function showNewMarketplacePostingModal() {
+    if (!currentUser) return alert("Please log in first");
+    document.getElementById('new-marketplace-posting-modal').classList.remove('hidden');
+}
+
+function hideNewMarketplacePostingModal() {
+    document.getElementById('new-marketplace-posting-modal').classList.add('hidden');
+}
+
+// ====================== POST BOUNTY (BUILD REQUEST) ======================
+let selectedBountyProjectId = null;
+let selectedBountyCompType = 'cash';
+
+async function showPostBountyModal() {
+    if (!currentUser) return alert("Please log in first");
+    selectedBountyProjectId = null;
+    selectedBountyCompType = 'cash';
+    document.getElementById('post-bounty-modal').classList.remove('hidden');
+    document.getElementById('bounty-step-1').classList.remove('hidden');
+    document.getElementById('bounty-step-2').classList.add('hidden');
+    await populateBountyProjectList();
+}
+
+function hidePostBountyModal() {
+    document.getElementById('post-bounty-modal').classList.add('hidden');
+    selectedBountyProjectId = null;
+}
+
+async function populateBountyProjectList() {
+    const list = document.getElementById('bounty-project-list');
+    list.innerHTML = '<p class="text-zinc-500 text-sm">Loading your projects...</p>';
+
+    const snap = await db.collection("companies")
+        .where("ownerUid", "==", currentUser.uid)
+        .orderBy("createdAt", "desc")
+        .get();
+
+    if (snap.empty) {
+        list.innerHTML = '<p class="text-zinc-500 text-sm">No projects yet. Create one first.</p>';
+        return;
+    }
+
+    list.innerHTML = '';
+    snap.forEach(doc => {
+        const p = doc.data();
+        const div = document.createElement('div');
+        div.className = `p-4 rounded-2xl border cursor-pointer transition-all ${selectedBountyProjectId === doc.id ? 'border-cyan-400 bg-cyan-400/10' : 'border-zinc-700 hover:border-zinc-500'}`;
+        div.innerHTML = `
+            <div class="flex justify-between items-center">
+                <div>
+                    <p class="font-semibold">${p.name}</p>
+                    <p class="text-xs text-zinc-400">${p.category || ''} ${p.entityType ? '· ' + p.entityType : ''}</p>
+                </div>
+                <span class="text-xs px-2 py-1 rounded-full ${p.equityUnlocked ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-700 text-zinc-400'}">
+                    ${p.equityUnlocked ? '✅ Verified' : 'Unverified'}
+                </span>
+            </div>
+        `;
+        div.onclick = () => {
+            selectedBountyProjectId = doc.id;
+            document.querySelectorAll('#bounty-project-list > div').forEach(d => {
+                d.classList.remove('border-cyan-400', 'bg-cyan-400/10');
+                d.classList.add('border-zinc-700');
+            });
+            div.classList.add('border-cyan-400', 'bg-cyan-400/10');
+            div.classList.remove('border-zinc-700');
+        };
+        list.appendChild(div);
+    });
+}
+
+async function bountyGoToStep2() {
+    if (!selectedBountyProjectId) return alert("Please select a project first");
+
+    const projectSnap = await db.collection("companies").doc(selectedBountyProjectId).get();
+    const project = projectSnap.data();
+
+    document.getElementById('bounty-project-label').textContent = `Project: ${project.name}`;
+    document.getElementById('bounty-step-1').classList.add('hidden');
+    document.getElementById('bounty-step-2').classList.remove('hidden');
+    document.getElementById('bounty-title').value = '';
+    document.getElementById('bounty-desc').value = '';
+    document.getElementById('bounty-compensation').value = '';
+    selectBountyCompType('cash');
+}
+
+function bountyGoToStep1() {
+    document.getElementById('bounty-step-2').classList.add('hidden');
+    document.getElementById('bounty-step-1').classList.remove('hidden');
+}
+
+function selectBountyCompType(type) {
+    selectedBountyCompType = type;
+    ['cash', 'equity', 'mixed'].forEach(t => {
+        const btn = document.getElementById(`bcomp-${t}`);
+        if (t === type) {
+            btn.classList.add('border-cyan-400', 'bg-cyan-400/10');
+            btn.classList.remove('border-zinc-600', 'opacity-60');
+        } else {
+            btn.classList.remove('border-cyan-400', 'bg-cyan-400/10');
+            btn.classList.add('border-zinc-600', 'opacity-60');
+        }
+    });
+    const warning = document.getElementById('bounty-equity-warning');
+    warning.classList.toggle('hidden', type === 'cash');
+}
+
+async function submitBountyPosting() {
+    const title = document.getElementById('bounty-title').value.trim();
+    const desc = document.getElementById('bounty-desc').value.trim();
+    const category = document.getElementById('bounty-category').value;
+    const compensation = document.getElementById('bounty-compensation').value.trim();
+
+    if (!title || !desc || !category || !compensation) return alert("Please fill in all fields");
+
+    // If equity involved, check verification
+    if (selectedBountyCompType !== 'cash') {
+        const projectSnap = await db.collection("companies").doc(selectedBountyProjectId).get();
+        const project = projectSnap.data();
+        if (!project.equityUnlocked) {
+            if (confirm("Equity compensation requires a verified entity. Would you like to start verification now?")) {
+                hidePostBountyModal();
+                showVerificationModal(selectedBountyProjectId);
+            }
+            return;
+        }
+    }
+
+    try {
+        const projectSnap = await db.collection("companies").doc(selectedBountyProjectId).get();
+        const project = projectSnap.data();
+
+        await db.collection("subprojects").add({
+            projectId: selectedBountyProjectId,
+            companyId: selectedBountyProjectId,
+            ownerUid: currentUser.uid,
+            ownerUsername: currentUser.username,
+            posterName: currentUser.fullName || currentUser.username,
+            title,
+            description: desc,
+            category,
+            compensation,
+            compensationType: selectedBountyCompType,
+            type: 'build',
+            bids: [],
+            bidsOpen: true,
+            status: 'open',
+            postingCost: '$1.00 USDC',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        alert("✅ Build request posted! ($1.00 USDC charged)");
+        hidePostBountyModal();
+        loadMarketplace();
+    } catch (e) {
+        alert("Failed to post: " + e.message);
+    }
+}
+
+// ====================== POST FUNDING REQUEST ======================
+let selectedFundingProjectId = null;
+
+async function showPostFundingModal() {
+    if (!currentUser) return alert("Please log in first");
+    selectedFundingProjectId = null;
+    document.getElementById('post-funding-modal').classList.remove('hidden');
+    document.getElementById('funding-verif-notice').classList.add('hidden');
+    document.getElementById('funding-ask').value = '';
+    document.getElementById('funding-desc').value = '';
+    await populateFundingProjectList();
+}
+
+function hidePostFundingModal() {
+    document.getElementById('post-funding-modal').classList.add('hidden');
+    selectedFundingProjectId = null;
+}
+
+async function populateFundingProjectList() {
+    const list = document.getElementById('funding-project-list');
+    list.innerHTML = '<p class="text-zinc-500 text-sm">Loading your projects...</p>';
+
+    const snap = await db.collection("companies")
+        .where("ownerUid", "==", currentUser.uid)
+        .orderBy("createdAt", "desc")
+        .get();
+
+    if (snap.empty) {
+        list.innerHTML = '<p class="text-zinc-500 text-sm">No projects yet. Create one first.</p>';
+        return;
+    }
+
+    list.innerHTML = '';
+    snap.forEach(doc => {
+        const p = doc.data();
+        const div = document.createElement('div');
+        div.className = `p-4 rounded-2xl border cursor-pointer transition-all ${selectedFundingProjectId === doc.id ? 'border-violet-400 bg-violet-400/10' : 'border-zinc-700 hover:border-zinc-500'}`;
+        div.innerHTML = `
+            <div class="flex justify-between items-center">
+                <div>
+                    <p class="font-semibold">${p.name}</p>
+                    <p class="text-xs text-zinc-400">${p.category || ''}</p>
+                </div>
+                <span class="text-xs px-2 py-1 rounded-full ${p.equityUnlocked ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}">
+                    ${p.equityUnlocked ? '✅ Verified' : '⚠️ Unverified'}
+                </span>
+            </div>
+        `;
+        div.onclick = async () => {
+            selectedFundingProjectId = doc.id;
+            document.querySelectorAll('#funding-project-list > div').forEach(d => {
+                d.classList.remove('border-violet-400', 'bg-violet-400/10');
+                d.classList.add('border-zinc-700');
+            });
+            div.classList.add('border-violet-400', 'bg-violet-400/10');
+            div.classList.remove('border-zinc-700');
+
+            // Show verification notice if not verified
+            document.getElementById('funding-verif-notice').classList.toggle('hidden', !!p.equityUnlocked);
+        };
+        list.appendChild(div);
+    });
+}
+
+function startFundingVerification() {
+    if (selectedFundingProjectId) {
+        hidePostFundingModal();
+        showVerificationModal(selectedFundingProjectId);
+    }
+}
+
+async function submitFundingPosting() {
+    if (!selectedFundingProjectId) return alert("Please select a project first");
+
+    const ask = document.getElementById('funding-ask').value.trim();
+    const desc = document.getElementById('funding-desc').value.trim();
+
+    if (!ask || !desc) return alert("Please fill in funding amount and description");
+
+    try {
+        const projectSnap = await db.collection("companies").doc(selectedFundingProjectId).get();
+        const project = projectSnap.data();
+
+        await db.collection("subprojects").add({
+            projectId: selectedFundingProjectId,
+            companyId: selectedFundingProjectId,
+            ownerUid: currentUser.uid,
+            ownerUsername: currentUser.username,
+            posterName: currentUser.fullName || currentUser.username,
+            title: `Funding Request: ${project.name}`,
+            description: desc,
+            category: project.category || 'Other',
+            compensation: ask,
+            compensationType: 'fund',
+            type: 'fund',
+            bids: [],
+            bidsOpen: true,
+            status: 'open',
+            postingCost: '$1.00 USDC',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        alert("✅ Funding request posted! ($1.00 USDC charged)");
+        hidePostFundingModal();
+        loadMarketplace();
+    } catch (e) {
+        alert("Failed to post: " + e.message);
+    }
+}
+
+// ====================== UPDATED showPostEquityModal ======================
+async function showPostEquityModal() {
+    if (!currentUser) return alert("Please log in first");
+
+    document.getElementById('post-equity-modal').classList.remove('hidden');
+    document.getElementById('equity-listing-form').classList.add('hidden');
+    document.getElementById('equity-no-companies').classList.add('hidden');
+
+    const snap = await db.collection("companies")
+        .where("ownerUid", "==", currentUser.uid)
+        .where("equityUnlocked", "==", true)
+        .get();
+
+    const list = document.getElementById('equity-stake-list');
+
+    if (snap.empty) {
+        list.classList.add('hidden');
+        document.getElementById('equity-no-companies').classList.remove('hidden');
+        return;
+    }
+
+    list.innerHTML = '';
+    list.classList.remove('hidden');
+
+    snap.forEach(doc => {
+        const c = doc.data();
+        const div = document.createElement('div');
+        div.className = "p-4 rounded-2xl border border-zinc-700 hover:border-pink-400 cursor-pointer transition-all";
+        div.innerHTML = `
+            <div class="flex justify-between items-center">
+                <div>
+                    <p class="font-semibold">${c.name}</p>
+                    <p class="text-xs text-zinc-400">${c.entityType || c.type || ''} · ✅ Verified</p>
+                </div>
+                <span class="text-xs text-pink-400">Select →</span>
+            </div>
+        `;
+        div.onclick = () => {
+            // Highlight selection
+            document.querySelectorAll('#equity-stake-list > div').forEach(d => {
+                d.classList.remove('border-pink-400', 'bg-pink-400/10');
+                d.classList.add('border-zinc-700');
+            });
+            div.classList.add('border-pink-400', 'bg-pink-400/10');
+            div.classList.remove('border-zinc-700');
+
+            // Store company id and show form
+            div.dataset.companyId = doc.id;
+            div.dataset.companyName = c.name;
+            document.getElementById('equity-company-select') && (document.getElementById('equity-company-select').value = doc.id);
+            document.getElementById('equity-selected-company-label').textContent = `Listing stake in: ${c.name}`;
+            document.getElementById('equity-listing-form').classList.remove('hidden');
+
+            // Store selected company for submitEquityListing
+            window._selectedEquityCompanyId = doc.id;
+            window._selectedEquityCompanyName = c.name;
+        };
+        list.appendChild(div);
+    });
 }
 
     </script>    
