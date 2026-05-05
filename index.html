@@ -2533,24 +2533,29 @@ async function loadChatList(searchTerm = "") {
             // CHAT HISTORY MODE — deduplicated
             const chatsSnap = await db.collection("chats")
                 .where("participants", "array-contains", currentUser.uid)
-                .orderBy("createdAt", "desc")
-                .get();
-
+                .get();  // ← removed orderBy to avoid missing docs with no createdAt
+        
             list.innerHTML = '';
+        
             if (chatsSnap.empty) {
                 list.innerHTML = `<p class="text-center text-zinc-400 py-8">No chats yet.<br>Search users above to start one.</p>`;
                 return;
             }
-
-            // ✅ KEY FIX: track seen partners so only the most recent chat per partner shows
+        
+            // Sort client-side so missing createdAt docs don't get dropped
+            const sortedDocs = chatsSnap.docs.sort((a, b) => {
+                const aTime = a.data().createdAt?.toMillis?.() || 0;
+                const bTime = b.data().createdAt?.toMillis?.() || 0;
+                return bTime - aTime; // newest first
+            });
+        
             const seenPartners = new Set();
-
-            for (const doc of chatsSnap.docs) {
+        
+            for (const doc of sortedDocs) {
                 const chat = doc.data();
                 const isGroup = chat.type === 'group';
-
+        
                 if (isGroup) {
-                    // Render group chat
                     const memberCount = (chat.participants || []).length;
                     const div = document.createElement('div');
                     div.className = "flex items-center gap-3 p-3 hover:bg-zinc-800 rounded-2xl cursor-pointer mx-2 my-1";
@@ -2567,16 +2572,18 @@ async function loadChatList(searchTerm = "") {
                         </div>`;
                     div.onclick = () => openGroupChat(doc.id, chat);
                     list.appendChild(div);
-
+        
                 } else {
-                    // DM: deduplicate by partner UID
-                    const otherUid = chat.participants.find(uid => uid !== currentUser.uid);
-                    if (!otherUid || seenPartners.has(otherUid)) continue; // ✅ skip duplicates
+                    const otherUid = (chat.participants || []).find(uid => uid !== currentUser.uid);
+                    if (!otherUid) continue;
+        
+                    // ✅ DEDUP: skip if we already rendered a chat with this person
+                    if (seenPartners.has(otherUid)) continue;
                     seenPartners.add(otherUid);
-
+        
                     const userDoc = await db.collection("users").doc(otherUid).get();
                     const otherUser = userDoc.exists ? userDoc.data() : { username: otherUid.substring(0, 8) };
-
+        
                     const div = document.createElement('div');
                     div.className = "flex items-center gap-3 p-3 hover:bg-zinc-800 rounded-2xl cursor-pointer mx-2 my-1";
                     div.innerHTML = `
@@ -2591,7 +2598,8 @@ async function loadChatList(searchTerm = "") {
                     list.appendChild(div);
                 }
             }
-        }
+        }    
+    
     } catch (e) {
         console.error(e);
         list.innerHTML = `<p class="text-red-400 text-center py-8">Error loading chats</p>`;
