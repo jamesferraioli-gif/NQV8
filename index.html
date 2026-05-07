@@ -25,6 +25,7 @@
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@web3modal/standalone@2.4.1/dist/index.umd.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@coinbase/wallet-sdk@3.9.3/dist/browser/index.js"></script>
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -1196,17 +1197,117 @@ let usdcContract = null;
 // Ledger, Trezor, Rainbow, Trust, any EIP-1193 wallet
 // ============================================================
 async function connectWallet() {
+    showWalletPickerModal();
+}
+
+function showWalletPickerModal() {
+    document.getElementById('wallet-picker-modal')?.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'wallet-picker-modal';
+    modal.className = 'fixed inset-0 bg-black/95 flex items-center justify-center z-[999999]';
+    modal.innerHTML = `
+        <div class="bg-zinc-900 border border-zinc-700 rounded-3xl p-8 w-full max-w-sm mx-4">
+            <h3 class="text-xl font-bold mb-2">Connect Wallet</h3>
+            <p class="text-zinc-400 text-sm mb-6">Choose your wallet to connect to NQVate on Arbitrum</p>
+
+            <div class="space-y-3">
+                <button onclick="connectWithMetaMask()"
+                        class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" class="w-8 h-8">
+                    <div class="text-left">
+                        <p class="font-medium">MetaMask</p>
+                        <p class="text-xs text-zinc-400">Browser extension wallet</p>
+                    </div>
+                </button>
+
+                <button onclick="connectWithCoinbase()"
+                        class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors">
+                    <img src="https://avatars.githubusercontent.com/u/18060234" class="w-8 h-8 rounded-full">
+                    <div class="text-left">
+                        <p class="font-medium">Coinbase Wallet</p>
+                        <p class="text-xs text-zinc-400">Coinbase self-custody wallet</p>
+                    </div>
+                </button>
+
+                <button onclick="connectWithWalletConnect()"
+                        class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors">
+                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">W</div>
+                    <div class="text-left">
+                        <p class="font-medium">WalletConnect</p>
+                        <p class="text-xs text-zinc-400">Ledger, Trust, Rainbow + 300 more</p>
+                    </div>
+                </button>
+
+                ${window.ethereum && !window.ethereum.isCoinbaseWallet ? `
+                <button onclick="connectInjected()"
+                        class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors">
+                    <div class="w-8 h-8 bg-zinc-600 rounded-full flex items-center justify-center text-white text-sm">🔌</div>
+                    <div class="text-left">
+                        <p class="font-medium">Other Browser Wallet</p>
+                        <p class="text-xs text-zinc-400">Brave, Frame, or other injected wallet</p>
+                    </div>
+                </button>` : ''}
+            </div>
+
+            <button onclick="document.getElementById('wallet-picker-modal').remove()"
+                    class="w-full mt-4 py-3 text-zinc-500 hover:text-zinc-300 text-sm">
+                Cancel
+            </button>
+
+            <p class="text-xs text-amber-400 text-center mt-4">
+                ⚠️ Use a self-custody wallet for best experience.
+                Exchange wallets can receive rewards but cannot sign transactions.
+            </p>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+async function connectWithMetaMask() {
+    document.getElementById('wallet-picker-modal')?.remove();
     try {
-        // Priority 1: injected provider (MetaMask, Coinbase, Brave, etc.)
-        if (window.ethereum) {
-            await connectInjected();
-        } else {
-            // Fallback: WalletConnect (covers mobile wallets, Ledger Live, etc.)
-            await connectWalletConnect();
+        if (!window.ethereum || !window.ethereum.isMetaMask) {
+            return window.open('https://metamask.io/download/', '_blank');
         }
+        await connectInjected();
     } catch (e) {
-        console.error('Wallet connection failed:', e);
-        alert('❌ Wallet connection failed: ' + (e.message || e));
+        alert('❌ MetaMask connection failed: ' + e.message);
+    }
+}
+
+async function connectWithCoinbase() {
+    document.getElementById('wallet-picker-modal')?.remove();
+    try {
+        const CoinbaseWalletSDK = window.CoinbaseWalletSDK;
+        if (!CoinbaseWalletSDK) throw new Error('Coinbase Wallet SDK not loaded');
+
+        const coinbaseWallet = new CoinbaseWalletSDK({
+            appName: 'NQVate',
+            appLogoUrl: 'https://nqv8.com/logo.png',
+            darkMode: true
+        });
+
+        const coinbaseProvider = coinbaseWallet.makeWeb3Provider(ARBITRUM_RPC, ARBITRUM_CHAIN_ID);
+        await coinbaseProvider.enable();
+
+        provider = new ethers.providers.Web3Provider(coinbaseProvider);
+        signer = provider.getSigner();
+        connectedAddress = await signer.getAddress();
+
+        await ensureArbitrum();
+        await onWalletConnected();
+    } catch (e) {
+        alert('❌ Coinbase Wallet connection failed: ' + e.message);
+    }
+}
+
+async function connectWithWalletConnect() {
+    document.getElementById('wallet-picker-modal')?.remove();
+    try {
+        await connectWalletConnect();
+    } catch (e) {
+        alert('❌ WalletConnect failed: ' + e.message);
     }
 }
 
