@@ -742,15 +742,23 @@
                     <p id="profile-email" class="text-zinc-400"></p>
                     <p id="profile-bio" class="mt-6 text-zinc-300 leading-relaxed"></p>
 
-                    <!-- NQV8 Balance -->
-                    <div class="mt-8 bg-black/50 rounded-2xl p-6 flex justify-between items-center">
-                        <div>
-                            <p class="text-sm text-zinc-400">NQV8 Balance</p>
-                            <p id="profile-nqv8-balance" class="text-5xl font-bold text-cyan-400">0</p>
+<!-- Wallet Balances -->
+                    <div class="mt-8 bg-black/50 rounded-2xl p-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <div>
+                                <p class="text-sm text-zinc-400">NQV8 Balance</p>
+                                <p id="profile-nqv8-balance" class="text-5xl font-bold text-cyan-400">0</p>
+                                <p class="text-xs text-zinc-500 mt-1">Live on-chain</p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-sm text-zinc-400">Total Earnings</p>
+                                <p id="profile-total-earnings" class="text-3xl font-semibold">$0</p>
+                            </div>
                         </div>
-                        <div class="text-right">
-                            <p class="text-sm text-zinc-400">Total Earnings</p>
-                            <p id="profile-total-earnings" class="text-3xl font-semibold">$0</p>
+                        <div class="border-t border-zinc-700 pt-4">
+                            <p class="text-sm text-zinc-400">USDC Balance</p>
+                            <p id="profile-usdc-balance" class="text-3xl font-bold text-emerald-400">$0.00</p>
+                            <p class="text-xs text-zinc-500 mt-1">Live on-chain · Arbitrum</p>
                         </div>
                     </div>
                 </div>
@@ -1351,12 +1359,40 @@ async function sendNQV8(toAddress, amountHuman) {
     return tx.hash;
 }
 
+// ── Live balance readers ──────────────────────────────────────
+async function getNQV8Balance() {
+    if (!connectedAddress || NQV8_TOKEN_ADDRESS === 'YOUR_NQV8_CONTRACT_ADDRESS') return 0;
+    const raw = await nqv8Contract.balanceOf(connectedAddress);
+    return parseFloat(ethers.utils.formatUnits(raw, NQV8_DECIMALS));
+}
+
+async function getUSDCBalance() {
+    if (!connectedAddress) return 0;
+    const raw = await usdcContract.balanceOf(connectedAddress);
+    return parseFloat(ethers.utils.formatUnits(raw, USDC_DECIMALS));
+}
+
+async function checkSufficientBalance(preferNQV8, nqv8Required, usdcRequired) {
+    if (preferNQV8) {
+        const bal = await getNQV8Balance();
+        if (bal < nqv8Required) {
+            throw new Error(`Insufficient NQV8. You have ${bal.toLocaleString()} NQV8 but need ${nqv8Required} NQV8.`);
+        }
+    } else {
+        const bal = await getUSDCBalance();
+        if (bal < usdcRequired) {
+            throw new Error(`Insufficient USDC. You have $${bal.toFixed(2)} but need $${usdcRequired.toFixed(2)} USDC.`);
+        }
+    }
+}
+
 // Pay a bounty posting fee ($1 USDC or 100 NQV8)
 async function payPostingFee(preferNQV8 = false) {
     if (!connectedAddress) {
         await connectWallet();
         if (!connectedAddress) throw new Error('Wallet required');
     }
+    await checkSufficientBalance(preferNQV8, 100, 1.00);
     if (preferNQV8) {
         return await sendNQV8(TREASURY_ADDRESS, 100);
     } else {
@@ -1370,6 +1406,7 @@ async function payMicroFee(preferNQV8 = false) {
         await connectWallet();
         if (!connectedAddress) throw new Error('Wallet required');
     }
+    await checkSufficientBalance(preferNQV8, 1, 0.01);
     if (preferNQV8) {
         return await sendNQV8(TREASURY_ADDRESS, 1);
     } else {
@@ -2130,8 +2167,29 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
             }
 
             try {
+                // ✅ Block duplicate wallet signups
+                if (connectedAddress) {
+                    const existingWallet = await db.collection("users")
+                        .where("walletAddress", "==", connectedAddress.toLowerCase())
+                        .limit(1)
+                        .get();
+                    if (!existingWallet.empty) {
+                        return alert("❌ This wallet is already linked to an existing account. Each wallet can only receive the signup bonus once.");
+                    }
+                }
+
                 const userCredential = await auth.createUserWithEmailAndPassword(email, password);
                 const user = userCredential.user;
+
+                // Send 1,000 NQV8 on-chain from treasury to new user
+                let signupTxHash = null;
+                if (connectedAddress && NQV8_TOKEN_ADDRESS !== 'YOUR_NQV8_CONTRACT_ADDRESS') {
+                    try {
+                        signupTxHash = await sendNQV8(connectedAddress, 1000);
+                    } catch (txErr) {
+                        console.warn('NQV8 signup transfer failed:', txErr.message);
+                    }
+                }
 
                 const userData = {
                     uid: user.uid,
@@ -2140,8 +2198,11 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                     fullName: `${firstName} ${lastName}`,
                     username,
                     email: user.email,
-                    nqv8Balance: 10000,           // Bonus from treasury
-                    totalNQV8Earned: 10000,
+                    walletAddress: connectedAddress ? connectedAddress.toLowerCase() : null,
+                    nqv8Balance: 1000,
+                    totalNQV8Earned: 1000,
+                    signupBonusClaimed: true,
+                    signupBonusTxHash: signupTxHash,
                     walletConnected: true,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
@@ -2150,7 +2211,7 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
 
                 currentUser = userData;
                 finishLogin();
-                alert("✅ Account created! You received 10,000 NQV8 bonus from the treasury.");
+                alert("✅ Account created! 1,000 NQV8 bonus sent to your wallet.");
             } catch (error) {
                 console.error(error);
                 alert(error.message);
