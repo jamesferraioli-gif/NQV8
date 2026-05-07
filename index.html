@@ -20,6 +20,11 @@
     <script>tailwind.config = { content: [] };</script>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+    <!-- Web3Modal + Ethers.js for universal wallet support -->
+    <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@web3modal/standalone@2.4.1/dist/index.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -1142,6 +1147,369 @@
         let currentUser = null;
         let currentMarketplaceFilter = 'build'; // default to Build Requests
 
+
+        // ============================================================
+// BLOCKCHAIN CONFIG — Arbitrum One
+// ============================================================
+const ARBITRUM_CHAIN_ID = 42161;
+const ARBITRUM_CHAIN_HEX = '0xa4b1';
+const ARBITRUM_RPC = 'https://arb1.arbitrum.io/rpc';
+
+// NQV8 Token contract — deploy this first, then paste address here
+const NQV8_TOKEN_ADDRESS = '0x02b3EF81d6577507114BB26F91F1a8d0A7bB1B67';
+const NQV8_DECIMALS = 18;
+
+// USDC on Arbitrum (official Circle address)
+const USDC_ADDRESS = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
+const USDC_DECIMALS = 6;
+
+// Treasury wallet — the NQV8 protocol wallet that holds initial supply
+const TREASURY_ADDRESS = '0x5CE4385cE469Ca15Af9A2dbE84191ecBC9dc4a58';
+
+// Minimal ERC-20 ABI (transfer, balanceOf, approve, allowance)
+const ERC20_ABI = [
+    "function balanceOf(address owner) view returns (uint256)",
+    "function transfer(address to, uint256 amount) returns (bool)",
+    "function approve(address spender, uint256 amount) returns (bool)",
+    "function allowance(address owner, address spender) view returns (uint256)",
+    "function decimals() view returns (uint8)",
+    "event Transfer(address indexed from, address indexed to, uint256 value)"
+];
+
+// ---- Wallet state ----
+let provider = null;       // ethers.js Web3Provider
+let signer = null;         // ethers.js Signer
+let connectedAddress = null;
+let nqv8Contract = null;
+let usdcContract = null;
+
+// ============================================================
+// CONNECT WALLET — supports MetaMask, Coinbase, WalletConnect,
+// Ledger, Trezor, Rainbow, Trust, any EIP-1193 wallet
+// ============================================================
+async function connectWallet() {
+    try {
+        // Priority 1: injected provider (MetaMask, Coinbase, Brave, etc.)
+        if (window.ethereum) {
+            await connectInjected();
+        } else {
+            // Fallback: WalletConnect (covers mobile wallets, Ledger Live, etc.)
+            await connectWalletConnect();
+        }
+    } catch (e) {
+        console.error('Wallet connection failed:', e);
+        alert('❌ Wallet connection failed: ' + (e.message || e));
+    }
+}
+
+async function connectInjected() {
+    // If multiple wallets are injected, let the user choose via the browser prompt
+    const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+    provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+    signer = provider.getSigner();
+    connectedAddress = accounts[0];
+    await ensureArbitrum();
+    await onWalletConnected();
+}
+
+async function connectWalletConnect() {
+    const wcProvider = new WalletConnectProvider.default({
+        rpc: { [ARBITRUM_CHAIN_ID]: ARBITRUM_RPC },
+        chainId: ARBITRUM_CHAIN_ID,
+        qrcode: true  // shows QR for mobile wallets, Ledger, Trezor
+    });
+    await wcProvider.enable();
+    provider = new ethers.providers.Web3Provider(wcProvider);
+    signer = provider.getSigner();
+    connectedAddress = await signer.getAddress();
+    await onWalletConnected();
+}
+
+async function ensureArbitrum() {
+    const network = await provider.getNetwork();
+    if (network.chainId !== ARBITRUM_CHAIN_ID) {
+        try {
+            await window.ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: ARBITRUM_CHAIN_HEX }]
+            });
+        } catch (switchError) {
+            // Chain not added yet — add it
+            if (switchError.code === 4902) {
+                await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [{
+                        chainId: ARBITRUM_CHAIN_HEX,
+                        chainName: 'Arbitrum One',
+                        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+                        rpcUrls: [ARBITRUM_RPC],
+                        blockExplorerUrls: ['https://arbiscan.io']
+                    }]
+                });
+            } else throw switchError;
+        }
+        // Re-init provider after switch
+        provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
+        signer = provider.getSigner();
+    }
+}
+
+async function onWalletConnected() {
+    // Init token contracts
+    nqv8Contract = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, signer);
+    usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, signer);
+
+    // Save wallet address to Firestore user record
+    if (currentUser) {
+        await db.collection('users').doc(currentUser.uid).update({
+            walletAddress: connectedAddress.toLowerCase()
+        });
+        currentUser.walletAddress = connectedAddress.toLowerCase();
+    }
+
+    // Update UI
+    const short = connectedAddress.slice(0, 6) + '...' + connectedAddress.slice(-4);
+    const walletBtn = document.querySelector('button[onclick="connectWallet()"]');
+    if (walletBtn) {
+        walletBtn.innerHTML = `<i class="fa-solid fa-circle text-emerald-400 text-xs"></i> ${short}`;
+        walletBtn.classList.remove('border-cyan-400', 'text-cyan-400');
+        walletBtn.classList.add('border-emerald-400', 'text-emerald-400');
+    }
+    document.getElementById('wallet-status')?.classList.remove('hidden');
+
+    // Fetch and display on-chain balances
+    await refreshOnChainBalances();
+
+    // Listen for account/chain changes
+    if (window.ethereum) {
+        window.ethereum.on('accountsChanged', (accounts) => {
+            connectedAddress = accounts[0];
+            onWalletConnected();
+        });
+        window.ethereum.on('chainChanged', () => window.location.reload());
+    }
+
+    console.log('✅ Wallet connected:', connectedAddress);
+}
+
+async function connectWalletDuringSignup() {
+    try {
+        await connectWallet();
+        walletConnected = true;
+        document.getElementById('wallet-status').classList.remove('hidden');
+        document.getElementById('signup-wallet-btn').innerHTML =
+            `<i class="fa-solid fa-check"></i> ${connectedAddress.slice(0,6)}...${connectedAddress.slice(-4)} Connected`;
+    } catch (e) {
+        alert('❌ Could not connect wallet: ' + e.message);
+    }
+}
+
+// ============================================================
+// ON-CHAIN BALANCE READER
+// ============================================================
+async function refreshOnChainBalances() {
+    if (!provider || !connectedAddress) return;
+    try {
+        // NQV8 balance
+        if (NQV8_TOKEN_ADDRESS !== 'YOUR_NQV8_CONTRACT_ADDRESS') {
+            const nqv8Raw = await nqv8Contract.balanceOf(connectedAddress);
+            const nqv8Bal = parseFloat(ethers.utils.formatUnits(nqv8Raw, NQV8_DECIMALS));
+            document.getElementById('profile-nqv8-balance')?.
+                && (document.getElementById('profile-nqv8-balance').textContent = nqv8Bal.toLocaleString());
+            if (currentUser) {
+                await db.collection('users').doc(currentUser.uid).update({ nqv8Balance: nqv8Bal });
+            }
+        }
+        // USDC balance
+        const usdcRaw = await usdcContract.balanceOf(connectedAddress);
+        const usdcBal = parseFloat(ethers.utils.formatUnits(usdcRaw, USDC_DECIMALS));
+        console.log('USDC balance:', usdcBal);
+    } catch (e) {
+        console.warn('Balance fetch failed:', e.message);
+    }
+}
+
+    // ============================================================
+// PAYMENT HELPERS — USDC + NQV8 transfers on Arbitrum
+// ============================================================
+
+// Send USDC — amount in human units (e.g. 1.00 = $1)
+async function sendUSDC(toAddress, amountHuman) {
+    if (!signer) throw new Error('Wallet not connected');
+    const amount = ethers.utils.parseUnits(String(amountHuman), USDC_DECIMALS);
+    const tx = await usdcContract.transfer(toAddress, amount);
+    await tx.wait();
+    return tx.hash;
+}
+
+// Send NQV8 — amount in human units
+async function sendNQV8(toAddress, amountHuman) {
+    if (!signer) throw new Error('Wallet not connected');
+    const amount = ethers.utils.parseUnits(String(amountHuman), NQV8_DECIMALS);
+    const tx = await nqv8Contract.transfer(toAddress, amount);
+    await tx.wait();
+    return tx.hash;
+}
+
+// Pay a bounty posting fee ($1 USDC or 100 NQV8)
+async function payPostingFee(preferNQV8 = false) {
+    if (!connectedAddress) {
+        await connectWallet();
+        if (!connectedAddress) throw new Error('Wallet required');
+    }
+    if (preferNQV8) {
+        return await sendNQV8(TREASURY_ADDRESS, 100);
+    } else {
+        return await sendUSDC(TREASURY_ADDRESS, 1.00);
+    }
+}
+
+// Pay micro fee ($0.01 USDC or 1 NQV8) — bids, posts, deletes, chat
+async function payMicroFee(preferNQV8 = false) {
+    if (!connectedAddress) {
+        await connectWallet();
+        if (!connectedAddress) throw new Error('Wallet required');
+    }
+    if (preferNQV8) {
+        return await sendNQV8(TREASURY_ADDRESS, 1);
+    } else {
+        return await sendUSDC(TREASURY_ADDRESS, 0.01);
+    }
+}
+
+// Release bounty payment from poster to worker (called on submission acceptance)
+async function releaseBountyPayment(workerAddress, amountHuman, currency = 'USDC') {
+    if (!signer) throw new Error('Wallet not connected');
+    if (currency === 'NQV8') {
+        return await sendNQV8(workerAddress, amountHuman);
+    } else {
+        return await sendUSDC(workerAddress, amountHuman);
+    }
+}
+
+// ============================================================
+// EQUITY STAKE TOKENIZATION
+// ============================================================
+// Each equity stake is recorded on-chain as a NQV8 token transfer
+// from the treasury to the earner, tagged with the project ID in
+// the transaction memo via a custom contract event.
+// For now we record it in Firestore + emit a standard ERC-20 transfer.
+// When the full EquityNFT contract is deployed, swap this out.
+
+async function mintEquityStake(recipientAddress, projectId, percentageBps) {
+    // percentageBps: basis points, e.g. 500 = 5%
+    // We represent equity stakes as NQV8 tokens: 1 bps = 1 NQV8 token
+    // so a 5% stake = 500 NQV8 sent from treasury to recipient
+    if (!signer) throw new Error('Wallet not connected');
+    const stakeTokens = percentageBps; // 1 NQV8 per basis point
+    const txHash = await sendNQV8(recipientAddress, stakeTokens);
+
+    // Record on Firestore for fast querying
+    await db.collection('equityStakes').add({
+        projectId,
+        recipientAddress: recipientAddress.toLowerCase(),
+        percentageBps,
+        nqv8Tokens: stakeTokens,
+        txHash,
+        mintedAt: firebase.firestore.FieldValue.serverTimestamp(),
+        mintedBy: currentUser?.uid || 'system'
+    });
+
+    return txHash;
+}
+
+// Read all historical equity stakes for a wallet address from Firestore
+// (mirrors on-chain Transfer events indexed at account creation / sync)
+async function getEquityStakesForAddress(walletAddress) {
+    const snap = await db.collection('equityStakes')
+        .where('recipientAddress', '==', walletAddress.toLowerCase())
+        .get();
+    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
+}
+
+// ============================================================
+// TOKENOMICS — 20% MONTHLY REVENUE DISTRIBUTION
+// ============================================================
+// Protocol revenue = sum of all posting fees + micro fees collected
+// by the treasury that month. Run this from an admin panel or
+// a scheduled Cloud Function once per month.
+
+async function distributeMonthlyRewards() {
+    if (!signer) throw new Error('Wallet not connected');
+    const signerAddr = await signer.getAddress();
+    if (signerAddr.toLowerCase() !== TREASURY_ADDRESS.toLowerCase()) {
+        throw new Error('Only the treasury wallet can distribute rewards');
+    }
+
+    // 1. Calculate total protocol revenue this month from Firestore fee records
+    const now = new Date();
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const feesSnap = await db.collection('protocolFees')
+        .where('collectedAt', '>=', firstOfMonth)
+        .get();
+
+    let totalUSDC = 0;
+    feesSnap.forEach(doc => { totalUSDC += doc.data().amountUSDC || 0; });
+
+    const rewardPool = totalUSDC * 0.20; // 20% of monthly revenue
+
+    // 2. Get all NQV8 holders (weighted by balance = proportional share)
+    const usersSnap = await db.collection('users')
+        .where('nqv8Balance', '>', 0)
+        .get();
+
+    let totalSupplyHeld = 0;
+    const holders = [];
+    usersSnap.forEach(doc => {
+        const u = doc.data();
+        if (u.walletAddress && u.nqv8Balance > 0) {
+            holders.push({ address: u.walletAddress, balance: u.nqv8Balance, uid: doc.id });
+            totalSupplyHeld += u.nqv8Balance;
+        }
+    });
+
+    if (totalSupplyHeld === 0 || rewardPool === 0) {
+        console.log('Nothing to distribute');
+        return;
+    }
+
+    // 3. Send proportional USDC reward to each holder
+    const distributions = [];
+    for (const holder of holders) {
+        const share = (holder.balance / totalSupplyHeld) * rewardPool;
+        if (share < 0.01) continue; // skip dust
+        try {
+            const txHash = await sendUSDC(holder.address, share.toFixed(6));
+            distributions.push({ uid: holder.uid, address: holder.address, amountUSDC: share, txHash });
+            // Record in Firestore
+            await db.collection('rewardDistributions').add({
+                uid: holder.uid,
+                walletAddress: holder.address,
+                amountUSDC: share,
+                txHash,
+                month: `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`,
+                distributedAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+        } catch (e) {
+            console.error(`Failed to pay ${holder.address}:`, e.message);
+        }
+    }
+
+    console.log(`✅ Distributed $${rewardPool.toFixed(2)} USDC to ${distributions.length} holders`);
+    return distributions;
+}
+
+// Record a fee collection event (call this every time a fee is charged)
+async function recordProtocolFee(amountUSDC, feeType, txHash) {
+    await db.collection('protocolFees').add({
+        amountUSDC,
+        feeType,          // 'posting', 'micro', 'verification', etc.
+        txHash: txHash || null,
+        collectedBy: connectedAddress || null,
+        collectedAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+}
+
                 // ====================== NOTIFICATIONS ======================
         let notifUnsubscribe = null;
         
@@ -1498,7 +1866,16 @@
                     status: 'active',
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
-        
+
+                // Charge posting fee on-chain
+                const useNQV8 = confirm("Pay posting fee with NQV8 (100 NQV8)?\n\nClick Cancel to pay $1.00 USDC instead.");
+                let feeTxHash;
+                try {
+                    feeTxHash = await payPostingFee(useNQV8);
+                    await recordProtocolFee(useNQV8 ? 0 : 1.00, 'posting', feeTxHash);
+                } catch (e) {
+                    return alert('❌ Payment failed: ' + e.message + '\nPosting not submitted.');
+                }
                 // Create the first subproject
                 await db.collection("subprojects").add({
                     projectId: projectRef.id,
@@ -2305,7 +2682,13 @@
                 });
         
                 // Delete the posting
-                await db.collection("subprojects").doc(projectId).delete();
+                const useNQV8 = confirm("Pay deletion fee with NQV8 (1 NQV8)?\n\nCancel = pay $0.01 USDC.");
+                try {
+                    const delTxHash = await payMicroFee(useNQV8);
+                    await recordProtocolFee(useNQV8 ? 0 : 0.01, 'delete', delTxHash);
+                } catch (e) {
+                    return alert('❌ Payment failed: ' + e.message);
+                }
         
                 // Notify any bidders that the posting was removed
                 if (project.bids && project.bids.length > 0) {
@@ -2362,6 +2745,12 @@
                     bids: firebase.firestore.FieldValue.arrayUnion(newBid)
                 });
 
+                try {
+                    const bidTxHash = await payMicroFee(false);
+                    await recordProtocolFee(0.01, 'bid', bidTxHash);
+                } catch (e) {
+                    return alert('❌ Bid fee payment failed: ' + e.message);
+                }
                 alert("✅ Bid placed! $0.01 USDC or 1 NQV8 will be charged when payment is integrated.");
                 await createNotification(
                     project.posterUid,
@@ -2804,7 +3193,29 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                         createdAt: new Date()
                     })
                 });
-
+                // Release bounty payment to worker on-chain
+                try {
+                    const proj = (await db.collection('subprojects').doc(currentReviewProjectId).get()).data();
+                    const workerSnap = await db.collection('users').doc(proj.acceptedBidderUid).get();
+                    const workerWallet = workerSnap.data()?.walletAddress;
+                    if (workerWallet && proj.acceptedBid?.amount) {
+                        const amountNum = parseFloat(String(proj.acceptedBid.amount).replace(/[^0-9.]/g, ''));
+                        const currency = String(proj.acceptedBid.amount).toUpperCase().includes('NQV8') ? 'NQV8' : 'USDC';
+                        const payTxHash = await releaseBountyPayment(workerWallet, amountNum, currency);
+                        await db.collection('subprojects').doc(currentReviewProjectId).update({
+                            paymentTxHash: payTxHash,
+                            paidAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+                        // Mint equity stake if bounty included equity
+                        if (proj.compensationType === 'equity' || proj.compensationType === 'mixed') {
+                            const pctBps = Math.round((parseFloat(proj.equityPercentage) || 1) * 100);
+                            await mintEquityStake(workerWallet, currentReviewProjectId, pctBps);
+                        }
+                    }
+                } catch (payErr) {
+                    console.error('Payment release failed:', payErr);
+                    alert('⚠️ Review saved but on-chain payment failed: ' + payErr.message + '\nPlease pay manually.');
+                }
                 alert("✅ Review submitted! Thank you.");
 
                 document.getElementById('review-modal').classList.add('hidden');
