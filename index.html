@@ -1444,15 +1444,33 @@ async function onWalletConnected() {
 }
 
 async function connectWalletDuringSignup() {
-    try {
-        await connectWallet();
-        walletConnected = true;
-        document.getElementById('wallet-status').classList.remove('hidden');
-        document.getElementById('signup-wallet-btn').innerHTML =
-            `<i class="fa-solid fa-check"></i> ${connectedAddress.slice(0,6)}...${connectedAddress.slice(-4)} Connected`;
-    } catch (e) {
-        alert('❌ Could not connect wallet: ' + e.message);
-    }
+    // connectWallet() shows a picker modal — the actual connection happens
+    // asynchronously when the user picks a wallet. We hook into onWalletConnected
+    // to update the signup UI once the address is available.
+    const originalOnWalletConnected = onWalletConnected;
+    
+    window._signupWalletCallback = async () => {
+        if (connectedAddress) {
+            walletConnected = true;
+            const btn = document.getElementById('signup-wallet-btn');
+            const status = document.getElementById('wallet-status');
+            if (btn) btn.innerHTML = `<i class="fa-solid fa-check"></i> ${connectedAddress.slice(0,6)}...${connectedAddress.slice(-4)} Connected`;
+            if (status) status.classList.remove('hidden');
+        }
+    };
+
+    // Temporarily patch onWalletConnected to also fire the signup callback
+    const _orig = onWalletConnected;
+    window.onWalletConnected = async function() {
+        await _orig.call(this);
+        if (window._signupWalletCallback) {
+            await window._signupWalletCallback();
+            window._signupWalletCallback = null;
+            window.onWalletConnected = _orig;
+        }
+    };
+
+    showWalletPickerModal();
 }
 
 // ============================================================
