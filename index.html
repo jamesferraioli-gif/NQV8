@@ -4025,23 +4025,24 @@ async function loadChatList(searchTerm = "") {
                     ? `<img src="${user.photoURL}" class="w-full h-full object-cover">` 
                     : `<span class="text-6xl font-bold">${(user.fullName || user.username || '?')[0]}</span>`;
 
-                // Stats
-                document.getElementById('user-working-on').textContent = "3";
-                document.getElementById('user-completed').textContent = "12";
-                document.getElementById('user-nqv8-earned').textContent = user.totalNQV8Earned || "2,450";
-                document.getElementById('user-avg-rating').textContent = "4.7";
-                document.getElementById('user-leaderboard-rank').textContent = "#18";
+                // Stats from Firestore (fast)
+                document.getElementById('user-working-on').textContent = user.projectsInProgress || "0";
+                document.getElementById('user-completed').textContent = user.projectsCompleted || "0";
+                document.getElementById('user-avg-rating').textContent = user.avgRating ? user.avgRating.toFixed(1) : "—";
+                document.getElementById('user-leaderboard-rank').textContent = "—";
 
-                // Reviews placeholder
-                document.getElementById('user-reviews-list').innerHTML = `
-                    <p class="text-zinc-400">Reviews will appear here once the review system is fully active.</p>
-                `;
-
-            } catch (e) {
-                console.error(e);
-                alert("Failed to load user profile");
-            }
-        }
+                // NQV8 balance — read live from Arbitrum if wallet address is known
+                if (user.walletAddress && nqv8Contract) {
+                    try {
+                        const raw = await nqv8Contract.balanceOf(user.walletAddress);
+                        const bal = parseFloat(ethers.utils.formatUnits(raw, 18));
+                        document.getElementById('user-nqv8-earned').textContent = bal.toLocaleString();
+                    } catch (e) {
+                        document.getElementById('user-nqv8-earned').textContent = (user.totalNQV8Earned || 0).toLocaleString();
+                    }
+                } else {
+                    document.getElementById('user-nqv8-earned').textContent = (user.totalNQV8Earned || 0).toLocaleString();
+                }
     
         function searchProjects() {
             const term = document.getElementById('search-input').value.toLowerCase().trim();
@@ -4100,43 +4101,6 @@ async function loadChatList(searchTerm = "") {
             if (modal) modal.classList.add('hidden');
         }
 
-        async function loadIdeas() {
-            const grid = document.getElementById('ideas-grid');
-            grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 py-12">Loading ideas & news...</p>';
-
-            try {
-                const snapshot = await db.collection("posts").orderBy("createdAt", "desc").get();
-                grid.innerHTML = '';
-
-                if (snapshot.empty) {
-                    grid.innerHTML = `<p class="col-span-full text-center text-zinc-400 py-12">No posts yet. Be the first!</p>`;
-                    return;
-                }
-
-                snapshot.forEach(doc => {
-                    const post = doc.data();
-                    const card = document.createElement('div');
-                    card.className = "bg-zinc-900 rounded-3xl p-6 hover:ring-2 hover:ring-cyan-400 cursor-pointer transition-all";
-                    const typeIcon = post.type === 'news' ? '📰' : '💡';
-                    card.innerHTML = `
-                        <div class="flex justify-between">
-                            <span class="text-2xl">${typeIcon}</span>
-                            <span class="text-xs text-zinc-500">${post.comments ? post.comments.length : 0} comments</span>
-                        </div>
-                        <h3 class="text-2xl font-bold mt-3">${post.title}</h3>
-                        <p class="text-zinc-400 line-clamp-3 mt-2">${post.description}</p>
-                        ${post.link ? `<p class="text-cyan-400 text-sm mt-3">🔗 ${post.link}</p>` : ''}
-                        <p class="text-xs text-violet-400 mt-4">Posted by @${post.username}</p>
-                    `;
-                    card.onclick = () => viewPostDetail(doc.id, post);
-                    grid.appendChild(card);
-                });
-            } catch (e) {
-                console.error(e);
-                grid.innerHTML = `<p class="text-red-400">Error loading posts</p>`;
-            }
-        }
-
         function showPostIdeaModal() {
             if (!currentUser) return alert("Please log in first");
             document.getElementById('post-idea-modal').classList.remove('hidden');
@@ -4147,7 +4111,7 @@ async function loadChatList(searchTerm = "") {
             document.getElementById('post-idea-modal').classList.add('hidden');
         }
 
-function switchIdeaTab(tab) {
+        function switchIdeaTab(tab) {
             const tabs = [
                 document.getElementById('tab-idea'),
                 document.getElementById('tab-news'),
