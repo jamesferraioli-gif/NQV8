@@ -21,6 +21,18 @@
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
+
+    <!-- Node.js polyfills required by WalletConnect v2 -->
+    <script>
+        window.process = window.process || { 
+            env: { DEBUG: undefined }, 
+            version: '', 
+            nextTick: function(fn, ...args) { setTimeout(() => fn(...args), 0); }
+        };
+        window.global = window.global || window;
+        window.Buffer = window.Buffer || { isBuffer: () => false };
+    </script>
+
     <!-- Web3Modal + Ethers.js for universal wallet support -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@web3modal/standalone@2.4.1/dist/index.umd.js"></script>
@@ -1352,7 +1364,7 @@ async function connectWalletConnect() {
     const WCEthereumProvider = window["@walletconnect/ethereum-provider"].EthereumProvider;
 
     const wcProvider = await WCEthereumProvider.init({
-        projectId: 'YOUR_WALLETCONNECT_PROJECT_ID', // ← your project ID here
+        projectId: 'abc123youractualprojectid',        
         chains: [ARBITRUM_CHAIN_ID],
         optionalChains: [ARBITRUM_CHAIN_ID],
         showQrModal: true,
