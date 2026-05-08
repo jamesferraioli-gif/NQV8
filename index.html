@@ -1438,8 +1438,8 @@ async function refreshOnChainBalances() {
         if (NQV8_TOKEN_ADDRESS !== 'YOUR_NQV8_CONTRACT_ADDRESS') {
             const nqv8Raw = await nqv8Contract.balanceOf(connectedAddress);
             const nqv8Bal = parseFloat(ethers.utils.formatUnits(nqv8Raw, NQV8_DECIMALS));
-            document.getElementById('profile-nqv8-balance')?.
-                && (document.getElementById('profile-nqv8-balance').textContent = nqv8Bal.toLocaleString());
+            const nqv8El = document.getElementById('profile-nqv8-balance');
+            if (nqv8El) nqv8El.textContent = nqv8Bal.toLocaleString();
             if (currentUser) {
                 await db.collection('users').doc(currentUser.uid).update({ nqv8Balance: nqv8Bal });
             }
