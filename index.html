@@ -1349,17 +1349,21 @@ async function connectInjected() {
 }
 
 async function connectWalletConnect() {
-    const { EthereumProvider } = window.WalletConnectEthereumProvider;
+    const WCEthereumProvider = window["@walletconnect/ethereum-provider"].EthereumProvider;
 
-    const wcProvider = await EthereumProvider.init({
-        projectId: '250c551782f4c860b0da20de1e93967b', // ← paste your Project ID here
+    const wcProvider = await WCEthereumProvider.init({
+        projectId: 'YOUR_WALLETCONNECT_PROJECT_ID', // ← your project ID here
         chains: [ARBITRUM_CHAIN_ID],
+        optionalChains: [ARBITRUM_CHAIN_ID],
         showQrModal: true,
         metadata: {
             name: 'NQVate',
             description: 'A decentralized marketplace for builders and ideas',
             url: 'https://www.nqvate.com',
             icons: ['https://www.nqvate.com/public/logo.png']
+        },
+        rpcMap: {
+            [ARBITRUM_CHAIN_ID]: ARBITRUM_RPC
         }
     });
 
