@@ -1530,6 +1530,148 @@ async function payMicroFee(preferNQV8 = false) {
     }
 }
 
+// ============================================================
+// PAYMENT PICKER — reusable modal for all fee-charging actions
+// Shows USDC / NQV8 choice, checks balance, executes tx, then
+// calls onSuccess(txHash) so the calling function can proceed.
+// ============================================================
+function showPaymentPicker(label, usdcAmount, nqv8Amount, onSuccess) {
+    // Must have a wallet connected
+    if (!connectedAddress) {
+        if (confirm("You need to connect a wallet to pay fees.\n\nConnect now?")) {
+            connectWallet().then(() => {
+                if (connectedAddress) showPaymentPicker(label, usdcAmount, nqv8Amount, onSuccess);
+            });
+        }
+        return;
+    }
+
+    // Remove any existing picker
+    document.getElementById('payment-picker-modal')?.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'payment-picker-modal';
+    modal.className = 'fixed inset-0 bg-black/95 flex items-center justify-center z-[999999]';
+    modal.innerHTML = `
+        <div class="bg-zinc-900 border border-zinc-700 rounded-3xl p-8 w-full max-w-sm mx-4">
+            <h3 class="text-xl font-bold mb-1">Confirm Payment</h3>
+            <p class="text-zinc-400 text-sm mb-6">${label}</p>
+
+            <div class="space-y-3 mb-6">
+                <button id="pay-usdc-btn"
+                        class="w-full flex items-center justify-between p-4 bg-zinc-800 hover:bg-zinc-700 border-2 border-zinc-600 hover:border-emerald-400 rounded-2xl transition-all">
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl">💵</span>
+                        <div class="text-left">
+                            <p class="font-semibold">Pay with USDC</p>
+                            <p id="usdc-bal-display" class="text-xs text-zinc-400">Checking balance...</p>
+                        </div>
+                    </div>
+                    <span class="text-emerald-400 font-bold">$${usdcAmount.toFixed(2)}</span>
+                </button>
+
+                <button id="pay-nqv8-btn"
+                        class="w-full flex items-center justify-between p-4 bg-zinc-800 hover:bg-zinc-700 border-2 border-zinc-600 hover:border-cyan-400 rounded-2xl transition-all">
+                    <div class="flex items-center gap-3">
+                        <span class="text-2xl">🪙</span>
+                        <div class="text-left">
+                            <p class="font-semibold">Pay with NQV8</p>
+                            <p id="nqv8-bal-display" class="text-xs text-zinc-400">Checking balance...</p>
+                        </div>
+                    </div>
+                    <span class="text-cyan-400 font-bold">${nqv8Amount} NQV8</span>
+                </button>
+            </div>
+
+            <div id="payment-status" class="hidden mb-4 p-3 bg-zinc-800 rounded-2xl text-sm text-center text-zinc-300 animate-pulse"></div>
+
+            <button onclick="document.getElementById('payment-picker-modal').remove()"
+                    class="w-full py-3 text-zinc-500 hover:text-zinc-300 text-sm">
+                Cancel
+            </button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    const statusEl = modal.querySelector('#payment-status');
+
+    const setStatus = (msg) => {
+        statusEl.classList.remove('hidden');
+        statusEl.textContent = msg;
+    };
+
+    // Load live balances
+    (async () => {
+        try {
+            const usdcRaw = await usdcContract.balanceOf(connectedAddress);
+            const usdcBal = parseFloat(ethers.utils.formatUnits(usdcRaw, 6));
+            const usdcEl = modal.querySelector('#usdc-bal-display');
+            if (usdcEl) {
+                usdcEl.textContent = `Balance: $${usdcBal.toFixed(2)} USDC`;
+                if (usdcBal < usdcAmount) {
+                    usdcEl.textContent += ' — insufficient';
+                    usdcEl.classList.add('text-red-400');
+                    modal.querySelector('#pay-usdc-btn').disabled = true;
+                    modal.querySelector('#pay-usdc-btn').classList.add('opacity-40', 'cursor-not-allowed');
+                } else {
+                    usdcEl.classList.add('text-emerald-400');
+                }
+            }
+        } catch(e) {
+            const el = modal.querySelector('#usdc-bal-display');
+            if (el) el.textContent = 'Could not load balance';
+        }
+
+        try {
+            const nqv8Raw = await nqv8Contract.balanceOf(connectedAddress);
+            const nqv8Bal = parseFloat(ethers.utils.formatUnits(nqv8Raw, 18));
+            const nqv8El = modal.querySelector('#nqv8-bal-display');
+            if (nqv8El) {
+                nqv8El.textContent = `Balance: ${nqv8Bal.toLocaleString()} NQV8`;
+                if (nqv8Bal < nqv8Amount) {
+                    nqv8El.textContent += ' — insufficient';
+                    nqv8El.classList.add('text-red-400');
+                    modal.querySelector('#pay-nqv8-btn').disabled = true;
+                    modal.querySelector('#pay-nqv8-btn').classList.add('opacity-40', 'cursor-not-allowed');
+                } else {
+                    nqv8El.classList.add('text-cyan-400');
+                }
+            }
+        } catch(e) {
+            const el = modal.querySelector('#nqv8-bal-display');
+            if (el) el.textContent = 'Could not load balance';
+        }
+    })();
+
+    // USDC payment
+    modal.querySelector('#pay-usdc-btn').addEventListener('click', async () => {
+        if (modal.querySelector('#pay-usdc-btn').disabled) return;
+        setStatus('Confirm the transaction in your wallet...');
+        try {
+            const txHash = await sendUSDC(TREASURY_ADDRESS, usdcAmount);
+            await recordProtocolFee(usdcAmount, 'fee', txHash);
+            modal.remove();
+            onSuccess(txHash);
+        } catch(e) {
+            setStatus('❌ Transaction failed: ' + e.message);
+        }
+    });
+
+    // NQV8 payment
+    modal.querySelector('#pay-nqv8-btn').addEventListener('click', async () => {
+        if (modal.querySelector('#pay-nqv8-btn').disabled) return;
+        setStatus('Confirm the transaction in your wallet...');
+        try {
+            const txHash = await sendNQV8(TREASURY_ADDRESS, nqv8Amount);
+            await recordProtocolFee(0, 'fee', txHash);
+            modal.remove();
+            onSuccess(txHash);
+        } catch(e) {
+            setStatus('❌ Transaction failed: ' + e.message);
+        }
+    });
+}
+
 // Release bounty payment from poster to worker (called on submission acceptance)
 async function releaseBountyPayment(workerAddress, amountHuman, currency = 'USDC') {
     if (!signer) throw new Error('Wallet not connected');
@@ -2001,62 +2143,58 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
             const compensation = selectedProjectType === 'equity'
                 ? document.getElementById('subproject-compensation-equity').value.trim()
                 : document.getElementById('subproject-compensation').value.trim();
-            
-        
+
             if (!subTitle || !subDesc || !category || !compensation) {
                 return alert("Please fill in all task fields");
             }
-        
-            try {
-                // Create the parent project
-                const projectRef = await db.collection("projects").add({
-                    companyId: selectedCompanyId,
-                    ownerUid: currentUser.uid,
-                    ownerUsername: currentUser.username,
-                    title: projectTitle,
-                    description: projectDesc,
-                    projectType: selectedProjectType,
-                    status: 'active',
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
 
-                // Charge posting fee on-chain
-                const useNQV8 = confirm("Pay posting fee with NQV8 (100 NQV8)?\n\nClick Cancel to pay $1.00 USDC instead.");
-                let feeTxHash;
-                try {
-                    feeTxHash = await payPostingFee(useNQV8);
-                    await recordProtocolFee(useNQV8 ? 0 : 1.00, 'posting', feeTxHash);
-                } catch (e) {
-                    return alert('❌ Payment failed: ' + e.message + '\nPosting not submitted.');
+            showPaymentPicker(
+                'Post project & first task — one-time listing fee',
+                1.00, 100,
+                async (txHash) => {
+                    try {
+                        const projectRef = await db.collection("projects").add({
+                            companyId: selectedCompanyId,
+                            ownerUid: currentUser.uid,
+                            ownerUsername: currentUser.username,
+                            title: projectTitle,
+                            description: projectDesc,
+                            projectType: selectedProjectType,
+                            status: 'active',
+                            paymentTxHash: txHash,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+
+                        await db.collection("subprojects").add({
+                            projectId: projectRef.id,
+                            companyId: selectedCompanyId,
+                            ownerUid: currentUser.uid,
+                            ownerUsername: currentUser.username,
+                            posterName: currentUser.fullName || currentUser.username,
+                            title: subTitle,
+                            description: subDesc,
+                            category,
+                            compensation,
+                            compensationType: selectedProjectType === 'equity'
+                                ? (document.getElementById('subproject-comp-type')?.value || 'cash')
+                                : 'cash',
+                            type: currentMarketplaceFilter,
+                            bids: [],
+                            bidsOpen: true,
+                            status: 'open',
+                            paymentTxHash: txHash,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
+
+                        alert("✅ Project and first task posted!");
+                        hidePostProjectModal();
+                        loadMarketplace();
+                    } catch(e) {
+                        console.error(e);
+                        alert("Failed to post: " + e.message);
+                    }
                 }
-                // Create the first subproject
-                await db.collection("subprojects").add({
-                    projectId: projectRef.id,
-                    companyId: selectedCompanyId,
-                    ownerUid: currentUser.uid,
-                    ownerUsername: currentUser.username,
-                    posterName: currentUser.fullName || currentUser.username,
-                    title: subTitle,
-                    description: subDesc,
-                    category,
-                    compensation,
-                    compensationType: selectedProjectType === 'equity' 
-                        ? (document.getElementById('subproject-comp-type')?.value || 'cash') 
-                        : 'cash',
-                        type: currentMarketplaceFilter, // 'build' or 'fund'
-                    bids: [],
-                    bidsOpen: true,
-                    status: 'open',
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-        
-                alert("✅ Project and first task posted!");
-                hidePostProjectModal();
-                loadMarketplace();
-            } catch(e) {
-                console.error(e);
-                alert("Failed to post: " + e.message);
-            }
+            );
         }
         
         function hidePostProjectModal() {
@@ -2786,60 +2924,50 @@ function navigateTo(page) {
         async function deletePosting(projectId) {
             if (!currentUser) return;
         
-            // Safety check: re-fetch from Firestore to confirm no bid has been accepted
             const snap = await db.collection("subprojects").doc(projectId).get();
             if (!snap.exists) return alert("Posting not found.");
         
             const project = snap.data();
         
-            // Only the poster can delete
             if (project.ownerUid !== currentUser.uid && project.posterUid !== currentUser.uid) {
                 return alert("❌ You can only delete your own postings.");
             }
         
-            // Block deletion if a bid has been accepted / work is in progress
             if (project.status === "in-progress" || project.status === "completed" || project.bidsOpen === false) {
                 return alert("❌ You cannot delete a posting once a bid has been accepted.");
             }
         
-            if (!confirm(`Delete "${project.title}"?\n\nThis costs $0.01 USDC or 1 NQV8 and cannot be undone.`)) return;
-        
-            try {
-                // Deduct 1 NQV8 from the poster's balance
-                await db.collection("users").doc(currentUser.uid).update({
-                    nqv8Balance: firebase.firestore.FieldValue.increment(-1)
-                });
-        
-                // Delete the posting
-                const useNQV8 = confirm("Pay deletion fee with NQV8 (1 NQV8)?\n\nCancel = pay $0.01 USDC.");
-                try {
-                    const delTxHash = await payMicroFee(useNQV8);
-                    await recordProtocolFee(useNQV8 ? 0 : 0.01, 'delete', delTxHash);
-                } catch (e) {
-                    return alert('❌ Payment failed: ' + e.message);
-                }
-        
-                // Notify any bidders that the posting was removed
-                if (project.bids && project.bids.length > 0) {
-                    for (const bid of project.bids) {
-                        if (bid.bidderUid && bid.bidderUid !== currentUser.uid) {
-                            await createNotification(
-                                bid.bidderUid,
-                                'system',
-                                `The posting "${project.title}" you bid on has been deleted by the poster.`,
-                                {}
-                            );
+            if (!confirm(`Delete "${project.title}"?\n\nThis cannot be undone.`)) return;
+
+            showPaymentPicker(
+                `Delete posting: "${project.title}"`,
+                0.01, 1,
+                async (txHash) => {
+                    try {
+                        await db.collection("subprojects").doc(projectId).delete();
+
+                        if (project.bids && project.bids.length > 0) {
+                            for (const bid of project.bids) {
+                                if (bid.bidderUid && bid.bidderUid !== currentUser.uid) {
+                                    await createNotification(
+                                        bid.bidderUid,
+                                        'system',
+                                        `The posting "${project.title}" you bid on has been deleted by the poster.`,
+                                        {}
+                                    );
+                                }
+                            }
                         }
+
+                        alert("✅ Posting deleted.");
+                        hideProjectDetailModal();
+                        loadMarketplace();
+                    } catch (e) {
+                        console.error(e);
+                        alert("Payment succeeded but failed to delete: " + e.message);
                     }
                 }
-        
-                alert("✅ Posting deleted. 1 NQV8 charged.");
-                hideProjectDetailModal();
-                loadMarketplace();
-            } catch (e) {
-                console.error(e);
-                alert("Failed to delete: " + e.message);
-            }
+            );
         }
     
         function hideProjectDetailModal() {
@@ -2863,32 +2991,36 @@ function navigateTo(page) {
                     return alert("❌ This project has already been accepted and is in progress.");
                 }
 
-                const newBid = {
-                    bidderUid: currentUser.uid,
-                    bidderName: currentUser.fullName || currentUser.username,
-                    amount,
-                    timestamp: new Date()
-                };
-
-                await projectRef.update({
-                    bids: firebase.firestore.FieldValue.arrayUnion(newBid)
-                });
-
-                try {
-                    const bidTxHash = await payMicroFee(false);
-                    await recordProtocolFee(0.01, 'bid', bidTxHash);
-                } catch (e) {
-                    return alert('❌ Bid fee payment failed: ' + e.message);
-                }
-                alert("✅ Bid placed! $0.01 USDC or 1 NQV8 will be charged when payment is integrated.");
-                await createNotification(
-                    project.posterUid,
-                    'bid',
-                    `@${currentUser.username} placed a bid on your project: ${project.title}`,
-                    { projectId }
+                // Payment first — Firestore write only on success
+                showPaymentPicker(
+                    `Place a bid on "${project.title}"`,
+                    0.01, 1,
+                    async (txHash) => {
+                        try {
+                            const newBid = {
+                                bidderUid: currentUser.uid,
+                                bidderName: currentUser.fullName || currentUser.username,
+                                amount,
+                                timestamp: new Date(),
+                                paymentTxHash: txHash
+                            };
+                            await projectRef.update({
+                                bids: firebase.firestore.FieldValue.arrayUnion(newBid)
+                            });
+                            await createNotification(
+                                project.posterUid,
+                                'bid',
+                                `@${currentUser.username} placed a bid on your project: ${project.title}`,
+                                { projectId }
+                            );
+                            alert("✅ Bid placed!");
+                            hideProjectDetailModal();
+                            loadMarketplace();
+                        } catch(e) {
+                            alert("Bid payment succeeded but failed to save: " + e.message);
+                        }
+                    }
                 );
-                hideProjectDetailModal();
-                loadMarketplace();
             } catch (e) {
                 console.error(e);
                 alert("Failed to place bid: " + e.message);
@@ -3505,20 +3637,28 @@ async function loadChatList(searchTerm = "") {
                     return;
                 }
 
-                // Create new chat
-                if (confirm(`Start new chat with @${partnerData.username || partnerData.fullName}? ($0.01 NQV8)`)) {
-                    const chatData = {
-                        participants: [currentUser.uid, partnerUid].sort(),
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                        status: 'accepted',
-                        relatedProjectId: null,
-                        isBidRelated: false
-                    };
-
-                    const chatRef = await db.collection("chats").add(chatData);
-                    openChat(chatRef.id, partnerData);
-                    navigateToChat();
-                }
+                // Create new chat — charge micro fee
+                showPaymentPicker(
+                    `Start a chat with @${partnerData.username || partnerData.fullName}`,
+                    0.01, 1,
+                    async (txHash) => {
+                        try {
+                            const chatData = {
+                                participants: [currentUser.uid, partnerUid].sort(),
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                                status: 'accepted',
+                                relatedProjectId: null,
+                                isBidRelated: false,
+                                paymentTxHash: txHash
+                            };
+                            const chatRef = await db.collection("chats").add(chatData);
+                            openChat(chatRef.id, partnerData);
+                            navigateToChat();
+                        } catch(e) {
+                            alert("Failed to start chat: " + e.message);
+                        }
+                    }
+                );
             } catch (e) {
                 console.error(e);
                 alert("Failed to start chat");
@@ -4224,26 +4364,32 @@ async function loadChatList(searchTerm = "") {
                 storedTitle = document.getElementById('preview-headline').textContent || link;
             }
 
-            try {
-                await db.collection("posts").add({
-                    type,
-                    title: storedTitle,
-                    description: desc,
-                    link: link || null,
-                    username: currentUser.username,
-                    posterUid: currentUser.uid,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                    comments: [],
-                    likes: 0,
-                    dislikes: 0
-                });
-
-                alert("✅ Post published! ($0.01 NQV8 deducted)");
-                hidePostIdeaModal();
-                loadIdeas();
-            } catch (e) {
-                alert("Failed to post: " + e.message);
-            }
+            showPaymentPicker(
+                'Post to Explore — micro fee',
+                0.01, 1,
+                async (txHash) => {
+                    try {
+                        await db.collection("posts").add({
+                            type,
+                            title: storedTitle,
+                            description: desc,
+                            link: link || null,
+                            username: currentUser.username,
+                            posterUid: currentUser.uid,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            comments: [],
+                            likes: 0,
+                            dislikes: 0,
+                            paymentTxHash: txHash
+                        });
+                        alert("✅ Post published!");
+                        hidePostIdeaModal();
+                        loadIdeas();
+                    } catch (e) {
+                        alert("Failed to post: " + e.message);
+                    }
+                }
+            );
         }
         async function loadIdeas() {
             const grid = document.getElementById('ideas-grid');
@@ -5045,35 +5191,42 @@ async function submitBountyPosting() {
         }
     }
 
-    try {
-        const projectSnap = await db.collection("companies").doc(selectedBountyProjectId).get();
-        const project = projectSnap.data();
+    showPaymentPicker(
+        'Post a Build Request — one-time listing fee',
+        1.00, 100,
+        async (txHash) => {
+            try {
+                const projectSnap = await db.collection("companies").doc(selectedBountyProjectId).get();
+                const project = projectSnap.data();
 
-        await db.collection("subprojects").add({
-            projectId: selectedBountyProjectId,
-            companyId: selectedBountyProjectId,
-            ownerUid: currentUser.uid,
-            ownerUsername: currentUser.username,
-            posterName: currentUser.fullName || currentUser.username,
-            title,
-            description: desc,
-            category,
-            compensation,
-            compensationType: selectedBountyCompType,
-            type: 'build',
-            bids: [],
-            bidsOpen: true,
-            status: 'open',
-            postingCost: '$1.00 USDC',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+                await db.collection("subprojects").add({
+                    projectId: selectedBountyProjectId,
+                    companyId: selectedBountyProjectId,
+                    ownerUid: currentUser.uid,
+                    ownerUsername: currentUser.username,
+                    posterName: currentUser.fullName || currentUser.username,
+                    title,
+                    description: desc,
+                    category,
+                    compensation,
+                    compensationType: selectedBountyCompType,
+                    type: 'build',
+                    bids: [],
+                    bidsOpen: true,
+                    status: 'open',
+                    postingCost: '$1.00 USDC',
+                    paymentTxHash: txHash,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
 
-        alert("✅ Build request posted! ($1.00 USDC charged)");
-        hidePostBountyModal();
-        loadMarketplace();
-    } catch (e) {
-        alert("Failed to post: " + e.message);
-    }
+                alert("✅ Build request posted!");
+                hidePostBountyModal();
+                loadMarketplace();
+            } catch (e) {
+                alert("Failed to post: " + e.message);
+            }
+        }
+    );
 }
 
 // ====================== POST FUNDING REQUEST ======================
@@ -5166,35 +5319,42 @@ async function submitFundingPosting() {
         return alert("❌ You already have an active funding request for this project. Close or complete it before posting a new one.");
     }
 
-    try {
-        const projectSnap = await db.collection("companies").doc(selectedFundingProjectId).get();
-        const project = projectSnap.data();
+    showPaymentPicker(
+        'Post a Funding Request — one-time listing fee',
+        1.00, 100,
+        async (txHash) => {
+            try {
+                const projectSnap = await db.collection("companies").doc(selectedFundingProjectId).get();
+                const project = projectSnap.data();
 
-        await db.collection("subprojects").add({
-            projectId: selectedFundingProjectId,
-            companyId: selectedFundingProjectId,
-            ownerUid: currentUser.uid,
-            ownerUsername: currentUser.username,
-            posterName: currentUser.fullName || currentUser.username,
-            title: `Funding Request: ${project.name}`,
-            description: desc,
-            category: project.category || 'Other',
-            compensation: ask,
-            compensationType: 'fund',
-            type: 'fund',
-            bids: [],
-            bidsOpen: true,
-            status: 'open',
-            postingCost: '$1.00 USDC',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+                await db.collection("subprojects").add({
+                    projectId: selectedFundingProjectId,
+                    companyId: selectedFundingProjectId,
+                    ownerUid: currentUser.uid,
+                    ownerUsername: currentUser.username,
+                    posterName: currentUser.fullName || currentUser.username,
+                    title: `Funding Request: ${project.name}`,
+                    description: desc,
+                    category: project.category || 'Other',
+                    compensation: ask,
+                    compensationType: 'fund',
+                    type: 'fund',
+                    bids: [],
+                    bidsOpen: true,
+                    status: 'open',
+                    postingCost: '$1.00 USDC',
+                    paymentTxHash: txHash,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
 
-        alert("✅ Funding request posted! ($1.00 USDC charged)");
-        hidePostFundingModal();
-        loadMarketplace();
-    } catch (e) {
-        alert("Failed to post: " + e.message);
-    }
+                alert("✅ Funding request posted!");
+                hidePostFundingModal();
+                loadMarketplace();
+            } catch (e) {
+                alert("Failed to post: " + e.message);
+            }
+        }
+    );
 }
 
 // ====================== UPDATED showPostEquityModal ======================
@@ -5281,41 +5441,48 @@ async function submitEquityListing() {
         return alert(`❌ You can only sell up to ${maxPct}% — that is your full stake in this company.`);
     }
 
-    try {
-        await db.collection("equityListings").add({
-            companyId,
-            projectName: companyName,
-            percentage,
-            askPrice,
-            description: desc,
-            sellerUid: currentUser.uid,
-            sellerUsername: currentUser.username,
-            sellerName: currentUser.fullName || currentUser.username,
-            status: 'active',
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
+    showPaymentPicker(
+        'List an Equity Stake — one-time listing fee',
+        1.00, 100,
+        async (txHash) => {
+            try {
+                await db.collection("equityListings").add({
+                    companyId,
+                    projectName: companyName,
+                    percentage,
+                    askPrice,
+                    description: desc,
+                    sellerUid: currentUser.uid,
+                    sellerUsername: currentUser.username,
+                    sellerName: currentUser.fullName || currentUser.username,
+                    status: 'active',
+                    paymentTxHash: txHash,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
 
-        await db.collection("companies").doc(companyId).update({
-            shareholders: firebase.firestore.FieldValue.arrayUnion({
-                uid: currentUser.uid,
-                username: currentUser.username,
-                name: currentUser.fullName || currentUser.username,
-                percentage: percentage,
-                acquiredVia: 'listing',
-                listedAt: new Date().toISOString()
-            })
-        });
+                await db.collection("companies").doc(companyId).update({
+                    shareholders: firebase.firestore.FieldValue.arrayUnion({
+                        uid: currentUser.uid,
+                        username: currentUser.username,
+                        name: currentUser.fullName || currentUser.username,
+                        percentage: percentage,
+                        acquiredVia: 'listing',
+                        listedAt: new Date().toISOString()
+                    })
+                });
 
-        alert("✅ Equity stake listed!");
-        hidePostEquityModal();
-        document.getElementById('equity-percentage').value = '';
-        document.getElementById('equity-ask-price').value = '';
-        document.getElementById('equity-desc').value = '';
-        loadEquityListings();
-    } catch (e) {
-        console.error(e);
-        alert("Failed to list: " + e.message);
-    }
+                alert("✅ Equity stake listed!");
+                hidePostEquityModal();
+                document.getElementById('equity-percentage').value = '';
+                document.getElementById('equity-ask-price').value = '';
+                document.getElementById('equity-desc').value = '';
+                loadEquityListings();
+            } catch (e) {
+                console.error(e);
+                alert("Failed to list: " + e.message);
+            }
+        }
+    );
 }
 
     let groupSelectedUsers = {};
@@ -5400,33 +5567,34 @@ async function createGroupChat() {
 
     const nameInput = document.getElementById('group-chat-name').value.trim();
     const groupName = nameInput || Object.values(groupSelectedUsers).map(u => u.username).join(', ');
-    const cost = members.length * 0.01;
+    const usdcCost = parseFloat((members.length * 0.01).toFixed(2));
+    const nqv8Cost = members.length;
 
-    if (!confirm(`Create group chat with ${members.length} people?\nCost: $${cost.toFixed(2)} USDC / ${members.length} NQV8`)) return;
+    showPaymentPicker(
+        `Create group chat with ${members.length} people`,
+        usdcCost, nqv8Cost,
+        async (txHash) => {
+            try {
+                const participants = [currentUser.uid, ...members].sort();
+                const chatRef = await db.collection("chats").add({
+                    type: 'group',
+                    groupName,
+                    participants,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    messages: [],
+                    createdBy: currentUser.uid,
+                    paymentTxHash: txHash
+                });
 
-    try {
-        const participants = [currentUser.uid, ...members].sort();
-        const chatRef = await db.collection("chats").add({
-            type: 'group',
-            groupName,
-            participants,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-            messages: [],
-            createdBy: currentUser.uid
-        });
-
-        // Deduct NQV8 (update your billing logic here as needed)
-        await db.collection("users").doc(currentUser.uid).update({
-            nqv8Balance: firebase.firestore.FieldValue.increment(-(members.length))
-        });
-
-        hideGroupChatModal();
-        loadChatList("");
-        openGroupChat(chatRef.id, { groupName, participants });
-    } catch (e) {
-        console.error(e);
-        alert("Failed to create group: " + e.message);
-    }
+                hideGroupChatModal();
+                loadChatList("");
+                openGroupChat(chatRef.id, { groupName, participants });
+            } catch (e) {
+                console.error(e);
+                alert("Failed to create group: " + e.message);
+            }
+        }
+    );
 }
 
 function openGroupChat(chatId, chatData) {
@@ -5479,21 +5647,29 @@ function openGroupChat(chatId, chatData) {
             if (!currentUser) return alert("Please log in first");
             const text = document.getElementById('new-comment').value.trim();
             if (!text) return alert("Please write a comment");
-            try {
-                const comment = {
-                    uid: currentUser.uid,
-                    username: currentUser.username,
-                    text,
-                    createdAt: new Date()
-                };
-                await db.collection("posts").doc(currentPostId).update({
-                    comments: firebase.firestore.FieldValue.arrayUnion(comment)
-                });
-                document.getElementById('new-comment').value = '';
-                alert("✅ Comment posted!");
-            } catch (e) {
-                alert("Failed to post comment: " + e.message);
-            }
+
+            showPaymentPicker(
+                'Post a comment — micro fee',
+                0.01, 1,
+                async (txHash) => {
+                    try {
+                        const comment = {
+                            uid: currentUser.uid,
+                            username: currentUser.username,
+                            text,
+                            createdAt: new Date(),
+                            paymentTxHash: txHash
+                        };
+                        await db.collection("posts").doc(currentPostId).update({
+                            comments: firebase.firestore.FieldValue.arrayUnion(comment)
+                        });
+                        document.getElementById('new-comment').value = '';
+                        alert("✅ Comment posted!");
+                    } catch (e) {
+                        alert("Failed to post comment: " + e.message);
+                    }
+                }
+            );
         }
 
         function hidePostDetailModal() {
