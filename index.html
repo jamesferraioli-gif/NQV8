@@ -111,8 +111,18 @@
         </div>
     </nav>
 
-<div id="mobile-menu" class="hidden md:hidden bg-zinc-900 border-b border-zinc-800 px-6 py-4 space-y-4 sticky top-[72px] z-40">
-    <a onclick="navigateTo('marketplace'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏪 Marketplace</a>
+</nav>
+
+<!-- Guest bar — shown to non-logged-in visitors -->
+<div id="guest-bar" class="hidden bg-zinc-900 border-b border-zinc-700 px-6 py-2 flex items-center justify-between">
+    <p class="text-sm text-zinc-400">👋 You're browsing as a guest — sign in to post, bid, and earn NQV8</p>
+    <button onclick="showAuthModal()"
+            class="px-5 py-2 bg-cyan-500 text-black text-sm font-semibold rounded-2xl hover:bg-cyan-400 transition-colors">
+        Sign In / Create Account
+    </button>
+</div>
+
+<div id="mobile-menu" class="hidden md:hidden bg-zinc-900 border-b border-zinc-800 px-6 py-4 space-y-4 sticky top-[72px] z-40">    <a onclick="navigateTo('marketplace'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏪 Marketplace</a>
     <a onclick="navigateTo('ideas'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🔎 Explore</a>
     <a onclick="navigateToChat(); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">💬 Chat</a>
     <a onclick="navigateTo('leaderboard'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏆 Leaderboard</a>
@@ -2114,17 +2124,23 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
             }
         }
 
-        function navigateTo(page) {
+function navigateTo(page) {
+            // Pages that require login
+            const protectedPages = ['profile', 'chat'];
+            if (protectedPages.includes(page) && !currentUser) {
+                showAuthModal();
+                return;
+            }
+
             document.querySelectorAll('div[id$="-page"]').forEach(div => div.classList.add('hidden'));
             const target = document.getElementById(page + '-page');
             if (target) target.classList.remove('hidden');
-            
+
             if (page === 'marketplace') loadMarketplace();
             if (page === 'profile') loadProfileData();
             if (page === 'chat') loadChatList("");
             if (page === 'leaderboard') loadLeaderboard();
             if (page === 'ideas') loadIdeas();
-
         }
 
         // ====================== NAVBAR & PROFILE ======================
@@ -2236,14 +2252,26 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
         }
 
         // ====================== AUTH FUNCTIONS ======================
+        function showAuthModal() {
+            safeClassList('auth-modal', 'show');
+            safeClassList('guest-bar', 'hide');
+        }    
+    
         function switchTab(tab) {
             safeClassList('create-form', tab === 1 ? 'hide' : 'show');
             safeClassList('login-form', tab === 0 ? 'hide' : 'show');
-            
-            document.getElementById('tab-create').classList.toggle('border-b-2', tab === 0);
-            document.getElementById('tab-create').classList.toggle('text-white', tab === 0);
-            document.getElementById('tab-login').classList.toggle('border-b-2', tab === 1);
-            document.getElementById('tab-login').classList.toggle('text-white', tab === 1);
+
+            const tabCreate = document.getElementById('tab-create');
+            tabCreate.classList.toggle('border-b-2', tab === 0);
+            tabCreate.classList.toggle('border-cyan-400', tab === 0);
+            tabCreate.classList.toggle('text-white', tab === 0);
+            tabCreate.classList.toggle('text-zinc-400', tab !== 0);
+
+            const tabLogin = document.getElementById('tab-login');
+            tabLogin.classList.toggle('border-b-2', tab === 1);
+            tabLogin.classList.toggle('border-cyan-400', tab === 1);
+            tabLogin.classList.toggle('text-white', tab === 1);
+            tabLogin.classList.toggle('text-zinc-400', tab !== 1);
         }
 
         async function createProfile() {
@@ -4061,7 +4089,11 @@ async function loadChatList(searchTerm = "") {
                         }
                     }).catch(err => console.error(err));
                 } else {
-                    safeClassList('auth-modal', 'show');
+                    // Guest mode — let visitors browse freely
+                    currentUser = null;
+                    safeClassList('auth-modal', 'hide');
+                    safeClassList('guest-bar', 'show');
+                    navigateTo('marketplace');
                 }
             });
         };
