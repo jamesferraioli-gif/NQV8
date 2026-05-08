@@ -691,7 +691,7 @@
     
     
     <!-- AUTH MODAL -->
-    <div id="auth-modal" class="fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
+    <div id="auth-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
         <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-4 md:p-10">
             <div class="flex border-b border-zinc-700 mb-6">
                 <button onclick="switchTab(0)" id="tab-create" class="flex-1 pb-4 text-lg font-semibold border-b-2 border-cyan-400">Create Account</button>
@@ -4091,8 +4091,21 @@ async function loadChatList(searchTerm = "") {
                         if (doc.exists) {
                             currentUser = doc.data();
                             finishLogin();
+                        } else {
+                            // Firebase Auth user exists but no Firestore doc
+                            // Show auth modal so they can complete signup
+                            currentUser = null;
+                            safeClassList('auth-modal', 'show');
+                            safeClassList('guest-bar', 'hide');
                         }
-                    }).catch(err => console.error(err));
+                    }).catch(err => {
+                        console.error('Error loading user:', err);
+                        // On error fall back to guest mode so site doesn't freeze
+                        currentUser = null;
+                        safeClassList('auth-modal', 'hide');
+                        safeClassList('guest-bar', 'show');
+                        navigateTo('marketplace');
+                    });
                 } else {
                     // Guest mode — let visitors browse freely
                     currentUser = null;
