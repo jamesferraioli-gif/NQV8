@@ -1207,6 +1207,11 @@ let usdcContract = null;
 // Ledger, Trezor, Rainbow, Trust, any EIP-1193 wallet
 // ============================================================
 async function connectWallet() {
+    if (!currentUser) {
+        showAuthModal();
+        alert("Please sign in or create an account first — your wallet will be linked to your NQVate profile.");
+        return;
+    }
     showWalletPickerModal();
 }
 
