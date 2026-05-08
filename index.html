@@ -4450,7 +4450,7 @@ async function loadChatList(searchTerm = "") {
                         <p class="text-zinc-400 line-clamp-3 mt-2">${post.description}</p>
                         
                         ${post.link ? `
-                        <div id="preview-${doc.id}" class="mt-4 bg-black/50 border border-zinc-700 rounded-2xl p-3 flex items-center gap-3 animate-pulse">
+                        <div id="preview-${doc.id}" class="mt-4 bg-black/50 border border-zinc-700 rounded-2xl p-3 flex items-center gap-3 overflow-hidden">
                             <span class="text-cyan-400">🔗</span>
                             <div class="flex-1">
                                 <p class="text-cyan-400 text-sm truncate">${post.link}</p>
@@ -4483,7 +4483,7 @@ async function loadChatList(searchTerm = "") {
                         <div class="flex-1 min-w-0">
                             <p class="font-medium text-sm line-clamp-1">NQVate — Innovate. Incubate. Incuvate.</p>
                             <p class="text-xs text-zinc-400 line-clamp-2">A decentralized marketplace for builders and ideas. The future is on-chain.</p>
-                            <p class="text-cyan-400 text-xs mt-1 truncate">${url}</p>
+                            <p class="text-cyan-400 text-xs mt-1 truncate overflow-hidden">${url}</p>
                         </div>
                     </div>
                 `;
