@@ -4388,7 +4388,8 @@ async function loadChatList(searchTerm = "") {
             // For news, use the previewed headline as the stored title
             let storedTitle = title;
             if (isNews) {
-                storedTitle = document.getElementById('preview-headline').textContent || link;
+                const headline = document.getElementById('preview-headline').textContent.trim();
+                storedTitle = (headline && headline !== link) ? headline : 'News Article';
             }
 
             showPaymentPicker(
@@ -4445,7 +4446,7 @@ async function loadChatList(searchTerm = "") {
                             <span class="text-2xl">${typeIcon}</span>
                             <span class="text-xs text-zinc-500">${post.comments ? post.comments.length : 0} comments</span>
                         </div>
-                        <h3 class="text-2xl font-bold mt-3">${post.title}</h3>
+                        <h3 class="text-2xl font-bold mt-3 break-all line-clamp-3">${post.title}</h3>
                         <p class="text-zinc-400 line-clamp-3 mt-2">${post.description}</p>
                         
                         ${post.link ? `
