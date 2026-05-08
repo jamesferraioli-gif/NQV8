@@ -1575,6 +1575,31 @@ async function payMicroFee(preferNQV8 = false) {
     }
 }
 
+
+function parsePaymentError(e) {
+    const msg = e.message || '';
+    if (msg.includes('insufficient funds for gas') || msg.includes('INSUFFICIENT_FUNDS')) {
+        return 'Not enough ETH for gas fees. You need a small amount of ETH on Arbitrum to cover transaction costs (~$0.01 worth).';
+    }
+    if (msg.includes('user rejected') || msg.includes('User rejected') || e.code === 4001) {
+        return 'Transaction cancelled.';
+    }
+    if (msg.includes('insufficient') && msg.includes('USDC')) {
+        return 'Insufficient USDC balance.';
+    }
+    if (msg.includes('insufficient') && msg.includes('NQV8')) {
+        return 'Insufficient NQV8 balance.';
+    }
+    if (msg.includes('network') || msg.includes('timeout')) {
+        return 'Network error. Please check your connection and try again.';
+    }
+    return 'Transaction failed. Please try again.';
+}
+
+function showPaymentPicker(label, usdcAmount, nqv8Amount, onSuccess) {
+
+
+
 // ============================================================
 // PAYMENT PICKER — reusable modal for all fee-charging actions
 // Shows USDC / NQV8 choice, checks balance, executes tx, then
@@ -1663,9 +1688,25 @@ function showPaymentPicker(label, usdcAmount, nqv8Amount, onSuccess) {
                 }
             }
         } catch(e) {
-            const el = modal.querySelector('#usdc-bal-display');
+            const el = modal.querySelector('#nqv8-bal-display');
             if (el) el.textContent = 'Could not load balance';
         }
+
+        // ETH gas balance check
+        try {
+            const ethBal = await provider.getBalance(connectedAddress);
+            const ethFloat = parseFloat(ethers.utils.formatEther(ethBal));
+            if (ethFloat < 0.00001) {
+                setStatus('⚠️ You have no ETH for gas fees. Add a small amount of ETH to Arbitrum (~$0.01) to pay transaction costs.');
+                modal.querySelector('#pay-usdc-btn').disabled = true;
+                modal.querySelector('#pay-usdc-btn').classList.add('opacity-40', 'cursor-not-allowed');
+                modal.querySelector('#pay-nqv8-btn').disabled = true;
+                modal.querySelector('#pay-nqv8-btn').classList.add('opacity-40', 'cursor-not-allowed');
+            }
+        } catch(e) {
+            console.warn('ETH balance check failed:', e.message);
+        }
+    })();
 
         try {
             const nqv8Raw = await nqv8Contract.balanceOf(connectedAddress);
@@ -1698,7 +1739,7 @@ function showPaymentPicker(label, usdcAmount, nqv8Amount, onSuccess) {
             modal.remove();
             onSuccess(txHash);
         } catch(e) {
-            setStatus('❌ Transaction failed: ' + e.message);
+            setStatus('❌ ' + parsePaymentError(e));
         }
     });
 
@@ -1712,7 +1753,7 @@ function showPaymentPicker(label, usdcAmount, nqv8Amount, onSuccess) {
             modal.remove();
             onSuccess(txHash);
         } catch(e) {
-            setStatus('❌ Transaction failed: ' + e.message);
+            setStatus('❌ ' + parsePaymentError(e));
         }
     });
 }
