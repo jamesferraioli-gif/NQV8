@@ -25,7 +25,6 @@
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@web3modal/standalone@2.4.1/dist/index.umd.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@coinbase/wallet-sdk@3.9.3/dist/browser/index.js"></script>
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
@@ -53,16 +52,15 @@
                 </div>
 
                 <!-- CENTER: Navigation -->
-                <div class="hidden md:flex flex-1 justify-center items-center gap-6 text-sm font-medium">
+                <div id="nav-loggedin" class="hidden md:flex flex-1 justify-center items-center gap-6 text-sm font-medium">
                     <a onclick="navigateTo('marketplace')" class="hover:text-cyan-400 cursor-pointer whitespace-nowrap">Marketplace</a>
                     <a onclick="navigateTo('ideas')" class="hover:text-cyan-400 cursor-pointer">Explore</a>
                     <a onclick="navigateToChat()" class="hover:text-cyan-400 cursor-pointer">Chat</a>
                     <a onclick="navigateTo('leaderboard')" class="hover:text-cyan-400 cursor-pointer">Leaderboard</a>
                 </div>
-                <div id="nav-loggedin" class="hidden"></div>
 
                 <!-- RIGHT: Bell + Wallet + Profile — all in one flex group -->
-                <div id="right-section" class="flex items-center gap-4 ml-auto flex-row">
+                <div id="right-section" class="hidden items-center gap-4 ml-auto flex-row">
                 <!-- Connect Wallet (desktop only) -->
                     <button onclick="connectWallet()" class="hidden md:flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-cyan-400 text-cyan-400 px-4 py-2 rounded-2xl text-sm font-medium whitespace-nowrap flex-shrink-0">
                         <i class="fa-solid fa-wallet"></i> Connect Wallet
@@ -110,19 +108,10 @@
 
             </div>
         </div>
+    </nav>
 
-</nav>
-
-<!-- Guest bar — shown to non-logged-in visitors -->
-<div id="guest-bar" class="hidden bg-zinc-900 border-b border-zinc-700 px-6 py-2 flex items-center justify-between">
-    <p class="text-sm text-zinc-400">👋 You're browsing as a guest — sign in to post, bid, and earn NQV8</p>
-    <button onclick="showAuthModal()"
-            class="px-5 py-2 bg-cyan-500 text-black text-sm font-semibold rounded-2xl hover:bg-cyan-400 transition-colors">
-        Sign In / Create Account
-    </button>
-</div>
-
-<div id="mobile-menu" class="hidden md:hidden bg-zinc-900 border-b border-zinc-800 px-6 py-4 space-y-4 sticky top-[72px] z-40">    <a onclick="navigateTo('marketplace'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏪 Marketplace</a>
+<div id="mobile-menu" class="hidden md:hidden bg-zinc-900 border-b border-zinc-800 px-6 py-4 space-y-4 sticky top-[72px] z-40">
+    <a onclick="navigateTo('marketplace'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏪 Marketplace</a>
     <a onclick="navigateTo('ideas'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🔎 Explore</a>
     <a onclick="navigateToChat(); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">💬 Chat</a>
     <a onclick="navigateTo('leaderboard'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏆 Leaderboard</a>
@@ -691,7 +680,7 @@
     
     
     <!-- AUTH MODAL -->
-    <div id="auth-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
+    <div id="auth-modal" class="fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
         <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-4 md:p-10">
             <div class="flex border-b border-zinc-700 mb-6">
                 <button onclick="switchTab(0)" id="tab-create" class="flex-1 pb-4 text-lg font-semibold border-b-2 border-cyan-400">Create Account</button>
@@ -753,23 +742,15 @@
                     <p id="profile-email" class="text-zinc-400"></p>
                     <p id="profile-bio" class="mt-6 text-zinc-300 leading-relaxed"></p>
 
-<!-- Wallet Balances -->
-                    <div class="mt-8 bg-black/50 rounded-2xl p-6">
-                        <div class="flex justify-between items-center mb-4">
-                            <div>
-                                <p class="text-sm text-zinc-400">NQV8 Balance</p>
-                                <p id="profile-nqv8-balance" class="text-5xl font-bold text-cyan-400">0</p>
-                                <p class="text-xs text-zinc-500 mt-1">Live on-chain</p>
-                            </div>
-                            <div class="text-right">
-                                <p class="text-sm text-zinc-400">Total Earnings</p>
-                                <p id="profile-total-earnings" class="text-3xl font-semibold">$0</p>
-                            </div>
+                    <!-- NQV8 Balance -->
+                    <div class="mt-8 bg-black/50 rounded-2xl p-6 flex justify-between items-center">
+                        <div>
+                            <p class="text-sm text-zinc-400">NQV8 Balance</p>
+                            <p id="profile-nqv8-balance" class="text-5xl font-bold text-cyan-400">0</p>
                         </div>
-                        <div class="border-t border-zinc-700 pt-4">
-                            <p class="text-sm text-zinc-400">USDC Balance</p>
-                            <p id="profile-usdc-balance" class="text-3xl font-bold text-emerald-400">$0.00</p>
-                            <p class="text-xs text-zinc-500 mt-1">Live on-chain · Arbitrum</p>
+                        <div class="text-right">
+                            <p class="text-sm text-zinc-400">Total Earnings</p>
+                            <p id="profile-total-earnings" class="text-3xl font-semibold">$0</p>
                         </div>
                     </div>
                 </div>
@@ -854,31 +835,31 @@
             </div>
         </div>
 
-<!-- Stats -->
+        <!-- Stats -->
         <div class="grid grid-cols-3 md:grid-cols-6 gap-3 mb-10 text-center">
             <div class="bg-zinc-900 rounded-2xl p-3 md:p-5">
-                <p id="user-working-on" class="text-2xl md:text-3xl font-bold text-cyan-400">0</p>
-                <p class="text-xs text-zinc-400">Working On</p>
+                <p id="stat-open" class="text-2xl md:text-3xl font-bold text-cyan-400">0</p>
+                <p class="text-xs text-zinc-400">Open</p>
             </div>
             <div class="bg-zinc-900 rounded-2xl p-3 md:p-5">
-                <p id="user-completed" class="text-2xl md:text-3xl font-bold text-emerald-400">0</p>
+                <p id="stat-inprogress" class="text-2xl md:text-3xl font-bold text-amber-400">0</p>
+                <p class="text-xs text-zinc-400">In Progress</p>
+            </div>
+            <div class="bg-zinc-900 rounded-2xl p-3 md:p-5">
+                <p id="stat-completed" class="text-2xl md:text-3xl font-bold text-emerald-400">0</p>
                 <p class="text-xs text-zinc-400">Completed</p>
             </div>
             <div class="bg-zinc-900 rounded-2xl p-3 md:p-5">
-                <p id="user-nqv8-earned" class="text-2xl md:text-3xl font-bold text-violet-400">0</p>
-                <p class="text-xs text-zinc-400">NQV8 Earned</p>
+                <p id="stat-nqv8-awarded" class="text-2xl md:text-3xl font-bold text-violet-400">0</p>
+                <p class="text-xs text-zinc-400">NQV8</p>
             </div>
             <div class="bg-zinc-900 rounded-2xl p-3 md:p-5">
-                <p id="user-avg-rating" class="text-2xl md:text-3xl font-bold text-yellow-400">0.0</p>
-                <p class="text-xs text-zinc-400">Avg Rating</p>
-            </div>
-            <div class="bg-zinc-900 rounded-2xl p-3 md:p-5">
-                <p id="user-leaderboard-rank" class="text-2xl md:text-3xl font-bold text-pink-400">—</p>
-                <p class="text-xs text-zinc-400">Rank</p>
-            </div>
-            <div class="bg-zinc-900 rounded-2xl p-3 md:p-5">
-                <p id="user-total-funding" class="text-2xl md:text-3xl font-bold text-amber-400">$0</p>
+                <p id="stat-total-funding" class="text-2xl md:text-3xl font-bold text-white">$0</p>
                 <p class="text-xs text-zinc-400">Funding</p>
+            </div>
+            <div class="bg-zinc-900 rounded-2xl p-3 md:p-5">
+                <p id="stat-equity-traded" class="text-2xl md:text-3xl font-bold text-pink-400">0</p>
+                <p class="text-xs text-zinc-400">Equity</p>
             </div>
         </div>
 
@@ -1207,122 +1188,17 @@ let usdcContract = null;
 // Ledger, Trezor, Rainbow, Trust, any EIP-1193 wallet
 // ============================================================
 async function connectWallet() {
-    if (!currentUser) {
-        showAuthModal();
-        alert("Please sign in or create an account first — your wallet will be linked to your NQVate profile.");
-        return;
-    }
-    showWalletPickerModal();
-}
-
-function showWalletPickerModal() {
-    document.getElementById('wallet-picker-modal')?.remove();
-
-    const modal = document.createElement('div');
-    modal.id = 'wallet-picker-modal';
-    modal.className = 'fixed inset-0 bg-black/95 flex items-center justify-center z-[999999]';
-    modal.innerHTML = `
-        <div class="bg-zinc-900 border border-zinc-700 rounded-3xl p-8 w-full max-w-sm mx-4">
-            <h3 class="text-xl font-bold mb-2">Connect Wallet</h3>
-            <p class="text-zinc-400 text-sm mb-6">Choose your wallet to connect to NQVate on Arbitrum</p>
-
-            <div class="space-y-3">
-                <button onclick="connectWithMetaMask()"
-                        class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" class="w-8 h-8">
-                    <div class="text-left">
-                        <p class="font-medium">MetaMask</p>
-                        <p class="text-xs text-zinc-400">Browser extension wallet</p>
-                    </div>
-                </button>
-
-                <button onclick="connectWithCoinbase()"
-                        class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors">
-                    <img src="https://avatars.githubusercontent.com/u/18060234" class="w-8 h-8 rounded-full">
-                    <div class="text-left">
-                        <p class="font-medium">Coinbase Wallet</p>
-                        <p class="text-xs text-zinc-400">Coinbase self-custody wallet</p>
-                    </div>
-                </button>
-
-                <button onclick="connectWithWalletConnect()"
-                        class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors">
-                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">W</div>
-                    <div class="text-left">
-                        <p class="font-medium">WalletConnect</p>
-                        <p class="text-xs text-zinc-400">Ledger, Trust, Rainbow + 300 more</p>
-                    </div>
-                </button>
-
-                ${window.ethereum && !window.ethereum.isCoinbaseWallet ? `
-                <button onclick="connectInjected()"
-                        class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors">
-                    <div class="w-8 h-8 bg-zinc-600 rounded-full flex items-center justify-center text-white text-sm">🔌</div>
-                    <div class="text-left">
-                        <p class="font-medium">Other Browser Wallet</p>
-                        <p class="text-xs text-zinc-400">Brave, Frame, or other injected wallet</p>
-                    </div>
-                </button>` : ''}
-            </div>
-
-            <button onclick="document.getElementById('wallet-picker-modal').remove()"
-                    class="w-full mt-4 py-3 text-zinc-500 hover:text-zinc-300 text-sm">
-                Cancel
-            </button>
-
-            <p class="text-xs text-amber-400 text-center mt-4">
-                ⚠️ Use a self-custody wallet for best experience.
-                Exchange wallets can receive rewards but cannot sign transactions.
-            </p>
-        </div>
-    `;
-    document.body.appendChild(modal);
-}
-
-async function connectWithMetaMask() {
-    document.getElementById('wallet-picker-modal')?.remove();
     try {
-        if (!window.ethereum || !window.ethereum.isMetaMask) {
-            return window.open('https://metamask.io/download/', '_blank');
+        // Priority 1: injected provider (MetaMask, Coinbase, Brave, etc.)
+        if (window.ethereum) {
+            await connectInjected();
+        } else {
+            // Fallback: WalletConnect (covers mobile wallets, Ledger Live, etc.)
+            await connectWalletConnect();
         }
-        await connectInjected();
     } catch (e) {
-        alert('❌ MetaMask connection failed: ' + e.message);
-    }
-}
-
-async function connectWithCoinbase() {
-    document.getElementById('wallet-picker-modal')?.remove();
-    try {
-        const CoinbaseWalletSDK = window.CoinbaseWalletSDK;
-        if (!CoinbaseWalletSDK) throw new Error('Coinbase Wallet SDK not loaded');
-
-        const coinbaseWallet = new CoinbaseWalletSDK({
-            appName: 'NQVate',
-            appLogoUrl: 'https://nqv8.com/logo.png',
-            darkMode: true
-        });
-
-        const coinbaseProvider = coinbaseWallet.makeWeb3Provider(ARBITRUM_RPC, ARBITRUM_CHAIN_ID);
-        await coinbaseProvider.enable();
-
-        provider = new ethers.providers.Web3Provider(coinbaseProvider);
-        signer = provider.getSigner();
-        connectedAddress = await signer.getAddress();
-
-        await ensureArbitrum();
-        await onWalletConnected();
-    } catch (e) {
-        alert('❌ Coinbase Wallet connection failed: ' + e.message);
-    }
-}
-
-async function connectWithWalletConnect() {
-    document.getElementById('wallet-picker-modal')?.remove();
-    try {
-        await connectWalletConnect();
-    } catch (e) {
-        alert('❌ WalletConnect failed: ' + e.message);
+        console.error('Wallet connection failed:', e);
+        alert('❌ Wallet connection failed: ' + (e.message || e));
     }
 }
 
@@ -1475,40 +1351,12 @@ async function sendNQV8(toAddress, amountHuman) {
     return tx.hash;
 }
 
-// ── Live balance readers ──────────────────────────────────────
-async function getNQV8Balance() {
-    if (!connectedAddress || NQV8_TOKEN_ADDRESS === 'YOUR_NQV8_CONTRACT_ADDRESS') return 0;
-    const raw = await nqv8Contract.balanceOf(connectedAddress);
-    return parseFloat(ethers.utils.formatUnits(raw, NQV8_DECIMALS));
-}
-
-async function getUSDCBalance() {
-    if (!connectedAddress) return 0;
-    const raw = await usdcContract.balanceOf(connectedAddress);
-    return parseFloat(ethers.utils.formatUnits(raw, USDC_DECIMALS));
-}
-
-async function checkSufficientBalance(preferNQV8, nqv8Required, usdcRequired) {
-    if (preferNQV8) {
-        const bal = await getNQV8Balance();
-        if (bal < nqv8Required) {
-            throw new Error(`Insufficient NQV8. You have ${bal.toLocaleString()} NQV8 but need ${nqv8Required} NQV8.`);
-        }
-    } else {
-        const bal = await getUSDCBalance();
-        if (bal < usdcRequired) {
-            throw new Error(`Insufficient USDC. You have $${bal.toFixed(2)} but need $${usdcRequired.toFixed(2)} USDC.`);
-        }
-    }
-}
-
 // Pay a bounty posting fee ($1 USDC or 100 NQV8)
 async function payPostingFee(preferNQV8 = false) {
     if (!connectedAddress) {
         await connectWallet();
         if (!connectedAddress) throw new Error('Wallet required');
     }
-    await checkSufficientBalance(preferNQV8, 100, 1.00);
     if (preferNQV8) {
         return await sendNQV8(TREASURY_ADDRESS, 100);
     } else {
@@ -1522,7 +1370,6 @@ async function payMicroFee(preferNQV8 = false) {
         await connectWallet();
         if (!connectedAddress) throw new Error('Wallet required');
     }
-    await checkSufficientBalance(preferNQV8, 1, 0.01);
     if (preferNQV8) {
         return await sendNQV8(TREASURY_ADDRESS, 1);
     } else {
@@ -2129,23 +1976,17 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
             }
         }
 
-function navigateTo(page) {
-            // Pages that require login
-            const protectedPages = ['profile', 'chat'];
-            if (protectedPages.includes(page) && !currentUser) {
-                showAuthModal();
-                return;
-            }
-
+        function navigateTo(page) {
             document.querySelectorAll('div[id$="-page"]').forEach(div => div.classList.add('hidden'));
             const target = document.getElementById(page + '-page');
             if (target) target.classList.remove('hidden');
-
+            
             if (page === 'marketplace') loadMarketplace();
             if (page === 'profile') loadProfileData();
             if (page === 'chat') loadChatList("");
             if (page === 'leaderboard') loadLeaderboard();
             if (page === 'ideas') loadIdeas();
+
         }
 
         // ====================== NAVBAR & PROFILE ======================
@@ -2163,6 +2004,46 @@ function navigateTo(page) {
         function toggleMobileMenu() {
             const menu = document.getElementById('mobile-menu');
             menu.classList.toggle('hidden');
+        }
+
+        async function viewUserProfile(uid) {
+            if (!uid) return alert("User ID not available.");
+
+            navigateTo('user-profile');
+
+            try {
+                const userDoc = await db.collection("users").doc(uid).get();
+                if (!userDoc.exists) return alert("User not found");
+
+                const user = userDoc.data();
+
+                // Basic Info
+                document.getElementById('user-profile-name').textContent = user.fullName || user.username || 'User';
+                document.getElementById('user-profile-username').textContent = '@' + (user.username || 'user');
+                document.getElementById('user-profile-bio').textContent = user.bio || "No bio yet.";
+
+                // Avatar
+                const avatarEl = document.getElementById('user-profile-avatar');
+                avatarEl.innerHTML = user.photoURL 
+                    ? `<img src="${user.photoURL}" class="w-full h-full object-cover">` 
+                    : `<span class="text-6xl font-bold">${(user.fullName || user.username || '?')[0]}</span>`;
+
+                // Stats
+                document.getElementById('user-working-on').textContent = "3";
+                document.getElementById('user-completed').textContent = "12";
+                document.getElementById('user-nqv8-earned').textContent = user.totalNQV8Earned || "2,450";
+                document.getElementById('user-avg-rating').textContent = "4.7";
+                document.getElementById('user-leaderboard-rank').textContent = "#18";
+
+                // Reviews placeholder
+                document.getElementById('user-reviews-list').innerHTML = `
+                    <p class="text-zinc-400">Reviews will appear here once the review system is fully active.</p>
+                `;
+
+            } catch (e) {
+                console.error(e);
+                alert("Failed to load user profile");
+            }
         }
 
         function updateProfileUI() {
@@ -2186,33 +2067,45 @@ function navigateTo(page) {
             loadProfileData();   // ← This line loads the new sections
         }
 
+        function connectWallet() {
+            alert("🦊 Wallet connection coming soon!\n\n(We'll integrate MetaMask / Phantom later)");
+        }
+
         let walletConnected = false;
+
+        function connectWalletDuringSignup() {
+            // Demo mode for now
+            if (confirm("Connect wallet? (Demo - MetaMask / Phantom coming soon)")) {
+                walletConnected = true;
+                document.getElementById('wallet-status').classList.remove('hidden');
+                document.getElementById('signup-wallet-btn').innerHTML = `<i class="fa-solid fa-check"></i> Wallet Connected`;
+                alert("✅ Wallet connected! You will receive 10,000 NQV8 bonus on account creation.");
+            }
+        }
+
+        function connectWallet() {
+            if (confirm("Connect wallet? (Demo mode)")) {
+                alert("✅ Wallet connected! (Demo)\n\nBalance updates will appear in your profile.");
+            }
+        }
+    
+        function editProfile() {
+            alert("✏️ Profile editing coming soon!\n\nYou can update bio, profile picture, etc. here.");
+        }
 
         function logout() {
             auth.signOut().then(() => location.reload());
         }
 
         // ====================== AUTH FUNCTIONS ======================
-        function showAuthModal() {
-            safeClassList('auth-modal', 'show');
-            safeClassList('guest-bar', 'hide');
-        }    
-    
         function switchTab(tab) {
             safeClassList('create-form', tab === 1 ? 'hide' : 'show');
             safeClassList('login-form', tab === 0 ? 'hide' : 'show');
-
-            const tabCreate = document.getElementById('tab-create');
-            tabCreate.classList.toggle('border-b-2', tab === 0);
-            tabCreate.classList.toggle('border-cyan-400', tab === 0);
-            tabCreate.classList.toggle('text-white', tab === 0);
-            tabCreate.classList.toggle('text-zinc-400', tab !== 0);
-
-            const tabLogin = document.getElementById('tab-login');
-            tabLogin.classList.toggle('border-b-2', tab === 1);
-            tabLogin.classList.toggle('border-cyan-400', tab === 1);
-            tabLogin.classList.toggle('text-white', tab === 1);
-            tabLogin.classList.toggle('text-zinc-400', tab !== 1);
+            
+            document.getElementById('tab-create').classList.toggle('border-b-2', tab === 0);
+            document.getElementById('tab-create').classList.toggle('text-white', tab === 0);
+            document.getElementById('tab-login').classList.toggle('border-b-2', tab === 1);
+            document.getElementById('tab-login').classList.toggle('text-white', tab === 1);
         }
 
         async function createProfile() {
@@ -2237,29 +2130,8 @@ function navigateTo(page) {
             }
 
             try {
-                // ✅ Block duplicate wallet signups
-                if (connectedAddress) {
-                    const existingWallet = await db.collection("users")
-                        .where("walletAddress", "==", connectedAddress.toLowerCase())
-                        .limit(1)
-                        .get();
-                    if (!existingWallet.empty) {
-                        return alert("❌ This wallet is already linked to an existing account. Each wallet can only receive the signup bonus once.");
-                    }
-                }
-
                 const userCredential = await auth.createUserWithEmailAndPassword(email, password);
                 const user = userCredential.user;
-
-                // Send 1,000 NQV8 on-chain from treasury to new user
-                let signupTxHash = null;
-                if (connectedAddress && NQV8_TOKEN_ADDRESS !== 'YOUR_NQV8_CONTRACT_ADDRESS') {
-                    try {
-                        signupTxHash = await sendNQV8(connectedAddress, 1000);
-                    } catch (txErr) {
-                        console.warn('NQV8 signup transfer failed:', txErr.message);
-                    }
-                }
 
                 const userData = {
                     uid: user.uid,
@@ -2268,11 +2140,8 @@ function navigateTo(page) {
                     fullName: `${firstName} ${lastName}`,
                     username,
                     email: user.email,
-                    walletAddress: connectedAddress ? connectedAddress.toLowerCase() : null,
-                    nqv8Balance: 1000,
-                    totalNQV8Earned: 1000,
-                    signupBonusClaimed: true,
-                    signupBonusTxHash: signupTxHash,
+                    nqv8Balance: 10000,           // Bonus from treasury
+                    totalNQV8Earned: 10000,
                     walletConnected: true,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 };
@@ -2281,7 +2150,7 @@ function navigateTo(page) {
 
                 currentUser = userData;
                 finishLogin();
-                alert("✅ Account created! 1,000 NQV8 bonus sent to your wallet.");
+                alert("✅ Account created! You received 10,000 NQV8 bonus from the treasury.");
             } catch (error) {
                 console.error(error);
                 alert(error.message);
@@ -2321,7 +2190,9 @@ function navigateTo(page) {
             safeClassList('auth-modal', 'hide');
             safeClassList('nav-loggedin', 'show');
             safeClassList('mobile-menu-btn', 'show');
-            // right-section already visible
+            const rs = document.getElementById('right-section');
+            rs.classList.remove('hidden');
+            rs.classList.add('flex');
             navigateTo('marketplace');
             updateProfileUI();
             
@@ -3984,24 +3855,23 @@ async function loadChatList(searchTerm = "") {
                     ? `<img src="${user.photoURL}" class="w-full h-full object-cover">` 
                     : `<span class="text-6xl font-bold">${(user.fullName || user.username || '?')[0]}</span>`;
 
-                // Stats from Firestore (fast)
-                document.getElementById('user-working-on').textContent = user.projectsInProgress || "0";
-                document.getElementById('user-completed').textContent = user.projectsCompleted || "0";
-                document.getElementById('user-avg-rating').textContent = user.avgRating ? user.avgRating.toFixed(1) : "—";
-                document.getElementById('user-leaderboard-rank').textContent = "—";
+                // Stats
+                document.getElementById('user-working-on').textContent = "3";
+                document.getElementById('user-completed').textContent = "12";
+                document.getElementById('user-nqv8-earned').textContent = user.totalNQV8Earned || "2,450";
+                document.getElementById('user-avg-rating').textContent = "4.7";
+                document.getElementById('user-leaderboard-rank').textContent = "#18";
 
-                // NQV8 balance — read live from Arbitrum if wallet address is known
-                if (user.walletAddress && nqv8Contract) {
-                    try {
-                        const raw = await nqv8Contract.balanceOf(user.walletAddress);
-                        const bal = parseFloat(ethers.utils.formatUnits(raw, 18));
-                        document.getElementById('user-nqv8-earned').textContent = bal.toLocaleString();
-                    } catch (e) {
-                        document.getElementById('user-nqv8-earned').textContent = (user.totalNQV8Earned || 0).toLocaleString();
-                    }
-                } else {
-                    document.getElementById('user-nqv8-earned').textContent = (user.totalNQV8Earned || 0).toLocaleString();
-                }
+                // Reviews placeholder
+                document.getElementById('user-reviews-list').innerHTML = `
+                    <p class="text-zinc-400">Reviews will appear here once the review system is fully active.</p>
+                `;
+
+            } catch (e) {
+                console.error(e);
+                alert("Failed to load user profile");
+            }
+        }
     
         function searchProjects() {
             const term = document.getElementById('search-input').value.toLowerCase().trim();
@@ -4026,31 +3896,10 @@ async function loadChatList(searchTerm = "") {
                         if (doc.exists) {
                             currentUser = doc.data();
                             finishLogin();
-                        } else {
-                            // Firebase Auth user exists but no Firestore doc
-                            // Show auth modal so they can complete signup
-                            currentUser = null;
-                            safeClassList('auth-modal', 'show');
-                            safeClassList('guest-bar', 'hide');
                         }
-                    }).catch(err => {
-                        console.error('Error loading user:', err);
-                        // On error fall back to guest mode so site doesn't freeze
-                        currentUser = null;
-                        safeClassList('auth-modal', 'hide');
-                        safeClassList('guest-bar', 'show');
-                        navigateTo('marketplace');
-                    });
+                    }).catch(err => console.error(err));
                 } else {
-                    currentUser = null;
-                
-                    // Show login modal for logged out users
                     safeClassList('auth-modal', 'show');
-                
-                    // Optional:
-                    safeClassList('guest-bar', 'show');
-                
-                    navigateTo('marketplace');
                 }
             });
         };
@@ -4064,6 +3913,43 @@ async function loadChatList(searchTerm = "") {
             if (modal) modal.classList.add('hidden');
         }
 
+        async function loadIdeas() {
+            const grid = document.getElementById('ideas-grid');
+            grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 py-12">Loading ideas & news...</p>';
+
+            try {
+                const snapshot = await db.collection("posts").orderBy("createdAt", "desc").get();
+                grid.innerHTML = '';
+
+                if (snapshot.empty) {
+                    grid.innerHTML = `<p class="col-span-full text-center text-zinc-400 py-12">No posts yet. Be the first!</p>`;
+                    return;
+                }
+
+                snapshot.forEach(doc => {
+                    const post = doc.data();
+                    const card = document.createElement('div');
+                    card.className = "bg-zinc-900 rounded-3xl p-6 hover:ring-2 hover:ring-cyan-400 cursor-pointer transition-all";
+                    const typeIcon = post.type === 'news' ? '📰' : '💡';
+                    card.innerHTML = `
+                        <div class="flex justify-between">
+                            <span class="text-2xl">${typeIcon}</span>
+                            <span class="text-xs text-zinc-500">${post.comments ? post.comments.length : 0} comments</span>
+                        </div>
+                        <h3 class="text-2xl font-bold mt-3">${post.title}</h3>
+                        <p class="text-zinc-400 line-clamp-3 mt-2">${post.description}</p>
+                        ${post.link ? `<p class="text-cyan-400 text-sm mt-3">🔗 ${post.link}</p>` : ''}
+                        <p class="text-xs text-violet-400 mt-4">Posted by @${post.username}</p>
+                    `;
+                    card.onclick = () => viewPostDetail(doc.id, post);
+                    grid.appendChild(card);
+                });
+            } catch (e) {
+                console.error(e);
+                grid.innerHTML = `<p class="text-red-400">Error loading posts</p>`;
+            }
+        }
+
         function showPostIdeaModal() {
             if (!currentUser) return alert("Please log in first");
             document.getElementById('post-idea-modal').classList.remove('hidden');
@@ -4074,7 +3960,7 @@ async function loadChatList(searchTerm = "") {
             document.getElementById('post-idea-modal').classList.add('hidden');
         }
 
-        function switchIdeaTab(tab) {
+function switchIdeaTab(tab) {
             const tabs = [
                 document.getElementById('tab-idea'),
                 document.getElementById('tab-news'),
@@ -5430,47 +5316,6 @@ function openGroupChat(chatId, chatData) {
     });
 }
 
-    function renderComments(post) {
-            const container = document.getElementById('comments-list');
-            if (!container) return;
-            if (!post.comments || post.comments.length === 0) {
-                container.innerHTML = '<p class="text-zinc-400">No comments yet. Be the first!</p>';
-                return;
-            }
-            container.innerHTML = post.comments.map(c => `
-                <div class="bg-zinc-800 rounded-2xl p-4">
-                    <p class="text-sm font-medium text-cyan-400">@${c.username}</p>
-                    <p class="text-zinc-300 mt-1">${c.text}</p>
-                </div>
-            `).join('');
-        }
-
-        async function postComment() {
-            if (!currentUser) return alert("Please log in first");
-            const text = document.getElementById('new-comment').value.trim();
-            if (!text) return alert("Please write a comment");
-            try {
-                const comment = {
-                    uid: currentUser.uid,
-                    username: currentUser.username,
-                    text,
-                    createdAt: new Date()
-                };
-                await db.collection("posts").doc(currentPostId).update({
-                    comments: firebase.firestore.FieldValue.arrayUnion(comment)
-                });
-                document.getElementById('new-comment').value = '';
-                alert("✅ Comment posted!");
-            } catch (e) {
-                alert("Failed to post comment: " + e.message);
-            }
-        }
-
-        function hidePostDetailModal() {
-            document.getElementById('post-detail-modal').classList.add('hidden');
-        }
-
     </script>    
 </body>
 </html>
-
