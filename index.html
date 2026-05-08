@@ -4838,6 +4838,10 @@ function showEditCompanyStats(companyId, company) {
 
     // ====================== CREATE PROJECT (FREE) ======================
 function showCreateProjectModal() {
+    if (!currentUser) {
+        showAuthModal();
+        return;
+    }
     document.getElementById('create-project-modal').classList.remove('hidden');
     document.getElementById('new-project-name').value = '';
     document.getElementById('new-project-category').value = '';
