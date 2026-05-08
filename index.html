@@ -1294,12 +1294,24 @@ async function connectWithMetaMask() {
 async function connectWithCoinbase() {
     document.getElementById('wallet-picker-modal')?.remove();
     try {
-        const CoinbaseWalletSDK = window.CoinbaseWalletSDK;
-        if (!CoinbaseWalletSDK) throw new Error('Coinbase Wallet SDK not loaded');
+        // Try all possible ways the SDK might be exposed
+        const SDK = window.CoinbaseWalletSDK 
+            || window.CoinbaseWalletSDK?.default 
+            || window?.coinbaseWalletSDK;
 
-        const coinbaseWallet = new CoinbaseWalletSDK({
+        if (!SDK) {
+            // Fall back to injected provider if Coinbase Wallet browser extension is present
+            if (window.ethereum?.isCoinbaseWallet) {
+                await connectInjected();
+                return;
+            }
+            // Otherwise send them to download
+            return window.open('https://www.coinbase.com/wallet/downloads', '_blank');
+        }
+
+        const coinbaseWallet = new SDK({
             appName: 'NQVate',
-            appLogoUrl: 'https://nqv8.com/logo.png',
+            appLogoUrl: 'https://nqvate.com/public/logo.png',
             darkMode: true
         });
 
