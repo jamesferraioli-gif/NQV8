@@ -24,7 +24,7 @@
     <!-- Web3Modal + Ethers.js for universal wallet support -->
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@web3modal/standalone@2.4.1/dist/index.umd.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/web3-provider@1.8.0/dist/umd/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@coinbase/wallet-sdk@3.9.3/dist/browser/index.js"></script>
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -1349,12 +1349,21 @@ async function connectInjected() {
 }
 
 async function connectWalletConnect() {
-    const wcProvider = new WalletConnectProvider.default({
-        rpc: { [ARBITRUM_CHAIN_ID]: ARBITRUM_RPC },
-        chainId: ARBITRUM_CHAIN_ID,
-        qrcode: true  // shows QR for mobile wallets, Ledger, Trezor
+    const { EthereumProvider } = window.WalletConnectEthereumProvider;
+
+    const wcProvider = await EthereumProvider.init({
+        projectId: '250c551782f4c860b0da20de1e93967b', // ← paste your Project ID here
+        chains: [ARBITRUM_CHAIN_ID],
+        showQrModal: true,
+        metadata: {
+            name: 'NQVate',
+            description: 'A decentralized marketplace for builders and ideas',
+            url: 'https://www.nqvate.com',
+            icons: ['https://www.nqvate.com/public/logo.png']
+        }
     });
-    await wcProvider.enable();
+
+    await wcProvider.connect();
     provider = new ethers.providers.Web3Provider(wcProvider);
     signer = provider.getSigner();
     connectedAddress = await signer.getAddress();
