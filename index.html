@@ -2165,46 +2165,6 @@ function navigateTo(page) {
             menu.classList.toggle('hidden');
         }
 
-        async function viewUserProfile(uid) {
-            if (!uid) return alert("User ID not available.");
-
-            navigateTo('user-profile');
-
-            try {
-                const userDoc = await db.collection("users").doc(uid).get();
-                if (!userDoc.exists) return alert("User not found");
-
-                const user = userDoc.data();
-
-                // Basic Info
-                document.getElementById('user-profile-name').textContent = user.fullName || user.username || 'User';
-                document.getElementById('user-profile-username').textContent = '@' + (user.username || 'user');
-                document.getElementById('user-profile-bio').textContent = user.bio || "No bio yet.";
-
-                // Avatar
-                const avatarEl = document.getElementById('user-profile-avatar');
-                avatarEl.innerHTML = user.photoURL 
-                    ? `<img src="${user.photoURL}" class="w-full h-full object-cover">` 
-                    : `<span class="text-6xl font-bold">${(user.fullName || user.username || '?')[0]}</span>`;
-
-                // Stats
-                document.getElementById('user-working-on').textContent = "3";
-                document.getElementById('user-completed').textContent = "12";
-                document.getElementById('user-nqv8-earned').textContent = user.totalNQV8Earned || "2,450";
-                document.getElementById('user-avg-rating').textContent = "4.7";
-                document.getElementById('user-leaderboard-rank').textContent = "#18";
-
-                // Reviews placeholder
-                document.getElementById('user-reviews-list').innerHTML = `
-                    <p class="text-zinc-400">Reviews will appear here once the review system is fully active.</p>
-                `;
-
-            } catch (e) {
-                console.error(e);
-                alert("Failed to load user profile");
-            }
-        }
-
         function updateProfileUI() {
             if (!currentUser) return;
             const initials = (currentUser.firstName?.[0] || '') + (currentUser.lastName?.[0] || '');
