@@ -5503,6 +5503,46 @@ function openGroupChat(chatId, chatData) {
     });
 }
 
+    function renderComments(post) {
+            const container = document.getElementById('comments-list');
+            if (!container) return;
+            if (!post.comments || post.comments.length === 0) {
+                container.innerHTML = '<p class="text-zinc-400">No comments yet. Be the first!</p>';
+                return;
+            }
+            container.innerHTML = post.comments.map(c => `
+                <div class="bg-zinc-800 rounded-2xl p-4">
+                    <p class="text-sm font-medium text-cyan-400">@${c.username}</p>
+                    <p class="text-zinc-300 mt-1">${c.text}</p>
+                </div>
+            `).join('');
+        }
+
+        async function postComment() {
+            if (!currentUser) return alert("Please log in first");
+            const text = document.getElementById('new-comment').value.trim();
+            if (!text) return alert("Please write a comment");
+            try {
+                const comment = {
+                    uid: currentUser.uid,
+                    username: currentUser.username,
+                    text,
+                    createdAt: new Date()
+                };
+                await db.collection("posts").doc(currentPostId).update({
+                    comments: firebase.firestore.FieldValue.arrayUnion(comment)
+                });
+                document.getElementById('new-comment').value = '';
+                alert("✅ Comment posted!");
+            } catch (e) {
+                alert("Failed to post comment: " + e.message);
+            }
+        }
+
+        function hidePostDetailModal() {
+            document.getElementById('post-detail-modal').classList.add('hidden');
+        }
+
     </script>    
 </body>
 </html>
