@@ -3851,9 +3851,20 @@ async function loadChatList(searchTerm = "") {
                 document.getElementById('equity-stakes').innerHTML = `<p class="text-zinc-400">No equity stakes yet.</p>`;
                 document.getElementById('my-reviews').innerHTML = `<p class="text-zinc-400">No reviews received yet.</p>`;
 
-                // Update earnings display
-                document.getElementById('profile-nqv8-balance').textContent = currentUser.nqv8Balance || "1,250 NQV8";
+                // If wallet is connected, read live from chain — otherwise show placeholder
+                if (connectedAddress && nqv8Contract) {
+                    try {
+                        const raw = await nqv8Contract.balanceOf(connectedAddress);
+                        const bal = parseFloat(ethers.utils.formatUnits(raw, 18));
+                        document.getElementById('profile-nqv8-balance').textContent = bal.toLocaleString();
+                    } catch (e) {
+                        document.getElementById('profile-nqv8-balance').textContent = '—';
+                    }
+                } else {
+                    document.getElementById('profile-nqv8-balance').textContent = 'Connect wallet to view';
+                }
                 document.getElementById('profile-total-earnings').textContent = (currentUser.totalNQV8Earned || "0") + " NQV8";
+                                
 
             } catch (e) {
                 console.error("Profile data load error:", e);
