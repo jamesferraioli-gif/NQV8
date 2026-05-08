@@ -1248,12 +1248,12 @@ function showWalletPickerModal() {
                     </div>
                 </button>
 
-                <button onclick="connectWithWalletConnect()"
+                <button onclick="connectWithCoinbase()"
                         class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors">
                     <img src="https://avatars.githubusercontent.com/u/18060234" class="w-8 h-8 rounded-full">
                     <div class="text-left">
                         <p class="font-medium">Coinbase / Base Wallet</p>
-                        <p class="text-xs text-zinc-400">Scan QR code with your phone</p>
+                        <p class="text-xs text-zinc-400">Mobile app or browser extension</p>
                     </div>
                 </button>
 
@@ -1306,35 +1306,24 @@ async function connectWithMetaMask() {
 async function connectWithCoinbase() {
     document.getElementById('wallet-picker-modal')?.remove();
     try {
-        // Try all possible ways the SDK might be exposed
-        const SDK = window.CoinbaseWalletSDK 
-            || window.CoinbaseWalletSDK?.default 
-            || window?.coinbaseWalletSDK;
+        // Use Coinbase Wallet SDK directly
+        const SDK = window.CoinbaseWalletSDK;
+        if (!SDK) throw new Error('Coinbase SDK not loaded');
 
-        if (!SDK) {
-            // Fall back to injected provider if Coinbase Wallet browser extension is present
-            if (window.ethereum?.isCoinbaseWallet) {
-                await connectInjected();
-                return;
-            }
-            // Otherwise send them to download
-            return window.open('https://www.coinbase.com/wallet/downloads', '_blank');
-        }
-
-        const coinbaseWallet = new SDK({
+        const cbWallet = new SDK({
             appName: 'NQVate',
-            appLogoUrl: 'https://nqvate.com/public/logo.png',
-            darkMode: true
+            appLogoUrl: 'https://www.nqvate.com/public/logo.png',
+            darkMode: true,
+            reloadOnDisconnect: false
         });
 
-        const coinbaseProvider = coinbaseWallet.makeWeb3Provider(ARBITRUM_RPC, ARBITRUM_CHAIN_ID);
-        await coinbaseProvider.enable();
+        const cbProvider = cbWallet.makeWeb3Provider(ARBITRUM_RPC, ARBITRUM_CHAIN_ID);
+        const accounts = await cbProvider.request({ method: 'eth_requestAccounts' });
 
-        provider = new ethers.providers.Web3Provider(coinbaseProvider);
+        provider = new ethers.providers.Web3Provider(cbProvider);
         signer = provider.getSigner();
-        connectedAddress = await signer.getAddress();
+        connectedAddress = accounts[0];
 
-        await ensureArbitrum();
         await onWalletConnected();
     } catch (e) {
         alert('❌ Coinbase Wallet connection failed: ' + e.message);
