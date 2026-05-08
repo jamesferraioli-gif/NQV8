@@ -1444,12 +1444,9 @@ async function onWalletConnected() {
 }
 
 async function connectWalletDuringSignup() {
-    // connectWallet() shows a picker modal — the actual connection happens
-    // asynchronously when the user picks a wallet. We hook into onWalletConnected
-    // to update the signup UI once the address is available.
-    const originalOnWalletConnected = onWalletConnected;
-    
-    window._signupWalletCallback = async () => {
+    const _orig = onWalletConnected;
+    window.onWalletConnected = async function() {
+        await _orig.call(this);
         if (connectedAddress) {
             walletConnected = true;
             const btn = document.getElementById('signup-wallet-btn');
@@ -1457,7 +1454,10 @@ async function connectWalletDuringSignup() {
             if (btn) btn.innerHTML = `<i class="fa-solid fa-check"></i> ${connectedAddress.slice(0,6)}...${connectedAddress.slice(-4)} Connected`;
             if (status) status.classList.remove('hidden');
         }
+        window.onWalletConnected = _orig;
     };
+    showWalletPickerModal();
+}
 
     // Temporarily patch onWalletConnected to also fire the signup callback
     const _orig = onWalletConnected;
@@ -1595,8 +1595,6 @@ function parsePaymentError(e) {
     }
     return 'Transaction failed. Please try again.';
 }
-
-function showPaymentPicker(label, usdcAmount, nqv8Amount, onSuccess) {
 
 
 
