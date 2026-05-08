@@ -4042,10 +4042,14 @@ async function loadChatList(searchTerm = "") {
                         navigateTo('marketplace');
                     });
                 } else {
-                    // Guest mode — let visitors browse freely
                     currentUser = null;
-                    safeClassList('auth-modal', 'hide');
+                
+                    // Show login modal for logged out users
+                    safeClassList('auth-modal', 'show');
+                
+                    // Optional:
                     safeClassList('guest-bar', 'show');
+                
                     navigateTo('marketplace');
                 }
             });
