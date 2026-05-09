@@ -608,7 +608,9 @@
     <!-- POST DETAIL MODAL (Explore) -->
     <div id="post-detail-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
         <div class="bg-zinc-900 w-full max-w-2xl mx-4 rounded-3xl p-4 md:p-8 max-h-[90vh] overflow-auto">
-            <button onclick="hidePostDetailModal()" class="float-right text-3xl leading-none">×</button>
+            <div class="flex justify-end mb-2">
+                <button onclick="hidePostDetailModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
+            </div>
             
             <div id="post-detail-content">
                 <!-- Populated by JS -->
@@ -1125,7 +1127,7 @@
             <p class="text-xs text-emerald-400 mt-5">1,000 NQV8 airdrop to new users (until 10,000 users)</p>
         </div>
 
-        <div class="bg-zinc-900 rounded-3xl p-6">
+        <div class="bg-zinc-900 rounded-3xl p-6" id="peg-status">
             <div class="text-cyan-400 text-xs font-semibold uppercase tracking-wider mb-3">Current Peg</div>
             <div class="text-4xl font-bold mb-1">$0.01</div>
             <div class="text-zinc-400 text-sm">per NQV8 (first 10M only)</div>
@@ -1209,6 +1211,34 @@
 
     <div class="text-center text-xs text-zinc-600">
         Full smart contract & treasury wallet details on Arbitrum · Multi-sig controlled
+    </div>
+</div>
+
+
+    <div class="bg-zinc-900 rounded-3xl p-8 mb-6">
+    <h2 class="text-xl font-semibold mb-2">Post-Peg Transition</h2>
+    <p class="text-zinc-400 text-sm mb-5">What changes once 10,000,000 NQV8 has been distributed.</p>
+    <div class="space-y-4 text-sm">
+        <div class="flex gap-3 items-start">
+            <span class="text-emerald-400 mt-0.5 flex-shrink-0">✓</span>
+            <p class="text-zinc-300">NQV8 begins trading freely on decentralized exchanges at market price — no more fixed peg.</p>
+        </div>
+        <div class="flex gap-3 items-start">
+            <span class="text-emerald-400 mt-0.5 flex-shrink-0">✓</span>
+            <p class="text-zinc-300">All platform fees (posting, bidding, comments, etc.) shift to <span class="text-white font-medium">NQV8 only</span> — USDC is no longer accepted for fees.</p>
+        </div>
+        <div class="flex gap-3 items-start">
+            <span class="text-emerald-400 mt-0.5 flex-shrink-0">✓</span>
+            <p class="text-zinc-300">The displayed price on this page will reflect the live market rate pulled from DEX data.</p>
+        </div>
+        <div class="flex gap-3 items-start">
+            <span class="text-emerald-400 mt-0.5 flex-shrink-0">✓</span>
+            <p class="text-zinc-300">Monthly revenue rewards continue — 20% of protocol fees distributed to active NQV8 transactors.</p>
+        </div>
+        <div class="flex gap-3 items-start">
+            <span class="text-amber-400 mt-0.5 flex-shrink-0">⚠</span>
+            <p class="text-zinc-300">Treasury can still release tokens to fund operations, subject to the same Rule 144 volume limits as the founder.</p>
+        </div>
     </div>
 </div>
     
@@ -1743,7 +1773,19 @@ function showPaymentPicker(label, usdcAmount, nqv8Amount, onSuccess) {
             </button>
         </div>
     `;
-    document.body.appendChild(modal);
+   document.body.appendChild(modal);
+
+    // In float mode, USDC is no longer accepted — hide the USDC button
+    if (window._nqv8FloatMode) {
+        const usdcBtn = modal.querySelector('#pay-usdc-btn');
+        if (usdcBtn) {
+            usdcBtn.style.display = 'none';
+        }
+        const statusEl = modal.querySelector('#payment-status');
+        statusEl.classList.remove('hidden');
+        statusEl.classList.remove('animate-pulse');
+        statusEl.textContent = 'ℹ️ NQV8 peg has ended — all fees are now paid in NQV8 only.';
+    }
 
     const statusEl = modal.querySelector('#payment-status');
 
@@ -4599,7 +4641,10 @@ async function loadChatList(searchTerm = "") {
             let storedTitle = title;
             if (isNews) {
                 const headline = document.getElementById('preview-headline').textContent.trim();
-                storedTitle = (headline && headline !== link) ? headline : 'News Article';
+                if (!headline || headline === link || headline === 'Could not load preview') {
+                    return alert("Please paste a valid news link and wait for the preview to load before posting.");
+                }
+                storedTitle = headline;
             }
 
             showPaymentPicker(
@@ -5915,9 +5960,74 @@ function openGroupChat(chatId, chatData) {
         }
 
         // ====================== NQV8 TOKENOMICS PAGE ======================
-function loadTokenomics() {
+async function loadTokenomics() {
     const circulatingEl = document.getElementById('circulating-supply');
-    if (circulatingEl) circulatingEl.textContent = '10,000,000';
+    const pegStatusEl = document.getElementById('peg-status');
+    
+    try {
+        // Total supply is 1B. Circulating = total - treasury balance - founder balance
+        const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const nqv8ReadOnly = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, arbProvider);
+        
+        const FOUNDER_ADDRESS = '0xE2Ac073699147349Fcd35100c6cf99FF14865b64'; // paste founder wallet
+        
+        const [treasuryRaw, founderRaw] = await Promise.all([
+            nqv8ReadOnly.balanceOf(TREASURY_ADDRESS),
+            nqv8ReadOnly.balanceOf(FOUNDER_ADDRESS)
+        ]);
+        
+        const treasuryBal = parseFloat(ethers.utils.formatUnits(treasuryRaw, 18));
+        const founderBal = parseFloat(ethers.utils.formatUnits(founderRaw, 18));
+        const totalSupply = 1_000_000_000;
+        const circulating = totalSupply - treasuryBal - founderBal;
+        
+        if (circulatingEl) circulatingEl.textContent = Math.round(circulating).toLocaleString();
+        
+        // Check if airdrop cap (10M) has been reached
+        const airdropCapReached = circulating >= 10_000_000;
+        window._nqv8FloatMode = airdropCapReached;
+        
+        if (pegStatusEl) {
+            if (airdropCapReached) {
+                pegStatusEl.innerHTML = `
+                    <div class="text-amber-400 text-xs font-semibold uppercase tracking-wider mb-3">Current Price</div>
+                    <div id="nqv8-market-price" class="text-4xl font-bold mb-1">Loading...</div>
+                    <div class="text-zinc-400 text-sm">per NQV8 · floating market rate</div>
+                    <p class="text-xs text-amber-400 mt-5">Peg ended · trades freely on exchanges</p>
+                `;
+                loadNQV8MarketPrice();
+            } else {
+                const remaining = 10_000_000 - circulating;
+                pegStatusEl.innerHTML = `
+                    <div class="text-cyan-400 text-xs font-semibold uppercase tracking-wider mb-3">Current Peg</div>
+                    <div class="text-4xl font-bold mb-1">$0.01</div>
+                    <div class="text-zinc-400 text-sm">per NQV8 (first 10M only)</div>
+                    <p class="text-xs text-zinc-500 mt-5">${Math.round(remaining).toLocaleString()} NQV8 until peg ends</p>
+                `;
+            }
+        }
+    } catch(e) {
+        console.warn('Tokenomics load failed:', e.message);
+        if (circulatingEl) circulatingEl.textContent = 'Loading...';
+    }
+}
+
+async function loadNQV8MarketPrice() {
+    try {
+        // Query price from a DEX aggregator (DexScreener API - free, no key needed)
+        const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${NQV8_TOKEN_ADDRESS}`);
+        const data = await res.json();
+        const pair = data.pairs?.[0];
+        const priceEl = document.getElementById('nqv8-market-price');
+        if (pair && priceEl) {
+            priceEl.textContent = `$${parseFloat(pair.priceUsd).toFixed(4)}`;
+        } else if (priceEl) {
+            priceEl.textContent = 'Not yet listed';
+        }
+    } catch(e) {
+        const priceEl = document.getElementById('nqv8-market-price');
+        if (priceEl) priceEl.textContent = 'Price unavailable';
+    }
 }
 
 function showBuyNQV8Modal() {
