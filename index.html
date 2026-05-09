@@ -1691,8 +1691,6 @@ function showPaymentPicker(label, usdcAmount, nqv8Amount, onSuccess) {
         } catch(e) {
             console.warn('ETH balance check failed:', e.message);
         }
-    })();
-
         try {
             const nqv8Raw = await nqv8Contract.balanceOf(connectedAddress);
             const nqv8Bal = parseFloat(ethers.utils.formatUnits(nqv8Raw, 18));
