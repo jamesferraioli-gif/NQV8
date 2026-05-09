@@ -1459,19 +1459,6 @@ async function connectWalletDuringSignup() {
     showWalletPickerModal();
 }
 
-    // Temporarily patch onWalletConnected to also fire the signup callback
-    const _orig = onWalletConnected;
-    window.onWalletConnected = async function() {
-        await _orig.call(this);
-        if (window._signupWalletCallback) {
-            await window._signupWalletCallback();
-            window._signupWalletCallback = null;
-            window.onWalletConnected = _orig;
-        }
-    };
-
-    showWalletPickerModal();
-}
 
 // ============================================================
 // ON-CHAIN BALANCE READER
