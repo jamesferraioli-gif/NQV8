@@ -682,21 +682,33 @@
         </div>
 
         <!-- WELCOME MODAL -->
-    <div id="welcome-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
-        <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-10 text-center">
-            <h2 class="text-3xl font-bold mb-6">Welcome to NQVate</h2>
+    <div id="welcome-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999] overflow-auto">
+        <div class="bg-zinc-900 w-full max-w-2xl mx-4 rounded-3xl p-8 md:p-10 my-8">
+            <h2 class="text-3xl font-bold mb-6 text-center">Welcome to NQVate</h2>
             
-            <div class="text-left text-zinc-300 leading-relaxed text-base">
-                Welcome to NQVate—a social incubator and decentralized venture capital aimed at connecting builders, 
-                resources, and ideas. Post projects where users can earn bounties for completing tasks for you. 
-                Earn USDc and equity stakes by building for other users. Get funded. Trade equity stakes you have 
-                earned. Build connections across the community. As your projects and applications grow, put them up 
-                for funding. Use our native NQV8 token and receive 20% of the protocol's monthly revenue in the 
-                form of rewards.
+            <div class="text-left text-zinc-300 leading-relaxed text-sm space-y-4 max-h-[60vh] overflow-auto pr-2">
+                <p>Imagine a place where ideas meet execution, bounties fuel progress, and equity flows freely on-chain. NQVate connects builders with opportunities in one seamless Web3 ecosystem: post build requests or bounties to get tasks done (paying in USDC or equity), seek funding for your projects, earn stakes by delivering work, then trade those stakes on the integrated equity exchange. It's part freelance marketplace, part decentralized VC, and part community hub—with chat, leaderboards, idea sharing, and reviews tying it all together.</p>
+    
+                <div>
+                    <p class="text-white font-semibold mb-2">Key features include:</p>
+                    <ul class="space-y-2 text-zinc-300">
+                        <li><span class="text-cyan-400 font-medium">Build Requests/Bounties:</span> Hire talent or complete paid tasks for cash, equity, or both.</li>
+                        <li><span class="text-violet-400 font-medium">Funding Requests:</span> Raise capital for verified projects.</li>
+                        <li><span class="text-pink-400 font-medium">Equity Exchange:</span> Buy/sell ownership stakes you've earned.</li>
+                        <li><span class="text-emerald-400 font-medium">Explore & Chat:</span> Share ideas, news, and projects; connect with the community.</li>
+                        <li><span class="text-amber-400 font-medium">NQV8 Token:</span> Native utility token for low-cost actions, with holders earning 20% of the protocol's monthly revenue as rewards.</li>
+                    </ul>
+                </div>
+    
+                <div>
+                    <p class="text-white font-semibold mb-2">Why join?</p>
+                    <p>NQVate lowers barriers for early-stage innovation. Builders can monetize skills immediately through bounties and equity without traditional gatekeepers. Founders access talent, funding, and a built-in network affordably (many actions cost just $1 or less in USDC/NQV8). Everything runs transparently on Arbitrum, with verification for serious equity plays. Whether you're a solo dev, startup founder, investor, or contributor, it's a merit-based arena to innovate, incubate, and "incuvate"—turning ideas into funded, built realities while earning real value along the way.</p>
+                    <p class="mt-3 text-zinc-400 italic">It's early-stage but purpose-built for the builder economy—connect your wallet and start participating today.</p>
+                </div>
             </div>
-
+    
             <button onclick="closeWelcomeModal()" 
-                    class="mt-10 w-full py-5 bg-white text-black font-semibold rounded-3xl text-lg">
+                    class="mt-8 w-full py-5 bg-white text-black font-semibold rounded-3xl text-lg hover:bg-cyan-400 transition-colors">
                 Got it, let's build!
             </button>
         </div>
@@ -1770,61 +1782,127 @@ async function distributeMonthlyRewards() {
         throw new Error('Only the treasury wallet can distribute rewards');
     }
 
-    // 1. Calculate total protocol revenue this month from Firestore fee records
     const now = new Date();
-    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const year = now.getFullYear();
+    const month = now.getMonth(); // 0-indexed
+    const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
+
+    // ── 1. Calculate reward pool (20% of monthly protocol fees) ──
+    const firstOfMonth = new Date(year, month, 1);
+    const firstOfNextMonth = new Date(year, month + 1, 1);
+
     const feesSnap = await db.collection('protocolFees')
         .where('collectedAt', '>=', firstOfMonth)
+        .where('collectedAt', '<', firstOfNextMonth)
         .get();
 
     let totalUSDC = 0;
     feesSnap.forEach(doc => { totalUSDC += doc.data().amountUSDC || 0; });
 
-    const rewardPool = totalUSDC * 0.20; // 20% of monthly revenue
-
-    // 2. Get all NQV8 holders (weighted by balance = proportional share)
-    const usersSnap = await db.collection('users')
-        .where('nqv8Balance', '>', 0)
-        .get();
-
-    let totalSupplyHeld = 0;
-    const holders = [];
-    usersSnap.forEach(doc => {
-        const u = doc.data();
-        if (u.walletAddress && u.nqv8Balance > 0) {
-            holders.push({ address: u.walletAddress, balance: u.nqv8Balance, uid: doc.id });
-            totalSupplyHeld += u.nqv8Balance;
-        }
-    });
-
-    if (totalSupplyHeld === 0 || rewardPool === 0) {
-        console.log('Nothing to distribute');
+    const rewardPool = totalUSDC * 0.20;
+    if (rewardPool < 0.01) {
+        console.log('Reward pool too small to distribute');
         return;
     }
 
-    // 3. Send proportional USDC reward to each holder
+    // ── 2. Find active wallets this month via on-chain Transfer events ──
+    // We use the NQV8 token contract Transfer event filtered to this month's
+    // block range. Anyone who sent OR received NQV8 is considered active.
+    const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+
+    // Estimate block range for the month (Arbitrum ~4 blocks/sec = ~10M blocks/month)
+    const latestBlock = await arbProvider.getBlockNumber();
+    const latestTimestamp = (await arbProvider.getBlock(latestBlock)).timestamp;
+    const firstOfMonthTs = Math.floor(firstOfMonth.getTime() / 1000);
+    const firstOfNextMonthTs = Math.floor(firstOfNextMonth.getTime() / 1000);
+
+    // Binary search helper to find block closest to a timestamp
+    async function getBlockAtTimestamp(targetTs, low, high) {
+        while (low <= high) {
+            const mid = Math.floor((low + high) / 2);
+            const block = await arbProvider.getBlock(mid);
+            if (block.timestamp < targetTs) low = mid + 1;
+            else high = mid - 1;
+        }
+        return low;
+    }
+
+    const startBlock = await getBlockAtTimestamp(firstOfMonthTs, 0, latestBlock);
+    const endBlock = await getBlockAtTimestamp(firstOfNextMonthTs, startBlock, latestBlock);
+
+    // Query Transfer events on the NQV8 contract for this block range
+    const nqv8ReadOnly = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, arbProvider);
+    const transferFilter = nqv8ReadOnly.filters.Transfer();
+    const transfers = await nqv8ReadOnly.queryFilter(transferFilter, startBlock, endBlock);
+
+    // ── 3. Count transactions per wallet ──
+    // Each Transfer event counts as 1 transaction for the sender (from)
+    // Recipients are passive — only senders count as "active"
+    const txCounts = {}; // walletAddress → transaction count
+
+    for (const event of transfers) {
+        const from = event.args.from.toLowerCase();
+        const to = event.args.to.toLowerCase();
+
+        // Skip treasury → user transfers (signup bonuses, rewards)
+        if (from === TREASURY_ADDRESS.toLowerCase()) continue;
+        // Skip zero address (minting)
+        if (from === '0x0000000000000000000000000000000000000000') continue;
+
+        // Count the sender as active
+        txCounts[from] = (txCounts[from] || 0) + 1;
+    }
+
+    if (Object.keys(txCounts).length === 0) {
+        console.log('No active users found for this month');
+        return;
+    }
+
+    // ── 4. Calculate total transactions and each wallet's share ──
+    const totalTxs = Object.values(txCounts).reduce((sum, n) => sum + n, 0);
+
+    // ── 5. Match wallet addresses to Firestore users ──
+    const usersSnap = await db.collection('users').get();
+    const walletToUser = {};
+    usersSnap.forEach(doc => {
+        const u = doc.data();
+        if (u.walletAddress) {
+            walletToUser[u.walletAddress.toLowerCase()] = { uid: doc.id, ...u };
+        }
+    });
+
+    // ── 6. Distribute rewards proportionally ──
     const distributions = [];
-    for (const holder of holders) {
-        const share = (holder.balance / totalSupplyHeld) * rewardPool;
+
+    for (const [wallet, txCount] of Object.entries(txCounts)) {
+        const share = (txCount / totalTxs) * rewardPool;
         if (share < 0.01) continue; // skip dust
+
+        const user = walletToUser[wallet];
+
         try {
-            const txHash = await sendUSDC(holder.address, share.toFixed(6));
-            distributions.push({ uid: holder.uid, address: holder.address, amountUSDC: share, txHash });
-            // Record in Firestore
+            const txHash = await sendUSDC(wallet, share.toFixed(6));
+
             await db.collection('rewardDistributions').add({
-                uid: holder.uid,
-                walletAddress: holder.address,
+                uid: user?.uid || null,
+                walletAddress: wallet,
                 amountUSDC: share,
+                txCount,
+                sharePercent: ((txCount / totalTxs) * 100).toFixed(2),
                 txHash,
-                month: `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`,
+                month: monthStr,
                 distributedAt: firebase.firestore.FieldValue.serverTimestamp()
             });
+
+            distributions.push({ wallet, amountUSDC: share, txCount });
+            console.log(`✅ Paid $${share.toFixed(4)} to ${wallet} (${txCount} txs, ${((txCount/totalTxs)*100).toFixed(1)}%)`);
         } catch (e) {
-            console.error(`Failed to pay ${holder.address}:`, e.message);
+            console.error(`Failed to pay ${wallet}:`, e.message);
         }
     }
 
-    console.log(`✅ Distributed $${rewardPool.toFixed(2)} USDC to ${distributions.length} holders`);
+    console.log(`✅ Distributed $${rewardPool.toFixed(2)} USDC to ${distributions.length} active wallets for ${monthStr}`);
+    console.log(`   Based on ${totalTxs} total NQV8 transactions from ${Object.keys(txCounts).length} unique wallets`);
     return distributions;
 }
 
