@@ -1237,56 +1237,21 @@ function showWalletPickerModal() {
     modal.innerHTML = `
         <div class="bg-zinc-900 border border-zinc-700 rounded-3xl p-8 w-full max-w-sm mx-4">
             <h3 class="text-xl font-bold mb-2">Connect Wallet</h3>
-            <p class="text-zinc-400 text-sm mb-6">Choose your wallet to connect to NQVate on Arbitrum</p>
+            <p class="text-zinc-400 text-sm mb-6">Connect your MetaMask wallet to NQVate on Arbitrum</p>
 
-            <div class="space-y-3">
-                <button onclick="connectWithMetaMask()"
-                        class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" class="w-8 h-8">
-                    <div class="text-left">
-                        <p class="font-medium">MetaMask</p>
-                        <p class="text-xs text-zinc-400">Browser extension wallet</p>
-                    </div>
-                </button>
-
-                <button onclick="connectWithCoinbase()"
-                        class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors">
-                    <img src="https://avatars.githubusercontent.com/u/18060234" class="w-8 h-8 rounded-full">
-                    <div class="text-left">
-                        <p class="font-medium">Coinbase / Base Wallet</p>
-                        <p class="text-xs text-zinc-400">Mobile app or browser extension</p>
-                    </div>
-                </button>
-
-                <button onclick="connectWithWalletConnect()"
-                        class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors">
-                    <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white font-bold text-sm">W</div>
-                    <div class="text-left">
-                        <p class="font-medium">WalletConnect</p>
-                        <p class="text-xs text-zinc-400">Ledger, Trust, Rainbow + 300 more</p>
-                    </div>
-                </button>
-
-                ${window.ethereum && !window.ethereum.isCoinbaseWallet ? `
-                <button onclick="connectInjected()"
-                        class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors">
-                    <div class="w-8 h-8 bg-zinc-600 rounded-full flex items-center justify-center text-white text-sm">🔌</div>
-                    <div class="text-left">
-                        <p class="font-medium">Other Browser Wallet</p>
-                        <p class="text-xs text-zinc-400">Brave, Frame, or other injected wallet</p>
-                    </div>
-                </button>` : ''}
-            </div>
-
-            <button onclick="document.getElementById('wallet-picker-modal').remove()"
-                    class="w-full mt-4 py-3 text-zinc-500 hover:text-zinc-300 text-sm">
-                Cancel
+            <button onclick="connectWithMetaMask()"
+                    class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors mb-4">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" class="w-8 h-8">
+                <div class="text-left">
+                    <p class="font-medium">MetaMask</p>
+                    <p class="text-xs text-zinc-400">Browser extension wallet</p>
+                </div>
             </button>
 
-            <p class="text-xs text-amber-400 text-center mt-4">
-                ⚠️ Use a self-custody wallet for best experience.
-                Exchange wallets can receive rewards but cannot sign transactions.
-            </p>
+            <button onclick="document.getElementById('wallet-picker-modal').remove()"
+                    class="w-full py-3 text-zinc-500 hover:text-zinc-300 text-sm">
+                Cancel
+            </button>
         </div>
     `;
     document.body.appendChild(modal);
