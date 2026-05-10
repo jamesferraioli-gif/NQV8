@@ -2431,8 +2431,7 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                 return alert("Please fill in all task fields");
             }
 
-            const contentToCheck = `${storedTitle} ${desc}`;
-            const modResult = await moderateContent(contentToCheck, 'explore post');
+            const modResult = await moderateContent(text, 'comment');
             if (!modResult.approved) {
                 return alert(`❌ Post rejected: ${modResult.reason}`);
             }
@@ -3427,8 +3426,7 @@ async function loadTotalFundingReceivedStat() {
         
             if (!confirm(`Delete "${project.title}"?\n\nThis cannot be undone.`)) return;
 
-            const contentToCheck = `${storedTitle} ${desc}`;
-            const modResult = await moderateContent(contentToCheck, 'explore post');
+            const modResult = await moderateContent(`${title} ${desc} ${compensation}`, 'marketplace posting');
             if (!modResult.approved) {
                 return alert(`❌ Post rejected: ${modResult.reason}`);
             }
@@ -5680,6 +5678,7 @@ async function submitBountyPosting() {
     const desc = document.getElementById('bounty-desc').value.trim();
     const category = document.getElementById('bounty-category').value;
     const compensation = document.getElementById('bounty-compensation').value.trim();
+    const modResult = await moderateContent(`${title} ${desc} ${compensation}`, 'marketplace posting');
 
     if (!title || !desc || !category || !compensation) return alert("Please fill in all fields");
 
@@ -5832,11 +5831,10 @@ async function submitFundingPosting() {
         return alert("❌ You already have an active funding request for this project. Close or complete it before posting a new one.");
     }
 
-    const contentToCheck = `${storedTitle} ${desc}`;
-            const modResult = await moderateContent(contentToCheck, 'explore post');
-            if (!modResult.approved) {
-                return alert(`❌ Post rejected: ${modResult.reason}`);
-            }
+    const modResult = await moderateContent(`${ask} ${desc}`, 'marketplace posting');
+        if (!modResult.approved) {
+            return alert(`❌ Post rejected: ${modResult.reason}`);
+        }
 
     showPaymentPicker(
         'Post a Funding Request — one-time listing fee',
@@ -5960,11 +5958,10 @@ async function submitEquityListing() {
         return alert(`❌ You can only sell up to ${maxPct}% — that is your full stake in this company.`);
     }
 
-    const contentToCheck = `${storedTitle} ${desc}`;
-            const modResult = await moderateContent(contentToCheck, 'explore post');
-            if (!modResult.approved) {
-                return alert(`❌ Post rejected: ${modResult.reason}`);
-            }
+    const modResult = await moderateContent(`${companyName} ${percentage} ${desc}`, 'equity listing');
+        if (!modResult.approved) {
+            return alert(`❌ Post rejected: ${modResult.reason}`);
+        }
 
     showPaymentPicker(
         'List an Equity Stake — one-time listing fee',
@@ -6095,12 +6092,6 @@ async function createGroupChat() {
     const usdcCost = parseFloat((members.length * 0.01).toFixed(2));
     const nqv8Cost = members.length;
 
-    const contentToCheck = `${storedTitle} ${desc}`;
-            const modResult = await moderateContent(contentToCheck, 'explore post');
-            if (!modResult.approved) {
-                return alert(`❌ Post rejected: ${modResult.reason}`);
-            }
-
     showPaymentPicker(
         `Create group chat with ${members.length} people`,
         usdcCost, nqv8Cost,
@@ -6179,8 +6170,7 @@ function openGroupChat(chatId, chatData) {
             const text = document.getElementById('new-comment').value.trim();
             if (!text) return alert("Please write a comment");
 
-            const contentToCheck = `${storedTitle} ${desc}`;
-            const modResult = await moderateContent(contentToCheck, 'explore post');
+            const modResult = await moderateContent(text, 'comment');
             if (!modResult.approved) {
                 return alert(`❌ Post rejected: ${modResult.reason}`);
             }
