@@ -2429,6 +2429,12 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                 return alert("Please fill in all task fields");
             }
 
+            const contentToCheck = `${storedTitle} ${desc}`;
+            const modResult = await moderateContent(contentToCheck, 'explore post');
+            if (!modResult.approved) {
+                return alert(`❌ Post rejected: ${modResult.reason}`);
+            }
+
             showPaymentPicker(
                 'Post project & first task — one-time listing fee',
                 1.00, 100,
@@ -3278,6 +3284,12 @@ async function loadTotalFundingReceivedStat() {
         
             if (!confirm(`Delete "${project.title}"?\n\nThis cannot be undone.`)) return;
 
+            const contentToCheck = `${storedTitle} ${desc}`;
+            const modResult = await moderateContent(contentToCheck, 'explore post');
+            if (!modResult.approved) {
+                return alert(`❌ Post rejected: ${modResult.reason}`);
+            }
+
             showPaymentPicker(
                 `Delete posting: "${project.title}"`,
                 0.01, 1,
@@ -3331,6 +3343,12 @@ async function loadTotalFundingReceivedStat() {
                 }
 
                 // Payment first — Firestore write only on success
+                const contentToCheck = `${storedTitle} ${desc}`;
+                const modResult = await moderateContent(contentToCheck, 'explore post');
+                if (!modResult.approved) {
+                    return alert(`❌ Post rejected: ${modResult.reason}`);
+                }
+    
                 showPaymentPicker(
                     `Place a bid on "${project.title}"`,
                     0.01, 1,
@@ -3977,6 +3995,12 @@ async function loadChatList(searchTerm = "") {
                 }
 
                 // Create new chat — charge micro fee
+                const contentToCheck = `${storedTitle} ${desc}`;
+                const modResult = await moderateContent(contentToCheck, 'explore post');
+                if (!modResult.approved) {
+                    return alert(`❌ Post rejected: ${modResult.reason}`);
+                }
+    
                 showPaymentPicker(
                     `Start a chat with @${partnerData.username || partnerData.fullName}`,
                     0.01, 1,
@@ -4709,6 +4733,12 @@ async function loadChatList(searchTerm = "") {
                     return alert("Please paste a valid news link and wait for the preview to load before posting.");
                 }
                 storedTitle = headline;
+            }
+
+            const contentToCheck = `${storedTitle} ${desc}`;
+            const modResult = await moderateContent(contentToCheck, 'explore post');
+            if (!modResult.approved) {
+                return alert(`❌ Post rejected: ${modResult.reason}`);
             }
 
             showPaymentPicker(
@@ -5535,6 +5565,14 @@ async function submitBountyPosting() {
         }
     }
 
+
+
+    const contentToCheck = `${storedTitle} ${desc}`;
+            const modResult = await moderateContent(contentToCheck, 'explore post');
+            if (!modResult.approved) {
+                return alert(`❌ Post rejected: ${modResult.reason}`);
+            }
+
     showPaymentPicker(
         'Post a Build Request — one-time listing fee',
         1.00, 100,
@@ -5663,6 +5701,12 @@ async function submitFundingPosting() {
         return alert("❌ You already have an active funding request for this project. Close or complete it before posting a new one.");
     }
 
+    const contentToCheck = `${storedTitle} ${desc}`;
+            const modResult = await moderateContent(contentToCheck, 'explore post');
+            if (!modResult.approved) {
+                return alert(`❌ Post rejected: ${modResult.reason}`);
+            }
+
     showPaymentPicker(
         'Post a Funding Request — one-time listing fee',
         1.00, 100,
@@ -5784,6 +5828,12 @@ async function submitEquityListing() {
     if (isNaN(pct) || pct <= 0 || pct > maxPct) {
         return alert(`❌ You can only sell up to ${maxPct}% — that is your full stake in this company.`);
     }
+
+    const contentToCheck = `${storedTitle} ${desc}`;
+            const modResult = await moderateContent(contentToCheck, 'explore post');
+            if (!modResult.approved) {
+                return alert(`❌ Post rejected: ${modResult.reason}`);
+            }
 
     showPaymentPicker(
         'List an Equity Stake — one-time listing fee',
@@ -5914,6 +5964,12 @@ async function createGroupChat() {
     const usdcCost = parseFloat((members.length * 0.01).toFixed(2));
     const nqv8Cost = members.length;
 
+    const contentToCheck = `${storedTitle} ${desc}`;
+            const modResult = await moderateContent(contentToCheck, 'explore post');
+            if (!modResult.approved) {
+                return alert(`❌ Post rejected: ${modResult.reason}`);
+            }
+
     showPaymentPicker(
         `Create group chat with ${members.length} people`,
         usdcCost, nqv8Cost,
@@ -5992,6 +6048,12 @@ function openGroupChat(chatId, chatData) {
             const text = document.getElementById('new-comment').value.trim();
             if (!text) return alert("Please write a comment");
 
+            const contentToCheck = `${storedTitle} ${desc}`;
+            const modResult = await moderateContent(contentToCheck, 'explore post');
+            if (!modResult.approved) {
+                return alert(`❌ Post rejected: ${modResult.reason}`);
+            }
+
             showPaymentPicker(
                 'Post a comment — micro fee',
                 0.01, 1,
@@ -6016,6 +6078,162 @@ function openGroupChat(chatId, chatData) {
             );
         }
 
+// ====================== CONTENT MODERATION ======================
+        async function moderateContent(text, contentType = 'post') {
+            const lower = text.toLowerCase();
+            
+            const banned = [
+                // ── RACIAL SLURS & HATE SPEECH ──
+                'nigger','nigga','faggot','chink','spic','kike','wetback','gook',
+                'towelhead','raghead','coon','jigaboo','porch monkey','beaner',
+                'zipperhead','cracker','honky','peckerwood','wop','dago','mick',
+                'polack','kraut','jap','nip','slopes','squaw','redskin','sambo',
+                'jungle bunny','mud people','subhuman','untermensch','mongrel race',
+                'race traitor','mixed breed','half breed insult','mutt insult',
+                'curry muncher','sand nigger','camel jockey','border hopper',
+                'anchor baby slur','welfare queen slur','ghetto trash',
+                'retard slur','spaz slur','cripple slur','tranny slur','shemale slur',
+                'dyke slur','queer slur','homo slur','lesbo slur',
+
+                // ── SEXUAL CONTENT ──
+                'porn','pornography','xxx','onlyfans','sex tape','nude photos',
+                'naked pics','nsfw','blowjob','handjob','cumshot','creampie',
+                'gangbang','orgy','bdsm','fetish site','dildo','vibrator',
+                'masturbat','penis pic','vagina pic','pussy','cock pic',
+                'dick pic','tits','boobs','ass porn','anal porn','hentai','rule34',
+                'sex video','escort service','happy ending','prostitut','call girl',
+                'strip club','cam girl','cam site','sex work advertise',
+                'hook up site','adult dating','fuck buddy','friends with benefits ad',
+                'sugar daddy site','sugar baby site','seeking arrangement',
+                'adult content','explicit content','erotic services',
+
+                // ── VIOLENCE & THREATS ──
+                'i will kill','gonna kill','going to kill','shoot up','shooting spree',
+                'school shooting','mass shooting','bomb threat','pipe bomb',
+                'how to make bomb','how to make explosive','domestic terror',
+                'bioweapon','chemical weapon','nerve agent','sarin','anthrax',
+                'letter bomb','car bomb','suicide bomb','ied','improvised explosive',
+                'stab you','beat you to death','burn your house','lynch you',
+                'hang you','torture you','rape you','assault you','attack you',
+                'doxxing','i will dox','posting your address','find where you live',
+                'swatting','send swat','swat attack','end you',
+                'watch your back threat','come find you',
+
+                // ── ILLEGAL ACTIVITIES ──
+                'buy cocaine','sell cocaine','buy heroin','sell heroin','buy meth',
+                'sell meth','buy fentanyl','drug deal','hire hitman','kill for hire',
+                'murder for hire','child porn','cp link','csam','dark web market',
+                'silk road','buy stolen','sell stolen','counterfeit money',
+                'money launder','human traffick','buy weapons illegally',
+                'illegal firearms','unregistered gun','ghost gun','buy guns illegally',
+                'stolen credit card','carding site','buy fullz','ssn for sale',
+                'fake id','fake passport','identity theft','account takeover',
+                'buy hacked accounts','sell hacked accounts','ransomware for sale',
+                'malware for sale','exploit kit','ddos for hire','booter service',
+                'tax evasion scheme','sanctions evasion',
+
+                // ── SCAMS & FRAUD ──
+                'send me bitcoin first','guaranteed returns','get rich quick scheme',
+                'nigerian prince','wire transfer urgent','pump and dump',
+                'exit scam','ponzi scheme','pyramid scheme',
+                'mlm recruitment','join my downline',
+                'passive income guaranteed','double your bitcoin','bitcoin doubler',
+                'crypto giveaway send first','elon musk giveaway','send eth get back',
+                'investment guaranteed','no risk investment','100 percent returns',
+                'risk free trading','forex robot guaranteed','signal group pump',
+                'pre sale guaranteed profit','whitelist guaranteed profit',
+
+                // ── EXTREMISM ──
+                'white supremac','white power','white nationalist','ethnic cleansing',
+                'nazi','heil hitler','third reich','kkk','ku klux klan','aryan nation',
+                'neo nazi','final solution','gas the jews','death to jews',
+                'death to muslims','death to blacks','death to whites',
+                'jihad attack','isis recruit','al qaeda','terror recruit',
+                'lone wolf attack','incel revolution','incel attack','blackpill violence',
+                'accelerationist','race war now','boogaloo movement',
+                'civil war now','revolution violence',
+                'kill all men','kill all women','kill all whites','kill all blacks',
+                'kill all jews','kill all muslims','kill all christians','kill all cops',
+                'kill all politicians','kill all rich','kill all landlords',
+                'guillotine politicians','execute billionaires','hang traitors',
+
+                // ── POLITICS LEFT & RIGHT EQUALLY BLOCKED ──
+                'democrat','republican','maga','trumper','libtard','libs',
+                'leftist','rightist','far left','far right','deep state',
+                'qanon','q anon','antifa','proud boys','oath keeper',
+                'three percenters','boogaloo boys','patriot front',
+                'vote for','vote against','election fraud','stolen election',
+                'pro life movement','pro choice movement',
+                'gun control debate','defund the police','back the blue movement',
+                'black lives matter movement','all lives matter movement',
+                'blue lives matter','critical race theory debate','woke agenda',
+                'cancel culture','social justice warrior','sjw agenda',
+                'new world order','globalist agenda','soros controls',
+                'great replacement','white genocide conspiracy','replacement theory',
+                'marxist agenda','communist agenda','socialist agenda','fascist agenda',
+                'liberal agenda','conservative agenda',
+                'own the libs','triggering liberals','snowflake left',
+                'fake news media','lamestream media','msm lies',
+                'lets go brandon','fjb','trump won','stop the steal',
+                'dominion machines','rigged election',
+                'great awakening','red pill everyone','wake up sheeple',
+                'bill gates controls','rothschild conspiracy','depopulation agenda',
+                'chemtrails','5g control','covid hoax','covid is fake',
+                'vaccines cause autism','vax kills','mandate tyranny',
+                'build the wall politics','send them back','illegal invasion politics',
+                'christian nationalism','rino traitor',
+                'george soros controls','nwo agenda','agenda 2030','agenda 21',
+                'eat the rich','abolish police','acab',
+                'all cops are bastards','guillotine the rich',
+                'proletariat revolution','smash capitalism','down with capitalism',
+                'landlords are leeches','capitalism is evil','capitalism kills',
+                'punch a nazi','bash the fash','property is theft',
+                'anarcho communist','seize the means','workers revolution',
+                'class warfare politics','eat the billionaire',
+                'no borders politics','open borders now','abolish ice movement',
+                'abolish prisons','prison abolition movement','cops are terrorists',
+                'white privilege debate','check your privilege',
+                'white fragility','wypipo',
+                'own the cons','triggering conservatives','snowflake right',
+                'democratic socialist agenda','wealth redistribution politics',
+                'workers of the world unite',
+
+                // ── RELIGION TARGETING ──
+                'islam is evil','muslims are terrorists','bomb mosque',
+                'christianity is evil','burn church','burn mosque',
+                'burn synagogue','jews control','jewish conspiracy','jewish banking',
+                'zionist conspiracy','jewish media','hindu nationalist violence',
+                'religious cult recruit','cult recruitment',
+                'god is fake','religion is cancer',
+                'crusade now','holy war recruit','infidels must die','kafir must die',
+
+                // ── HARASSMENT & PERSONAL ATTACKS ──
+                'kill yourself','kys','end yourself','go die','hope you die',
+                'you deserve to die','rope yourself','drink bleach','jump off a bridge',
+                'nobody likes you','everyone hates you',
+                'ugly loser','pathetic loser','basement dweller',
+                'virgin loser','incel loser','cuck insult','beta male insult',
+                'femoid','foid','roastie','blackpill',
+                'women are inferior','men are inferior',
+                'women belong in kitchen','women should not vote',
+                'all men are rapists','all women are',
+            ];
+
+            const found = banned.find(word => lower.includes(word));
+            if (found) {
+                return {
+                    approved: false,
+                    reason: 'Content violates community guidelines. NQVate is a professional marketplace — please keep posts focused on building, tech, and business.'
+                };
+            }
+            return { approved: true };
+        }
+
+        function hidePostDetailModal() {
+            document.getElementById('post-detail-modal').classList.add('hidden');
+        }
+
+    
         function hidePostDetailModal() {
             document.getElementById('post-detail-modal').classList.add('hidden');
         }
