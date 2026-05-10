@@ -495,32 +495,34 @@
                     </div>
             
                     <!-- Fee breakdown -->
-                    <div class="bg-black/50 rounded-2xl p-5 mb-6">
+<!-- Fee breakdown -->
+                    <div class="bg-black/50 rounded-2xl p-5 mb-4">
                         <p class="text-sm text-zinc-400 mb-3">Fee Breakdown</p>
                         <div class="flex justify-between text-sm mb-2">
-                            <span class="text-zinc-300">KYB Verification Fee</span>
-                            <span>$150 USDC</span>
-                        </div>
-                        <div class="flex justify-between text-sm mb-2">
-                            <span class="text-zinc-300">NQVate Processing Fee</span>
-                            <span>$50 USDC</span>
+                            <span class="text-zinc-300">AI Document Verification</span>
+                            <span>$10.00 USDC</span>
                         </div>
                         <div class="border-t border-zinc-700 mt-3 pt-3 flex justify-between font-semibold">
                             <span>Total</span>
-                            <span class="text-cyan-400">$200 USDC</span>
+                            <span class="text-cyan-400">$10.00 USDC</span>
                         </div>
                     </div>
-            
+
+                    <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 mb-4">
+                        <p class="text-emerald-400 text-sm font-medium">⚡ Instant AI Verification</p>
+                        <p class="text-zinc-400 text-xs mt-1">Documents are reviewed instantly by Claude AI. Clear, matching documents are approved immediately. Edge cases are flagged for manual review.</p>
+                    </div>
+
                     <p class="text-xs text-zinc-500 mb-6 text-center">
-                        Payment will be charged to your connected wallet. Cash-only projects remain free.
+                        $10 USDC is charged to your connected wallet. Fee is non-refundable.
                     </p>
             
                     <div class="flex gap-3">
                         <button onclick="hideVerificationModal()" 
-                                class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+                                class="flex-1 py--4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
                         <button onclick="submitVerification()" 
                                 class="flex-1 py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-3xl">
-                            Upload & Pay $200 USDC
+                            Verify & Pay $10 USDC
                         </button>
                     </div>
                 </div>
@@ -2507,43 +2509,140 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
             if (!verificationCompanyId && selectedCompanyId) {
                 verificationCompanyId = selectedCompanyId;
             }
-        
+
             const docIncorporation = document.getElementById('doc-incorporation').files[0];
             const docEin = document.getElementById('doc-ein').files[0];
             const docId = document.getElementById('doc-id').files[0];
-        
+
             if (!docIncorporation || !docEin || !docId) {
                 return alert("Please upload all three required documents");
             }
-        
             if (!verificationCompanyId) return alert("No company selected");
-            
-                    try {
-                        const uploadFile = async (file, name) => {
-                            const ref = storage.ref(`verification/${verificationCompanyId}/${name}-${Date.now()}`);
-                            await ref.put(file);
-                            return ref.getDownloadURL();
-                        };
-            
-                        const [url1, url2, url3] = await Promise.all([
-                            uploadFile(docIncorporation, 'incorporation'),
-                            uploadFile(docEin, 'ein'),
-                            uploadFile(docId, 'id')
-                        ]);
-            
-                        await db.collection("companies").doc(verificationCompanyId).update({
-                            verificationStatus: 'pending',
-                            verificationDocUrls: [url1, url2, url3],
-                            verificationSubmittedAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-            
-                        alert("✅ Documents submitted! Verification typically takes 1-3 business days.");
-                        hideVerificationModal();
-                    } catch(e) {
-                        console.error(e);
-                        alert("Failed to submit: " + e.message);
+            if (!connectedAddress) return alert("Please connect your wallet first");
+
+            // Get company details
+            const companySnap = await db.collection("companies").doc(verificationCompanyId).get();
+            const company = companySnap.data();
+
+            // Show processing UI
+            const btn = document.querySelector('#verification-modal button[onclick="submitVerification()"]');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '⏳ Processing payment...';
+            btn.disabled = true;
+
+            try {
+                // Step 1: Charge $10 USDC
+                const usdcRaw = await usdcContract.balanceOf(connectedAddress);
+                const usdcBal = parseFloat(ethers.utils.formatUnits(usdcRaw, 6));
+                if (usdcBal < 10) {
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    return alert(`❌ Insufficient USDC. You have $${usdcBal.toFixed(2)} but need $10.00 USDC for verification.`);
+                }
+
+                btn.innerHTML = '⏳ Confirm $10 USDC in wallet...';
+                const txHash = await sendUSDC(TREASURY_ADDRESS, 10);
+                await recordProtocolFee(10, 'verification', txHash);
+
+                // Step 2: Convert docs to base64
+                btn.innerHTML = '⏳ Analyzing documents with AI...';
+
+                const toBase64 = (file) => new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                        // Strip the data URL prefix, keep only base64 data
+                        const base64 = reader.result.split(',')[1];
+                        resolve(base64);
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+
+                const [incorporationBase64, einBase64, idBase64] = await Promise.all([
+                    toBase64(docIncorporation),
+                    toBase64(docEin),
+                    toBase64(docId)
+                ]);
+
+                // Step 3: Send to Claude for verification
+                const verifyResponse = await fetch('/api/verify-docs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        incorporationBase64,
+                        einBase64,
+                        idBase64,
+                        companyName: company.name,
+                        entityType: company.entityType || company.type || 'Unknown'
+                    })
+                });
+
+                const result = await verifyResponse.json();
+
+                // Step 4: Upload docs to Firebase Storage regardless of result
+                const uploadFile = async (file, name) => {
+                    const ref = storage.ref(`verification/${verificationCompanyId}/${name}-${Date.now()}`);
+                    await ref.put(file);
+                    return ref.getDownloadURL();
+                };
+
+                const [url1, url2, url3] = await Promise.all([
+                    uploadFile(docIncorporation, 'incorporation'),
+                    uploadFile(docEin, 'ein'),
+                    uploadFile(docId, 'id')
+                ]);
+
+                // Step 5: Update Firestore based on Claude's decision
+                if (result.approved && result.confidence !== 'low') {
+                    // Auto-approve
+                    await db.collection("companies").doc(verificationCompanyId).update({
+                        verificationStatus: 'verified',
+                        equityUnlocked: true,
+                        verificationDocUrls: [url1, url2, url3],
+                        verificationSubmittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        verifiedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        verificationTxHash: txHash,
+                        verificationResult: result,
+                        verificationMethod: 'claude-ai'
+                    });
+
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    hideVerificationModal();
+                    alert(`✅ Verification approved!\n\n${result.summary}\n\nEquity features are now unlocked for ${company.name}.`);
+                    loadProfileData();
+
+                } else {
+                    // Flag for manual review or reject
+                    const issues = result.issues?.join(', ') || 'Documents could not be verified';
+                    await db.collection("companies").doc(verificationCompanyId).update({
+                        verificationStatus: result.approved ? 'pending' : 'rejected',
+                        equityUnlocked: false,
+                        verificationDocUrls: [url1, url2, url3],
+                        verificationSubmittedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        verificationTxHash: txHash,
+                        verificationResult: result,
+                        verificationMethod: 'claude-ai'
+                    });
+
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                    hideVerificationModal();
+
+                    if (result.approved) {
+                        alert(`⏳ Verification submitted for manual review.\n\n${result.summary}\n\nThe $10 USDC fee has been collected. You will be notified when review is complete.`);
+                    } else {
+                        alert(`❌ Verification rejected.\n\nIssues found: ${issues}\n\nThe $10 USDC fee is non-refundable. Please correct the issues and resubmit.`);
                     }
                 }
+
+            } catch(e) {
+                console.error(e);
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+                alert("Verification failed: " + e.message);
+            }
+        }
 
         // ====================== UTILITY FUNCTIONS ======================
         function safeClassList(id, action) {
@@ -6111,154 +6210,19 @@ function openGroupChat(chatId, chatData) {
         }
 
 // ====================== CONTENT MODERATION ======================
-        async function moderateContent(text, contentType = 'post') {
-            const lower = text.toLowerCase();
-            
-            const banned = [
-                // ── RACIAL SLURS & HATE SPEECH ──
-                'nigger','nigga','faggot','chink','spic','kike','wetback','gook',
-                'towelhead','raghead','coon','jigaboo','porch monkey','beaner',
-                'zipperhead','cracker','honky','peckerwood','wop','dago','mick',
-                'polack','kraut','jap','nip','slopes','squaw','redskin','sambo',
-                'jungle bunny','mud people','subhuman','untermensch','mongrel race',
-                'race traitor','mixed breed','half breed insult','mutt insult',
-                'curry muncher','sand nigger','camel jockey','border hopper',
-                'anchor baby slur','welfare queen slur','ghetto trash',
-                'retard slur','spaz slur','cripple slur','tranny slur','shemale slur',
-                'dyke slur','queer slur','homo slur','lesbo slur',
-
-                // ── SEXUAL CONTENT ──
-                'porn','pornography','xxx','onlyfans','sex tape','nude photos',
-                'naked pics','nsfw','blowjob','handjob','cumshot','creampie',
-                'gangbang','orgy','bdsm','fetish site','dildo','vibrator',
-                'masturbat','penis pic','vagina pic','pussy','cock pic',
-                'dick pic','tits','boobs','ass porn','anal porn','hentai','rule34',
-                'sex video','escort service','happy ending','prostitut','call girl',
-                'strip club','cam girl','cam site','sex work advertise',
-                'hook up site','adult dating','fuck buddy','friends with benefits ad',
-                'sugar daddy site','sugar baby site','seeking arrangement',
-                'adult content','explicit content','erotic services',
-
-                // ── VIOLENCE & THREATS ──
-                'i will kill','gonna kill','going to kill','shoot up','shooting spree',
-                'school shooting','mass shooting','bomb threat','pipe bomb',
-                'how to make bomb','how to make explosive','domestic terror',
-                'bioweapon','chemical weapon','nerve agent','sarin','anthrax',
-                'letter bomb','car bomb','suicide bomb','ied','improvised explosive',
-                'stab you','beat you to death','burn your house','lynch you',
-                'hang you','torture you','rape you','assault you','attack you',
-                'doxxing','i will dox','posting your address','find where you live',
-                'swatting','send swat','swat attack','end you',
-                'watch your back threat','come find you',
-
-                // ── ILLEGAL ACTIVITIES ──
-                'buy cocaine','sell cocaine','buy heroin','sell heroin','buy meth',
-                'sell meth','buy fentanyl','drug deal','hire hitman','kill for hire',
-                'murder for hire','child porn','cp link','csam','dark web market',
-                'silk road','buy stolen','sell stolen','counterfeit money',
-                'money launder','human traffick','buy weapons illegally',
-                'illegal firearms','unregistered gun','ghost gun','buy guns illegally',
-                'stolen credit card','carding site','buy fullz','ssn for sale',
-                'fake id','fake passport','identity theft','account takeover',
-                'buy hacked accounts','sell hacked accounts','ransomware for sale',
-                'malware for sale','exploit kit','ddos for hire','booter service',
-                'tax evasion scheme','sanctions evasion',
-
-                // ── SCAMS & FRAUD ──
-                'send me bitcoin first','guaranteed returns','get rich quick scheme',
-                'nigerian prince','wire transfer urgent','pump and dump',
-                'exit scam','ponzi scheme','pyramid scheme',
-                'mlm recruitment','join my downline',
-                'passive income guaranteed','double your bitcoin','bitcoin doubler',
-                'crypto giveaway send first','elon musk giveaway','send eth get back',
-                'investment guaranteed','no risk investment','100 percent returns',
-                'risk free trading','forex robot guaranteed','signal group pump',
-                'pre sale guaranteed profit','whitelist guaranteed profit',
-
-                // ── EXTREMISM ──
-                'white supremac','white power','white nationalist','ethnic cleansing',
-                'nazi','heil hitler','third reich','kkk','ku klux klan','aryan nation',
-                'neo nazi','final solution','gas the jews','death to jews',
-                'death to muslims','death to blacks','death to whites',
-                'jihad attack','isis recruit','al qaeda','terror recruit',
-                'lone wolf attack','incel revolution','incel attack','blackpill violence',
-                'accelerationist','race war now','boogaloo movement',
-                'civil war now','revolution violence',
-                'kill all men','kill all women','kill all whites','kill all blacks',
-                'kill all jews','kill all muslims','kill all christians','kill all cops',
-                'kill all politicians','kill all rich','kill all landlords',
-                'guillotine politicians','execute billionaires','hang traitors',
-
-                // ── POLITICS LEFT & RIGHT EQUALLY BLOCKED ──
-                'democrat','republican','maga','trumper','libtard','libs',
-                'leftist','rightist','far left','far right','deep state',
-                'qanon','q anon','antifa','proud boys','oath keeper',
-                'three percenters','boogaloo boys','patriot front',
-                'vote for','vote against','election fraud','stolen election',
-                'pro life movement','pro choice movement',
-                'gun control debate','defund the police','back the blue movement',
-                'black lives matter movement','all lives matter movement',
-                'blue lives matter','critical race theory debate','woke agenda',
-                'cancel culture','social justice warrior','sjw agenda',
-                'new world order','globalist agenda','soros controls',
-                'great replacement','white genocide conspiracy','replacement theory',
-                'marxist agenda','communist agenda','socialist agenda','fascist agenda',
-                'liberal agenda','conservative agenda',
-                'own the libs','triggering liberals','snowflake left',
-                'fake news media','lamestream media','msm lies',
-                'lets go brandon','fjb','trump won','stop the steal',
-                'dominion machines','rigged election',
-                'great awakening','red pill everyone','wake up sheeple',
-                'bill gates controls','rothschild conspiracy','depopulation agenda',
-                'chemtrails','5g control','covid hoax','covid is fake',
-                'vaccines cause autism','vax kills','mandate tyranny',
-                'build the wall politics','send them back','illegal invasion politics',
-                'christian nationalism','rino traitor',
-                'george soros controls','nwo agenda','agenda 2030','agenda 21',
-                'eat the rich','abolish police','acab',
-                'all cops are bastards','guillotine the rich',
-                'proletariat revolution','smash capitalism','down with capitalism',
-                'landlords are leeches','capitalism is evil','capitalism kills',
-                'punch a nazi','bash the fash','property is theft',
-                'anarcho communist','seize the means','workers revolution',
-                'class warfare politics','eat the billionaire',
-                'no borders politics','open borders now','abolish ice movement',
-                'abolish prisons','prison abolition movement','cops are terrorists',
-                'white privilege debate','check your privilege',
-                'white fragility','wypipo',
-                'own the cons','triggering conservatives','snowflake right',
-                'democratic socialist agenda','wealth redistribution politics',
-                'workers of the world unite',
-
-                // ── RELIGION TARGETING ──
-                'islam is evil','muslims are terrorists','bomb mosque',
-                'christianity is evil','burn church','burn mosque',
-                'burn synagogue','jews control','jewish conspiracy','jewish banking',
-                'zionist conspiracy','jewish media','hindu nationalist violence',
-                'religious cult recruit','cult recruitment',
-                'god is fake','religion is cancer',
-                'crusade now','holy war recruit','infidels must die','kafir must die',
-
-                // ── HARASSMENT & PERSONAL ATTACKS ──
-                'kill yourself','kys','end yourself','go die','hope you die',
-                'you deserve to die','rope yourself','drink bleach','jump off a bridge',
-                'nobody likes you','everyone hates you',
-                'ugly loser','pathetic loser','basement dweller',
-                'virgin loser','incel loser','cuck insult','beta male insult',
-                'femoid','foid','roastie','blackpill',
-                'women are inferior','men are inferior',
-                'women belong in kitchen','women should not vote',
-                'all men are rapists','all women are',
-            ];
-
-            const found = banned.find(word => lower.includes(word));
-            if (found) {
-                return {
-                    approved: false,
-                    reason: 'Content violates community guidelines. NQVate is a professional marketplace — please keep posts focused on building, tech, and business.'
-                };
+    async function moderateContent(text, contentType = 'post') {
+            try {
+                const response = await fetch('/api/moderate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text, contentType })
+                });
+                if (!response.ok) return { approved: true };
+                return await response.json();
+            } catch(e) {
+                console.warn('Moderation check failed:', e.message);
+                return { approved: true }; // fail open on network error
             }
-            return { approved: true };
         }
 
         function hidePostDetailModal() {
