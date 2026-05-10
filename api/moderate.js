@@ -1,7 +1,11 @@
-export const config = { runtime: 'edge' };
+export const config = {
+    runtime: 'edge',
+};
 
 export default async function handler(req) {
-    if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+    if (req.method !== 'POST') {
+        return new Response('Method not allowed', { status: 405 });
+    }
 
     try {
         const { text, contentType } = await req.json();
@@ -23,27 +27,11 @@ export default async function handler(req) {
 Review this ${contentType} and respond ONLY with valid JSON in this exact format:
 {"approved": true} or {"approved": false, "reason": "brief explanation"}
 
-Reject content that is:
-- Political opinions, propaganda, or partisan content (any party or ideology)
-- Racist, sexist, or discriminatory language of any kind
-- Sexual or adult content
-- Hate speech or harassment targeting any group
-- Illegal activities (fraud, scams, drug sales, weapons, etc.)
-- Spam, gibberish, or meaningless content
-- Threats or violent language directed at anyone
-- Extremist content from any political direction
-- Religious targeting or attacks on faith groups
-- Personal attacks or harassment of individuals
-
-Approve content that is:
-- Marketplace postings for legitimate projects or tasks
-- Ideas, news, or project updates related to tech, business, or startups
-- Professional comments and discussion
-- Web3, crypto, AI, software, or business topics
-- Neutral factual references to current events without taking sides
+Reject content that is political, racist, sexual, hateful, illegal, or spam.
+Approve legitimate business, tech, and Web3 content.
 
 Content to review:
-"${text.replace(/"/g, '\\"').substring(0, 2000)}"
+"${String(text).replace(/"/g, '\\"').substring(0, 2000)}"
 
 Respond with JSON only, no other text.`
                 }]
