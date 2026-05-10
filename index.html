@@ -2431,7 +2431,7 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                 return alert("Please fill in all task fields");
             }
 
-            const modResult = await moderateContent(text, 'comment');
+            const modResult = await moderateContent(`${projectTitle} ${projectDesc} ${subTitle} ${subDesc}`, 'marketplace posting');
             if (!modResult.approved) {
                 return alert(`❌ Post rejected: ${modResult.reason}`);
             }
@@ -3426,10 +3426,6 @@ async function loadTotalFundingReceivedStat() {
         
             if (!confirm(`Delete "${project.title}"?\n\nThis cannot be undone.`)) return;
 
-            const modResult = await moderateContent(`${title} ${desc} ${compensation}`, 'marketplace posting');
-            if (!modResult.approved) {
-                return alert(`❌ Post rejected: ${modResult.reason}`);
-            }
 
             showPaymentPicker(
                 `Delete posting: "${project.title}"`,
@@ -3484,8 +3480,7 @@ async function loadTotalFundingReceivedStat() {
                 }
 
                 // Payment first — Firestore write only on success
-                const contentToCheck = `${storedTitle} ${desc}`;
-                const modResult = await moderateContent(contentToCheck, 'explore post');
+                const modResult = await moderateContent(amount, 'bid');
                 if (!modResult.approved) {
                     return alert(`❌ Post rejected: ${modResult.reason}`);
                 }
@@ -4136,12 +4131,6 @@ async function loadChatList(searchTerm = "") {
                 }
 
                 // Create new chat — charge micro fee
-                const contentToCheck = `${storedTitle} ${desc}`;
-                const modResult = await moderateContent(contentToCheck, 'explore post');
-                if (!modResult.approved) {
-                    return alert(`❌ Post rejected: ${modResult.reason}`);
-                }
-    
                 showPaymentPicker(
                     `Start a chat with @${partnerData.username || partnerData.fullName}`,
                     0.01, 1,
@@ -5678,7 +5667,6 @@ async function submitBountyPosting() {
     const desc = document.getElementById('bounty-desc').value.trim();
     const category = document.getElementById('bounty-category').value;
     const compensation = document.getElementById('bounty-compensation').value.trim();
-    const modResult = await moderateContent(`${title} ${desc} ${compensation}`, 'marketplace posting');
 
     if (!title || !desc || !category || !compensation) return alert("Please fill in all fields");
 
@@ -5695,13 +5683,10 @@ async function submitBountyPosting() {
         }
     }
 
-
-
-    const contentToCheck = `${storedTitle} ${desc}`;
-            const modResult = await moderateContent(contentToCheck, 'explore post');
-            if (!modResult.approved) {
-                return alert(`❌ Post rejected: ${modResult.reason}`);
-            }
+    const modResult = await moderateContent(`${title} ${desc} ${compensation}`, 'marketplace posting');
+    if (!modResult.approved) {
+        return alert(`❌ Post rejected: ${modResult.reason}`);
+    }
 
     showPaymentPicker(
         'Post a Build Request — one-time listing fee',
@@ -5710,7 +5695,6 @@ async function submitBountyPosting() {
             try {
                 const projectSnap = await db.collection("companies").doc(selectedBountyProjectId).get();
                 const project = projectSnap.data();
-
                 await db.collection("subprojects").add({
                     projectId: selectedBountyProjectId,
                     companyId: selectedBountyProjectId,
@@ -5730,7 +5714,6 @@ async function submitBountyPosting() {
                     paymentTxHash: txHash,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
-
                 alert("✅ Build request posted!");
                 hidePostBountyModal();
                 loadMarketplace();
