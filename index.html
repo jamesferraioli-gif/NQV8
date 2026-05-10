@@ -2815,9 +2815,47 @@ function navigateTo(page) {
             }
         }
 
-        async function loadTVLAndAwardedStats() {
+async function loadTVLAndAwardedStats() {
+            try {
+                const snapshot = await db.collection("subprojects").get();
 
+                let tvl = 0;
+                let totalAwarded = 0;
+                const NQV8_PEG_PRICE = 0.01;
 
+                const parseDollarValue = (amountStr, currency) => {
+                    if (!amountStr) return 0;
+                    const num = parseFloat(String(amountStr).replace(/[^0-9.]/g, ''));
+                    if (isNaN(num)) return 0;
+                    if (currency === 'NQV8' || String(amountStr).toUpperCase().includes('NQV8')) {
+                        return num * NQV8_PEG_PRICE;
+                    }
+                    return num;
+                };
+
+                snapshot.forEach(doc => {
+                    const p = doc.data();
+                    if (p.status === 'in-progress' && p.acceptedBid) {
+                        tvl += parseDollarValue(p.acceptedBid.amount || p.compensation, p.compensationType);
+                    }
+                    if (p.status === 'completed' && p.acceptedBid) {
+                        totalAwarded += parseDollarValue(p.acceptedBid.amount || p.compensation, p.compensationType);
+                    }
+                });
+
+                const fmt = (n) => {
+                    if (n >= 1_000_000) return '$' + (n / 1_000_000).toFixed(1) + 'M';
+                    if (n >= 1_000) return '$' + (n / 1_000).toFixed(1) + 'K';
+                    return '$' + n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+                };
+
+                document.getElementById('stat-tvl').textContent = fmt(tvl);
+                document.getElementById('stat-total-awarded').textContent = fmt(totalAwarded);
+
+            } catch(e) {
+                console.error('TVL/awarded stat error:', e);
+            }
+        }
 
 async function loadEquityTradedStat() {
     try {
