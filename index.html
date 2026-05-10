@@ -6190,11 +6190,14 @@ function openGroupChat(chatId, chatData) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ text, contentType })
                 });
-                if (!response.ok) return { approved: true };
+                if (!response.ok) {
+                    console.error('Moderation API error:', response.status);
+                    return { approved: false, reason: 'Moderation service unavailable' };
+                }
                 return await response.json();
             } catch(e) {
-                console.warn('Moderation check failed:', e.message);
-                return { approved: true }; // fail open on network error
+                console.error('Moderation failed:', e.message);
+                return { approved: false, reason: 'Moderation service failed' };
             }
         }
 
