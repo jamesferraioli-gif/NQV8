@@ -6153,7 +6153,7 @@ function openGroupChat(chatId, chatData) {
             const text = document.getElementById('new-comment').value.trim();
             if (!text) return alert("Please write a comment");
 
-            const modResult = await moderateContent(text, 'comment');
+            const modResult = await moderateContent(`${projectTitle} ${projectDesc} ${subTitle} ${subDesc}`, 'marketplace posting');
             if (!modResult.approved) {
                 return alert(`❌ Post rejected: ${modResult.reason}`);
             }
