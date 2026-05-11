@@ -23,24 +23,38 @@ module.exports = async function handler(req, res) {
             },
             body: JSON.stringify({
                 model: "claude-haiku-4-5-20251001",
-                max_tokens: 200,
+                max_tokens: 100,
                 messages: [{
                     role: "user",
-                    content: `You are a content moderator for NQVate, a professional Web3 marketplace. Review this ${contentType} and respond ONLY with valid JSON: {"approved": true} or {"approved": false, "reason": "brief explanation"}. Reject political, racist, sexual, hateful, illegal, or spam content. Approve legitimate business and tech content. Content: "${String(text || '').replace(/"/g, '\\"').substring(0, 2000)}" JSON only.`
+                    content: `You are a content moderator. Respond with JSON only.
+
+IMMEDIATELY REJECT (approved: false) if content contains ANY of:
+- Violence or threats ("kill", "hurt", "attack", "murder", "shoot", "bomb")
+- Illegal drugs ("cocaine", "heroin", "meth", "fentanyl", "buy drugs")
+- Racial slurs or hate speech
+- Sexual content
+- Scams or fraud
+- Political content
+
+APPROVE (approved: true) only for legitimate business, tech, or Web3 content.
+
+Content: "${String(text || '').replace(/"/g, '\\"').substring(0, 500)}"
+
+Respond ONLY with: {"approved": true} or {"approved": false, "reason": "..."}`
                 }]
             })
         });
 
         const data = await response.json();
-        const resultText = data.content?.[0]?.text?.trim() || '{"approved": true}';
+        const resultText = data.content?.[0]?.text?.trim() || '{"approved": false, "reason": "Moderation error"}';
 
         try {
             return res.status(200).json(JSON.parse(resultText));
         } catch {
-            return res.status(200).json({ approved: true });
+            return res.status(200).json({ approved: false, reason: 'Could not parse moderation result' });
         }
 
     } catch(e) {
-        return res.status(200).json({ approved: true });
+        return res.status(200).json({ approved: false, reason: 'Moderation service error' });
     }
 };
