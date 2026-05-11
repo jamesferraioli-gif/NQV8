@@ -6212,7 +6212,7 @@ function openGroupChat(chatId, chatData) {
             try {
                 const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
                 const nqv8ReadOnly = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, arbProvider);
-                const TREASURY_CONTRACT = '0x53D6F52412bdf5f75c9ACA69B926023ED96b152F';
+                const TREASURY_CONTRACT = '0xb14462e147e3a48982095733BBaC4f7CEaF1D112';
                 const FOUNDER_ADDRESS = '0xE2Ac073699147349Fcd35100c6cf99FF14865b64';
 
                 const [treasuryRaw, founderRaw, contractRaw] = await Promise.all([
@@ -6293,7 +6293,7 @@ async function loadTokenomics() {
         
         const FOUNDER_ADDRESS = '0xE2Ac073699147349Fcd35100c6cf99FF14865b64'; // paste founder wallet
         
-        const TREASURY_CONTRACT = '0x53D6F52412bdf5f75c9ACA69B926023ED96b152F';
+        const TREASURY_CONTRACT = '0xb14462e147e3a48982095733BBaC4f7CEaF1D112';
 
         const [treasuryRaw, founderRaw, contractRaw] = await Promise.all([
             nqv8ReadOnly.balanceOf(TREASURY_ADDRESS),
@@ -6380,7 +6380,7 @@ async function buyNQV8() {
     if (!connectedAddress) return alert("Please connect your wallet first");
 
     try {
-        const TREASURY_CONTRACT = '0x53D6F52412bdf5f75c9ACA69B926023ED96b152F';
+        const TREASURY_CONTRACT = '0xb14462e147e3a48982095733BBaC4f7CEaF1D112';
         
         const TREASURY_ABI = [
             "function buyNQV8(uint256 usdcAmount) external"
