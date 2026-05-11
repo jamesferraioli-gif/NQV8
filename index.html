@@ -6318,6 +6318,7 @@ async function updateBuyPreview() {
 async function buyNQV8() {
     const amount = parseFloat(document.getElementById('buy-amount-input').value);
     if (!amount || amount <= 0) return alert("Please enter an amount");
+    if (amount < 1.00) return alert("Minimum purchase is $1.00 USDC (100 NQV8)");
     if (!connectedAddress) return alert("Please connect your wallet first");
 
     try {
@@ -6392,11 +6393,11 @@ async function buyNQV8() {
     <div id="buy-nqv8-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
         <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-8">
             <h2 class="text-3xl font-bold mb-6">Buy NQV8 from Treasury</h2>
-            <p class="text-zinc-400 mb-6">Pay with USDC • Receive NQV8 at $0.01 peg</p>
+            <p class="text-zinc-400 mb-6">Pay with USDC • Receive NQV8 at $0.01 peg • Minimum $1.00</p>
             
             <div class="mb-6">
                 <label class="block text-sm text-zinc-400 mb-2">Amount in USDC</label>
-                <input id="buy-amount-input" type="number" step="0.01" min="1" 
+                <input id="buy-amount-input" type="number" step="1" min="1"
                        oninput="updateBuyPreview()" 
                        class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-4 text-3xl outline-none">
             </div>
