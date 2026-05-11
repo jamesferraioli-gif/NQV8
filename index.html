@@ -6218,15 +6218,20 @@ async function loadTokenomics() {
         
         const FOUNDER_ADDRESS = '0xE2Ac073699147349Fcd35100c6cf99FF14865b64'; // paste founder wallet
         
-        const [treasuryRaw, founderRaw] = await Promise.all([
+        const TREASURY_CONTRACT = '0x53D6F52412bdf5f75c9ACA69B926023ED96b152F';
+
+        const [treasuryRaw, founderRaw, contractRaw] = await Promise.all([
             nqv8ReadOnly.balanceOf(TREASURY_ADDRESS),
-            nqv8ReadOnly.balanceOf(FOUNDER_ADDRESS)
+            nqv8ReadOnly.balanceOf(FOUNDER_ADDRESS),
+            nqv8ReadOnly.balanceOf(TREASURY_CONTRACT)
         ]);
         
         const treasuryBal = parseFloat(ethers.utils.formatUnits(treasuryRaw, 18));
         const founderBal = parseFloat(ethers.utils.formatUnits(founderRaw, 18));
+        const contractBal = parseFloat(ethers.utils.formatUnits(contractRaw, 18));
         const totalSupply = 1_000_000_000;
-        const circulating = totalSupply - treasuryBal - founderBal;
+        // Circulating = total minus everything not yet in user hands
+        const circulating = totalSupply - treasuryBal - founderBal - contractBal;
         
         if (circulatingEl) circulatingEl.textContent = Math.round(circulating).toLocaleString();
         
