@@ -1,25 +1,18 @@
-export const config = {
-    runtime: 'edge',
-};
+module.exports = async function handler(req, res) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-export default async function handler(req) {
     if (req.method === 'OPTIONS') {
-        return new Response(null, {
-            status: 200,
-            headers: {
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Methods': 'POST, OPTIONS',
-                'Access-Control-Allow-Headers': 'Content-Type',
-            }
-        });
+        return res.status(200).end();
     }
 
     if (req.method !== 'POST') {
-        return new Response('Method not allowed', { status: 405 });
+        return res.status(405).json({ error: 'Method not allowed' });
     }
 
     try {
-        const { text, contentType } = await req.json();
+        const { text, contentType } = req.body;
 
         const response = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
@@ -33,17 +26,7 @@ export default async function handler(req) {
                 max_tokens: 200,
                 messages: [{
                     role: "user",
-                    content: `You are a content moderator for NQVate, a professional Web3 marketplace.
-
-Review this ${contentType} and respond ONLY with valid JSON:
-{"approved": true} or {"approved": false, "reason": "brief explanation"}
-
-Reject: political, racist, sexual, hateful, illegal, spam content.
-Approve: legitimate business, tech, Web3 content.
-
-Content: "${String(text).replace(/"/g, '\\"').substring(0, 2000)}"
-
-JSON only, no other text.`
+                    content: `You are a content moderator for NQVate, a professional Web3 marketplace. Review this ${contentType} and respond ONLY with valid JSON: {"approved": true} or {"approved": false, "reason": "brief explanation"}. Reject political, racist, sexual, hateful, illegal, or spam content. Approve legitimate business and tech content. Content: "${String(text || '').replace(/"/g, '\\"').substring(0, 2000)}" JSON only.`
                 }]
             })
         });
@@ -51,21 +34,13 @@ JSON only, no other text.`
         const data = await response.json();
         const resultText = data.content?.[0]?.text?.trim() || '{"approved": true}';
 
-        return new Response(JSON.stringify(JSON.parse(resultText)), {
-            status: 200,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-            }
-        });
+        try {
+            return res.status(200).json(JSON.parse(resultText));
+        } catch {
+            return res.status(200).json({ approved: true });
+        }
 
     } catch(e) {
-        return new Response(JSON.stringify({ approved: true }), {
-            status: 200,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-            }
-        });
+        return res.status(200).json({ approved: true });
     }
-}
+};
