@@ -795,6 +795,21 @@
                     <p id="profile-email" class="text-zinc-400"></p>
                     <p id="profile-bio" class="mt-6 text-zinc-300 leading-relaxed"></p>
 
+
+<!-- NQV8 Claim Bonus Banner -->
+<div id="claim-bonus-banner" class="hidden bg-cyan-500/10 border border-cyan-500/30 rounded-2xl p-5 mb-6">
+    <div class="flex justify-between items-center">
+        <div>
+            <p class="text-cyan-400 font-semibold">🎁 1,000 NQV8 Bonus Ready to Claim</p>
+            <p class="text-zinc-400 text-sm mt-1">Claim your signup bonus to your wallet. Small gas fee applies (~$0.30).</p>
+        </div>
+        <button onclick="claimSignupBonus()" 
+                class="px-6 py-3 bg-cyan-500 text-black font-semibold rounded-2xl hover:bg-cyan-400 whitespace-nowrap ml-4">
+            Claim Now
+        </button>
+    </div>
+</div>
+                    
 <!-- Wallet Balances -->
                     <div class="mt-8 bg-black/50 rounded-2xl p-6">
                         <div class="flex justify-between items-center mb-4">
@@ -2739,79 +2754,67 @@ function navigateTo(page) {
             tabLogin.classList.toggle('text-zinc-400', tab !== 1);
         }
 
-        async function createProfile() {
-            const firstName = document.getElementById('first-name').value.trim();
-            const lastName = document.getElementById('last-name').value.trim();
-            const username = document.getElementById('create-username').value.trim().toLowerCase();
-            const email = document.getElementById('create-email').value.trim();
-            const password = document.getElementById('create-password').value;
+async function createProfile() {
+    const firstName = document.getElementById('first-name').value.trim();
+    const lastName = document.getElementById('last-name').value.trim();
+    const username = document.getElementById('create-username').value.trim().toLowerCase();
+    const email = document.getElementById('create-email').value.trim();
+    const password = document.getElementById('create-password').value;
 
-            if (!firstName || !lastName || !username || !email || !password) {
-                alert("Please fill in all fields");
-                return;
-            }
-            if (password.length < 6) {
-                alert("Password must be at least 6 characters");
-                return;
-            }
+    if (!firstName || !lastName || !username || !email || !password) {
+        alert("Please fill in all fields");
+        return;
+    }
+    if (password.length < 6) {
+        alert("Password must be at least 6 characters");
+        return;
+    }
+    if (!walletConnected) {
+        alert("❌ You must connect a wallet to create an account.");
+        return;
+    }
 
-            if (!walletConnected) {
-                alert("❌ You must connect a wallet to create an account.");
-                return;
-            }
-
-            try {
-                // ✅ Block duplicate wallet signups
-                if (connectedAddress) {
-                    const existingWallet = await db.collection("users")
-                        .where("walletAddress", "==", connectedAddress.toLowerCase())
-                        .limit(1)
-                        .get();
-                    if (!existingWallet.empty) {
-                        return alert("❌ This wallet is already linked to an existing account. Each wallet can only receive the signup bonus once.");
-                    }
-                }
-
-                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-                const user = userCredential.user;
-
-                // Send 1,000 NQV8 on-chain from treasury to new user
-                let signupTxHash = null;
-                if (connectedAddress && NQV8_TOKEN_ADDRESS !== 'YOUR_NQV8_CONTRACT_ADDRESS') {
-                    try {
-                        signupTxHash = await sendNQV8(connectedAddress, 1000);
-                    } catch (txErr) {
-                        console.warn('NQV8 signup transfer failed:', txErr.message);
-                    }
-                }
-
-                const userData = {
-                    uid: user.uid,
-                    firstName,
-                    lastName,
-                    fullName: `${firstName} ${lastName}`,
-                    username,
-                    email: user.email,
-                    walletAddress: connectedAddress ? connectedAddress.toLowerCase() : null,
-                    nqv8Balance: 1000,
-                    totalNQV8Earned: 1000,
-                    signupBonusClaimed: true,
-                    signupBonusTxHash: signupTxHash,
-                    walletConnected: true,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                };
-
-                await db.collection("users").doc(user.uid).set(userData);
-
-                currentUser = userData;
-                finishLogin();
-                alert("✅ Account created! 1,000 NQV8 bonus sent to your wallet.");
-            } catch (error) {
-                console.error(error);
-                alert(error.message);
+    try {
+        // Block duplicate wallet signups
+        if (connectedAddress) {
+            const existingWallet = await db.collection("users")
+                .where("walletAddress", "==", connectedAddress.toLowerCase())
+                .limit(1)
+                .get();
+            if (!existingWallet.empty) {
+                return alert("❌ This wallet is already linked to an existing account. Each wallet can only receive the signup bonus once.");
             }
         }
 
+        const userCredential = await auth.createUserWithEmailAndPassword(email, password);
+        const user = userCredential.user;
+
+        const userData = {
+            uid: user.uid,
+            firstName,
+            lastName,
+            fullName: `${firstName} ${lastName}`,
+            username,
+            email: user.email,
+            walletAddress: connectedAddress ? connectedAddress.toLowerCase() : null,
+            nqv8Balance: 0,
+            totalNQV8Earned: 0,
+            pendingNQV8Bonus: 1000,
+            signupBonusClaimed: false,
+            walletConnected: true,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        await db.collection("users").doc(user.uid).set(userData);
+        currentUser = userData;
+        finishLogin();
+        alert("✅ Account created! You have 1,000 NQV8 ready to claim from your profile.");
+
+    } catch (error) {
+        console.error(error);
+        alert(error.message);
+    }
+}
         async function loginWithEmail() {
             const email = document.getElementById('login-email').value.trim();
             const password = document.getElementById('login-password').value;
@@ -4505,6 +4508,15 @@ async function loadChatList(searchTerm = "") {
                     document.getElementById('profile-usdc-balance').textContent = 'Connect wallet to view';
                 }
                 document.getElementById('profile-total-earnings').textContent = (currentUser.totalNQV8Earned || "0") + " NQV8";
+                // Show claim bonus banner if unclaimed
+                const claimBanner = document.getElementById('claim-bonus-banner');
+                if (claimBanner) {
+                    if (currentUser.pendingNQV8Bonus > 0 && !currentUser.signupBonusClaimed) {
+                        claimBanner.classList.remove('hidden');
+                    } else {
+                        claimBanner.classList.add('hidden');
+                    }
+                }
                                                 
 
             } catch (e) {
@@ -6182,6 +6194,42 @@ function openGroupChat(chatId, chatData) {
             );
         }
 
+async function claimSignupBonus() {
+            if (!currentUser) return alert("Please log in first");
+            if (!connectedAddress) return alert("Please connect your wallet first");
+
+            const userDoc = await db.collection("users").doc(currentUser.uid).get();
+            const userData = userDoc.data();
+
+            if (!userData.pendingNQV8Bonus || userData.pendingNQV8Bonus <= 0) {
+                return alert("No pending bonus to claim");
+            }
+            if (userData.signupBonusClaimed) {
+                return alert("Bonus already claimed");
+            }
+
+            try {
+                const txHash = await sendNQV8(connectedAddress, userData.pendingNQV8Bonus);
+
+                await db.collection("users").doc(currentUser.uid).update({
+                    signupBonusClaimed: true,
+                    signupBonusTxHash: txHash,
+                    nqv8Balance: userData.pendingNQV8Bonus,
+                    totalNQV8Earned: userData.pendingNQV8Bonus,
+                    pendingNQV8Bonus: 0,
+                    claimedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                currentUser.signupBonusClaimed = true;
+                currentUser.pendingNQV8Bonus = 0;
+
+                alert(`✅ 1,000 NQV8 claimed successfully!\nTx: ${txHash}`);
+                loadProfileData();
+                refreshOnChainBalances();
+            } catch(e) {
+                alert("Claim failed: " + e.message);
+            }
+        }
 // ====================== CONTENT MODERATION ======================
     async function moderateContent(text, contentType = 'post') {
             try {
