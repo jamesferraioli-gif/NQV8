@@ -6297,22 +6297,20 @@ async function updateBuyPreview() {
     }
 
     try {
-        if (signer) {
-            const TREASURY_CONTRACT = '0x53D6F52412bdf5f75c9ACA69B926023ED96b152F';
-            const TREASURY_ABI = [
-                "function previewBuy(uint256 usdcAmount) external view returns (uint256)"
-            ];
-            const treasuryContract = new ethers.Contract(TREASURY_CONTRACT, TREASURY_ABI, signer);
-            const usdcAmountRaw = ethers.utils.parseUnits(String(input), 6);
-            const nqv8Preview = await treasuryContract.previewBuy(usdcAmountRaw);
-            const nqv8Amount = parseFloat(ethers.utils.formatUnits(nqv8Preview, 18));
-            document.getElementById('buy-nqv8-receive').textContent = Math.floor(nqv8Amount).toLocaleString();
-        } else {
-            // Fallback to static calculation at $0.01 peg
-            document.getElementById('buy-nqv8-receive').textContent = Math.floor(input * 100).toLocaleString();
-        }
+        const TREASURY_CONTRACT = '0x53D6F52412bdf5f75c9ACA69B926023ED96b152F';
+        const TREASURY_ABI = [
+            "function previewBuy(uint256 usdcAmount) external view returns (uint256)"
+        ];
+        
+        // Use read-only provider — doesn't need wallet connected
+        const readProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const treasuryContract = new ethers.Contract(TREASURY_CONTRACT, TREASURY_ABI, readProvider);
+        const usdcAmountRaw = ethers.utils.parseUnits(String(input), 6);
+        const nqv8Preview = await treasuryContract.previewBuy(usdcAmountRaw);
+        const nqv8Amount = parseFloat(ethers.utils.formatUnits(nqv8Preview, 18));
+        document.getElementById('buy-nqv8-receive').textContent = Math.floor(nqv8Amount).toLocaleString();
     } catch(e) {
-        // Fallback
+        // Fallback to static $0.01 peg calculation
         document.getElementById('buy-nqv8-receive').textContent = Math.floor(input * 100).toLocaleString();
     }
 }
@@ -6333,11 +6331,13 @@ async function buyNQV8() {
             "function pegEnded() external view returns (bool)"
         ];
 
+        const readProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const treasuryContractRead = new ethers.Contract(TREASURY_CONTRACT, TREASURY_ABI, readProvider);
         const treasuryContract = new ethers.Contract(TREASURY_CONTRACT, TREASURY_ABI, signer);
 
         // Preview how much NQV8 they'll get
         const usdcAmountRaw = ethers.utils.parseUnits(String(amount), 6);
-        const nqv8Preview = await treasuryContract.previewBuy(usdcAmountRaw);
+        const nqv8Preview = await treasuryContractRead.previewBuy(usdcAmountRaw);
         const nqv8Amount = parseFloat(ethers.utils.formatUnits(nqv8Preview, 18));
 
         // Check USDC balance
