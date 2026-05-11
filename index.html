@@ -6288,21 +6288,98 @@ function hideBuyNQV8Modal() {
     document.getElementById('buy-nqv8-modal').classList.add('hidden');
 }
 
-function updateBuyPreview() {
+async function updateBuyPreview() {
     const input = parseFloat(document.getElementById('buy-amount-input').value) || 0;
-    const nqv8Amount = Math.floor(input * 100);
-    document.getElementById('buy-nqv8-receive').textContent = nqv8Amount.toLocaleString();
+    
+    if (!input || input <= 0) {
+        document.getElementById('buy-nqv8-receive').textContent = '0';
+        return;
+    }
+
+    try {
+        if (signer) {
+            const TREASURY_CONTRACT = '0x53D6F52412bdf5f75c9ACA69B926023ED96b152F';
+            const TREASURY_ABI = [
+                "function previewBuy(uint256 usdcAmount) external view returns (uint256)"
+            ];
+            const treasuryContract = new ethers.Contract(TREASURY_CONTRACT, TREASURY_ABI, signer);
+            const usdcAmountRaw = ethers.utils.parseUnits(String(input), 6);
+            const nqv8Preview = await treasuryContract.previewBuy(usdcAmountRaw);
+            const nqv8Amount = parseFloat(ethers.utils.formatUnits(nqv8Preview, 18));
+            document.getElementById('buy-nqv8-receive').textContent = Math.floor(nqv8Amount).toLocaleString();
+        } else {
+            // Fallback to static calculation at $0.01 peg
+            document.getElementById('buy-nqv8-receive').textContent = Math.floor(input * 100).toLocaleString();
+        }
+    } catch(e) {
+        // Fallback
+        document.getElementById('buy-nqv8-receive').textContent = Math.floor(input * 100).toLocaleString();
+    }
 }
 
 async function buyNQV8() {
     const amount = parseFloat(document.getElementById('buy-amount-input').value);
     if (!amount || amount <= 0) return alert("Please enter an amount");
+    if (!connectedAddress) return alert("Please connect your wallet first");
 
     try {
-        alert(`✅ Simulated purchase: $${amount} USDC → ${Math.floor(amount * 100)} NQV8\n\n(In production this will call the treasury contract on Arbitrum)`);
+        // Treasury contract address
+        const TREASURY_CONTRACT = '0x53D6F52412bdf5f75c9ACA69B926023ED96b152F';
+        
+        const TREASURY_ABI = [
+            "function buyNQV8(uint256 usdcAmount) external",
+            "function previewBuy(uint256 usdcAmount) external view returns (uint256)",
+            "function currentPrice() external view returns (uint256)",
+            "function pegEnded() external view returns (bool)"
+        ];
+
+        const treasuryContract = new ethers.Contract(TREASURY_CONTRACT, TREASURY_ABI, signer);
+
+        // Preview how much NQV8 they'll get
+        const usdcAmountRaw = ethers.utils.parseUnits(String(amount), 6);
+        const nqv8Preview = await treasuryContract.previewBuy(usdcAmountRaw);
+        const nqv8Amount = parseFloat(ethers.utils.formatUnits(nqv8Preview, 18));
+
+        // Check USDC balance
+        const usdcRaw = await usdcContract.balanceOf(connectedAddress);
+        const usdcBal = parseFloat(ethers.utils.formatUnits(usdcRaw, 6));
+        if (usdcBal < amount) {
+            return alert(`❌ Insufficient USDC. You have $${usdcBal.toFixed(2)} but need $${amount.toFixed(2)}.`);
+        }
+
+        // Check USDC allowance — user must approve treasury contract to spend their USDC
+        const allowanceRaw = await usdcContract.allowance(connectedAddress, TREASURY_CONTRACT);
+        const allowance = parseFloat(ethers.utils.formatUnits(allowanceRaw, 6));
+
+        const btn = document.querySelector('#buy-nqv8-modal button[onclick="buyNQV8()"]');
+        if (btn) { btn.textContent = '⏳ Approving USDC...'; btn.disabled = true; }
+
+        if (allowance < amount) {
+            // Approve treasury contract to spend USDC
+            const approveTx = await usdcContract.approve(
+                TREASURY_CONTRACT,
+                ethers.utils.parseUnits(String(amount), 6)
+            );
+            await approveTx.wait();
+        }
+
+        if (btn) btn.textContent = '⏳ Confirm purchase in wallet...';
+
+        // Call buyNQV8 on the contract
+        const buyTx = await treasuryContract.buyNQV8(usdcAmountRaw);
+        await buyTx.wait();
+
+        if (btn) { btn.textContent = 'Confirm Purchase'; btn.disabled = false; }
+
         hideBuyNQV8Modal();
+        alert(`✅ Purchase complete!\n\nSent: $${amount} USDC\nReceived: ${nqv8Amount.toLocaleString()} NQV8\nTx: ${buyTx.hash}`);
+        
         loadTokenomics();
-    } catch (e) {
+        refreshOnChainBalances();
+
+    } catch(e) {
+        const btn = document.querySelector('#buy-nqv8-modal button[onclick="buyNQV8()"]');
+        if (btn) { btn.textContent = 'Confirm Purchase'; btn.disabled = false; }
         alert("Transaction failed: " + e.message);
     }
 }
