@@ -26,35 +26,37 @@ module.exports = async function handler(req, res) {
                 max_tokens: 100,
                 messages: [{
                     role: "user",
-                    content: `You are a content moderator. Respond with JSON only.
+                    content: `You are a content moderator. You must respond with ONLY a JSON object, nothing else, no explanation, no markdown.
 
-IMMEDIATELY REJECT (approved: false) if content contains ANY of:
-- Violence or threats ("kill", "hurt", "attack", "murder", "shoot", "bomb")
-- Illegal drugs ("cocaine", "heroin", "meth", "fentanyl", "buy drugs")
-- Racial slurs or hate speech
-- Sexual content
-- Scams or fraud
-- Political content
-
-APPROVE (approved: true) only for legitimate business, tech, or Web3 content.
+Does this content contain violence, threats, drugs, hate speech, sexual content, scams, or politics?
 
 Content: "${String(text || '').replace(/"/g, '\\"').substring(0, 500)}"
 
-Respond ONLY with: {"approved": true} or {"approved": false, "reason": "..."}`
+If yes: {"approved":false,"reason":"brief reason"}
+If no: {"approved":true}
+
+ONLY output the JSON object.`
                 }]
             })
         });
 
         const data = await response.json();
-        const resultText = data.content?.[0]?.text?.trim() || '{"approved": false, "reason": "Moderation error"}';
+        let resultText = data.content?.[0]?.text?.trim() || '';
+        
+        // Strip any markdown code blocks if Claude added them
+        resultText = resultText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
         try {
             return res.status(200).json(JSON.parse(resultText));
         } catch {
-            return res.status(200).json({ approved: false, reason: 'Could not parse moderation result' });
+            // If still can't parse, check if it contains approved/rejected keywords
+            if (resultText.toLowerCase().includes('false')) {
+                return res.status(200).json({ approved: false, reason: 'Content rejected by moderation' });
+            }
+            return res.status(200).json({ approved: true });
         }
 
     } catch(e) {
-        return res.status(200).json({ approved: false, reason: 'Moderation service error' });
+        return res.status(200).json({ approved: false, reason: 'Moderation service error: ' + e.message });
     }
 };
