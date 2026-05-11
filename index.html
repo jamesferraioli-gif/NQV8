@@ -1149,7 +1149,7 @@
             <div class="text-emerald-400 text-xs font-semibold uppercase tracking-wider mb-3">Circulating Supply</div>
             <div id="circulating-supply" class="text-4xl font-bold mb-1">10,000,000</div>
             <div class="text-zinc-400 text-sm">NQV8</div>
-            <p class="text-xs text-emerald-400 mt-5">1,000 NQV8 airdrop to new users (until 10,000 users)</p>
+            <p class="text-xs text-emerald-400 mt-5">1,000 NQV8 claimable bonus for new users (until 10M circulating)</p>
         </div>
 
         <div class="bg-zinc-900 rounded-3xl p-6" id="peg-status">
@@ -6194,7 +6194,7 @@ function openGroupChat(chatId, chatData) {
             );
         }
 
-async function claimSignupBonus() {
+        async function claimSignupBonus() {
             if (!currentUser) return alert("Please log in first");
             if (!connectedAddress) return alert("Please connect your wallet first");
 
@@ -6206,6 +6206,32 @@ async function claimSignupBonus() {
             }
             if (userData.signupBonusClaimed) {
                 return alert("Bonus already claimed");
+            }
+
+            // Check if 10M circulating supply cap has been reached
+            try {
+                const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+                const nqv8ReadOnly = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, arbProvider);
+                const TREASURY_CONTRACT = '0x53D6F52412bdf5f75c9ACA69B926023ED96b152F';
+                const FOUNDER_ADDRESS = '0xE2Ac073699147349Fcd35100c6cf99FF14865b64';
+
+                const [treasuryRaw, founderRaw, contractRaw] = await Promise.all([
+                    nqv8ReadOnly.balanceOf(TREASURY_ADDRESS),
+                    nqv8ReadOnly.balanceOf(FOUNDER_ADDRESS),
+                    nqv8ReadOnly.balanceOf(TREASURY_CONTRACT)
+                ]);
+
+                const treasuryBal = parseFloat(ethers.utils.formatUnits(treasuryRaw, 18));
+                const founderBal = parseFloat(ethers.utils.formatUnits(founderRaw, 18));
+                const contractBal = parseFloat(ethers.utils.formatUnits(contractRaw, 18));
+                const circulating = 1_000_000_000 - treasuryBal - founderBal - contractBal;
+
+                if (circulating >= 10_000_000) {
+                    return alert("❌ The 10,000,000 NQV8 signup bonus program has ended. The peg period is complete.");
+                }
+            } catch(e) {
+                console.warn('Could not verify circulating supply cap:', e.message);
+                // Continue anyway if the check fails — don't block legitimate claims
             }
 
             try {
@@ -6230,7 +6256,8 @@ async function claimSignupBonus() {
                 alert("Claim failed: " + e.message);
             }
         }
-// ====================== CONTENT MODERATION ======================
+    
+    // ====================== CONTENT MODERATION ======================
     async function moderateContent(text, contentType = 'post') {
             try {
                 const response = await fetch('/api/moderate', {
