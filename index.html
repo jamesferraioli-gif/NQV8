@@ -6288,33 +6288,11 @@ function hideBuyNQV8Modal() {
     document.getElementById('buy-nqv8-modal').classList.add('hidden');
 }
 
-async function updateBuyPreview() {
+function updateBuyPreview() {
     const input = parseFloat(document.getElementById('buy-amount-input').value) || 0;
-    
-    if (!input || input <= 0) {
-        document.getElementById('buy-nqv8-receive').textContent = '0';
-        return;
-    }
-
-    try {
-        const TREASURY_CONTRACT = '0x53D6F52412bdf5f75c9ACA69B926023ED96b152F';
-        const TREASURY_ABI = [
-            "function previewBuy(uint256 usdcAmount) external view returns (uint256)"
-        ];
-        
-        // Use read-only provider — doesn't need wallet connected
-        const readProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
-        const treasuryContract = new ethers.Contract(TREASURY_CONTRACT, TREASURY_ABI, readProvider);
-        const usdcAmountRaw = ethers.utils.parseUnits(String(input), 6);
-        const nqv8Preview = await treasuryContract.previewBuy(usdcAmountRaw);
-        const nqv8Amount = parseFloat(ethers.utils.formatUnits(nqv8Preview, 18));
-        document.getElementById('buy-nqv8-receive').textContent = Math.floor(nqv8Amount).toLocaleString();
-    } catch(e) {
-        // Fallback to static $0.01 peg calculation
-        document.getElementById('buy-nqv8-receive').textContent = Math.floor(input * 100).toLocaleString();
-    }
+    document.getElementById('buy-nqv8-receive').textContent = Math.floor(input * 100).toLocaleString();
 }
-
+    
 async function buyNQV8() {
     const amount = parseFloat(document.getElementById('buy-amount-input').value);
     if (!amount || amount <= 0) return alert("Please enter an amount");
@@ -6322,24 +6300,17 @@ async function buyNQV8() {
     if (!connectedAddress) return alert("Please connect your wallet first");
 
     try {
-        // Treasury contract address
         const TREASURY_CONTRACT = '0x53D6F52412bdf5f75c9ACA69B926023ED96b152F';
         
         const TREASURY_ABI = [
-            "function buyNQV8(uint256 usdcAmount) external",
-            "function previewBuy(uint256 usdcAmount) external view returns (uint256)",
-            "function currentPrice() external view returns (uint256)",
-            "function pegEnded() external view returns (bool)"
+            "function buyNQV8(uint256 usdcAmount) external"
         ];
 
-        const readProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
-        const treasuryContractRead = new ethers.Contract(TREASURY_CONTRACT, TREASURY_ABI, readProvider);
         const treasuryContract = new ethers.Contract(TREASURY_CONTRACT, TREASURY_ABI, signer);
 
-        // Preview how much NQV8 they'll get
+        // Calculate locally at $0.01 peg — 100 NQV8 per $1 USDC
+        const nqv8Amount = Math.floor(amount * 100);
         const usdcAmountRaw = ethers.utils.parseUnits(String(amount), 6);
-        const nqv8Preview = await treasuryContractRead.previewBuy(usdcAmountRaw);
-        const nqv8Amount = parseFloat(ethers.utils.formatUnits(nqv8Preview, 18));
 
         // Check USDC balance
         const usdcRaw = await usdcContract.balanceOf(connectedAddress);
@@ -6348,15 +6319,14 @@ async function buyNQV8() {
             return alert(`❌ Insufficient USDC. You have $${usdcBal.toFixed(2)} but need $${amount.toFixed(2)}.`);
         }
 
-        // Check USDC allowance — user must approve treasury contract to spend their USDC
-        const allowanceRaw = await usdcContract.allowance(connectedAddress, TREASURY_CONTRACT);
-        const allowance = parseFloat(ethers.utils.formatUnits(allowanceRaw, 6));
-
         const btn = document.querySelector('#buy-nqv8-modal button[onclick="buyNQV8()"]');
         if (btn) { btn.textContent = '⏳ Approving USDC...'; btn.disabled = true; }
 
+        // Check and set USDC allowance
+        const allowanceRaw = await usdcContract.allowance(connectedAddress, TREASURY_CONTRACT);
+        const allowance = parseFloat(ethers.utils.formatUnits(allowanceRaw, 6));
+
         if (allowance < amount) {
-            // Approve treasury contract to spend USDC
             const approveTx = await usdcContract.approve(
                 TREASURY_CONTRACT,
                 ethers.utils.parseUnits(String(amount), 6)
@@ -6366,7 +6336,7 @@ async function buyNQV8() {
 
         if (btn) btn.textContent = '⏳ Confirm purchase in wallet...';
 
-        // Call buyNQV8 on the contract
+        // Call buyNQV8 on contract
         const buyTx = await treasuryContract.buyNQV8(usdcAmountRaw);
         await buyTx.wait();
 
@@ -6384,7 +6354,7 @@ async function buyNQV8() {
         alert("Transaction failed: " + e.message);
     }
 }
-
+    
 // Make sure navigateTo knows about tokenomics page
 // (add this line inside your existing navigateTo function if it already exists)
     </script>    
