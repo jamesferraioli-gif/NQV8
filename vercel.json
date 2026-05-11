@@ -1,9 +1,27 @@
 {
     "version": 2,
-    "rewrites": [
+    "builds": [
         {
-            "source": "/((?!api/).*)",
-            "destination": "/index.html"
+            "src": "*.html",
+            "use": "@vercel/static"
+        },
+        {
+            "src": "api/*.js",
+            "use": "@vercel/node"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/api/(.*)",
+            "dest": "/api/$1"
+        },
+        {
+            "src": "/admin.html",
+            "dest": "/admin.html"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/index.html"
         }
     ]
 }
