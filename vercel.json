@@ -20,6 +20,10 @@
             "dest": "/api/verify-docs.js"
         },
         {
+            "src": "/api/improve-posting",
+            "dest": "/api/improve-posting.js"
+        },
+        {
             "src": "/admin.html",
             "dest": "/admin.html"
         },
