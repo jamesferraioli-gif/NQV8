@@ -24,6 +24,10 @@
             "dest": "/api/improve-posting.js"
         },
         {
+            "src": "/api/review-submission(.*)",
+            "dest": "/api/review-submission.js"
+        },
+        {
             "src": "/admin.html",
             "dest": "/admin.html"
         },
