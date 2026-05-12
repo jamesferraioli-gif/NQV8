@@ -3740,6 +3740,40 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
 
             if (!desc) return alert("Please provide a description or agreement text");
 
+            // Claude scope review — only for build bounties, not funding agreements
+            if (currentSubmitProjectType !== 'fund') {
+                const reviewBtn = document.querySelector('#submit-work-modal button[onclick="submitWork()"]');
+                if (reviewBtn) { reviewBtn.textContent = '⏳ Reviewing scope...'; reviewBtn.disabled = true; }
+
+                try {
+                    const reviewResponse = await fetch('/api/review-submission', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            projectTitle: currentProject?.title || '',
+                            projectDescription: currentProject?.description || '',
+                            acceptedBidAmount: currentProject?.acceptedBid?.amount || '',
+                            submissionDescription: desc,
+                            submissionLink: link || ''
+                        })
+                    });
+
+                    if (reviewResponse.ok) {
+                        const review = await reviewResponse.json();
+                        if (reviewBtn) { reviewBtn.textContent = 'Submit'; reviewBtn.disabled = false; }
+
+                        const proceed = confirm(`✨ Claude Scope Review\n\n${review.summary}\n\n${
+                            review.missingItems.length > 0 ? 'Potentially missing:\n• ' + review.missingItems.join('\n• ') + '\n\n' : ''
+                        }Recommendation: ${review.recommendation.replace('_', ' ').toUpperCase()}\n\nDo you want to submit anyway?`);
+
+                        if (!proceed) return;
+                    }
+                } catch (e) {
+                    console.warn('Scope review failed:', e.message);
+                    if (reviewBtn) { reviewBtn.textContent = 'Submit'; reviewBtn.disabled = false; }
+                }
+            }
+
             try {
                 const projectRef = db.collection("projects").doc(currentSubmitProjectId);
                 let fileUrls = [];
