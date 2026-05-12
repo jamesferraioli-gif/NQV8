@@ -1366,14 +1366,14 @@
         let currentMarketplaceFilter = 'build'; // default to Build Requests
 
 
-        // ============================================================
+// ============================================================
 // BLOCKCHAIN CONFIG — Arbitrum One
 // ============================================================
 const ARBITRUM_CHAIN_ID = 42161;
 const ARBITRUM_CHAIN_HEX = '0xa4b1';
 const ARBITRUM_RPC = 'https://arb1.arbitrum.io/rpc';
 
-// NQV8 Token contract — deploy this first, then paste address here
+// NQV8 Token contract (ERC-20)
 const NQV8_TOKEN_ADDRESS = '0x02b3EF81d6577507114BB26F91F1a8d0A7bB1B67';
 const NQV8_DECIMALS = 18;
 
@@ -1381,10 +1381,16 @@ const NQV8_DECIMALS = 18;
 const USDC_ADDRESS = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
 const USDC_DECIMALS = 6;
 
-// Treasury wallet — the NQV8 protocol wallet that holds initial supply
+// NQV8Treasury smart contract — deployed on Arbitrum One
+const TREASURY_CONTRACT_ADDRESS = '0x75dB1b0a363a6994e4e502Cf201e23B1D93582D8';
+
+// Operations wallet — receives protocol fees (posting fees, micro fees)
 const TREASURY_ADDRESS = '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D';
-    
-// Minimal ERC-20 ABI (transfer, balanceOf, approve, allowance)
+
+// Founder wallet
+const FOUNDER_ADDRESS = '0x0A6090b655A9eB73f85449609eB2336e76d64c47';
+
+// Minimal ERC-20 ABI
 const ERC20_ABI = [
     "function balanceOf(address owner) view returns (uint256)",
     "function transfer(address to, uint256 amount) returns (bool)",
@@ -1392,6 +1398,23 @@ const ERC20_ABI = [
     "function allowance(address owner, address spender) view returns (uint256)",
     "function decimals() view returns (uint8)",
     "event Transfer(address indexed from, address indexed to, uint256 value)"
+];
+
+// NQV8Treasury contract ABI — matches deployed NQV8Treasury.sol exactly
+const TREASURY_ABI = [
+    "function buyNQV8(uint256 usdcAmount) external",
+    "function previewBuy(uint256 usdcAmount) external view returns (uint256)",
+    "function currentPrice() public view returns (uint256)",
+    "function circulatingSupply() external view returns (uint256)",
+    "function totalNQV8Sold() external view returns (uint256)",
+    "function pegEnded() external view returns (bool)",
+    "function claimSignupBonus() external",
+    "function hasClaimedBonus(address wallet) external view returns (bool)",
+    "function founderRemainingAllowance() external view returns (uint256)",
+    "function founderWindowResets() external view returns (uint256)",
+    "event NQV8Purchased(address indexed buyer, uint256 usdcPaid, uint256 nqv8Received, uint256 price)",
+    "event BonusClaimed(address indexed recipient, uint256 amount)",
+    "event PegEnded(uint256 timestamp)"
 ];
 
 // ---- Wallet state ----
@@ -6227,68 +6250,79 @@ function openGroupChat(chatId, chatData) {
             );
         }
 
-        async function claimSignupBonus() {
-            if (!currentUser) return alert("Please log in first");
-            if (!connectedAddress) return alert("Please connect your wallet first");
+async function claimSignupBonus() {
+    if (!currentUser) return alert("Please log in first");
+    if (!connectedAddress) return alert("Please connect your wallet first");
+    if (!signer) return alert("Wallet not connected properly. Please reconnect.");
 
-            const userDoc = await db.collection("users").doc(currentUser.uid).get();
-            const userData = userDoc.data();
+    try {
+        const treasuryContract = new ethers.Contract(TREASURY_CONTRACT_ADDRESS, TREASURY_ABI, signer);
 
-            if (!userData.pendingNQV8Bonus || userData.pendingNQV8Bonus <= 0) {
-                return alert("No pending bonus to claim");
-            }
-            if (userData.signupBonusClaimed) {
-                return alert("Bonus already claimed");
-            }
-
-            // Check if 10M circulating supply cap has been reached
-            try {
-                const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
-                const nqv8ReadOnly = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, arbProvider);
-                const TREASURY_CONTRACT = '0xb14462e147e3a48982095733BBaC4f7CEaF1D112';
-                const FOUNDER_ADDRESS = '0x0A6090b655A9eB73f85449609eB2336e76d64c47';
-
-                const [treasuryRaw, founderRaw, contractRaw] = await Promise.all([
-                    nqv8ReadOnly.balanceOf(TREASURY_ADDRESS),
-                    nqv8ReadOnly.balanceOf(FOUNDER_ADDRESS),
-                    nqv8ReadOnly.balanceOf(TREASURY_CONTRACT)
-                ]);
-
-                const treasuryBal = parseFloat(ethers.utils.formatUnits(treasuryRaw, 18));
-                const founderBal = parseFloat(ethers.utils.formatUnits(founderRaw, 18));
-                const contractBal = parseFloat(ethers.utils.formatUnits(contractRaw, 18));
-                const circulating = 1_000_000_000 - founderBal - contractBal;
-                
-                if (circulating >= 10_000_000) {
-                    return alert("❌ The 10,000,000 NQV8 signup bonus program has ended. The peg period is complete.");
-                }
-            } catch(e) {
-                console.warn('Could not verify circulating supply cap:', e.message);
-                // Continue anyway if the check fails — don't block legitimate claims
-            }
-
-            try {
-                const txHash = await sendNQV8(connectedAddress, userData.pendingNQV8Bonus);
-
-                await db.collection("users").doc(currentUser.uid).update({
-                    signupBonusClaimed: true,
-                    signupBonusTxHash: txHash,
-                    nqv8Balance: userData.pendingNQV8Bonus,
-                    totalNQV8Earned: userData.pendingNQV8Bonus,
-                    pendingNQV8Bonus: 0,
-                    claimedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-
-                currentUser.signupBonusClaimed = true;
-                currentUser.pendingNQV8Bonus = 0;
-
-                alert(`✅ 1,000 NQV8 claimed successfully!\nTx: ${txHash}`);
-                loadProfileData();
-                refreshOnChainBalances();
-            } catch(e) {
-                alert("Claim failed: " + e.message);
-            }
+        // ── 1. Check if already claimed on-chain ──────────────────
+        const alreadyClaimed = await treasuryContract.hasClaimedBonus(connectedAddress);
+        if (alreadyClaimed) {
+            return alert("❌ This wallet has already claimed the signup bonus.");
         }
+
+        // ── 2. Check treasury NQV8 inventory ─────────────────────
+        const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const nqv8ReadOnly = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, arbProvider);
+        const treasuryBal = await nqv8ReadOnly.balanceOf(TREASURY_CONTRACT_ADDRESS);
+        const treasuryNQV8 = parseFloat(ethers.utils.formatUnits(treasuryBal, NQV8_DECIMALS));
+        if (treasuryNQV8 < 1000) {
+            return alert("❌ The bonus program has ended — treasury has no remaining NQV8 for bonuses.");
+        }
+
+        // ── 3. Check ETH gas balance ──────────────────────────────
+        const ethBal = await provider.getBalance(connectedAddress);
+        const ethFloat = parseFloat(ethers.utils.formatEther(ethBal));
+        if (ethFloat < 0.00001) {
+            return alert("❌ You need a tiny amount of ETH on Arbitrum to pay gas fees (~$0.01 worth).");
+        }
+
+        // ── 4. Call claimSignupBonus on contract ──────────────────
+        const claimTx = await treasuryContract.claimSignupBonus();
+        await claimTx.wait();
+
+        // ── 5. Update Firestore ───────────────────────────────────
+        await db.collection('users').doc(currentUser.uid).update({
+            signupBonusClaimed: true,
+            signupBonusTxHash: claimTx.hash,
+            nqv8Balance: 1000,
+            totalNQV8Earned: firebase.firestore.FieldValue.increment(1000),
+            pendingNQV8Bonus: 0,
+            claimedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        currentUser.signupBonusClaimed = true;
+        currentUser.pendingNQV8Bonus = 0;
+
+        alert(
+            `✅ 1,000 NQV8 claimed successfully!\n\n` +
+            `Tx: ${claimTx.hash}\n` +
+            `View: https://arbiscan.io/tx/${claimTx.hash}`
+        );
+
+        loadProfileData();
+        refreshOnChainBalances();
+
+    } catch (e) {
+        const msg = e.message || '';
+        if (msg.includes('user rejected') || e.code === 4001) {
+            alert("Transaction cancelled.");
+        } else if (msg.includes('Bonus already claimed')) {
+            alert("❌ This wallet has already claimed the bonus.");
+        } else if (msg.includes('Bonus program ended')) {
+            alert("❌ The 10M NQV8 bonus program has ended.");
+        } else if (msg.includes('Insufficient NQV8 in contract')) {
+            alert("❌ The treasury is out of bonus NQV8.");
+        } else if (msg.includes('insufficient funds')) {
+            alert("❌ Not enough ETH for gas. Add ~$0.01 worth of ETH to your Arbitrum wallet.");
+        } else {
+            alert("❌ Claim failed: " + msg);
+        }
+    }
+}
     
     // ====================== CONTENT MODERATION ======================
     async function moderateContent(text, contentType = 'post') {
@@ -6318,37 +6352,27 @@ function openGroupChat(chatId, chatData) {
 async function loadTokenomics() {
     const circulatingEl = document.getElementById('circulating-supply');
     const pegStatusEl = document.getElementById('peg-status');
-    
-    try {
-        // Total supply is 1B. Circulating = total - treasury balance - founder balance
-        const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
-        const nqv8ReadOnly = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, arbProvider);
-        
-        const FOUNDER_ADDRESS = '0x0A6090b655A9eB73f85449609eB2336e76d64c47';
-        
-        const TREASURY_CONTRACT = '0xb14462e147e3a48982095733BBaC4f7CEaF1D112';
 
-        const [treasuryRaw, founderRaw, contractRaw] = await Promise.all([
-            nqv8ReadOnly.balanceOf(TREASURY_ADDRESS),
-            nqv8ReadOnly.balanceOf(FOUNDER_ADDRESS),
-            nqv8ReadOnly.balanceOf(TREASURY_CONTRACT)
+    try {
+        const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const treasuryReadOnly = new ethers.Contract(TREASURY_CONTRACT_ADDRESS, TREASURY_ABI, arbProvider);
+        const nqv8ReadOnly = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, arbProvider);
+
+        const [totalSoldRaw, pegEndedBool, treasuryBalRaw] = await Promise.all([
+            treasuryReadOnly.totalNQV8Sold(),
+            treasuryReadOnly.pegEnded(),
+            nqv8ReadOnly.balanceOf(TREASURY_CONTRACT_ADDRESS)
         ]);
-        
-        const treasuryBal = parseFloat(ethers.utils.formatUnits(treasuryRaw, 18));
-        const founderBal = parseFloat(ethers.utils.formatUnits(founderRaw, 18));
-        const contractBal = parseFloat(ethers.utils.formatUnits(contractRaw, 18));
-        const totalSupply = 1_000_000_000;
-        // Circulating = total minus everything not yet in user hands
-        const circulating = totalSupply - founderBal - contractBal;
-        
-        if (circulatingEl) circulatingEl.textContent = Math.round(circulating).toLocaleString();
-        
-        // Check if airdrop cap (10M) has been reached
-        const airdropCapReached = circulating >= 10_000_000;
-        window._nqv8FloatMode = airdropCapReached;
-        
+
+        const totalSold = parseFloat(ethers.utils.formatUnits(totalSoldRaw, NQV8_DECIMALS));
+        const treasuryBal = parseFloat(ethers.utils.formatUnits(treasuryBalRaw, NQV8_DECIMALS));
+
+        if (circulatingEl) circulatingEl.textContent = Math.round(totalSold).toLocaleString();
+
+        window._nqv8FloatMode = pegEndedBool;
+
         if (pegStatusEl) {
-            if (airdropCapReached) {
+            if (pegEndedBool) {
                 pegStatusEl.innerHTML = `
                     <div class="text-amber-400 text-xs font-semibold uppercase tracking-wider mb-3">Current Price</div>
                     <div id="nqv8-market-price" class="text-4xl font-bold mb-1">Loading...</div>
@@ -6357,18 +6381,19 @@ async function loadTokenomics() {
                 `;
                 loadNQV8MarketPrice();
             } else {
-                const remaining = 10_000_000 - circulating;
+                const remaining = 10_000_000 - totalSold;
                 pegStatusEl.innerHTML = `
                     <div class="text-cyan-400 text-xs font-semibold uppercase tracking-wider mb-3">Current Peg</div>
                     <div class="text-4xl font-bold mb-1">$0.01</div>
                     <div class="text-zinc-400 text-sm">per NQV8 (first 10M only)</div>
-                    <p class="text-xs text-zinc-500 mt-5">${Math.round(remaining).toLocaleString()} NQV8 until peg ends</p>
+                    <p class="text-xs text-zinc-500 mt-5">${Math.round(remaining).toLocaleString()} NQV8 remaining at peg</p>
+                    <p class="text-xs text-zinc-600 mt-1">Treasury inventory: ${Math.round(treasuryBal).toLocaleString()} NQV8</p>
                 `;
             }
         }
     } catch(e) {
         console.warn('Tokenomics load failed:', e.message);
-        if (circulatingEl) circulatingEl.textContent = 'Loading...';
+        if (circulatingEl) circulatingEl.textContent = '—';
     }
 }
 
@@ -6409,62 +6434,96 @@ function updateBuyPreview() {
 async function buyNQV8() {
     const amount = parseFloat(document.getElementById('buy-amount-input').value);
     if (!amount || amount <= 0) return alert("Please enter an amount");
-    if (amount < 1.00) return alert("Minimum purchase is $1.00 USDC (100 NQV8)");
+    if (amount < 1.00) return alert("Minimum purchase is $1.00 USDC (= 100 NQV8)");
     if (!connectedAddress) return alert("Please connect your wallet first");
+    if (!signer) return alert("Wallet not connected properly. Please reconnect.");
+
+    const btn = document.querySelector('#buy-nqv8-modal button[onclick="buyNQV8()"]');
+    const setBtn = (text, disabled) => {
+        if (btn) { btn.textContent = text; btn.disabled = disabled; }
+    };
 
     try {
-        const TREASURY_CONTRACT = '0xb14462e147e3a48982095733BBaC4f7CEaF1D112';
-        
-        const TREASURY_ABI = [
-            "function buyNQV8(uint256 usdcAmount) external"
-        ];
-
-        const treasuryContract = new ethers.Contract(TREASURY_CONTRACT, TREASURY_ABI, signer);
-
-        // Calculate locally at $0.01 peg — 100 NQV8 per $1 USDC
-        const nqv8Amount = Math.floor(amount * 100);
-        const usdcAmountRaw = ethers.utils.parseUnits(String(amount), 6);
-
-        // Check USDC balance
-        const usdcRaw = await usdcContract.balanceOf(connectedAddress);
-        const usdcBal = parseFloat(ethers.utils.formatUnits(usdcRaw, 6));
-        if (usdcBal < amount) {
-            return alert(`❌ Insufficient USDC. You have $${usdcBal.toFixed(2)} but need $${amount.toFixed(2)}.`);
+        // ── 1. Check ETH gas balance ──────────────────────────────
+        const ethBal = await provider.getBalance(connectedAddress);
+        const ethFloat = parseFloat(ethers.utils.formatEther(ethBal));
+        if (ethFloat < 0.00001) {
+            return alert("❌ You need a tiny amount of ETH on Arbitrum to pay gas fees (~$0.01 worth). Bridge some ETH to Arbitrum first.");
         }
 
-        const btn = document.querySelector('#buy-nqv8-modal button[onclick="buyNQV8()"]');
-        if (btn) { btn.textContent = '⏳ Approving USDC...'; btn.disabled = true; }
+        // ── 2. Check USDC balance ─────────────────────────────────
+        const usdcAmountRaw = ethers.utils.parseUnits(amount.toFixed(6), USDC_DECIMALS);
+        const usdcRaw = await usdcContract.balanceOf(connectedAddress);
+        const usdcBal = parseFloat(ethers.utils.formatUnits(usdcRaw, USDC_DECIMALS));
+        if (usdcBal < amount) {
+            return alert(`❌ Insufficient USDC.\n\nYou have: $${usdcBal.toFixed(2)} USDC\nYou need: $${amount.toFixed(2)} USDC`);
+        }
 
-        // Check and set USDC allowance
-        const allowanceRaw = await usdcContract.allowance(connectedAddress, TREASURY_CONTRACT);
-        const allowance = parseFloat(ethers.utils.formatUnits(allowanceRaw, 6));
+        // ── 3. Check treasury has enough NQV8 inventory ──────────
+        const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const nqv8ReadOnly = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, arbProvider);
+        const treasuryNQV8Raw = await nqv8ReadOnly.balanceOf(TREASURY_CONTRACT_ADDRESS);
+        const treasuryNQV8 = parseFloat(ethers.utils.formatUnits(treasuryNQV8Raw, NQV8_DECIMALS));
+        const nqv8Expected = amount * 100;
+        if (treasuryNQV8 < nqv8Expected) {
+            return alert(`❌ Treasury has insufficient NQV8 inventory.\n\nAvailable: ${Math.round(treasuryNQV8).toLocaleString()} NQV8\nYou need: ${nqv8Expected.toLocaleString()} NQV8\n\nPlease try a smaller amount.`);
+        }
+
+        // ── 4. Approve USDC spend if needed ──────────────────────
+        setBtn('⏳ Checking USDC approval...', true);
+        const allowanceRaw = await usdcContract.allowance(connectedAddress, TREASURY_CONTRACT_ADDRESS);
+        const allowance = parseFloat(ethers.utils.formatUnits(allowanceRaw, USDC_DECIMALS));
 
         if (allowance < amount) {
+            setBtn('⏳ Approve USDC in wallet...', true);
             const approveTx = await usdcContract.approve(
-                TREASURY_CONTRACT,
-                ethers.utils.parseUnits(String(amount), 6)
+                TREASURY_CONTRACT_ADDRESS,
+                usdcAmountRaw
             );
+            setBtn('⏳ Waiting for approval...', true);
             await approveTx.wait();
         }
 
-        if (btn) btn.textContent = '⏳ Confirm purchase in wallet...';
-
-        // Call buyNQV8 on contract
+        // ── 5. Call buyNQV8 on Treasury contract ─────────────────
+        setBtn('⏳ Confirm purchase in wallet...', true);
+        const treasuryContract = new ethers.Contract(TREASURY_CONTRACT_ADDRESS, TREASURY_ABI, signer);
         const buyTx = await treasuryContract.buyNQV8(usdcAmountRaw);
+
+        setBtn('⏳ Processing transaction...', true);
         await buyTx.wait();
 
-        if (btn) { btn.textContent = 'Confirm Purchase'; btn.disabled = false; }
-
+        // ── 6. Success ────────────────────────────────────────────
+        setBtn('Confirm Purchase', false);
         hideBuyNQV8Modal();
-        alert(`✅ Purchase complete!\n\nSent: $${amount} USDC\nReceived: ${nqv8Amount.toLocaleString()} NQV8\nTx: ${buyTx.hash}`);
-        
-        loadTokenomics();
-        refreshOnChainBalances();
 
-    } catch(e) {
-        const btn = document.querySelector('#buy-nqv8-modal button[onclick="buyNQV8()"]');
-        if (btn) { btn.textContent = 'Confirm Purchase'; btn.disabled = false; }
-        alert("Transaction failed: " + e.message);
+        const nqv8Received = Math.floor(amount * 100).toLocaleString();
+        alert(
+            `✅ Purchase complete!\n\n` +
+            `Sent:     $${amount.toFixed(2)} USDC\n` +
+            `Received: ${nqv8Received} NQV8\n\n` +
+            `Tx: ${buyTx.hash}\n\n` +
+            `View on Arbiscan: https://arbiscan.io/tx/${buyTx.hash}`
+        );
+
+        await loadTokenomics();
+        await refreshOnChainBalances();
+
+    } catch (e) {
+        setBtn('Confirm Purchase', false);
+        const msg = e.message || '';
+        if (msg.includes('user rejected') || msg.includes('User rejected') || e.code === 4001) {
+            alert("Transaction cancelled.");
+        } else if (msg.includes('Insufficient NQV8 in treasury')) {
+            alert("❌ The treasury doesn't have enough NQV8. Try a smaller amount.");
+        } else if (msg.includes('insufficient funds')) {
+            alert("❌ Not enough ETH for gas. Add ~$0.01 worth of ETH to your Arbitrum wallet.");
+        } else if (msg.includes('USDC transferFrom failed')) {
+            alert("❌ USDC transfer failed. Make sure you have enough USDC and approved the spend.");
+        } else if (msg.includes('execution reverted')) {
+            alert("❌ Transaction reverted: " + (e.reason || msg));
+        } else {
+            alert("❌ Transaction failed: " + msg);
+        }
     }
 }
 
