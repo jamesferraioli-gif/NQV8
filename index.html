@@ -1382,8 +1382,8 @@ const USDC_ADDRESS = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
 const USDC_DECIMALS = 6;
 
 // Treasury wallet — the NQV8 protocol wallet that holds initial supply
-const TREASURY_ADDRESS = '0x5CE4385cE469Ca15Af9A2dbE84191ecBC9dc4a58';
-
+const TREASURY_ADDRESS = '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D';
+    
 // Minimal ERC-20 ABI (transfer, balanceOf, approve, allowance)
 const ERC20_ABI = [
     "function balanceOf(address owner) view returns (uint256)",
@@ -6212,7 +6212,7 @@ function openGroupChat(chatId, chatData) {
                 const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
                 const nqv8ReadOnly = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, arbProvider);
                 const TREASURY_CONTRACT = '0xb14462e147e3a48982095733BBaC4f7CEaF1D112';
-                const FOUNDER_ADDRESS = '0xE2Ac073699147349Fcd35100c6cf99FF14865b64';
+                const FOUNDER_ADDRESS = '0x0A6090b655A9eB73f85449609eB2336e76d64c47';
 
                 const [treasuryRaw, founderRaw, contractRaw] = await Promise.all([
                     nqv8ReadOnly.balanceOf(TREASURY_ADDRESS),
@@ -6223,8 +6223,8 @@ function openGroupChat(chatId, chatData) {
                 const treasuryBal = parseFloat(ethers.utils.formatUnits(treasuryRaw, 18));
                 const founderBal = parseFloat(ethers.utils.formatUnits(founderRaw, 18));
                 const contractBal = parseFloat(ethers.utils.formatUnits(contractRaw, 18));
-                const circulating = 1_000_000_000 - treasuryBal - founderBal - contractBal;
-
+                const circulating = 1_000_000_000 - founderBal - contractBal;
+                
                 if (circulating >= 10_000_000) {
                     return alert("❌ The 10,000,000 NQV8 signup bonus program has ended. The peg period is complete.");
                 }
@@ -6290,7 +6290,7 @@ async function loadTokenomics() {
         const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
         const nqv8ReadOnly = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, arbProvider);
         
-        const FOUNDER_ADDRESS = '0xE2Ac073699147349Fcd35100c6cf99FF14865b64'; // paste founder wallet
+        const FOUNDER_ADDRESS = '0x0A6090b655A9eB73f85449609eB2336e76d64c47';
         
         const TREASURY_CONTRACT = '0xb14462e147e3a48982095733BBaC4f7CEaF1D112';
 
@@ -6305,7 +6305,7 @@ async function loadTokenomics() {
         const contractBal = parseFloat(ethers.utils.formatUnits(contractRaw, 18));
         const totalSupply = 1_000_000_000;
         // Circulating = total minus everything not yet in user hands
-        const circulating = totalSupply - treasuryBal - founderBal - contractBal;
+        const circulating = totalSupply - founderBal - contractBal;
         
         if (circulatingEl) circulatingEl.textContent = Math.round(circulating).toLocaleString();
         
