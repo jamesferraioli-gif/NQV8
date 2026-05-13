@@ -3209,6 +3209,7 @@ async function createProfile() {
 
                 let open = 0, inprogress = 0, completed = 0, totalNQV8 = 0;
 
+                let visibleCount = 0;
                 if (snapshot.empty) {
                     grid.innerHTML = `<p class="col-span-full text-center text-zinc-400 py-12">No projects yet. Be the first to post!</p>`;
                 } else {
@@ -3218,7 +3219,7 @@ async function createProfile() {
                         else if (p.status === "completed") completed++;
                         if (p.nqv8Awarded) totalNQV8 += Number(p.nqv8Awarded) || 0;
                         if (p.status === "in-progress" || p.status === "completed") return;
-                        if (currentMarketplaceFilter && p.type !== currentMarketplaceFilter) return;
+                        if (currentMarketplaceFilter && currentMarketplaceFilter !== 'equity-exchange' && p.type !== currentMarketplaceFilter) return;
 
                         open++;
                         const card = document.createElement('div');
@@ -3241,9 +3242,14 @@ async function createProfile() {
                         `;
                         card.onclick = () => showSubprojectDetail(doc.id, p);
                         grid.appendChild(card);
+                        visibleCount++;
                     });
                 }
 
+                if (visibleCount === 0) {
+                        grid.innerHTML = `<p class="col-span-full text-center text-zinc-400 py-12">No ${currentMarketplaceFilter === 'fund' ? 'funding requests' : 'build requests'} yet. Be the first to post!</p>`;
+                    }
+                }
                 document.getElementById('stat-open').textContent = open;
                 document.getElementById('stat-inprogress').textContent = inprogress;
                 document.getElementById('stat-completed').textContent = completed;
