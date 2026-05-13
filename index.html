@@ -4168,100 +4168,123 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
 
             if (!desc) return alert("Please provide a description or agreement text");
 
-            // Claude scope review — only for build bounties, not funding agreements
-            if (currentSubmitProjectType !== 'fund') {
-                const reviewBtn = document.querySelector('#submit-work-modal button[onclick="submitWork()"]');
-                if (reviewBtn) { reviewBtn.textContent = '⏳ Reviewing scope...'; reviewBtn.disabled = true; }
-
-                try {
-                    const reviewResponse = await fetch('/api/review-submission', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            projectTitle: currentProject?.title || '',
-                            projectDescription: currentProject?.description || '',
-                            acceptedBidAmount: currentProject?.acceptedBid?.amount || '',
-                            submissionDescription: desc,
-                            submissionLink: link || ''
-                        })
-                    });
-
-                    if (reviewResponse.ok) {
-                        const review = await reviewResponse.json();
-                        if (reviewBtn) { reviewBtn.textContent = 'Submit'; reviewBtn.disabled = false; }
-
-                        const proceed = confirm(`✨ Claude Scope Review\n\n${review.summary}\n\n${
-                            review.missingItems.length > 0 ? 'Potentially missing:\n• ' + review.missingItems.join('\n• ') + '\n\n' : ''
-                        }Recommendation: ${review.recommendation.replace('_', ' ').toUpperCase()}\n\nDo you want to submit anyway?`);
-
-                        if (!proceed) return;
-                    }
-                } catch (e) {
-                    console.warn('Scope review failed:', e.message);
-                    if (reviewBtn) { reviewBtn.textContent = 'Submit'; reviewBtn.disabled = false; }
-                }
-            }
+// Security + scope review — runs for all submission types
+            const reviewBtn = document.querySelector('#submit-work-modal button[onclick="submitWork()"]');
+            if (reviewBtn) { reviewBtn.textContent = '⏳ Scanning files...'; reviewBtn.disabled = true; }
 
             try {
-                const projectRef = db.collection("subprojects").doc(currentSubmitProjectId);
-                let fileUrls = [];
+                // ── File type validation ──────────────────────────────────────
+                const BLOCKED_EXTENSIONS = [
+                    'exe','bat','cmd','msi','dmg','app','vbs','ps1',
+                    'jar','apk','ipa','deb','rpm','bin','run',
+                    'php','asp','aspx','jsp','cgi','pl',
+                    'scr','pif','com','reg','inf','lnk'
+                ];
 
-                const files = filesInput.files;
-                if (files.length > 0) {
-                    const uploadPromises = Array.from(files).map(file => {
-                        const storageRef = storage.ref(`${currentSubmitProjectType === 'fund' ? 'funding-agreements' : 'deliverables'}/${currentSubmitProjectId}/${Date.now()}-${file.name}`);
-                        return storageRef.put(file).then(snapshot => snapshot.ref.getDownloadURL());
-                    });
-                    fileUrls = await Promise.all(uploadPromises);
+                for (const file of Array.from(filesInput.files)) {
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    if (BLOCKED_EXTENSIONS.includes(ext)) {
+                        if (reviewBtn) { reviewBtn.textContent = 'Submit'; reviewBtn.disabled = false; }
+                        return alert(`❌ File type ".${ext}" is not allowed.\n\nBlocked file types: executables, installers, server-side scripts.\n\nAllowed: PDF, images, documents, source code, zip.`);
+                    }
+                    if (file.size > 50 * 1024 * 1024) {
+                        if (reviewBtn) { reviewBtn.textContent = 'Submit'; reviewBtn.disabled = false; }
+                        return alert(`❌ "${file.name}" exceeds the 50MB limit.`);
+                    }
                 }
 
-                const submission = {
-                    type: currentSubmitProjectType === 'fund' ? 'funding-agreement' : 'deliverable',
-                    submittedAt: new Date(),
-                    submitterUid: currentUser.uid,
-                    submitterName: currentUser.fullName || currentUser.username,
-                    description: desc,
-                    link: link || null,
-                    files: fileUrls,
-                    status: 'submitted'
-                };
+                // ── Convert files for Claude + VirusTotal ─────────────────────
+                const REVIEWABLE_IMAGE_TYPES = ['image/jpeg','image/png','image/gif','image/webp'];
+                const CODE_EXTENSIONS_SET = new Set([
+                    'js','ts','jsx','tsx','py','sol','rb','go','rs','java','cpp','c',
+                    'swift','kt','html','css','sh','sql','json','yaml','yml','toml','dockerfile'
+                ]);
 
-                let updateData = {};
+                const attachments = [];
+                const toBase64 = (file) => new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
 
-                if (currentRevisionIndex !== null) {
-                    // This is a revision
-                    const updatedSubmissions = [...currentProject.submissions];
-                    updatedSubmissions[currentRevisionIndex] = { ...updatedSubmissions[currentRevisionIndex], ...submission, status: 'revised' };
-                    updateData.submissions = updatedSubmissions;
-                } else {
-                    // New submission
-                    updateData.submissions = firebase.firestore.FieldValue.arrayUnion(submission);
+                for (const file of Array.from(filesInput.files).slice(0, 5)) { // max 5 files reviewed
+                    const ext = file.name.split('.').pop().toLowerCase();
+                    const isReviewable = REVIEWABLE_IMAGE_TYPES.includes(file.type) ||
+                                        file.type === 'application/pdf' ||
+                                        CODE_EXTENSIONS_SET.has(ext);
+
+                    if (isReviewable && file.size < 10 * 1024 * 1024) { // only files under 10MB
+                        try {
+                            const base64 = await toBase64(file);
+                            attachments.push({ name: file.name, type: file.type, base64 });
+                        } catch(e) {
+                            console.warn('Could not encode file:', file.name);
+                        }
+                    } else {
+                        // Still send metadata for non-reviewable files (VirusTotal can scan by hash)
+                        attachments.push({ name: file.name, type: file.type, base64: null });
+                    }
                 }
 
-                updateData.lastSubmittedAt = firebase.firestore.FieldValue.serverTimestamp();
+                if (reviewBtn) reviewBtn.textContent = '⏳ Running security scan... (15-30s)';
 
-                await projectRef.update(updateData);
+                const reviewResponse = await fetch('/api/review-submission', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        projectTitle: currentProject?.title || '',
+                        projectDescription: currentProject?.description || '',
+                        acceptedBidAmount: currentProject?.acceptedBid?.amount || '',
+                        submissionDescription: desc,
+                        submissionLink: link || '',
+                        attachments
+                    })
+                });
 
-                const msg = currentSubmitProjectType === 'fund' 
-                    ? "✅ Funding agreement submitted / revised! The project owner has been notified." 
-                    : "✅ Deliverables submitted successfully!";
+                if (reviewBtn) { reviewBtn.textContent = 'Submit'; reviewBtn.disabled = false; }
 
-                alert(msg);
-                await createNotification(
-                    currentProject.posterUid,
-                    'submission',
-                    `@${currentUser.username} submitted deliverables for: ${currentProject.title}`,
-                    { projectId: currentSubmitProjectId }
-                );
+                if (reviewResponse.ok) {
+                    const review = await reviewResponse.json();
 
-                hideSubmitWorkModal();
-                hideProjectDetailModal();
-                loadMarketplace();
+                    // ── Hard block on security violations ─────────────────────
+                    if (review.contentFlagged) {
+                        alert(`🚨 Submission Blocked\n\n${review.contentFlagReason}\n\nThis incident has been logged. Repeated violations may result in account suspension.`);
+                        // Log to Firestore for audit trail
+                        try {
+                            await db.collection('securityLogs').add({
+                                type: 'submission_blocked',
+                                uid: currentUser.uid,
+                                username: currentUser.username,
+                                projectId: currentSubmitProjectId,
+                                reason: review.contentFlagReason,
+                                blockedBy: review.blockedBy || 'claude',
+                                submissionLink: link || null,
+                                timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                        } catch(logErr) {
+                            console.error('Failed to log security incident:', logErr);
+                        }
+                        return; // Hard stop — no submit
+                    }
+
+                    // ── Soft warning on scope issues (funding exempt) ──────────
+                    if (currentSubmitProjectType !== 'fund') {
+                        const proceed = confirm(
+                            `✨ Claude Review\n\n${review.summary}\n\n` +
+                            `${review.missingItems.length > 0 ? 'Potentially missing:\n• ' + review.missingItems.join('\n• ') + '\n\n' : ''}` +
+                            `Recommendation: ${review.recommendation.replace('_', ' ').toUpperCase()}\n\n` +
+                            `Do you want to submit anyway?`
+                        );
+                        if (!proceed) return;
+                    }
+                }
             } catch (e) {
-                console.error(e);
-                alert("Failed to submit: " + e.message);
+                console.warn('Security review failed:', e.message);
+                if (reviewBtn) { reviewBtn.textContent = 'Submit'; reviewBtn.disabled = false; }
+                // Fail open — don't block legitimate work on API errors
             }
-        }
+            
 
         function renderSubmissions(project) {
             const container = document.getElementById('submissions-list');
