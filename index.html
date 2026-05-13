@@ -1587,12 +1587,47 @@ const TREASURY_CONTRACT_ADDRESS = '0x75dB1b0a363a6994e4e502Cf201e23B1D93582D8';
 const TREASURY_ADDRESS = '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D';
 
 // Founder wallet
-// Founder wallet
 const FOUNDER_ADDRESS = '0x0A6090b655A9eB73f85449609eB2336e76d64c47';
 
-// NQVate Escrow contract — deployed on Arbitrum One
+// NQVate Escrow contract — deployed on Arbitrum One NEWXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 const ESCROW_CONTRACT_ADDRESS = '0x413EF7256f8099ea202d8C0fe3e620F5259c7a83';
 
+// NQVate Equity Registry — deployed on Arbitrum One
+const EQUITY_REGISTRY_ADDRESS = '0xb4085b1eDd626cc401FB87784b73E23D5c4eb909';
+
+const EQUITY_REGISTRY_ABI = [
+    "function registerProject(string projectId, string name, address founder) external",
+    "function updateMetrics(string projectId, bytes32 metricsHash) external",
+    "function transferEquity(string projectId, address to, uint256 units, string reason) external",
+    "function adminTransferEquity(string projectId, address from, address to, uint256 units, string reason) external",
+    "function createListing(string projectId, uint256 units, uint256 askPricePerUnit) external returns (bytes32)",
+    "function cancelListing(bytes32 listingId) external",
+    "function buyNow(bytes32 listingId) external",
+    "function makeOffer(bytes32 listingId, uint256 offerPricePerUnit) external returns (bytes32)",
+    "function acceptOffer(bytes32 offerId) external",
+    "function rejectOffer(bytes32 offerId) external",
+    "function counterOffer(bytes32 offerId, uint256 counterPricePerUnit) external",
+    "function acceptCounter(bytes32 offerId) external",
+    "function rejectCounter(bytes32 offerId) external",
+    "function withdrawOffer(bytes32 offerId) external",
+    "function expireOffer(bytes32 offerId) external",
+    "function getBalance(string projectId, address wallet) external view returns (uint256 units, uint256 percentageBps)",
+    "function getProject(string projectId) external view returns (tuple(string projectId, string name, address founder, bool exists, uint256 createdAt, uint256 lastSalePricePerUnit, uint256 lastSaleAt, uint256 totalTradeVolume, bytes32 metricsHash, uint256 metricsUpdatedAt))",
+    "function getListing(bytes32 listingId) external view returns (tuple(bytes32 listingId, string projectId, address seller, uint256 units, uint256 askPricePerUnit, uint8 status, uint256 createdAt))",
+    "function getOffer(bytes32 offerId) external view returns (tuple(bytes32 offerId, bytes32 listingId, string projectId, address buyer, address seller, uint256 units, uint256 offerPricePerUnit, uint256 counterPricePerUnit, uint256 lockedUSDC, uint8 status, uint256 createdAt, uint256 expiresAt))",
+    "function getListingOffers(bytes32 listingId) external view returns (bytes32[])",
+    "function getAllListingIds() external view returns (bytes32[])",
+    "function previewBuyNow(bytes32 listingId) external view returns (uint256 totalPrice, uint256 sellerAmount, uint256 platformFee)",
+    "function previewOffer(bytes32 listingId, uint256 offerPricePerUnit) external view returns (uint256 totalLocked, uint256 sellerWouldReceive, uint256 platformFee)",
+    "function getStats() external view returns (uint256 projectsRegistered, uint256 tradesExecuted, uint256 platformFees, uint256 equityTransferred)",
+    "event ProjectRegistered(string indexed projectId, string name, address indexed founder)",
+    "event ListingCreated(bytes32 indexed listingId, string projectId, address seller, uint256 units, uint256 askPricePerUnit)",
+    "event BoughtNow(bytes32 indexed listingId, address buyer, uint256 units, uint256 totalPrice, uint256 platformFee)",
+    "event OfferSubmitted(bytes32 indexed offerId, bytes32 indexed listingId, address buyer, uint256 offerPricePerUnit, uint256 lockedUSDC)",
+    "event OfferAccepted(bytes32 indexed offerId, uint256 totalPrice, uint256 platformFee)",
+    "event OfferCountered(bytes32 indexed offerId, uint256 counterPricePerUnit)",
+    "event CounterAccepted(bytes32 indexed offerId, uint256 totalPrice, uint256 platformFee)"
+];
 const ESCROW_ABI = [
     "function createEscrow(string projectId, address worker, uint256 amount, uint8 currency, uint256 deadline) external returns (bytes32)",
     "function submitDeliverables(bytes32 escrowId) external",
