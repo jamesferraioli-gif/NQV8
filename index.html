@@ -4155,7 +4155,10 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             project.submissions.forEach((sub, index) => {
                 const isFunding = sub.type === 'funding-agreement';
                 const isPoster = currentUser && (currentUser.uid === project.posterUid || currentUser.uid === project.ownerUid);
-                const canRespond = isPoster ? sub.status !== 'accepted' : sub.status === 'changes-requested';
+                const isLatest = index === project.submissions.length - 1;
+                const canRespond = isPoster
+                    ? sub.status !== 'accepted'
+                    : (sub.status === 'changes-requested' && isLatest);
 
                 html += `
                     <div class="bg-zinc-800 rounded-3xl p-6">
@@ -4187,7 +4190,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                             ${isPoster ? `
                             <button onclick="acceptSubmission(${index})" class="flex-1 py-3 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-2xl">✅ Accept</button>
                             <button onclick="requestChanges(${index})" class="flex-1 py-3 border border-zinc-400 hover:bg-zinc-700 text-white font-medium rounded-2xl">Request Changes</button>` : `
-                            <button onclick="showSubmitWorkModal('${currentProjectId}', currentProject, ${index})" class="flex-1 py-3 bg-violet-500 hover:bg-violet-600 text-white font-semibold rounded-2xl">Resubmit Revised Agreement</button>`}
+                            <button onclick="showSubmitWorkModal('${currentProjectId}', currentProject, ${index})" class="flex-1 py-3 bg-violet-500 hover:bg-violet-600 text-white font-semibold rounded-2xl">Resubmit Deliverables</button>
                         </div>` : ''}
                     </div>`;
             });
