@@ -1533,7 +1533,39 @@ const TREASURY_CONTRACT_ADDRESS = '0x75dB1b0a363a6994e4e502Cf201e23B1D93582D8';
 const TREASURY_ADDRESS = '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D';
 
 // Founder wallet
+// Founder wallet
 const FOUNDER_ADDRESS = '0x0A6090b655A9eB73f85449609eB2336e76d64c47';
+
+// NQVate Escrow contract — deployed on Arbitrum One
+const ESCROW_CONTRACT_ADDRESS = '0x413EF7256f8099ea202d8C0fe3e620F5259c7a83';
+
+const ESCROW_ABI = [
+    "function createEscrow(string projectId, address worker, uint256 amount, uint8 currency, uint256 deadline) external returns (bytes32)",
+    "function submitDeliverables(bytes32 escrowId) external",
+    "function releaseEscrow(bytes32 escrowId) external",
+    "function claimAutoRelease(bytes32 escrowId) external",
+    "function claimRefund(bytes32 escrowId) external",
+    "function fileDispute(bytes32 escrowId) external",
+    "function resolveDispute(bytes32 escrowId, uint256 workerPct, uint256 posterPct, string claudeRuling) external",
+    "function emergencyRefund(bytes32 id) external",
+    "function emergencyRelease(bytes32 id) external",
+    "function getEscrowByProject(string projectId) external view returns (tuple(string projectId, address poster, address worker, uint256 amount, uint8 currency, uint8 status, uint256 deadline, uint256 createdAt), tuple(uint256 submittedAt, uint256 autoReleaseAt, bool disputeFiled, address disputeFiledBy, uint256 disputedAt, uint256 workerPct, uint256 posterPct, string claudeRuling))",
+    "function canAutoRelease(bytes32 escrowId) external view returns (bool)",
+    "function canClaimRefund(bytes32 escrowId) external view returns (bool)",
+    "function previewWorkerPayout(uint256 amount) external pure returns (uint256 workerAmount, uint256 platformFee)",
+    "function projectToEscrow(string) external view returns (bytes32)"
+];
+
+function deadlineToTimestamp(deadlineStr) {
+    const now = Math.floor(Date.now() / 1000);
+    const map = {
+        '1day':    now + 86400,
+        '1week':   now + 604800,
+        '1month':  now + 2592000,
+        '3months': now + 7776000
+    };
+    return map[deadlineStr] || (now + 604800);
+}
 
 // Minimal ERC-20 ABI
 const ERC20_ABI = [
@@ -3519,6 +3551,7 @@ async function loadTotalFundingReceivedStat() {
                     <div class="flex gap-3 mb-8">
                         <button onclick="messageBidderFromDetail()" class="flex-1 py-4 border border-cyan-400 text-cyan-400 font-semibold rounded-3xl">💬 Open Chat</button>
                     </div>
+                    <div id="escrow-actions" class="mb-8"></div>
                     <h3 class="text-2xl font-semibold mb-4">Submissions</h3>
                     <div id="submissions-list" class="space-y-4 mb-8"></div>
                     ${isWorker && (!project.submissions || !project.submissions.some(s => s.status === 'accepted')) ? `
@@ -3601,6 +3634,7 @@ async function loadTotalFundingReceivedStat() {
             modal.classList.remove('hidden');
 
             if (isInProgress) renderSubmissions(project);
+            if (isInProgress) loadEscrowActions(projectId, project);
         }
 
         function showSubprojectDetail(id, data) {
@@ -3796,61 +3830,139 @@ async function loadTotalFundingReceivedStat() {
             if (!currentProjectId || currentBidIndex === null) return;
 
             const deadline = document.getElementById('project-deadline').value;
-            if (!deadline) {
-                return alert("Please select a project deadline.");
-            }
+            if (!deadline) return alert("Please select a project deadline.");
+            if (!connectedAddress) return alert("Please connect your wallet first.");
+            if (!signer) return alert("Wallet not connected properly. Please reconnect.");
 
-            if (!confirm(`Accept this bid with a ${deadline} deadline? This will lock the project.`)) return;
+            if (!confirm(`Accept this bid with a ${deadline} deadline?\n\nFunds will be locked in escrow immediately. This cannot be undone.`)) return;
 
             try {
                 const projectRef = db.collection("subprojects").doc(currentProjectId);
                 const projectSnap = await projectRef.get();
                 const project = projectSnap.data();
-                
+
                 if (project.status === "in-progress" || project.acceptedBid) {
                     return alert("This project has already been accepted.");
                 }
 
                 const bid = currentProject.bids[currentBidIndex];
 
+                // Parse compensation amount
+                const compensationStr = bid.amount || project.compensation || '';
+                const amountNum = parseFloat(compensationStr.replace(/[^0-9.]/g, ''));
+                if (!amountNum || amountNum <= 0) {
+                    return alert("Could not parse compensation amount. Ensure it is a clear dollar value e.g. $500 USDC.");
+                }
+
+                const isNQV8 = compensationStr.toUpperCase().includes('NQV8');
+                const currency = isNQV8 ? 1 : 0;
+
+                // Check balance
+                if (isNQV8) {
+                    const raw = await nqv8Contract.balanceOf(connectedAddress);
+                    const bal = parseFloat(ethers.utils.formatUnits(raw, 18));
+                    if (bal < amountNum) return alert(`Insufficient NQV8. You have ${bal.toLocaleString()} but need ${amountNum.toLocaleString()}.`);
+                } else {
+                    const raw = await usdcContract.balanceOf(connectedAddress);
+                    const bal = parseFloat(ethers.utils.formatUnits(raw, 6));
+                    if (bal < amountNum) return alert(`Insufficient USDC. You have $${bal.toFixed(2)} but need $${amountNum.toFixed(2)}.`);
+                }
+
+                // Get worker wallet
+                const workerSnap = await db.collection('users').doc(bid.bidderUid).get();
+                const workerWallet = workerSnap.data()?.walletAddress;
+                if (!workerWallet) return alert("The worker has not connected a wallet yet. Ask them to connect first.");
+
+                const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
+                const deadlineTs = deadlineToTimestamp(deadline);
+
+                const btn = document.getElementById('accept-bid-btn');
+                if (btn) { btn.textContent = '⏳ Approving...'; btn.disabled = true; }
+
+                // Approve token spend
+                if (isNQV8) {
+                    const amountRaw = ethers.utils.parseUnits(String(amountNum), 18);
+                    const allowance = await nqv8Contract.allowance(connectedAddress, ESCROW_CONTRACT_ADDRESS);
+                    if (allowance.lt(amountRaw)) {
+                        const approveTx = await nqv8Contract.approve(ESCROW_CONTRACT_ADDRESS, amountRaw);
+                        if (btn) btn.textContent = '⏳ Waiting for approval...';
+                        await approveTx.wait();
+                    }
+                } else {
+                    const amountRaw = ethers.utils.parseUnits(amountNum.toFixed(6), 6);
+                    const allowance = await usdcContract.allowance(connectedAddress, ESCROW_CONTRACT_ADDRESS);
+                    if (allowance.lt(amountRaw)) {
+                        const approveTx = await usdcContract.approve(ESCROW_CONTRACT_ADDRESS, amountRaw);
+                        if (btn) btn.textContent = '⏳ Waiting for approval...';
+                        await approveTx.wait();
+                    }
+                }
+
+                if (btn) btn.textContent = '⏳ Locking funds in escrow...';
+
+                const amountRaw = isNQV8
+                    ? ethers.utils.parseUnits(String(amountNum), 18)
+                    : ethers.utils.parseUnits(amountNum.toFixed(6), 6);
+
+                const escrowTx = await escrowContract.createEscrow(
+                    currentProjectId,
+                    workerWallet,
+                    amountRaw,
+                    currency,
+                    deadlineTs
+                );
+                await escrowTx.wait();
+
+                // Update Firestore
                 await projectRef.update({
                     status: "in-progress",
                     acceptedBid: bid,
                     acceptedAt: firebase.firestore.FieldValue.serverTimestamp(),
                     acceptedBidderUid: bid.bidderUid,
+                    acceptedBidderUsername: bid.bidderName,
                     bidsOpen: false,
-                    deadline: deadline,                    // Added
-                    deadlineSetAt: firebase.firestore.FieldValue.serverTimestamp()
+                    deadline: deadline,
+                    deadlineTs: deadlineTs,
+                    deadlineSetAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    escrowTxHash: escrowTx.hash,
+                    escrowContractAddress: ESCROW_CONTRACT_ADDRESS,
+                    escrowCurrency: isNQV8 ? 'NQV8' : 'USDC',
+                    escrowAmount: amountNum
                 });
 
-                // Auto-create chat
-                const chatData = {
+                await db.collection("chats").add({
                     participants: [currentUser.uid, bid.bidderUid].sort(),
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     status: 'accepted',
                     relatedProjectId: currentProjectId,
                     isBidRelated: true
-                };
+                });
 
-                await db.collection("chats").add(chatData);
+                if (btn) { btn.textContent = 'Accept Bid'; btn.disabled = false; }
 
-                alert(`✅ Bid accepted with ${deadline} deadline!\n\nProject is now locked.`);
+                alert(`✅ Bid accepted!\n\n$${amountNum} ${isNQV8 ? 'NQV8' : 'USDC'} locked in escrow.\nEscrow tx: https://arbiscan.io/tx/${escrowTx.hash}`);
+
                 await createNotification(
                     bid.bidderUid,
                     'bid_accepted',
-                    `Your bid was accepted on: ${currentProject.title}! 🎉`,
+                    `Your bid was accepted on: ${currentProject.title}! Funds are locked in escrow.`,
                     { projectId: currentProjectId }
                 );
 
                 hideBidDetailModal();
                 hideProjectDetailModal();
                 loadMarketplace();
+
             } catch (e) {
-                console.error(e);
-                alert("Failed to accept bid: " + e.message);
+                const btn = document.getElementById('accept-bid-btn');
+                if (btn) { btn.textContent = 'Accept Bid'; btn.disabled = false; }
+                const msg = e.message || '';
+                if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
+                else if (msg.includes('insufficient funds')) alert("Not enough ETH for gas fees.");
+                else alert("Failed to lock escrow: " + msg);
             }
         }
-
+    
         function messageBidderFromDetail() {
             if (!currentProject) return alert("No project selected");
 
@@ -4076,34 +4188,57 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
 
         async function acceptSubmission(submissionIndex) {
             if (!currentProjectId || !currentProject) return;
+            if (!connectedAddress) return alert("Please connect your wallet first.");
+            if (!signer) return alert("Wallet not connected properly.");
 
-            if (!confirm("Accept this agreement and mark the project as COMPLETED?\n\nBoth parties must leave a review before funds are fully released.")) return;
+            if (!confirm("Accept this submission and release funds from escrow?\n\n96.5% goes to the worker. 3.5% platform fee. This cannot be undone.")) return;
 
             try {
-                const projectRef = db.collection("projects").doc(currentProjectId);
-                const updatedSubmissions = [...currentProject.submissions];
-                updatedSubmissions[submissionIndex].status = 'accepted';
+                const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
+                const escrowId = await escrowContract.projectToEscrow(currentProjectId);
+                const hasEscrow = escrowId !== '0x0000000000000000000000000000000000000000000000000000000000000000';
 
-                await projectRef.update({
-                    submissions: updatedSubmissions,
-                    status: "completed",
-                    completedAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
+                if (hasEscrow) {
+                    const releaseTx = await escrowContract.releaseEscrow(escrowId);
+                    await releaseTx.wait();
+
+                    const projectRef = db.collection("subprojects").doc(currentProjectId);
+                    const updatedSubmissions = [...currentProject.submissions];
+                    updatedSubmissions[submissionIndex].status = 'accepted';
+
+                    await projectRef.update({
+                        submissions: updatedSubmissions,
+                        status: "completed",
+                        completedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        escrowReleaseTxHash: releaseTx.hash,
+                        escrowReleased: true
+                    });
+
+                    alert(`✅ Submission accepted! Funds released from escrow.\nTx: https://arbiscan.io/tx/${releaseTx.hash}`);
+                } else {
+                    // Pre-escrow fallback
+                    const projectRef = db.collection("subprojects").doc(currentProjectId);
+                    const updatedSubmissions = [...currentProject.submissions];
+                    updatedSubmissions[submissionIndex].status = 'accepted';
+                    await projectRef.update({
+                        submissions: updatedSubmissions,
+                        status: "completed",
+                        completedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    alert("✅ Submission accepted! (Pre-escrow posting — please pay worker manually.)");
+                }
 
                 hideProjectDetailModal();
-
-                // Trigger review for the poster
-                setTimeout(() => {
-                    showReviewModal(currentProjectId, currentProject.title);
-                }, 600);
-
+                setTimeout(() => showReviewModal(currentProjectId, currentProject.title), 600);
                 loadMarketplace();
                 loadProfileData();
+
             } catch (e) {
-                console.error(e);
-                alert("Failed to accept: " + e.message);
+                const msg = e.message || '';
+                if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
+                else alert("Failed to release escrow: " + msg);
             }
-        }
+        }    
 
         async function requestChanges(submissionIndex) {
             if (!currentProjectId || !currentProject) return;
@@ -6856,6 +6991,152 @@ function confirmPostingVersion() {
     
 // Make sure navigateTo knows about tokenomics page
 // (add this line inside your existing navigateTo function if it already exists)
+
+// ====================== ESCROW ACTIONS ======================
+
+async function fileProjectDispute(projectId) {
+    if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
+    const usdcRaw = await usdcContract.balanceOf(connectedAddress);
+    const usdcBal = parseFloat(ethers.utils.formatUnits(usdcRaw, 6));
+    if (usdcBal < 10) return alert(`You need $10 USDC to file a dispute. Your balance: $${usdcBal.toFixed(2)}`);
+    if (!confirm("File a dispute?\n\nCost: $10 USDC (non-refundable)\n\nClaude AI will review evidence from both parties and issue a binding ruling.")) return;
+
+    try {
+        const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
+        const escrowId = await escrowContract.projectToEscrow(projectId);
+        const hasEscrow = escrowId !== '0x0000000000000000000000000000000000000000000000000000000000000000';
+        if (!hasEscrow) return alert("No escrow found for this project.");
+
+        const disputeFeeRaw = ethers.utils.parseUnits("10", 6);
+        const allowance = await usdcContract.allowance(connectedAddress, ESCROW_CONTRACT_ADDRESS);
+        if (allowance.lt(disputeFeeRaw)) {
+            const approveTx = await usdcContract.approve(ESCROW_CONTRACT_ADDRESS, disputeFeeRaw);
+            await approveTx.wait();
+        }
+
+        const disputeTx = await escrowContract.fileDispute(escrowId);
+        await disputeTx.wait();
+
+        await db.collection("subprojects").doc(projectId).update({
+            disputeFiled: true,
+            disputeFiledBy: currentUser.uid,
+            disputeFiledAt: firebase.firestore.FieldValue.serverTimestamp(),
+            disputeTxHash: disputeTx.hash
+        });
+
+        const otherUid = currentUser.uid === currentProject.posterUid
+            ? currentProject.acceptedBidderUid
+            : currentProject.posterUid;
+        await createNotification(otherUid, 'dispute', `A dispute has been filed on: "${currentProject.title}". Claude AI will review both sides.`, { projectId });
+
+        alert(`✅ Dispute filed. $10 USDC fee paid.\nTx: https://arbiscan.io/tx/${disputeTx.hash}`);
+        hideProjectDetailModal();
+        loadMarketplace();
+    } catch (e) {
+        const msg = e.message || '';
+        if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
+        else alert("Failed to file dispute: " + msg);
+    }
+}
+
+async function loadEscrowActions(projectId, project) {
+    const container = document.getElementById('escrow-actions');
+    if (!container || !connectedAddress) return;
+
+    try {
+        const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const escrowReadOnly = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, arbProvider);
+        const escrowId = await escrowReadOnly.projectToEscrow(projectId);
+        const noEscrow = escrowId === '0x0000000000000000000000000000000000000000000000000000000000000000';
+
+        if (noEscrow) {
+            container.innerHTML = `<div class="bg-zinc-800 rounded-2xl p-4 text-sm text-zinc-400">This project was posted before escrow was enabled. Payment handled manually.</div>`;
+            return;
+        }
+
+        const [core] = await escrowReadOnly.getEscrowByProject(projectId);
+        const statusMap = ['Active', 'Submitted', 'Released', 'Refunded', 'Disputed', 'Resolved'];
+        const status = statusMap[core.status] || 'Unknown';
+        const isPoster = currentUser.uid === project.posterUid || currentUser.uid === project.ownerUid;
+        const isWorker = currentUser.uid === project.acceptedBidderUid;
+        const amountFormatted = core.currency === 0
+            ? `$${parseFloat(ethers.utils.formatUnits(core.amount, 6)).toFixed(2)} USDC`
+            : `${parseFloat(ethers.utils.formatUnits(core.amount, 18)).toLocaleString()} NQV8`;
+
+        let html = `
+            <div class="bg-zinc-800 rounded-2xl p-5 mb-4">
+                <div class="flex justify-between items-center mb-2">
+                    <p class="text-sm font-semibold text-zinc-300">Escrow Status</p>
+                    <span class="text-xs px-3 py-1 rounded-full ${status === 'Released' ? 'bg-emerald-500/20 text-emerald-400' : status === 'Disputed' ? 'bg-red-500/20 text-red-400' : status === 'Submitted' ? 'bg-amber-500/20 text-amber-400' : 'bg-cyan-500/20 text-cyan-400'}">${status}</span>
+                </div>
+                <p class="text-zinc-400 text-sm">Locked: <span class="text-white font-medium">${amountFormatted}</span></p>
+            </div>`;
+
+        if (isPoster && (status === 'Active' || status === 'Submitted')) {
+            if (status === 'Submitted') {
+                html += `<button onclick="acceptSubmission(0)" class="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-3xl mb-3">✅ Accept & Release Funds from Escrow</button>`;
+            }
+            html += `<button onclick="fileProjectDispute('${projectId}')" class="w-full py-4 border border-red-500/50 text-red-400 hover:bg-red-500/10 font-medium rounded-3xl">⚠️ File Dispute ($10 USDC)</button>`;
+        }
+
+        if (isWorker && status === 'Submitted') {
+            const canRelease = await escrowReadOnly.canAutoRelease(escrowId);
+            if (canRelease) html += `<button onclick="claimAutoReleaseEscrow('${projectId}')" class="w-full py-4 bg-cyan-500 text-black font-semibold rounded-3xl mt-3">⏱ Claim Auto-Release (7 days elapsed)</button>`;
+            html += `<button onclick="fileProjectDispute('${projectId}')" class="w-full py-4 border border-red-500/50 text-red-400 hover:bg-red-500/10 font-medium rounded-3xl mt-3">⚠️ File Dispute ($10 USDC)</button>`;
+        }
+
+        if (isPoster && status === 'Active') {
+            const canRefund = await escrowReadOnly.canClaimRefund(escrowId);
+            if (canRefund) html += `<button onclick="claimEscrowRefund('${projectId}')" class="w-full py-4 bg-amber-500 text-black font-semibold rounded-3xl mt-3">💰 Claim Refund (Deadline Passed)</button>`;
+        }
+
+        if (status === 'Disputed') {
+            html += `<div class="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mt-3"><p class="text-red-400 font-semibold text-sm">Dispute In Progress</p><p class="text-zinc-400 text-xs mt-1">Claude AI is reviewing the evidence. The admin will execute the ruling on-chain.</p></div>`;
+        }
+
+        container.innerHTML = html;
+    } catch (e) {
+        console.warn('loadEscrowActions failed:', e.message);
+    }
+}
+
+async function claimAutoReleaseEscrow(projectId) {
+    if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
+    if (!confirm("Claim auto-release? 7 days have passed since you submitted. 96.5% will be released to you now.")) return;
+    try {
+        const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
+        const escrowId = await escrowContract.projectToEscrow(projectId);
+        const tx = await escrowContract.claimAutoRelease(escrowId);
+        await tx.wait();
+        await db.collection("subprojects").doc(projectId).update({ status: "completed", completedAt: firebase.firestore.FieldValue.serverTimestamp(), escrowAutoReleased: true });
+        alert(`✅ Funds released!\nTx: https://arbiscan.io/tx/${tx.hash}`);
+        hideProjectDetailModal();
+        loadMarketplace();
+    } catch (e) {
+        const msg = e.message || '';
+        if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
+        else alert("Auto-release failed: " + msg);
+    }
+}
+
+async function claimEscrowRefund(projectId) {
+    if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
+    if (!confirm("Claim full refund? The deadline has passed and no deliverables were submitted. 100% will be returned to you.")) return;
+    try {
+        const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
+        const escrowId = await escrowContract.projectToEscrow(projectId);
+        const tx = await escrowContract.claimRefund(escrowId);
+        await tx.wait();
+        await db.collection("subprojects").doc(projectId).update({ status: "refunded", refundedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        alert(`✅ Full refund received!\nTx: https://arbiscan.io/tx/${tx.hash}`);
+        hideProjectDetailModal();
+        loadMarketplace();
+    } catch (e) {
+        const msg = e.message || '';
+        if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
+        else alert("Refund failed: " + msg);
+    }
+}
     </script>    
 
     <!-- BUY NQV8 MODAL -->
