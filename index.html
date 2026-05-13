@@ -1160,6 +1160,44 @@
         </div>
     </div>
 
+<!-- Demand-Matched Release -->
+    <div class="bg-zinc-900 rounded-3xl p-8 mb-6">
+        <h2 class="text-xl font-semibold mb-6">Demand-Matched Treasury Release</h2>
+        <div class="space-y-6 text-sm">
+            <div class="flex gap-4">
+                <div class="w-7 h-7 bg-emerald-400/10 text-emerald-400 rounded-xl flex items-center justify-center flex-shrink-0 font-bold">1</div>
+                <div>
+                    <p class="font-medium text-white">No new tokens are ever minted</p>
+                    <p class="text-zinc-400 mt-1">All 980,000,000 accessible NQV8 already exist. No inflation. The mint function is controlled by the Reserve Wallet on Ledger hardware.</p>
+                </div>
+            </div>
+            <div class="flex gap-4">
+                <div class="w-7 h-7 bg-amber-400/10 text-amber-400 rounded-xl flex items-center justify-center flex-shrink-0 font-bold">2</div>
+                <div>
+                    <p class="font-medium text-white">Tokens released only when users buy them with USDC</p>
+                    <p class="text-zinc-400 mt-1">Treasury sells NQV8 at $0.01 for the first 10M. Every token sold brings real capital into the platform.</p>
+                </div>
+            </div>
+            <div class="flex gap-4">
+                <div class="w-7 h-7 bg-cyan-400/10 text-cyan-400 rounded-xl flex items-center justify-center flex-shrink-0 font-bold">3</div>
+                <div>
+                    <p class="font-medium text-white">Monthly rewards distributed to active participants</p>
+                    <p class="text-zinc-400 mt-1">20% of platform volume distributed pro-rata to wallets that transacted on NQV8 that month.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-8 flex justify-center">
+            <button onclick="showBuyNQV8Modal()"
+                    class="bg-gradient-to-r from-amber-400 to-cyan-400 text-black font-semibold px-8 py-4 rounded-3xl flex items-center gap-3 hover:scale-105 transition-transform">
+                <i class="fa-solid fa-arrow-down-to-bracket"></i>
+                Buy NQV8 with USDC from Treasury
+            </button>
+        </div>
+    </div>
+
+
+    
     <!-- Token Distribution -->
     <div class="bg-zinc-900 rounded-3xl p-8 mb-6">
         <h2 class="text-xl font-semibold mb-6">Token Distribution</h2>
@@ -1283,42 +1321,7 @@
         </div>
     </div>
 
-    <!-- Demand-Matched Release -->
-    <div class="bg-zinc-900 rounded-3xl p-8 mb-6">
-        <h2 class="text-xl font-semibold mb-6">Demand-Matched Treasury Release</h2>
-        <div class="space-y-6 text-sm">
-            <div class="flex gap-4">
-                <div class="w-7 h-7 bg-emerald-400/10 text-emerald-400 rounded-xl flex items-center justify-center flex-shrink-0 font-bold">1</div>
-                <div>
-                    <p class="font-medium text-white">No new tokens are ever minted</p>
-                    <p class="text-zinc-400 mt-1">All 980,000,000 accessible NQV8 already exist. No inflation. The mint function is controlled by the Reserve Wallet on Ledger hardware.</p>
-                </div>
-            </div>
-            <div class="flex gap-4">
-                <div class="w-7 h-7 bg-amber-400/10 text-amber-400 rounded-xl flex items-center justify-center flex-shrink-0 font-bold">2</div>
-                <div>
-                    <p class="font-medium text-white">Tokens released only when users buy them with USDC</p>
-                    <p class="text-zinc-400 mt-1">Treasury sells NQV8 at $0.01 for the first 10M. Every token sold brings real capital into the platform.</p>
-                </div>
-            </div>
-            <div class="flex gap-4">
-                <div class="w-7 h-7 bg-cyan-400/10 text-cyan-400 rounded-xl flex items-center justify-center flex-shrink-0 font-bold">3</div>
-                <div>
-                    <p class="font-medium text-white">Monthly rewards distributed to active participants</p>
-                    <p class="text-zinc-400 mt-1">20% of platform volume distributed pro-rata to wallets that transacted on NQV8 that month.</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="mt-8 flex justify-center">
-            <button onclick="showBuyNQV8Modal()"
-                    class="bg-gradient-to-r from-amber-400 to-cyan-400 text-black font-semibold px-8 py-4 rounded-3xl flex items-center gap-3 hover:scale-105 transition-transform">
-                <i class="fa-solid fa-arrow-down-to-bracket"></i>
-                Buy NQV8 with USDC from Treasury
-            </button>
-        </div>
-    </div>
-
+    
     <!-- Founder Allocation & Rule 144 -->
     <div class="bg-zinc-900 rounded-3xl p-8 mb-6">
         <h2 class="text-xl font-semibold mb-2">Founder Allocation</h2>
