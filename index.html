@@ -5182,6 +5182,8 @@ async function loadChatList(searchTerm = "") {
 
                     postedSnap.forEach(doc => {
                         const p = doc.data();
+                        // Skip completed — they show in Completed Postings section
+                        if (p.status === 'completed' || p.status === 'refunded') return;
                         const card = document.createElement('div');
                         card.className = "bg-zinc-800 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-cyan-400";
                         card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs ${p.status === 'in-progress' ? 'text-amber-400' : 'text-zinc-400'}">${p.type} • ${p.compensation}</span>`;
@@ -5222,7 +5224,8 @@ async function loadChatList(searchTerm = "") {
                 const completedGrid = document.getElementById('completed-projects');
                 completedGrid.innerHTML = '<p class="col-span-full text-zinc-400">Loading...</p>';
                 try {
-                    const completedSnap = await db.collection("projects")
+                    const completedSnap = await db.collection("subprojects")
+                        .where("ownerUid", "==", currentUser.uid)
                         .where("status", "==", "completed")
                         .get();
 
