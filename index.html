@@ -4479,7 +4479,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                 const escrowId = await escrowContract.projectToEscrow(currentProjectId);
                 const hasEscrow = escrowId !== '0x0000000000000000000000000000000000000000000000000000000000000000';
 
-                if (hasEscrow) {
+if (hasEscrow) {
                     const releaseTx = await escrowContract.releaseEscrow(escrowId);
                     await releaseTx.wait();
 
@@ -4495,7 +4495,55 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                         escrowReleased: true
                     });
 
-                    alert(`✅ Submission accepted! Funds released from escrow.\nTx: https://arbiscan.io/tx/${releaseTx.hash}`);
+                    // ── Auto-transfer equity if bounty includes equity compensation ──
+                    const hasEquity = currentProject.compensationType === 'equity' ||
+                                      currentProject.compensationType === 'mixed';
+
+                    if (hasEquity && currentProject.equityUnits && currentProject.companyId) {
+                        try {
+                            // Get wallets
+                            const founderSnap = await db.collection('users').doc(currentProject.ownerUid).get();
+                            const workerSnap  = await db.collection('users').doc(currentProject.acceptedBidderUid).get();
+                            const founderWallet = founderSnap.data()?.walletAddress;
+                            const workerWallet  = workerSnap.data()?.walletAddress;
+
+                            if (founderWallet && workerWallet) {
+                                const equityResponse = await fetch('/api/transfer-equity', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        projectId:     currentProject.companyId,
+                                        founderWallet,
+                                        workerWallet,
+                                        units:         currentProject.equityUnits,
+                                        reason:        `Bounty completion: ${currentProject.title}`,
+                                        bountyTitle:   currentProject.title,
+                                        callerUid:     currentUser.uid
+                                    })
+                                });
+
+                                const equityResult = await equityResponse.json();
+
+                                if (equityResult.success) {
+                                    await projectRef.update({
+                                        equityTransferTxHash: equityResult.txHash,
+                                        equityTransferred: true,
+                                        equityUnitsTransferred: currentProject.equityUnits
+                                    });
+                                    alert(`✅ Submission accepted!\n\nFunds released from escrow.\nTx: https://arbiscan.io/tx/${releaseTx.hash}\n\n📈 Equity transferred: ${equityResult.percentage}% (${currentProject.equityUnits} units) in ${equityResult.projectName}\nTx: https://arbiscan.io/tx/${equityResult.txHash}`);
+                                } else {
+                                    alert(`✅ Submission accepted! Funds released.\nTx: https://arbiscan.io/tx/${releaseTx.hash}\n\n⚠️ Equity transfer failed: ${equityResult.error}\nPlease transfer equity manually from your company dashboard.`);
+                                }
+                            } else {
+                                alert(`✅ Submission accepted! Funds released.\nTx: https://arbiscan.io/tx/${releaseTx.hash}\n\n⚠️ Could not auto-transfer equity — worker or founder wallet not connected. Transfer manually from your company dashboard.`);
+                            }
+                        } catch(equityErr) {
+                            console.error('Equity transfer failed:', equityErr);
+                            alert(`✅ Submission accepted! Funds released.\nTx: https://arbiscan.io/tx/${releaseTx.hash}\n\n⚠️ Equity transfer failed: ${equityErr.message}\nPlease transfer equity manually.`);
+                        }
+                    } else {
+                        alert(`✅ Submission accepted! Funds released from escrow.\nTx: https://arbiscan.io/tx/${releaseTx.hash}`);
+                    }
                 } else {
                     // Pre-escrow fallback
                     const projectRef = db.collection("subprojects").doc(currentProjectId);
@@ -6511,6 +6559,16 @@ async function submitBountyPosting() {
             async (txHash) => {
                 try {
                     const projectSnap = await db.collection("companies").doc(selectedBountyProjectId).get();
+// Parse equity units from compensation string if equity bounty
+                    // e.g. "5% equity" → 500 units, "2.5% equity" → 250 units
+                    let equityUnits = 0;
+                    if (selectedBountyCompType === 'equity' || selectedBountyCompType === 'mixed') {
+                        const pctMatch = compensation.match(/(\d+\.?\d*)\s*%/);
+                        if (pctMatch) {
+                            equityUnits = Math.round(parseFloat(pctMatch[1]) * 100);
+                        }
+                    }
+
                     await db.collection("subprojects").add({
                         projectId: selectedBountyProjectId,
                         companyId: selectedBountyProjectId,
@@ -6518,10 +6576,11 @@ async function submitBountyPosting() {
                         ownerUsername: currentUser.username,
                         posterName: currentUser.fullName || currentUser.username,
                         title,
-                        description: finalDesc, // ← uses whichever version they chose
+                        description: finalDesc,
                         category,
                         compensation,
                         compensationType: selectedBountyCompType,
+                        equityUnits: equityUnits || 0,
                         type: 'build',
                         bids: [],
                         bidsOpen: true,
