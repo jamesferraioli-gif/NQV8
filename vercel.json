@@ -32,6 +32,10 @@
             "dest": "/api/monthly-rewards.js"
         },
         {
+            "src": "/api/transfer-equity",
+            "dest": "/api/transfer-equity.js"
+        },
+        {
             "src": "/admin.html",
             "dest": "/admin.html"
         },
@@ -42,12 +46,8 @@
     ],
     "crons": [
         {
-            "src": "/api/monthly-rewards",
-            "dest": "/api/monthly-rewards.js"
-        },
-        {
-            "src": "/api/transfer-equity",
-            "dest": "/api/transfer-equity.js"
-        },
+            "path": "/api/monthly-rewards",
+            "schedule": "0 0 1 * *"
+        }
     ]
 }
