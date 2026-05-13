@@ -4555,6 +4555,11 @@ if (hasEscrow) {
                         completedAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
                     alert("✅ Submission accepted! (Pre-escrow posting — please pay worker manually.)");
+
+                    // If this was a funding request, trigger equity revaluation for the project
+                    if (currentProject.type === 'fund' && currentProject.companyId) {
+                        triggerEquityRevaluation(currentProject.companyId);
+                    }
                 }
 
                 hideProjectDetailModal();
@@ -7897,6 +7902,107 @@ function renderRewardsHistory(histories, maxMonths) {
     grid.appendChild(totals);
 }
 
+// ====================== EQUITY VALUATION ======================
+
+async function loadEquityValuation(listingId, projectId) {
+    const container = document.getElementById(`valuation-content-${listingId}`);
+    if (!container) return;
+
+    container.innerHTML = `<p class="text-zinc-400 text-xs animate-pulse">⏳ Analyzing trading history, metrics, and comparables...</p>`;
+
+    try {
+        const response = await fetch('/api/valuate-equity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ projectId })
+        });
+
+        if (!response.ok) throw new Error('Valuation service unavailable');
+        const v = await response.json();
+
+        const confidenceColor = v.confidence === 'high' ? 'text-emerald-400' :
+                                v.confidence === 'medium' ? 'text-amber-400' : 'text-red-400';
+
+        const factorsHTML = v.keyFactors?.map(f => `
+            <div class="flex items-start gap-2">
+                <span class="${f.impact === 'positive' ? 'text-emerald-400' : f.impact === 'negative' ? 'text-red-400' : 'text-zinc-400'} flex-shrink-0 mt-0.5">
+                    ${f.impact === 'positive' ? '↑' : f.impact === 'negative' ? '↓' : '→'}
+                </span>
+                <p class="text-xs text-zinc-300">${f.factor}</p>
+            </div>
+        `).join('') || '';
+
+        const warningsHTML = v.warnings?.length > 0 ? `
+            <div class="mt-3 pt-3 border-t border-zinc-700">
+                ${v.warnings.map(w => `<p class="text-xs text-amber-400">⚠️ ${w}</p>`).join('')}
+            </div>
+        ` : '';
+
+        container.innerHTML = `
+            <!-- Valuation range -->
+            <div class="grid grid-cols-3 gap-3 mb-4 text-center">
+                <div class="bg-zinc-700 rounded-xl p-3">
+                    <p class="text-xs text-zinc-500 mb-1">Conservative</p>
+                    <p class="text-sm font-bold text-zinc-300">$${v.valuationRange?.low?.toFixed(4)}/unit</p>
+                    <p class="text-xs text-zinc-500">$${Math.round(v.impliedValuation?.low || 0).toLocaleString()} total</p>
+                </div>
+                <div class="bg-violet-500/20 border border-violet-500/30 rounded-xl p-3">
+                    <p class="text-xs text-violet-400 mb-1">Fair Value</p>
+                    <p class="text-sm font-bold text-violet-400">$${v.valuationRange?.mid?.toFixed(4)}/unit</p>
+                    <p class="text-xs text-violet-300">$${Math.round(v.impliedValuation?.mid || 0).toLocaleString()} total</p>
+                </div>
+                <div class="bg-zinc-700 rounded-xl p-3">
+                    <p class="text-xs text-zinc-500 mb-1">Optimistic</p>
+                    <p class="text-sm font-bold text-zinc-300">$${v.valuationRange?.high?.toFixed(4)}/unit</p>
+                    <p class="text-xs text-zinc-500">$${Math.round(v.impliedValuation?.high || 0).toLocaleString()} total</p>
+                </div>
+            </div>
+
+            <!-- Suggested ask -->
+            <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 mb-3">
+                <p class="text-xs text-zinc-400">Suggested ask price</p>
+                <p class="text-emerald-400 font-semibold">$${v.suggestedAskPerUnit?.toFixed(4)} per unit</p>
+            </div>
+
+            <!-- Methodology -->
+            <p class="text-xs text-zinc-400 mb-3">${v.methodology}</p>
+
+            <!-- Key factors -->
+            ${factorsHTML ? `<div class="space-y-1 mb-3">${factorsHTML}</div>` : ''}
+
+            <!-- Comparables -->
+            ${v.comparablesUsed?.length > 0 ? `
+                <p class="text-xs text-zinc-500">Comparables: ${v.comparablesUsed.join(', ')}</p>
+            ` : ''}
+
+            ${warningsHTML}
+
+            <!-- Confidence + cache info -->
+            <div class="flex justify-between items-center mt-3 pt-2 border-t border-zinc-700">
+                <p class="text-xs ${confidenceColor}">Confidence: ${v.confidence}</p>
+                <p class="text-xs text-zinc-600">${v.fromCache ? 'Cached · ' : ''}${new Date(v.cachedAt).toLocaleDateString()}</p>
+            </div>
+        `;
+
+    } catch(e) {
+        container.innerHTML = `<p class="text-red-400 text-xs">Valuation unavailable: ${e.message}</p>`;
+    }
+}
+
+// Auto-trigger revaluation when a trade completes
+async function triggerEquityRevaluation(projectId) {
+    try {
+        await fetch('/api/valuate-equity', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ projectId, forceRefresh: true })
+        });
+        console.log('Revaluation triggered for', projectId);
+    } catch(e) {
+        console.warn('Revaluation trigger failed:', e.message);
+    }
+}
+
 // Make sure navigateTo knows about tokenomics page
 // (add this line inside your existing navigateTo function if it already exists)
 
@@ -7990,9 +8096,22 @@ async function showEquityDetailOnChain(listingId, listing, project) {
             <p class="text-white text-sm mt-1">$${parseFloat(ethers.utils.formatUnits(project.lastSalePricePerUnit, 6)).toFixed(4)} per unit · ${new Date(project.lastSaleAt.toNumber() * 1000).toLocaleDateString()}</p>
         </div>` : ''}
 
+        <div id="valuation-section-${listingId}" class="bg-zinc-800 rounded-2xl p-5 mb-6">
+            <div class="flex justify-between items-center mb-2">
+                <p class="text-sm font-semibold text-zinc-300">🤖 Claude Valuation</p>
+                <button onclick="loadEquityValuation('${listingId}', '${listing.projectId}')"
+                        class="px-3 py-1 bg-violet-600 hover:bg-violet-700 text-white text-xs rounded-xl">
+                    Get Valuation
+                </button>
+            </div>
+            <div id="valuation-content-${listingId}">
+                <p class="text-zinc-500 text-xs">Click to get an AI-powered fair value estimate based on trading history, metrics, and comparable projects.</p>
+            </div>
+        </div>
+
         <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6">
             <p class="text-amber-400 text-sm font-medium">⚠️ Disclaimer</p>
-            <p class="text-zinc-400 text-xs mt-1">NQVate is not a broker or party to this transaction. Always do your own due diligence before purchasing equity.</p>
+            <p class="text-zinc-400 text-xs mt-1">NQVate is not a broker or party to this transaction. Always do your own due diligence before purchasing equity. Claude valuations are estimates only.</p>
         </div>
 
         ${!isOwner && connectedAddress ? `
@@ -8048,6 +8167,8 @@ async function buyNowOnChain(listingId, totalUSDC) {
         alert(`✅ Purchase complete!\nTx: https://arbiscan.io/tx/${tx.hash}`);
         hideProjectDetailModal();
         loadEquityListings();
+        // Trigger revaluation since a trade just happened
+        triggerEquityRevaluation(listing.projectId);
     } catch(e) {
         const msg = e.message || '';
         if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
@@ -8081,9 +8202,16 @@ async function makeOfferOnChain(listingId, units) {
         const tx = await equityContract.makeOffer(listingId, priceRaw);
         await tx.wait();
 
-        alert(`✅ Offer submitted! $${totalOffer.toFixed(2)} USDC locked.\nTx: https://arbiscan.io/tx/${tx.hash}`);
+        alert(`✅ Offer accepted! Equity transferred.\nTx: https://arbiscan.io/tx/${tx.hash}`);
         hideProjectDetailModal();
         loadEquityListings();
+        // Get offer's project ID for revaluation
+        try {
+            const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+            const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
+            const offer = await equityReadOnly.getOffer(offerId);
+            triggerEquityRevaluation(offer.projectId);
+        } catch(e) { console.warn('Could not trigger revaluation:', e.message); }
     } catch(e) {
         const msg = e.message || '';
         if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
@@ -8098,9 +8226,10 @@ async function acceptOfferOnChain(offerId) {
         const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
         const tx = await equityContract.acceptOffer(offerId);
         await tx.wait();
-        alert(`✅ Offer accepted! Equity transferred.\nTx: https://arbiscan.io/tx/${tx.hash}`);
+        alert(`✅ Counter accepted! Trade complete.\nTx: https://arbiscan.io/tx/${tx.hash}`);
         hideProjectDetailModal();
         loadEquityListings();
+        triggerEquityRevaluation(window._currentEquityProjectId || '');
     } catch(e) {
         const msg = e.message || '';
         if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
