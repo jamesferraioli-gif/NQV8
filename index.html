@@ -4886,6 +4886,10 @@ async function loadChatList(searchTerm = "") {
                     document.getElementById('profile-usdc-balance').textContent = 'Connect wallet to view';
                 }
                 try {
+                    if (!connectedAddress) {
+                        document.getElementById('profile-total-earnings').textContent = 'Connect wallet to view';
+                        throw new Error('no wallet');
+                    }
                     const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
                     const escrowReadOnly = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, arbProvider);
 
