@@ -4256,7 +4256,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             if (feedback === null || feedback.trim() === "") return;
 
             try {
-                const projectRef = db.collection("projects").doc(currentProjectId);
+                const projectRef = db.collection("subprojects").doc(currentProjectId);
                 const updatedSubmissions = [...currentProject.submissions];
                 updatedSubmissions[submissionIndex].status = 'changes-requested';
                 updatedSubmissions[submissionIndex].feedback = feedback.trim();
