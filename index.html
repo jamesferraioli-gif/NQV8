@@ -5096,6 +5096,19 @@ async function loadChatList(searchTerm = "") {
                             </button>` : ''}
                         `;
                         card.onclick = () => showCompanyDetail(c.id, c);
+
+                        // Add delete button for unverified companies with no activity
+                        if (c.role === 'owner' && c.verificationStatus !== 'verified' && c.verificationStatus !== 'pending') {
+                            const deleteBtn = document.createElement('button');
+                            deleteBtn.className = 'mt-3 w-full py-2 border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs rounded-xl transition-colors';
+                            deleteBtn.textContent = '🗑️ Delete Project';
+                            deleteBtn.onclick = async (e) => {
+                                e.stopPropagation();
+                                await deleteUnverifiedCompany(c.id, c.name);
+                            };
+                            card.appendChild(deleteBtn);
+                        }
+
                         companiesGrid.appendChild(card);
                     });
                 } catch(e) {
@@ -8240,6 +8253,62 @@ async function loadEquityValuationForStake(projectId, btn) {
     } catch(e) {
         if (btn) { btn.textContent = 'Get valuation estimate'; btn.disabled = false; }
         alert('Valuation failed: ' + e.message);
+    }
+}
+
+// ====================== DELETE UNVERIFIED COMPANY ======================
+
+async function deleteUnverifiedCompany(companyId, companyName) {
+    if (!currentUser) return;
+
+    if (!confirm(`Delete "${companyName}"?\n\nThis will permanently remove the project from your profile. This cannot be undone.`)) return;
+
+    try {
+        // ── 1. Check for any associated subprojects ───────────────────────
+        const subSnap = await db.collection('subprojects')
+            .where('companyId', '==', companyId)
+            .limit(1)
+            .get();
+
+        if (!subSnap.empty) {
+            return alert(`❌ Cannot delete "${companyName}" — it has tasks or postings associated with it.\n\nThese are part of your work history. Archive the project instead by leaving it inactive.`);
+        }
+
+        // ── 2. Check for equity on-chain ──────────────────────────────────
+        if (connectedAddress) {
+            try {
+                const arbProvider    = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+                const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
+                const project        = await equityReadOnly.getProject(companyId);
+
+                if (project.exists) {
+                    return alert(`❌ Cannot delete "${companyName}" — it has equity registered on-chain.\n\nThe equity registry record cannot be deleted. You can still remove the Firestore record but the on-chain record will remain.`);
+                }
+            } catch(e) {
+                // If equity check fails, proceed — project likely not registered
+                console.warn('Equity check failed:', e.message);
+            }
+        }
+
+        // ── 3. Double-check ownership and verification status ─────────────
+        const companyDoc = await db.collection('companies').doc(companyId).get();
+        if (!companyDoc.exists) return alert('Company not found.');
+
+        const company = companyDoc.data();
+        if (company.ownerUid !== currentUser.uid) return alert('❌ You can only delete your own projects.');
+        if (company.verificationStatus === 'verified' || company.verificationStatus === 'pending') {
+            return alert(`❌ Cannot delete a verified or pending-verification project.\n\nYou have submitted legal documents for this entity. Contact support if you need to remove it.`);
+        }
+
+        // ── 4. Delete from Firestore ──────────────────────────────────────
+        await db.collection('companies').doc(companyId).delete();
+
+        alert(`✅ "${companyName}" has been deleted.`);
+        loadProfileData();
+
+    } catch(e) {
+        console.error('deleteUnverifiedCompany failed:', e);
+        alert('Failed to delete: ' + e.message);
     }
 }
 
