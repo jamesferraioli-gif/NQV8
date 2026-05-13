@@ -2432,6 +2432,7 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
         }
         
         async function createNotification(recipientUid, type, message, extras = {}) {
+            if (!recipientUid) return; // skip if no recipient
             if (recipientUid === currentUser.uid) return; // never notify yourself
             
             await db.collection("notifications").add({
@@ -3734,7 +3735,7 @@ async function loadTotalFundingReceivedStat() {
                                 bids: firebase.firestore.FieldValue.arrayUnion(newBid)
                             });
                             await createNotification(
-                                project.posterUid,
+                                project.posterUid || project.ownerUid,
                                 'bid',
                                 `@${currentUser.username} placed a bid on your project: ${project.title}`,
                                 { projectId }
