@@ -891,10 +891,11 @@
 
                 <div class="flex justify-between items-center py-4 border-b border-zinc-800">
                     <div>
-                        <p class="font-medium">Change Password</p>
-                        <p class="text-xs text-zinc-400">Update your login password</p>
+                        <p class="font-medium">Connected Wallet</p>
+                        <p id="settings-wallet-address" class="text-xs text-zinc-400 font-mono mt-1">Not connected</p>
+                        <p class="text-xs text-zinc-600 mt-1">Your wallet receives NQV8 bonuses, bounty payments and escrow releases</p>
                     </div>
-                    <button onclick="showChangePasswordModal()"
+                    <button onclick="showChangeWalletModal()"
                             class="px-5 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-2xl text-sm font-medium">
                         Change
                     </button>
@@ -7412,6 +7413,29 @@ async function claimEscrowRefund(projectId) {
         else alert("Refund failed: " + msg);
     }
 }
+
+function showChangeWalletModal() {
+    document.getElementById('change-wallet-modal').classList.remove('hidden');
+    const current = document.getElementById('change-wallet-current');
+    if (current) current.textContent = connectedAddress || 'No wallet connected';
+}
+
+function hideChangeWalletModal() {
+    document.getElementById('change-wallet-modal').classList.add('hidden');
+}
+
+async function changeWallet() {
+    hideChangeWalletModal();
+    // Trigger MetaMask — on connection onWalletConnected() saves to Firestore automatically
+    await connectWithMetaMask();
+    const settingsWallet = document.getElementById('settings-wallet-address');
+    if (settingsWallet && connectedAddress) {
+        settingsWallet.textContent = connectedAddress;
+    }
+    if (connectedAddress) alert(`✅ Wallet updated to ${connectedAddress.slice(0,6)}...${connectedAddress.slice(-4)}`);
+}
+
+    
     </script>    
 
     <!-- BUY NQV8 MODAL -->
@@ -7529,6 +7553,29 @@ async function claimEscrowRefund(projectId) {
                     class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
             <button onclick="deleteAccount()"
                     class="flex-1 py-4 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-3xl">Delete My Account</button>
+        </div>
+    </div>
+</div>
+
+<!-- CHANGE WALLET MODAL -->
+<div id="change-wallet-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
+    <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-8">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-bold">Change Wallet</h2>
+            <button onclick="hideChangeWalletModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
+        </div>
+        <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6">
+            <p class="text-amber-400 text-sm font-medium">⚠️ Important</p>
+            <p class="text-zinc-400 text-xs mt-1">Changing your wallet updates where bounty payments and escrow releases are sent. Any pending escrow payouts will go to the new wallet. Make sure you own the new wallet before confirming.</p>
+        </div>
+        <p class="text-sm text-zinc-400 mb-2">Current wallet:</p>
+        <p id="change-wallet-current" class="text-xs font-mono text-zinc-300 mb-6 break-all"></p>
+        <p class="text-sm text-zinc-400 mb-4">Connect your new wallet via MetaMask to replace it:</p>
+        <div class="flex gap-3">
+            <button onclick="hideChangeWalletModal()"
+                    class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+            <button onclick="changeWallet()"
+                    class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Connect New Wallet</button>
         </div>
     </div>
 </div>
