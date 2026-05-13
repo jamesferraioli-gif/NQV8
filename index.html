@@ -1130,26 +1130,26 @@
         <h1 class="text-4xl font-bold tracking-tighter mb-3 flex items-center gap-3">
             <i class="fa-solid fa-coins text-amber-400"></i> NQV8 Tokenomics
         </h1>
-        <p class="text-zinc-400">1 Billion Total Supply · 100% Pre-Issued · Demand-Matched Release</p>
+        <p class="text-zinc-400">980,000,000 Accessible Supply · 100% Pre-Issued · Demand-Matched Release</p>
     </div>
 
     <!-- Stats cards -->
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
         <div class="bg-zinc-900 rounded-3xl p-6">
-            <div class="text-amber-400 text-xs font-semibold uppercase tracking-wider mb-3">Total Supply</div>
+            <div class="text-amber-400 text-xs font-semibold uppercase tracking-wider mb-3">Total Issued</div>
             <div class="text-4xl font-bold mb-1">1,000,000,000</div>
-            <div class="text-zinc-400 text-sm">NQV8 (all pre-issued in treasury)</div>
+            <div class="text-zinc-400 text-sm">NQV8 (originally minted)</div>
             <div class="h-2 bg-zinc-800 rounded-full mt-5 overflow-hidden">
-                <div class="h-full w-[1%] bg-gradient-to-r from-amber-400 to-cyan-400 rounded-full"></div>
+                <div class="h-full w-[98%] bg-gradient-to-r from-amber-400 to-cyan-400 rounded-full"></div>
             </div>
-            <p class="text-xs text-zinc-500 mt-2">Only 1% currently circulating</p>
+            <p class="text-xs text-zinc-500 mt-2">980M accessible · 20M lost during development</p>
         </div>
 
         <div class="bg-zinc-900 rounded-3xl p-6">
             <div class="text-emerald-400 text-xs font-semibold uppercase tracking-wider mb-3">Circulating Supply</div>
-            <div id="circulating-supply" class="text-4xl font-bold mb-1">10,000,000</div>
-            <div class="text-zinc-400 text-sm">NQV8</div>
-            <p class="text-xs text-emerald-400 mt-5">1,000 NQV8 claimable bonus for new users (until 10M circulating)</p>
+            <div id="circulating-supply" class="text-4xl font-bold mb-1">Loading...</div>
+            <div class="text-zinc-400 text-sm">NQV8 sold via Treasury</div>
+            <p class="text-xs text-emerald-400 mt-5">1,000 NQV8 signup bonus · until 10M circulating</p>
         </div>
 
         <div class="bg-zinc-900 rounded-3xl p-6" id="peg-status">
@@ -1157,6 +1157,129 @@
             <div class="text-4xl font-bold mb-1">$0.01</div>
             <div class="text-zinc-400 text-sm">per NQV8 (first 10M only)</div>
             <p class="text-xs text-zinc-500 mt-5">100 NQV8 = $1 transaction value</p>
+        </div>
+    </div>
+
+    <!-- Token Distribution -->
+    <div class="bg-zinc-900 rounded-3xl p-8 mb-6">
+        <h2 class="text-xl font-semibold mb-6">Token Distribution</h2>
+        <div class="space-y-4">
+
+            <div class="flex items-center gap-4">
+                <div class="w-3 h-3 rounded-full bg-cyan-400 flex-shrink-0"></div>
+                <div class="flex-1">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-sm font-medium">Treasury Contract (Peg Sales)</span>
+                        <span class="text-cyan-400 font-semibold">10,000,000 NQV8 (1%)</span>
+                    </div>
+                    <div class="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                        <div class="h-full w-[1%] bg-cyan-400 rounded-full"></div>
+                    </div>
+                    <p class="text-xs text-zinc-500 mt-1 font-mono">0x75dB1b0a363a6994e4e502Cf201e23B1D93582D8</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <div class="w-3 h-3 rounded-full bg-violet-400 flex-shrink-0"></div>
+                <div class="flex-1">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-sm font-medium">Founder Allocation</span>
+                        <span class="text-violet-400 font-semibold">100,000,000 NQV8 (10%)</span>
+                    </div>
+                    <div class="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                        <div class="h-full w-[10%] bg-violet-400 rounded-full"></div>
+                    </div>
+                    <p class="text-xs text-zinc-500 mt-1 font-mono">0x0A6090b655A9eB73f85449609eB2336e76d64c47</p>
+                    <p class="text-xs text-zinc-600 mt-0.5">Subject to Rule 144 sale limits via Treasury contract</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <div class="w-3 h-3 rounded-full bg-emerald-400 flex-shrink-0"></div>
+                <div class="flex-1">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-sm font-medium">Reserve (Ecosystem, Exchanges, Rewards)</span>
+                        <span class="text-emerald-400 font-semibold">870,000,000 NQV8 (87%)</span>
+                    </div>
+                    <div class="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                        <div class="h-full w-[87%] bg-emerald-400 rounded-full"></div>
+                    </div>
+                    <p class="text-xs text-zinc-500 mt-1">NQVate Reserve Wallet · Ledger hardware wallet (migration in progress)</p>
+                </div>
+            </div>
+
+            <div class="flex items-center gap-4">
+                <div class="w-3 h-3 rounded-full bg-red-500 flex-shrink-0"></div>
+                <div class="flex-1">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-sm font-medium">Lost During Development</span>
+                        <span class="text-red-400 font-semibold">20,000,000 NQV8 (2%)</span>
+                    </div>
+                    <div class="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                        <div class="h-full w-[2%] bg-red-500 rounded-full"></div>
+                    </div>
+                    <p class="text-xs text-zinc-500 mt-1">Permanently inaccessible · verified on-chain</p>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- Development Burns / Lost Tokens -->
+    <div class="bg-zinc-900 rounded-3xl p-8 mb-6">
+        <h2 class="text-xl font-semibold mb-2 flex items-center gap-2">
+            <i class="fa-solid fa-fire text-red-400"></i> Lost During Development
+        </h2>
+        <p class="text-zinc-400 text-sm mb-6">20,000,000 NQV8 became permanently inaccessible during early development and testing. All transactions are publicly verifiable on Arbitrum.</p>
+
+        <!-- Burn 1 -->
+        <div class="border border-red-500/20 bg-red-500/5 rounded-2xl p-5 mb-4">
+            <div class="flex justify-between items-start mb-3">
+                <div>
+                    <p class="font-semibold text-white">Sent to Unrecoverable Remix VM Contract</p>
+                    <p class="text-zinc-400 text-sm mt-1">10,000,000 NQV8 sent to a smart contract deployed via Remix IDE's built-in VM. The contract has no withdrawal function and the deployer key was a temporary Remix session key — permanently lost.</p>
+                </div>
+                <span class="text-red-400 font-bold text-lg ml-4 flex-shrink-0">10M NQV8</span>
+            </div>
+            <div class="space-y-2 mt-4">
+                <div>
+                    <p class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Lost Address</p>
+                    <p class="text-xs font-mono text-zinc-300 break-all">0xb14462e147e3a48982095733BBaC4f7CEaF1D112</p>
+                </div>
+                <div>
+                    <p class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Transaction</p>
+                    <a href="https://arbiscan.io/tx/0xfc5a46a834c494843e61cb505d57c858d125efb4f588bd967a5eb82fca36fbd8"
+                       target="_blank"
+                       class="text-xs font-mono text-cyan-400 hover:underline break-all">
+                        0xfc5a46a834c494843e61cb505d57c858d125efb4f588bd967a5eb82fca36fbd8 ↗
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Burn 2 -->
+        <div class="border border-red-500/20 bg-red-500/5 rounded-2xl p-5">
+            <div class="flex justify-between items-start mb-3">
+                <div>
+                    <p class="font-semibold text-white">Sent to Inaccessible Wallet</p>
+                    <p class="text-zinc-400 text-sm mt-1">10,000,000 NQV8 sent to a wallet address created during early development testing. The private key for this wallet was not retained and the address has never sent a transaction.</p>
+                </div>
+                <span class="text-red-400 font-bold text-lg ml-4 flex-shrink-0">10M NQV8</span>
+            </div>
+            <div class="space-y-2 mt-4">
+                <div>
+                    <p class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Lost Address</p>
+                    <p class="text-xs font-mono text-zinc-300 break-all">0x53D6F52412bdf5f75c9ACA69B926023ED96b152F</p>
+                </div>
+                <div>
+                    <p class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Transaction</p>
+                    <a href="https://arbiscan.io/tx/0xd37acfa4d0284a9c435624e2aee02b24f930a39dc0ad23867fc03135e03f79c9"
+                       target="_blank"
+                       class="text-xs font-mono text-cyan-400 hover:underline break-all">
+                        0xd37acfa4d0284a9c435624e2aee02b24f930a39dc0ad23867fc03135e03f79c9 ↗
+                    </a>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -1168,21 +1291,21 @@
                 <div class="w-7 h-7 bg-emerald-400/10 text-emerald-400 rounded-xl flex items-center justify-center flex-shrink-0 font-bold">1</div>
                 <div>
                     <p class="font-medium text-white">No new tokens are ever minted</p>
-                    <p class="text-zinc-400 mt-1">All 1 billion NQV8 already exist in the treasury. No inflation.</p>
+                    <p class="text-zinc-400 mt-1">All 980,000,000 accessible NQV8 already exist. No inflation. The mint function is controlled by the Reserve Wallet on Ledger hardware.</p>
                 </div>
             </div>
             <div class="flex gap-4">
                 <div class="w-7 h-7 bg-amber-400/10 text-amber-400 rounded-xl flex items-center justify-center flex-shrink-0 font-bold">2</div>
                 <div>
                     <p class="font-medium text-white">Tokens released only when users buy them with USDC</p>
-                    <p class="text-zinc-400 mt-1">Treasury sells NQV8 directly for USDC at market price. Every token sold brings real capital into the platform.</p>
+                    <p class="text-zinc-400 mt-1">Treasury sells NQV8 at $0.01 for the first 10M. Every token sold brings real capital into the platform.</p>
                 </div>
             </div>
             <div class="flex gap-4">
                 <div class="w-7 h-7 bg-cyan-400/10 text-cyan-400 rounded-xl flex items-center justify-center flex-shrink-0 font-bold">3</div>
                 <div>
                     <p class="font-medium text-white">Monthly rewards distributed to active participants</p>
-                    <p class="text-zinc-400 mt-1">20% of platform volume distributed pro-rata to wallets that transacted on NQV8 that month. Projects = 100 NQV8 · All other actions = 1 NQV8.</p>
+                    <p class="text-zinc-400 mt-1">20% of platform volume distributed pro-rata to wallets that transacted on NQV8 that month.</p>
                 </div>
             </div>
         </div>
@@ -1206,9 +1329,13 @@
                 <span class="text-zinc-400 text-sm">Founder Wallet Grant</span>
                 <span class="text-amber-400 font-semibold">100,000,000 NQV8</span>
             </div>
+            <div class="flex justify-between items-start mb-1">
+                <span class="text-zinc-400 text-sm">% of Accessible Supply</span>
+                <span class="text-zinc-300 font-semibold">~10.2%</span>
+            </div>
             <div class="flex justify-between items-start">
-                <span class="text-zinc-400 text-sm">% of Total Supply</span>
-                <span class="text-zinc-300 font-semibold">10%</span>
+                <span class="text-zinc-400 text-sm">Founder Wallet</span>
+                <span class="text-xs font-mono text-zinc-300">0x0A6090b655A9eB73f85449609eB2336e76d64c47</span>
             </div>
         </div>
 
@@ -1216,24 +1343,31 @@
             <div class="flex items-start gap-3 mb-4">
                 <i class="fa-solid fa-scale-balanced text-violet-400 mt-0.5 flex-shrink-0"></i>
                 <div>
-                    <p class="font-medium text-white">Rule 144 Affiliate Sale Limits Apply to Founder</p>
-                    <p class="text-zinc-400 text-sm mt-1">Founder token sales follow the same volume restrictions that govern how affiliates of publicly traded companies can sell their holdings under SEC Rule 144. These are the same rules that apply to executives, directors, and large shareholders of listed companies — applied here voluntarily to ensure market integrity.</p>
+                    <p class="font-medium text-white">Rule 144 Affiliate Sale Limits — Enforced On-Chain</p>
+                    <p class="text-zinc-400 text-sm mt-1">Founder token sales are enforced automatically by the Treasury smart contract via the <code class="text-cyan-400">founderSell()</code> function. Sales exceeding the limit are rejected by the contract — not just policy.</p>
                 </div>
             </div>
 
             <div class="bg-violet-500/10 border border-violet-500/20 rounded-xl p-4 mb-4">
                 <p class="text-violet-300 text-sm font-medium mb-2">Sale Limit Per 3-Month Period</p>
-                <p class="text-zinc-300 text-sm">The founder may sell no more than the <span class="text-white font-medium">greater of</span>:</p>
                 <ul class="mt-2 space-y-1 text-sm text-zinc-300">
-                    <li class="flex items-start gap-2"><span class="text-violet-400 mt-0.5">•</span><span><span class="text-white font-medium">1% of circulating supply</span> (excluding founder holdings) in any rolling 3-month period, or</span></li>
-                    <li class="flex items-start gap-2"><span class="text-violet-400 mt-0.5">•</span><span>The <span class="text-white font-medium">average weekly trading volume</span> over the prior 4 weeks, whichever is greater — consistent with Rule 144(e)</span></li>
+                    <li class="flex items-start gap-2"><span class="text-violet-400 mt-0.5">•</span><span><span class="text-white font-medium">1% of circulating supply</span> in any rolling 3-month period</span></li>
+                    <li class="flex items-start gap-2"><span class="text-violet-400 mt-0.5">•</span><span>Enforced automatically by Treasury contract — cannot be bypassed</span></li>
                 </ul>
             </div>
 
-            <p class="text-xs text-zinc-500">These restrictions mirror SEC Rule 144 affiliate volume limits for publicly traded securities. While NQV8 is not a registered security, applying these same standards demonstrates the founder's commitment to fair, non-manipulative token distribution. Founder sales, if any, will be disclosed publicly on-chain.</p>
+            <div class="flex items-center gap-3 mt-4">
+                <span class="text-xs text-zinc-400">Treasury Contract:</span>
+                <a href="https://arbiscan.io/address/0x75dB1b0a363a6994e4e502Cf201e23B1D93582D8#readContract"
+                   target="_blank"
+                   class="text-xs font-mono text-cyan-400 hover:underline">
+                    0x75dB1b0a363a6994e4e502Cf201e23B1D93582D8 ↗
+                </a>
+            </div>
         </div>
     </div>
-    
+
+    <!-- Post-Peg Transition -->
     <div class="bg-zinc-900 rounded-3xl p-8 mb-6">
         <h2 class="text-xl font-semibold mb-2">Post-Peg Transition</h2>
         <p class="text-zinc-400 text-sm mb-5">What changes once 10,000,000 NQV8 has been distributed.</p>
@@ -1244,7 +1378,7 @@
             </div>
             <div class="flex gap-3 items-start">
                 <span class="text-emerald-400 mt-0.5 flex-shrink-0">✓</span>
-                <p class="text-zinc-300">All platform fees (posting, bidding, comments, etc.) shift to <span class="text-white font-medium">NQV8 only</span> — USDC is no longer accepted for fees.</p>
+                <p class="text-zinc-300">All platform fees shift to <span class="text-white font-medium">NQV8 only</span> — USDC no longer accepted for fees.</p>
             </div>
             <div class="flex gap-3 items-start">
                 <span class="text-emerald-400 mt-0.5 flex-shrink-0">✓</span>
@@ -1262,7 +1396,12 @@
     </div>
 
     <div class="text-center text-xs text-zinc-600">
-        Full smart contract & treasury wallet details on Arbitrum · Multi-sig controlled
+        NQV8 Token:
+        <a href="https://arbiscan.io/token/0x02b3EF81d6577507114BB26F91F1a8d0A7bB1B67"
+           target="_blank" class="text-cyan-400/50 hover:text-cyan-400 font-mono">
+            0x02b3EF81d6577507114BB26F91F1a8d0A7bB1B67
+        </a>
+        · Arbitrum One · Treasury verified on-chain
     </div>
 </div>
     
