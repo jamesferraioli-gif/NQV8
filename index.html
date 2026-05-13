@@ -1253,8 +1253,97 @@
         </div>
     </div>
 
+    <!-- Monthly Rewards -->
+    <div class="bg-zinc-900 rounded-3xl p-8 mb-6">
+        <div class="flex justify-between items-center mb-2">
+            <h2 class="text-xl font-semibold flex items-center gap-2">
+                <i class="fa-solid fa-gift text-emerald-400"></i> Monthly Rewards
+            </h2>
+            <div class="flex gap-2">
+                <button onclick="setRewardsView(12)" id="rewards-view-12"
+                        class="px-3 py-1 rounded-xl text-xs font-medium bg-cyan-500 text-black">12M</button>
+                <button onclick="setRewardsView(36)" id="rewards-view-36"
+                        class="px-3 py-1 rounded-xl text-xs font-medium bg-zinc-700 text-zinc-300">36M</button>
+                <button onclick="setRewardsView(999)" id="rewards-view-all"
+                        class="px-3 py-1 rounded-xl text-xs font-medium bg-zinc-700 text-zinc-300">All</button>
+            </div>
+        </div>
+        <p class="text-zinc-400 text-sm mb-6">20% of platform fees redistributed monthly to active NQV8 fee payers.</p>
 
-    
+        <!-- Summary stats -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-zinc-800 rounded-2xl p-4 text-center">
+                <p class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Total NQV8 Distributed</p>
+                <p id="rewards-total-nqv8" class="text-2xl font-bold text-cyan-400">—</p>
+            </div>
+            <div class="bg-zinc-800 rounded-2xl p-4 text-center">
+                <p class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Total USDC Distributed</p>
+                <p id="rewards-total-usdc" class="text-2xl font-bold text-emerald-400">—</p>
+            </div>
+            <div class="bg-zinc-800 rounded-2xl p-4 text-center">
+                <p class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Distribution Rounds</p>
+                <p id="rewards-total-rounds" class="text-2xl font-bold text-violet-400">—</p>
+            </div>
+            <div class="bg-zinc-800 rounded-2xl p-4 text-center">
+                <p class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Next Distribution</p>
+                <p id="rewards-next-distribution" class="text-2xl font-bold text-amber-400">—</p>
+            </div>
+        </div>
+
+        <!-- Your rewards preview (if wallet connected) -->
+        <div id="rewards-my-preview" class="hidden bg-cyan-500/10 border border-cyan-500/20 rounded-2xl p-5 mb-6">
+            <p class="text-cyan-400 font-semibold mb-3">🎁 Your Estimated Reward This Month</p>
+            <div class="grid grid-cols-3 gap-4 text-center">
+                <div>
+                    <p class="text-xs text-zinc-400 mb-1">NQV8 Reward</p>
+                    <p id="my-nqv8-reward" class="text-xl font-bold text-cyan-400">—</p>
+                </div>
+                <div>
+                    <p class="text-xs text-zinc-400 mb-1">USDC Reward</p>
+                    <p id="my-usdc-reward" class="text-xl font-bold text-emerald-400">—</p>
+                </div>
+                <div>
+                    <p class="text-xs text-zinc-400 mb-1">Your Share</p>
+                    <p id="my-reward-share" class="text-xl font-bold text-violet-400">—</p>
+                </div>
+            </div>
+            <p class="text-xs text-zinc-500 mt-3">Based on your NQV8 fee payments this month. Distributed on the 1st.</p>
+        </div>
+
+        <!-- Current month pool -->
+        <div class="bg-zinc-800 rounded-2xl p-5 mb-6">
+            <p class="text-sm font-semibold text-zinc-300 mb-3">Current Month Pool</p>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                    <p class="text-zinc-500 text-xs mb-1">Fee Payers</p>
+                    <p id="rewards-current-payers" class="font-semibold">—</p>
+                </div>
+                <div>
+                    <p class="text-zinc-500 text-xs mb-1">NQV8 Pool</p>
+                    <p id="rewards-current-nqv8-pool" class="font-semibold text-cyan-400">—</p>
+                </div>
+                <div>
+                    <p class="text-zinc-500 text-xs mb-1">USDC Pool</p>
+                    <p id="rewards-current-usdc-pool" class="font-semibold text-emerald-400">—</p>
+                </div>
+                <div>
+                    <p class="text-zinc-500 text-xs mb-1">Last Distribution</p>
+                    <p id="rewards-last-distribution" class="font-semibold">—</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historical chart -->
+        <div id="rewards-chart-container">
+            <p class="text-sm font-semibold text-zinc-300 mb-4">Distribution History</p>
+            <div id="rewards-history-grid" class="space-y-3">
+                <p class="text-zinc-500 text-sm">Loading history...</p>
+            </div>
+        </div>
+    </div>
+
+
+
     <!-- Token Distribution -->
     <div class="bg-zinc-900 rounded-3xl p-8 mb-6">
         <h2 class="text-xl font-semibold mb-6">Token Distribution</h2>
@@ -1455,94 +1544,6 @@
         </div>
     </div>
 
-<!-- Monthly Rewards -->
-    <div class="bg-zinc-900 rounded-3xl p-8 mb-6">
-        <div class="flex justify-between items-center mb-2">
-            <h2 class="text-xl font-semibold flex items-center gap-2">
-                <i class="fa-solid fa-gift text-emerald-400"></i> Monthly Rewards
-            </h2>
-            <div class="flex gap-2">
-                <button onclick="setRewardsView(12)" id="rewards-view-12"
-                        class="px-3 py-1 rounded-xl text-xs font-medium bg-cyan-500 text-black">12M</button>
-                <button onclick="setRewardsView(36)" id="rewards-view-36"
-                        class="px-3 py-1 rounded-xl text-xs font-medium bg-zinc-700 text-zinc-300">36M</button>
-                <button onclick="setRewardsView(999)" id="rewards-view-all"
-                        class="px-3 py-1 rounded-xl text-xs font-medium bg-zinc-700 text-zinc-300">All</button>
-            </div>
-        </div>
-        <p class="text-zinc-400 text-sm mb-6">20% of platform fees redistributed monthly to active NQV8 fee payers.</p>
-
-        <!-- Summary stats -->
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-            <div class="bg-zinc-800 rounded-2xl p-4 text-center">
-                <p class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Total NQV8 Distributed</p>
-                <p id="rewards-total-nqv8" class="text-2xl font-bold text-cyan-400">—</p>
-            </div>
-            <div class="bg-zinc-800 rounded-2xl p-4 text-center">
-                <p class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Total USDC Distributed</p>
-                <p id="rewards-total-usdc" class="text-2xl font-bold text-emerald-400">—</p>
-            </div>
-            <div class="bg-zinc-800 rounded-2xl p-4 text-center">
-                <p class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Distribution Rounds</p>
-                <p id="rewards-total-rounds" class="text-2xl font-bold text-violet-400">—</p>
-            </div>
-            <div class="bg-zinc-800 rounded-2xl p-4 text-center">
-                <p class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Next Distribution</p>
-                <p id="rewards-next-distribution" class="text-2xl font-bold text-amber-400">—</p>
-            </div>
-        </div>
-
-        <!-- Your rewards preview (if wallet connected) -->
-        <div id="rewards-my-preview" class="hidden bg-cyan-500/10 border border-cyan-500/20 rounded-2xl p-5 mb-6">
-            <p class="text-cyan-400 font-semibold mb-3">🎁 Your Estimated Reward This Month</p>
-            <div class="grid grid-cols-3 gap-4 text-center">
-                <div>
-                    <p class="text-xs text-zinc-400 mb-1">NQV8 Reward</p>
-                    <p id="my-nqv8-reward" class="text-xl font-bold text-cyan-400">—</p>
-                </div>
-                <div>
-                    <p class="text-xs text-zinc-400 mb-1">USDC Reward</p>
-                    <p id="my-usdc-reward" class="text-xl font-bold text-emerald-400">—</p>
-                </div>
-                <div>
-                    <p class="text-xs text-zinc-400 mb-1">Your Share</p>
-                    <p id="my-reward-share" class="text-xl font-bold text-violet-400">—</p>
-                </div>
-            </div>
-            <p class="text-xs text-zinc-500 mt-3">Based on your NQV8 fee payments this month. Distributed on the 1st.</p>
-        </div>
-
-        <!-- Current month pool -->
-        <div class="bg-zinc-800 rounded-2xl p-5 mb-6">
-            <p class="text-sm font-semibold text-zinc-300 mb-3">Current Month Pool</p>
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                <div>
-                    <p class="text-zinc-500 text-xs mb-1">Fee Payers</p>
-                    <p id="rewards-current-payers" class="font-semibold">—</p>
-                </div>
-                <div>
-                    <p class="text-zinc-500 text-xs mb-1">NQV8 Pool</p>
-                    <p id="rewards-current-nqv8-pool" class="font-semibold text-cyan-400">—</p>
-                </div>
-                <div>
-                    <p class="text-zinc-500 text-xs mb-1">USDC Pool</p>
-                    <p id="rewards-current-usdc-pool" class="font-semibold text-emerald-400">—</p>
-                </div>
-                <div>
-                    <p class="text-zinc-500 text-xs mb-1">Last Distribution</p>
-                    <p id="rewards-last-distribution" class="font-semibold">—</p>
-                </div>
-            </div>
-        </div>
-
-        <!-- Historical chart -->
-        <div id="rewards-chart-container">
-            <p class="text-sm font-semibold text-zinc-300 mb-4">Distribution History</p>
-            <div id="rewards-history-grid" class="space-y-3">
-                <p class="text-zinc-500 text-sm">Loading history...</p>
-            </div>
-        </div>
-    </div>
 
     <div class="text-center text-xs text-zinc-600">
         NQV8 Token:
