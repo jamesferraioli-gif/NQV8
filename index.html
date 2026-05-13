@@ -837,6 +837,25 @@
         </div>
 
         <!-- My Companies -->
+        <div class="mb-10">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-semibold">My Companies</h2>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <span class="text-xs text-zinc-400">Show inactive</span>
+                    <div class="relative">
+                        <input type="checkbox" id="show-inactive-toggle" class="sr-only"
+                               onchange="toggleInactiveCompanies()">
+                        <div class="w-10 h-5 bg-zinc-700 rounded-full transition-colors" id="toggle-track"></div>
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform" id="toggle-thumb"></div>
+                    </div>
+                </label>
+            </div>
+            <div id="my-companies" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- My Posted Projects -->
 
         <!-- My Posted Projects -->
         <div class="mb-10">
