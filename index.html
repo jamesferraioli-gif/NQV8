@@ -4316,7 +4316,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             if (!text) return alert("Please write a review");
 
             try {
-                const projectRef = db.collection("projects").doc(currentReviewProjectId);
+                const projectRef = db.collection("subprojects").doc(currentReviewProjectId);
 
                 await projectRef.update({
                     reviews: firebase.firestore.FieldValue.arrayUnion({
