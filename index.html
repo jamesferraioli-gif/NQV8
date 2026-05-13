@@ -873,9 +873,20 @@
             </div>
         </div>
 
-        <!-- Completed Projects -->
+<!-- Completed Projects -->
         <div class="mb-10">
-            <h2 class="text-2xl font-semibold mb-4">Completed Postings</h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-semibold">Completed Postings</h2>
+                <label class="flex items-center gap-2 cursor-pointer">
+                    <span class="text-xs text-zinc-400">Show on profile</span>
+                    <div class="relative">
+                        <input type="checkbox" id="show-completed-toggle" checked class="sr-only"
+                               onchange="toggleCompletedPostings()">
+                        <div class="w-10 h-5 bg-cyan-500 rounded-full transition-colors" id="completed-toggle-track"></div>
+                        <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform" id="completed-toggle-thumb" style="transform: translateX(20px)"></div>
+                    </div>
+                </label>
+            </div>
             <div id="completed-projects" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <!-- Populated by JS -->
             </div>
@@ -5344,6 +5355,15 @@ async function loadChatList(searchTerm = "") {
                     console.warn('Total earnings from chain failed:', e.message);
                     document.getElementById('profile-total-earnings').textContent = '$0.00';
                 }
+                // Restore completed postings toggle preference
+                if (currentUser.hideCompletedPostings) {
+                    const toggle = document.getElementById('show-completed-toggle');
+                    if (toggle) {
+                        toggle.checked = false;
+                        toggleCompletedPostings();
+                    }
+                }
+
                 // Show claim bonus banner if unclaimed
                 const claimBanner = document.getElementById('claim-bonus-banner');
                 if (claimBanner) {
@@ -8295,6 +8315,31 @@ async function loadEquityValuationForStake(projectId, btn) {
     } catch(e) {
         if (btn) { btn.textContent = 'Get valuation estimate'; btn.disabled = false; }
         alert('Valuation failed: ' + e.message);
+    }
+}
+
+// ====================== COMPLETED POSTINGS TOGGLE ======================
+
+function toggleCompletedPostings() {
+    const toggle  = document.getElementById('show-completed-toggle');
+    const track   = document.getElementById('completed-toggle-track');
+    const thumb   = document.getElementById('completed-toggle-thumb');
+    const section = document.getElementById('completed-projects').closest('.mb-10');
+
+    const show = toggle.checked;
+
+    track.classList.toggle('bg-cyan-500', show);
+    track.classList.toggle('bg-zinc-700', !show);
+    thumb.style.transform = show ? 'translateX(20px)' : 'translateX(0)';
+
+    const grid = document.getElementById('completed-projects');
+    grid.style.display = show ? '' : 'none';
+
+    // Persist preference in Firestore
+    if (currentUser) {
+        db.collection('users').doc(currentUser.uid).update({
+            hideCompletedPostings: !show
+        }).catch(e => console.warn('Could not save preference:', e.message));
     }
 }
 
