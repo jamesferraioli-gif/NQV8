@@ -876,11 +876,63 @@
             </div>
         </div>
 
-        <!-- My Reviews -->
+<!-- My Reviews -->
         <div>
             <h2 class="text-2xl font-semibold mb-4">Reviews Received</h2>
             <div id="my-reviews" class="space-y-4">
                 <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- Settings -->
+        <div class="mt-10">
+            <h2 class="text-2xl font-semibold mb-4">⚙️ Account Settings</h2>
+            <div class="bg-zinc-900 rounded-3xl p-8 space-y-4">
+
+                <div class="flex justify-between items-center py-4 border-b border-zinc-800">
+                    <div>
+                        <p class="font-medium">Change Password</p>
+                        <p class="text-xs text-zinc-400">Update your login password</p>
+                    </div>
+                    <button onclick="showChangePasswordModal()"
+                            class="px-5 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-2xl text-sm font-medium">
+                        Change
+                    </button>
+                </div>
+
+                <div class="flex justify-between items-center py-4 border-b border-zinc-800">
+                    <div>
+                        <p class="font-medium">Connected Wallet</p>
+                        <p id="settings-wallet-address" class="text-xs text-zinc-400 font-mono mt-1">Not connected</p>
+                    </div>
+                    <button onclick="connectWallet()"
+                            class="px-5 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-2xl text-sm font-medium">
+                        Change
+                    </button>
+                </div>
+
+                <div class="flex justify-between items-center py-4 border-b border-zinc-800">
+                    <div>
+                        <p class="font-medium">Email Address</p>
+                        <p id="settings-email" class="text-xs text-zinc-400 mt-1"></p>
+                    </div>
+                    <button onclick="showChangeEmailModal()"
+                            class="px-5 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-2xl text-sm font-medium">
+                        Change
+                    </button>
+                </div>
+
+                <div class="flex justify-between items-center py-4">
+                    <div>
+                        <p class="font-medium text-red-400">Delete Account</p>
+                        <p class="text-xs text-zinc-400">Permanently delete your NQVate account</p>
+                    </div>
+                    <button onclick="showDeleteAccountModal()"
+                            class="px-5 py-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 border border-red-600/30 rounded-2xl text-sm font-medium">
+                        Delete
+                    </button>
+                </div>
+
             </div>
         </div>
     </div>
@@ -2995,8 +3047,9 @@ async function createProfile() {
         alert("Please fill in all fields");
         return;
     }
-    if (password.length < 6) {
-        alert("Password must be at least 6 characters");
+    const pwCheck = validatePassword(password);
+    if (!pwCheck.valid) {
+        alert("Password must be at least 8 characters, include 1 uppercase letter, and 1 special character (!@#$%^&* etc).");
         return;
     }
     if (!walletConnected) {
@@ -4971,7 +5024,12 @@ async function loadChatList(searchTerm = "") {
                         claimBanner.classList.add('hidden');
                     }
                 }
-                                                
+
+                // Populate settings fields
+                const settingsWallet = document.getElementById('settings-wallet-address');
+                const settingsEmail = document.getElementById('settings-email');
+                if (settingsWallet) settingsWallet.textContent = connectedAddress || 'Not connected';
+                if (settingsEmail) settingsEmail.textContent = currentUser.email || '';
 
             } catch (e) {
                 console.error("Profile data load error:", e);
@@ -7078,6 +7136,134 @@ function confirmPostingVersion() {
     window._onPostingConfirm(chosen);
 }
     
+// ====================== SETTINGS ======================
+
+function validatePassword(password) {
+    const hasLength  = password.length >= 8;
+    const hasUpper   = /[A-Z]/.test(password);
+    const hasSpecial = /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password);
+    return { hasLength, hasUpper, hasSpecial, valid: hasLength && hasUpper && hasSpecial };
+}
+
+function checkPasswordStrength() {
+    const pw = document.getElementById('new-password')?.value || '';
+    const { hasLength, hasUpper, hasSpecial } = validatePassword(pw);
+    const set = (id, pass) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.className = pass ? 'text-emerald-400' : 'text-red-400';
+        el.textContent = (pass ? '✓ ' : '✗ ') + el.textContent.slice(2);
+    };
+    set('req-length',  hasLength);
+    set('req-upper',   hasUpper);
+    set('req-special', hasSpecial);
+}
+
+function showChangePasswordModal() {
+    document.getElementById('change-password-modal').classList.remove('hidden');
+    document.getElementById('current-password').value = '';
+    document.getElementById('new-password').value = '';
+    document.getElementById('confirm-new-password').value = '';
+    // Reset indicators
+    ['req-length','req-upper','req-special'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) { el.className = 'text-red-400'; el.textContent = '✗ ' + el.textContent.slice(2); }
+    });
+}
+function hideChangePasswordModal() {
+    document.getElementById('change-password-modal').classList.add('hidden');
+}
+
+async function changePassword() {
+    const current  = document.getElementById('current-password').value;
+    const newPw    = document.getElementById('new-password').value;
+    const confirm  = document.getElementById('confirm-new-password').value;
+
+    if (!current || !newPw || !confirm) return alert("Please fill in all fields.");
+
+    const { valid } = validatePassword(newPw);
+    if (!valid) return alert("New password does not meet the requirements.");
+    if (newPw !== confirm) return alert("New passwords do not match.");
+
+    try {
+        // Re-authenticate first
+        const credential = firebase.auth.EmailAuthProvider.credential(currentUser.email, current);
+        await auth.currentUser.reauthenticateWithCredential(credential);
+        await auth.currentUser.updatePassword(newPw);
+        hideChangePasswordModal();
+        alert("✅ Password updated successfully!");
+    } catch(e) {
+        if (e.code === 'auth/wrong-password') alert("❌ Current password is incorrect.");
+        else alert("❌ Failed to update password: " + e.message);
+    }
+}
+
+function showChangeEmailModal() {
+    document.getElementById('change-email-modal').classList.remove('hidden');
+    document.getElementById('new-email').value = '';
+    document.getElementById('email-change-password').value = '';
+}
+function hideChangeEmailModal() {
+    document.getElementById('change-email-modal').classList.add('hidden');
+}
+
+async function changeEmail() {
+    const newEmail = document.getElementById('new-email').value.trim();
+    const password = document.getElementById('email-change-password').value;
+
+    if (!newEmail || !password) return alert("Please fill in all fields.");
+
+    try {
+        const credential = firebase.auth.EmailAuthProvider.credential(currentUser.email, password);
+        await auth.currentUser.reauthenticateWithCredential(credential);
+        await auth.currentUser.updateEmail(newEmail);
+        await db.collection('users').doc(currentUser.uid).update({ email: newEmail });
+        currentUser.email = newEmail;
+        document.getElementById('profile-email').textContent = newEmail;
+        document.getElementById('settings-email').textContent = newEmail;
+        hideChangeEmailModal();
+        alert("✅ Email updated successfully!");
+    } catch(e) {
+        if (e.code === 'auth/wrong-password') alert("❌ Password is incorrect.");
+        else if (e.code === 'auth/email-already-in-use') alert("❌ That email is already in use.");
+        else alert("❌ Failed to update email: " + e.message);
+    }
+}
+
+function showDeleteAccountModal() {
+    document.getElementById('delete-account-modal').classList.remove('hidden');
+    document.getElementById('delete-confirm-password').value = '';
+    document.getElementById('delete-confirm-text').value = '';
+}
+function hideDeleteAccountModal() {
+    document.getElementById('delete-account-modal').classList.add('hidden');
+}
+
+async function deleteAccount() {
+    const password    = document.getElementById('delete-confirm-password').value;
+    const confirmText = document.getElementById('delete-confirm-text').value.trim();
+
+    if (confirmText !== 'DELETE') return alert('Please type "DELETE" to confirm.');
+    if (!password) return alert("Please enter your password.");
+
+    try {
+        const credential = firebase.auth.EmailAuthProvider.credential(currentUser.email, password);
+        await auth.currentUser.reauthenticateWithCredential(credential);
+
+        // Delete Firestore user doc
+        await db.collection('users').doc(currentUser.uid).delete();
+
+        // Delete Firebase Auth account
+        await auth.currentUser.delete();
+
+        alert("Your account has been deleted.");
+        location.reload();
+    } catch(e) {
+        if (e.code === 'auth/wrong-password') alert("❌ Password is incorrect.");
+        else alert("❌ Failed to delete account: " + e.message);
+    }
+}
+
 // Make sure navigateTo knows about tokenomics page
 // (add this line inside your existing navigateTo function if it already exists)
 
@@ -7266,5 +7452,86 @@ async function claimEscrowRefund(projectId) {
         </div>
     </div>
         
+<!-- CHANGE PASSWORD MODAL -->
+<div id="change-password-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
+    <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-8">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold">Change Password</h2>
+            <button onclick="hideChangePasswordModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
+        </div>
+
+        <div class="bg-zinc-800 rounded-2xl p-4 mb-6 text-xs text-zinc-400 space-y-1">
+            <p>Password must have:</p>
+            <p id="req-length" class="text-red-400">✗ At least 8 characters</p>
+            <p id="req-upper" class="text-red-400">✗ At least 1 uppercase letter</p>
+            <p id="req-special" class="text-red-400">✗ At least 1 special character (!@#$%^&*)</p>
+        </div>
+
+        <input id="current-password" type="password" placeholder="Current Password"
+               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
+        <input id="new-password" type="password" placeholder="New Password"
+               oninput="checkPasswordStrength()"
+               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
+        <input id="confirm-new-password" type="password" placeholder="Confirm New Password"
+               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-6">
+
+        <div class="flex gap-3">
+            <button onclick="hideChangePasswordModal()"
+                    class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+            <button onclick="changePassword()"
+                    class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Update Password</button>
+        </div>
+    </div>
+</div>
+
+<!-- CHANGE EMAIL MODAL -->
+<div id="change-email-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
+    <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-8">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold">Change Email</h2>
+            <button onclick="hideChangeEmailModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
+        </div>
+        <p class="text-zinc-400 text-sm mb-6">A verification email will be sent to your new address.</p>
+
+        <input id="new-email" type="email" placeholder="New Email Address"
+               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
+        <input id="email-change-password" type="password" placeholder="Current Password (to confirm)"
+               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-6">
+
+        <div class="flex gap-3">
+            <button onclick="hideChangeEmailModal()"
+                    class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+            <button onclick="changeEmail()"
+                    class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Update Email</button>
+        </div>
+    </div>
+</div>
+
+<!-- DELETE ACCOUNT MODAL -->
+<div id="delete-account-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
+    <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-8">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-2xl font-bold text-red-400">Delete Account</h2>
+            <button onclick="hideDeleteAccountModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
+        </div>
+        <div class="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mb-6">
+            <p class="text-red-400 text-sm font-medium">⚠️ This action is permanent and cannot be undone.</p>
+            <p class="text-zinc-400 text-xs mt-2">Your profile, postings, and account data will be deleted. Any funds locked in escrow must be resolved first.</p>
+        </div>
+
+        <input id="delete-confirm-password" type="password" placeholder="Enter your password to confirm"
+               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
+        <input id="delete-confirm-text" type="text" placeholder='Type "DELETE" to confirm'
+               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-6">
+
+        <div class="flex gap-3">
+            <button onclick="hideDeleteAccountModal()"
+                    class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+            <button onclick="deleteAccount()"
+                    class="flex-1 py-4 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-3xl">Delete My Account</button>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>
