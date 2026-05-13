@@ -5010,6 +5010,11 @@ async function loadChatList(searchTerm = "") {
                         : '$' + totalUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
                     document.getElementById('profile-total-earnings').textContent = fmt;
+                    // Populate settings fields
+                    const settingsWallet = document.getElementById('settings-wallet-address');
+                    const settingsEmail = document.getElementById('settings-email');
+                    if (settingsWallet) settingsWallet.textContent = connectedAddress || 'Not connected';
+                    if (settingsEmail) settingsEmail.textContent = currentUser.email || '';
 
                 } catch(e) {
                     console.warn('Total earnings from chain failed:', e.message);
@@ -5025,11 +5030,6 @@ async function loadChatList(searchTerm = "") {
                     }
                 }
 
-                // Populate settings fields
-                const settingsWallet = document.getElementById('settings-wallet-address');
-                const settingsEmail = document.getElementById('settings-email');
-                if (settingsWallet) settingsWallet.textContent = connectedAddress || 'Not connected';
-                if (settingsEmail) settingsEmail.textContent = currentUser.email || '';
 
             } catch (e) {
                 console.error("Profile data load error:", e);
