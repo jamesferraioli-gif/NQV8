@@ -7426,13 +7426,36 @@ function hideChangeWalletModal() {
 
 async function changeWallet() {
     hideChangeWalletModal();
-    // Trigger MetaMask — on connection onWalletConnected() saves to Firestore automatically
-    await connectWithMetaMask();
-    const settingsWallet = document.getElementById('settings-wallet-address');
-    if (settingsWallet && connectedAddress) {
-        settingsWallet.textContent = connectedAddress;
+
+    const prevAddress = connectedAddress;
+
+    try {
+        // Force MetaMask to show the account picker
+        await window.ethereum.request({
+            method: 'wallet_requestPermissions',
+            params: [{ eth_accounts: {} }]
+        });
+
+        await connectInjected();
+
+        if (connectedAddress && connectedAddress !== prevAddress) {
+            // Save new wallet to Firestore
+            await db.collection('users').doc(currentUser.uid).update({
+                walletAddress: connectedAddress.toLowerCase()
+            });
+            currentUser.walletAddress = connectedAddress.toLowerCase();
+
+            const settingsWallet = document.getElementById('settings-wallet-address');
+            if (settingsWallet) settingsWallet.textContent = connectedAddress;
+
+            alert(`✅ Wallet changed to ${connectedAddress.slice(0,6)}...${connectedAddress.slice(-4)}`);
+        } else if (connectedAddress === prevAddress) {
+            alert("Same wallet selected. To change wallets, switch accounts in MetaMask first then try again.");
+        }
+    } catch(e) {
+        if (e.code === 4001) alert("Wallet change cancelled.");
+        else alert("Failed to change wallet: " + e.message);
     }
-    if (connectedAddress) alert(`✅ Wallet updated to ${connectedAddress.slice(0,6)}...${connectedAddress.slice(-4)}`);
 }
 
     
