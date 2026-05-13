@@ -28,12 +28,22 @@
             "dest": "/api/review-submission.js"
         },
         {
+            "src": "/api/monthly-rewards",
+            "dest": "/api/monthly-rewards.js"
+        },
+        {
             "src": "/admin.html",
             "dest": "/admin.html"
         },
         {
             "src": "/(.*)",
             "dest": "/index.html"
+        }
+    ],
+    "crons": [
+        {
+            "path": "/api/monthly-rewards",
+            "schedule": "0 0 1 * *"
         }
     ]
 }
