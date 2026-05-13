@@ -4884,7 +4884,79 @@ async function loadChatList(searchTerm = "") {
                     document.getElementById('profile-nqv8-balance').textContent = 'Connect wallet to view';
                     document.getElementById('profile-usdc-balance').textContent = 'Connect wallet to view';
                 }
-                document.getElementById('profile-total-earnings').textContent = (currentUser.totalNQV8Earned || "0") + " NQV8";
+                try {
+                    const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+                    const escrowReadOnly = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, arbProvider);
+
+                    // Get all EscrowReleased events where worker = connected wallet
+                    const releaseFilter = escrowReadOnly.filters.EscrowReleased();
+                    const latestBlock = await arbProvider.getBlockNumber();
+                    const fromBlock = Math.max(0, latestBlock - 2000000); // ~last 6 months on Arbitrum
+                    const events = await escrowReadOnly.queryFilter(releaseFilter, fromBlock, latestBlock);
+
+                    // Filter to only this wallet's earnings
+                    const myEvents = events.filter(e =>
+                        e.args.worker.toLowerCase() === connectedAddress.toLowerCase()
+                    );
+
+                    let totalUSD = 0;
+
+                    for (const event of myEvents) {
+                        const workerAmount = event.args.workerAmount;
+                        const currency = event.args.currency; // not in current ABI — use projectId lookup below
+
+                        // Get the block to determine timestamp
+                        const block = await arbProvider.getBlock(event.blockNumber);
+                        const timestamp = block.timestamp;
+
+                        // Look up the project in Firestore to get currency type
+                        // The escrow event has escrowId — match to Firestore via escrowTxHash
+                        const receipt = await arbProvider.getTransactionReceipt(event.transactionHash);
+
+                        // Find matching subproject
+                        const snap = await db.collection("subprojects")
+                            .where("escrowReleaseTxHash", "==", event.transactionHash)
+                            .limit(1).get();
+
+                        if (!snap.empty) {
+                            const proj = snap.docs[0].data();
+                            const amountStr = proj.acceptedBid?.amount || proj.compensation || '0';
+                            const isNQV8 = String(amountStr).toUpperCase().includes('NQV8');
+                            const humanAmount = isNQV8
+                                ? parseFloat(ethers.utils.formatUnits(workerAmount, 18))
+                                : parseFloat(ethers.utils.formatUnits(workerAmount, 6));
+
+                            if (isNQV8) {
+                                // Get NQV8 price at time of payment via DexScreener
+                                try {
+                                    const res = await fetch(
+                                        `https://api.dexscreener.com/latest/dex/tokens/${NQV8_TOKEN_ADDRESS}`
+                                    );
+                                    const data = await res.json();
+                                    // DexScreener doesn't have historical prices — use current price
+                                    // as best approximation, or $0.01 peg if not yet listed
+                                    const price = parseFloat(data.pairs?.[0]?.priceUsd || '0.01');
+                                    totalUSD += humanAmount * price;
+                                } catch(e) {
+                                    totalUSD += humanAmount * 0.01;
+                                }
+                            } else {
+                                // USDC is always $1
+                                totalUSD += humanAmount;
+                            }
+                        }
+                    }
+
+                    const fmt = totalUSD >= 1000
+                        ? '$' + (totalUSD / 1000).toFixed(1) + 'K'
+                        : '$' + totalUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+                    document.getElementById('profile-total-earnings').textContent = fmt;
+
+                } catch(e) {
+                    console.warn('Total earnings from chain failed:', e.message);
+                    document.getElementById('profile-total-earnings').textContent = '$0.00';
+                }
                 // Show claim bonus banner if unclaimed
                 const claimBanner = document.getElementById('claim-bonus-banner');
                 if (claimBanner) {
