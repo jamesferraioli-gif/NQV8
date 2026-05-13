@@ -36,6 +36,14 @@
             "dest": "/api/transfer-equity.js"
         },
         {
+            "src": "/api/valuate-equity",
+            "dest": "/api/valuate-equity.js"
+        },
+        {
+            "src": "/api/revaluate-equity",
+            "dest": "/api/revaluate-equity.js"
+        },
+        {
             "src": "/admin.html",
             "dest": "/admin.html"
         },
@@ -48,6 +56,10 @@
         {
             "path": "/api/monthly-rewards",
             "schedule": "0 0 1 * *"
+        },
+        {
+            "path": "/api/revaluate-equity",
+            "schedule": "0 0 * * *"
         }
     ]
 }
