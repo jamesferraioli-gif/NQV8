@@ -113,6 +113,9 @@
                                 <p class="text-xs text-zinc-500" id="dropdown-username"></p>
                             </div>
                             <button onclick="viewProfile()" class="w-full text-left px-6 py-3 hover:bg-zinc-800 flex items-center gap-3">👤 View Profile</button>
+                            <button onclick="disconnectWallet()" class="w-full text-left px-6 py-3 text-amber-400 hover:bg-zinc-800 flex items-center gap-3">
+                                <i class="fa-solid fa-wallet"></i> Disconnect Wallet
+                            </button>
                             <button onclick="logout()" class="w-full text-left px-6 py-3 text-red-400 hover:bg-zinc-800">Logout</button>
                         </div>
                     </div>
@@ -2895,6 +2898,33 @@ function navigateTo(page) {
 
         function logout() {
             auth.signOut().then(() => location.reload());
+        }
+        
+        function disconnectWallet() {
+            provider = null;
+            signer = null;
+            connectedAddress = null;
+            nqv8Contract = null;
+            usdcContract = null;
+        
+            // Reset wallet button in navbar
+            const walletBtn = document.querySelector('button[onclick="connectWallet()"]');
+            if (walletBtn) {
+                walletBtn.innerHTML = `<i class="fa-solid fa-wallet"></i> Connect Wallet`;
+                walletBtn.classList.remove('border-emerald-400', 'text-emerald-400');
+                walletBtn.classList.add('border-cyan-400', 'text-cyan-400');
+            }
+        
+            // Reset profile balance displays
+            const nqv8El = document.getElementById('profile-nqv8-balance');
+            const usdcEl = document.getElementById('profile-usdc-balance');
+            if (nqv8El) nqv8El.textContent = 'Connect wallet to view';
+            if (usdcEl) usdcEl.textContent = 'Connect wallet to view';
+        
+            // Hide wallet status in signup form
+            document.getElementById('wallet-status')?.classList.add('hidden');
+        
+            console.log('Wallet disconnected');
         }
 
         // ====================== AUTH FUNCTIONS ======================
