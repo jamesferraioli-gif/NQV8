@@ -1455,6 +1455,95 @@
         </div>
     </div>
 
+<!-- Monthly Rewards -->
+    <div class="bg-zinc-900 rounded-3xl p-8 mb-6">
+        <div class="flex justify-between items-center mb-2">
+            <h2 class="text-xl font-semibold flex items-center gap-2">
+                <i class="fa-solid fa-gift text-emerald-400"></i> Monthly Rewards
+            </h2>
+            <div class="flex gap-2">
+                <button onclick="setRewardsView(12)" id="rewards-view-12"
+                        class="px-3 py-1 rounded-xl text-xs font-medium bg-cyan-500 text-black">12M</button>
+                <button onclick="setRewardsView(36)" id="rewards-view-36"
+                        class="px-3 py-1 rounded-xl text-xs font-medium bg-zinc-700 text-zinc-300">36M</button>
+                <button onclick="setRewardsView(999)" id="rewards-view-all"
+                        class="px-3 py-1 rounded-xl text-xs font-medium bg-zinc-700 text-zinc-300">All</button>
+            </div>
+        </div>
+        <p class="text-zinc-400 text-sm mb-6">20% of platform fees redistributed monthly to active NQV8 fee payers.</p>
+
+        <!-- Summary stats -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div class="bg-zinc-800 rounded-2xl p-4 text-center">
+                <p class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Total NQV8 Distributed</p>
+                <p id="rewards-total-nqv8" class="text-2xl font-bold text-cyan-400">—</p>
+            </div>
+            <div class="bg-zinc-800 rounded-2xl p-4 text-center">
+                <p class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Total USDC Distributed</p>
+                <p id="rewards-total-usdc" class="text-2xl font-bold text-emerald-400">—</p>
+            </div>
+            <div class="bg-zinc-800 rounded-2xl p-4 text-center">
+                <p class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Distribution Rounds</p>
+                <p id="rewards-total-rounds" class="text-2xl font-bold text-violet-400">—</p>
+            </div>
+            <div class="bg-zinc-800 rounded-2xl p-4 text-center">
+                <p class="text-xs text-zinc-500 uppercase tracking-wider mb-1">Next Distribution</p>
+                <p id="rewards-next-distribution" class="text-2xl font-bold text-amber-400">—</p>
+            </div>
+        </div>
+
+        <!-- Your rewards preview (if wallet connected) -->
+        <div id="rewards-my-preview" class="hidden bg-cyan-500/10 border border-cyan-500/20 rounded-2xl p-5 mb-6">
+            <p class="text-cyan-400 font-semibold mb-3">🎁 Your Estimated Reward This Month</p>
+            <div class="grid grid-cols-3 gap-4 text-center">
+                <div>
+                    <p class="text-xs text-zinc-400 mb-1">NQV8 Reward</p>
+                    <p id="my-nqv8-reward" class="text-xl font-bold text-cyan-400">—</p>
+                </div>
+                <div>
+                    <p class="text-xs text-zinc-400 mb-1">USDC Reward</p>
+                    <p id="my-usdc-reward" class="text-xl font-bold text-emerald-400">—</p>
+                </div>
+                <div>
+                    <p class="text-xs text-zinc-400 mb-1">Your Share</p>
+                    <p id="my-reward-share" class="text-xl font-bold text-violet-400">—</p>
+                </div>
+            </div>
+            <p class="text-xs text-zinc-500 mt-3">Based on your NQV8 fee payments this month. Distributed on the 1st.</p>
+        </div>
+
+        <!-- Current month pool -->
+        <div class="bg-zinc-800 rounded-2xl p-5 mb-6">
+            <p class="text-sm font-semibold text-zinc-300 mb-3">Current Month Pool</p>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                <div>
+                    <p class="text-zinc-500 text-xs mb-1">Fee Payers</p>
+                    <p id="rewards-current-payers" class="font-semibold">—</p>
+                </div>
+                <div>
+                    <p class="text-zinc-500 text-xs mb-1">NQV8 Pool</p>
+                    <p id="rewards-current-nqv8-pool" class="font-semibold text-cyan-400">—</p>
+                </div>
+                <div>
+                    <p class="text-zinc-500 text-xs mb-1">USDC Pool</p>
+                    <p id="rewards-current-usdc-pool" class="font-semibold text-emerald-400">—</p>
+                </div>
+                <div>
+                    <p class="text-zinc-500 text-xs mb-1">Last Distribution</p>
+                    <p id="rewards-last-distribution" class="font-semibold">—</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Historical chart -->
+        <div id="rewards-chart-container">
+            <p class="text-sm font-semibold text-zinc-300 mb-4">Distribution History</p>
+            <div id="rewards-history-grid" class="space-y-3">
+                <p class="text-zinc-500 text-sm">Loading history...</p>
+            </div>
+        </div>
+    </div>
+
     <div class="text-center text-xs text-zinc-600">
         NQV8 Token:
         <a href="https://arbiscan.io/token/0x02b3EF81d6577507114BB26F91F1a8d0A7bB1B67"
@@ -1644,6 +1733,21 @@ const ESCROW_ABI = [
     "function previewWorkerPayout(uint256 amount) external pure returns (uint256 workerAmount, uint256 platformFee)",
     "function projectToEscrow(string) external view returns (bytes32)",
     "event EscrowReleased(bytes32 indexed escrowId, address worker, uint256 workerAmount, uint256 platformFee)"
+];
+
+// NQVate Rewards Distribution — deployed on Arbitrum One
+const REWARDS_CONTRACT_ADDRESS = '0x045aD6C2889ABCe6Bd8ef52D621706c44e4f1266';
+
+const REWARDS_ABI = [
+    "function payNQV8Fee(address payer, uint256 amount) external",
+    "function payUSDCFee(uint256 amount) external",
+    "function previewReward(address wallet) external view returns (uint256 nqv8Reward, uint256 usdcReward, uint256 sharePercent, uint256 nqv8Paid)",
+    "function getCurrentMonthStats() external view returns (uint256 feePayerCount, uint256 nqv8FeesCollected, uint256 usdcFeesCollected, uint256 nqv8Pool, uint256 usdcPool, uint256 lastDistribution)",
+    "function getDistributionHistory(string month) external view returns (tuple(string month, uint256 nqv8Distributed, uint256 usdcDistributed, uint256 recipientCount, uint256 timestamp, uint256 totalNQV8Fees, uint256 totalUSDCFees))",
+    "function getAllDistributionMonths() external view returns (string[])",
+    "function getStats() external view returns (uint256 totalNQV8Distributed, uint256 totalUSDCDistributed, uint256 totalRounds, uint256 lastDistribution, uint256 currentNQV8Pool, uint256 currentUSDCPool)",
+    "event RewardsDistributed(string month, uint256 nqv8Amount, uint256 usdcAmount, uint256 recipients)",
+    "event RewardPaid(address indexed recipient, uint256 nqv8Amount, uint256 usdcAmount, uint256 sharePercent)"
 ];
 
 function deadlineToTimestamp(deadlineStr) {
@@ -2166,29 +2270,51 @@ function showPaymentPicker(label, usdcAmount, nqv8Amount, onSuccess) {
         }
     })();
 
-    // USDC payment
+// USDC payment — routed through rewards contract (80% ops, 20% reward pool)
     modal.querySelector('#pay-usdc-btn').addEventListener('click', async () => {
         if (modal.querySelector('#pay-usdc-btn').disabled) return;
         setStatus('Confirm the transaction in your wallet...');
         try {
-            const txHash = await sendUSDC(TREASURY_ADDRESS, usdcAmount);
-            await recordProtocolFee(usdcAmount, 'fee', txHash);
+            const rewardsContract = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
+            const amountRaw = ethers.utils.parseUnits(String(usdcAmount), 6);
+            // Approve rewards contract to pull USDC
+            const allowance = await usdcContract.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
+            if (allowance.lt(amountRaw)) {
+                setStatus('⏳ Approve USDC in wallet...');
+                const approveTx = await usdcContract.approve(REWARDS_CONTRACT_ADDRESS, amountRaw);
+                await approveTx.wait();
+            }
+            setStatus('Confirm the transaction in your wallet...');
+            const tx = await rewardsContract.payUSDCFee(amountRaw);
+            await tx.wait();
+            await recordProtocolFee(usdcAmount, 'fee', tx.hash);
             modal.remove();
-            onSuccess(txHash);
+            onSuccess(tx.hash);
         } catch(e) {
             setStatus('❌ ' + parsePaymentError(e));
         }
     });
 
-    // NQV8 payment
+    // NQV8 payment — routed through rewards contract (80% ops, 20% reward pool)
     modal.querySelector('#pay-nqv8-btn').addEventListener('click', async () => {
         if (modal.querySelector('#pay-nqv8-btn').disabled) return;
         setStatus('Confirm the transaction in your wallet...');
         try {
-            const txHash = await sendNQV8(TREASURY_ADDRESS, nqv8Amount);
-            await recordProtocolFee(0, 'fee', txHash);
+            const rewardsContract = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
+            const amountRaw = ethers.utils.parseUnits(String(nqv8Amount), 18);
+            // Approve rewards contract to pull NQV8
+            const allowance = await nqv8Contract.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
+            if (allowance.lt(amountRaw)) {
+                setStatus('⏳ Approve NQV8 in wallet...');
+                const approveTx = await nqv8Contract.approve(REWARDS_CONTRACT_ADDRESS, amountRaw);
+                await approveTx.wait();
+            }
+            setStatus('Confirm the transaction in your wallet...');
+            const tx = await rewardsContract.payNQV8Fee(connectedAddress, amountRaw);
+            await tx.wait();
+            await recordProtocolFee(0, 'fee', tx.hash);
             modal.remove();
-            onSuccess(txHash);
+            onSuccess(tx.hash);
         } catch(e) {
             setStatus('❌ ' + parsePaymentError(e));
         }
@@ -2998,7 +3124,7 @@ function navigateTo(page) {
             if (page === 'chat') loadChatList("");
             if (page === 'leaderboard') loadLeaderboard();
             if (page === 'ideas') loadIdeas();
-            if (page === 'tokenomics') loadTokenomics();
+            if (page === 'tokenomics') { loadTokenomics(); loadRewards(); }
         }
 
         // ====================== NAVBAR & PROFILE ======================
@@ -7504,6 +7630,211 @@ async function showCreateEquityListingModal(companyId, companyName, availableUni
         if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
         else alert("Listing failed: " + msg);
     }
+}
+
+// ====================== REWARDS ======================
+let _rewardsViewMonths = 12;
+
+function setRewardsView(months) {
+    _rewardsViewMonths = months;
+    ['12','36','all'].forEach(v => {
+        const btn = document.getElementById(`rewards-view-${v}`);
+        if (!btn) return;
+        const isActive = (v === String(months)) || (v === 'all' && months === 999);
+        btn.className = isActive
+            ? 'px-3 py-1 rounded-xl text-xs font-medium bg-cyan-500 text-black'
+            : 'px-3 py-1 rounded-xl text-xs font-medium bg-zinc-700 text-zinc-300';
+    });
+    renderRewardsHistory(window._rewardsHistoryData || [], months);
+}
+
+async function loadRewards() {
+    try {
+        const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const rewardsReadOnly = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, arbProvider);
+
+        // ── Global stats ──────────────────────────────────────────────────
+        const [stats, currentStats] = await Promise.all([
+            rewardsReadOnly.getStats(),
+            rewardsReadOnly.getCurrentMonthStats()
+        ]);
+
+        const totalNQV8 = parseFloat(ethers.utils.formatUnits(stats.totalNQV8Distributed, 18));
+        const totalUSDC = parseFloat(ethers.utils.formatUnits(stats.totalUSDCDistributed, 6));
+        const rounds    = stats.totalRounds.toNumber();
+        const lastDist  = stats.lastDistribution.toNumber();
+
+        document.getElementById('rewards-total-nqv8').textContent   = totalNQV8.toLocaleString() + ' NQV8';
+        document.getElementById('rewards-total-usdc').textContent   = '$' + totalUSDC.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        document.getElementById('rewards-total-rounds').textContent = rounds.toLocaleString();
+
+        // Next distribution — 1st of next month
+        const now = new Date();
+        const nextDist = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        const daysLeft = Math.ceil((nextDist - now) / (1000 * 60 * 60 * 24));
+        document.getElementById('rewards-next-distribution').textContent = daysLeft + 'd';
+
+        // ── Current month pool ────────────────────────────────────────────
+        document.getElementById('rewards-current-payers').textContent =
+            currentStats.feePayerCount.toNumber().toLocaleString() + ' wallets';
+
+        document.getElementById('rewards-current-nqv8-pool').textContent =
+            parseFloat(ethers.utils.formatUnits(currentStats.nqv8Pool, 18)).toLocaleString() + ' NQV8';
+
+        document.getElementById('rewards-current-usdc-pool').textContent =
+            '$' + parseFloat(ethers.utils.formatUnits(currentStats.usdcPool, 6)).toFixed(2);
+
+        document.getElementById('rewards-last-distribution').textContent =
+            lastDist > 0 ? new Date(lastDist * 1000).toLocaleDateString() : 'Not yet';
+
+        // ── My reward preview (if wallet connected) ───────────────────────
+        if (connectedAddress) {
+            try {
+                const myReward = await rewardsReadOnly.previewReward(connectedAddress);
+                const myNQV8   = parseFloat(ethers.utils.formatUnits(myReward.nqv8Reward, 18));
+                const myUSDC   = parseFloat(ethers.utils.formatUnits(myReward.usdcReward, 6));
+                const myShare  = (myReward.sharePercent.toNumber() / 100).toFixed(2);
+
+                if (myReward.nqv8Paid.gt(0)) {
+                    document.getElementById('rewards-my-preview').classList.remove('hidden');
+                    document.getElementById('my-nqv8-reward').textContent  = myNQV8.toLocaleString() + ' NQV8';
+                    document.getElementById('my-usdc-reward').textContent  = '$' + myUSDC.toFixed(4);
+                    document.getElementById('my-reward-share').textContent = myShare + '%';
+                }
+            } catch(e) {
+                console.warn('Preview reward failed:', e.message);
+            }
+        }
+
+        // ── Distribution history ──────────────────────────────────────────
+        const months = await rewardsReadOnly.getAllDistributionMonths();
+
+        if (months.length === 0) {
+            document.getElementById('rewards-history-grid').innerHTML =
+                '<p class="text-zinc-500 text-sm">No distributions yet — first one runs on the 1st of next month.</p>';
+            return;
+        }
+
+        // Fetch all month summaries in parallel
+        const histories = await Promise.all(
+            months.map(m => rewardsReadOnly.getDistributionHistory(m).then(h => ({ month: m, ...h })))
+        );
+
+        // Sort newest first
+        histories.sort((a, b) => b.month.localeCompare(a.month));
+        window._rewardsHistoryData = histories;
+
+        renderRewardsHistory(histories, _rewardsViewMonths);
+
+    } catch(e) {
+        console.warn('loadRewards failed:', e.message);
+        document.getElementById('rewards-history-grid').innerHTML =
+            '<p class="text-zinc-500 text-sm">Could not load reward history.</p>';
+    }
+}
+
+function renderRewardsHistory(histories, maxMonths) {
+    const grid = document.getElementById('rewards-history-grid');
+    if (!histories || histories.length === 0) {
+        grid.innerHTML = '<p class="text-zinc-500 text-sm">No distributions yet.</p>';
+        return;
+    }
+
+    const visible = maxMonths === 999 ? histories : histories.slice(0, maxMonths);
+
+    // Find max values for bar scaling
+    const maxNQV8 = Math.max(...visible.map(h => parseFloat(ethers.utils.formatUnits(h.nqv8Distributed, 18))));
+    const maxUSDC = Math.max(...visible.map(h => parseFloat(ethers.utils.formatUnits(h.usdcDistributed, 6))));
+
+    grid.innerHTML = '';
+
+    // Table header
+    const header = document.createElement('div');
+    header.className = 'hidden md:grid grid-cols-[120px_1fr_1fr_80px_100px] gap-4 px-4 pb-2 text-xs text-zinc-600 uppercase tracking-wider border-b border-zinc-800';
+    header.innerHTML = `
+        <div>Month</div>
+        <div>NQV8 Distributed</div>
+        <div>USDC Distributed</div>
+        <div>Recipients</div>
+        <div class="text-right">Date</div>
+    `;
+    grid.appendChild(header);
+
+    for (const h of visible) {
+        const nqv8Amount = parseFloat(ethers.utils.formatUnits(h.nqv8Distributed, 18));
+        const usdcAmount = parseFloat(ethers.utils.formatUnits(h.usdcDistributed, 6));
+        const recipients = h.recipientCount.toNumber();
+        const date       = new Date(h.timestamp.toNumber() * 1000).toLocaleDateString();
+        const nqv8Bar    = maxNQV8 > 0 ? (nqv8Amount / maxNQV8 * 100).toFixed(1) : 0;
+        const usdcBar    = maxUSDC > 0 ? (usdcAmount / maxUSDC * 100).toFixed(1) : 0;
+
+        const row = document.createElement('div');
+        row.className = 'bg-zinc-800 rounded-2xl p-4';
+        row.innerHTML = `
+            <!-- Desktop -->
+            <div class="hidden md:grid grid-cols-[120px_1fr_1fr_80px_100px] gap-4 items-center">
+                <div class="font-mono text-sm font-semibold">${h.month}</div>
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-cyan-400 font-semibold text-sm">${nqv8Amount.toLocaleString()} NQV8</span>
+                    </div>
+                    <div class="h-1.5 bg-zinc-700 rounded-full overflow-hidden">
+                        <div class="h-full bg-cyan-400 rounded-full" style="width:${nqv8Bar}%"></div>
+                    </div>
+                </div>
+                <div>
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-emerald-400 font-semibold text-sm">$${usdcAmount.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</span>
+                    </div>
+                    <div class="h-1.5 bg-zinc-700 rounded-full overflow-hidden">
+                        <div class="h-full bg-emerald-400 rounded-full" style="width:${usdcBar}%"></div>
+                    </div>
+                </div>
+                <div class="text-center">
+                    <span class="text-zinc-300 font-semibold">${recipients}</span>
+                    <p class="text-xs text-zinc-500">wallets</p>
+                </div>
+                <div class="text-right text-xs text-zinc-500">${date}</div>
+            </div>
+
+            <!-- Mobile -->
+            <div class="md:hidden">
+                <div class="flex justify-between items-center mb-3">
+                    <span class="font-mono font-semibold">${h.month}</span>
+                    <span class="text-xs text-zinc-500">${recipients} wallets · ${date}</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <p class="text-xs text-zinc-500 mb-1">NQV8</p>
+                        <p class="text-cyan-400 font-semibold">${nqv8Amount.toLocaleString()}</p>
+                        <div class="h-1 bg-zinc-700 rounded-full mt-1 overflow-hidden">
+                            <div class="h-full bg-cyan-400 rounded-full" style="width:${nqv8Bar}%"></div>
+                        </div>
+                    </div>
+                    <div>
+                        <p class="text-xs text-zinc-500 mb-1">USDC</p>
+                        <p class="text-emerald-400 font-semibold">$${usdcAmount.toFixed(2)}</p>
+                        <div class="h-1 bg-zinc-700 rounded-full mt-1 overflow-hidden">
+                            <div class="h-full bg-emerald-400 rounded-full" style="width:${usdcBar}%"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+        grid.appendChild(row);
+    }
+
+    // Show total at bottom
+    const totalNQV8 = visible.reduce((s, h) => s + parseFloat(ethers.utils.formatUnits(h.nqv8Distributed, 18)), 0);
+    const totalUSDC = visible.reduce((s, h) => s + parseFloat(ethers.utils.formatUnits(h.usdcDistributed, 6)), 0);
+
+    const totals = document.createElement('div');
+    totals.className = 'border-t border-zinc-700 mt-3 pt-3 flex justify-between text-sm font-semibold px-1';
+    totals.innerHTML = `
+        <span class="text-zinc-400">Total (${visible.length} months shown)</span>
+        <span class="text-cyan-400">${totalNQV8.toLocaleString()} NQV8 + <span class="text-emerald-400">$${totalUSDC.toFixed(2)} USDC</span></span>
+    `;
+    grid.appendChild(totals);
 }
 
 // Make sure navigateTo knows about tokenomics page
