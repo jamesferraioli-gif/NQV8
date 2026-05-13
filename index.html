@@ -4084,7 +4084,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             }
 
             try {
-                const projectRef = db.collection("projects").doc(currentSubmitProjectId);
+                const projectRef = db.collection("subprojects").doc(currentSubmitProjectId);
                 let fileUrls = [];
 
                 const files = filesInput.files;
