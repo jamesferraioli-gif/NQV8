@@ -2877,10 +2877,32 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                         verificationMethod: 'claude-ai'
                     });
 
+                    // Mint equity on-chain — register project in equity registry
+                    if (connectedAddress && signer) {
+                        try {
+                            btn.innerHTML = '⏳ Minting equity on-chain...';
+                            const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
+                            const mintTx = await equityContract.registerProject(
+                                verificationCompanyId,
+                                company.name,
+                                connectedAddress
+                            );
+                            await mintTx.wait();
+                            await db.collection("companies").doc(verificationCompanyId).update({
+                                equityRegistered: true,
+                                equityMintTxHash: mintTx.hash
+                            });
+                            console.log('✅ Equity minted on-chain:', mintTx.hash);
+                        } catch(equityErr) {
+                            console.error('Equity mint failed:', equityErr.message);
+                            // Don't block verification — equity can be minted manually later
+                        }
+                    }
+
                     btn.innerHTML = originalText;
                     btn.disabled = false;
                     hideVerificationModal();
-                    alert(`✅ Verification approved!\n\n${result.summary}\n\nEquity features are now unlocked for ${company.name}.`);
+                    alert(`✅ Verification approved!\n\n${result.summary}\n\nEquity features are now unlocked for ${company.name}.\n10,000 equity units minted to your wallet.`);
                     loadProfileData();
 
                 } else {
@@ -5656,21 +5678,44 @@ async function loadEquityListings() {
     grid.innerHTML = '<p class="col-span-full text-center text-zinc-500 py-12">Loading equity listings...</p>';
 
     try {
-        const snapshot = await db.collection("equityListings")
-            .where("status", "==", "active")
-            .orderBy("createdAt", "desc")
-            .get();
+        const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
 
-        grid.innerHTML = '';
+        const listingIds = await equityReadOnly.getAllListingIds();
 
-        if (snapshot.empty) {
+        if (listingIds.length === 0) {
             grid.innerHTML = `<p class="col-span-full text-center text-zinc-400 py-12">No equity listings yet. Be the first to list a stake!</p>`;
             return;
         }
 
-        snapshot.forEach(doc => {
-            const l = doc.data();
-            const isOwner = currentUser && l.sellerUid === currentUser.uid;
+        // Fetch all listings in parallel
+        const listings = await Promise.all(
+            listingIds.map(id => equityReadOnly.getListing(id).then(l => ({ id, ...l })))
+        );
+
+        // Only show active listings (status === 0)
+        const active = listings.filter(l => l.status === 0);
+
+        if (active.length === 0) {
+            grid.innerHTML = `<p class="col-span-full text-center text-zinc-400 py-12">No active equity listings right now.</p>`;
+            return;
+        }
+
+        grid.innerHTML = '';
+
+        for (const l of active) {
+            // Look up project info from registry
+            const project = await equityReadOnly.getProject(l.projectId);
+            const askPriceUSDC = parseFloat(ethers.utils.formatUnits(l.askPricePerUnit, 6));
+            const totalAsk = askPriceUSDC * l.units.toNumber();
+            const pct = (l.units.toNumber() / 10000 * 100).toFixed(2);
+            const isOwner = connectedAddress && l.seller.toLowerCase() === connectedAddress.toLowerCase();
+
+            // Get last sale price for valuation context
+            const lastSale = project.lastSalePricePerUnit.gt(0)
+                ? `$${parseFloat(ethers.utils.formatUnits(project.lastSalePricePerUnit, 6)).toFixed(4)}/unit`
+                : 'No prior sales';
+
             const card = document.createElement('div');
             card.className = "bg-zinc-900 rounded-3xl p-6 hover:ring-2 hover:ring-violet-400 cursor-pointer transition-all";
             card.innerHTML = `
@@ -5678,20 +5723,25 @@ async function loadEquityListings() {
                     <span class="px-4 py-1 text-xs rounded-full bg-violet-500/20 text-violet-400">📈 Equity Stake</span>
                     ${isOwner ? `<span class="text-xs text-zinc-500">Your listing</span>` : ''}
                 </div>
-                <h3 class="text-2xl font-bold mb-1">${l.projectName}</h3>
-                <p class="text-violet-400 text-lg font-semibold mb-2">${l.percentage} equity</p>
-                <p class="text-zinc-400 line-clamp-3 mb-4">${l.description}</p>
-                <div class="text-cyan-400 font-medium">Asking: ${l.askPrice}</div>
-                <p class="text-xs text-zinc-500 mt-3">Listed by @${l.sellerUsername || 'anonymous'}</p>
+                <h3 class="text-2xl font-bold mb-1">${project.name}</h3>
+                <p class="text-violet-400 text-lg font-semibold mb-1">${pct}% equity · ${l.units.toNumber()} units</p>
+                <p class="text-zinc-500 text-xs mb-4">Last sale: ${lastSale}</p>
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="text-xs text-zinc-400">Asking</p>
+                        <p class="text-cyan-400 font-bold text-lg">$${totalAsk.toLocaleString(undefined, {maximumFractionDigits: 2})} USDC</p>
+                        <p class="text-xs text-zinc-500">$${askPriceUSDC.toFixed(4)} per unit</p>
+                    </div>
+                </div>
+                <p class="text-xs text-zinc-500 mt-3 font-mono">${l.seller.slice(0,6)}...${l.seller.slice(-4)}</p>
             `;
-            card.onclick = () => showEquityDetail(doc.id, l);
+            card.onclick = () => showEquityDetailOnChain(l.id, l, project);
             grid.appendChild(card);
-        });
+        }
+
     } catch (e) {
         console.error("Equity listings error:", e);
-        console.error("Error code:", e.code);
-        console.error("Error message:", e.message);
-        grid.innerHTML = `<p class="text-red-400 col-span-full text-center py-12">Error: ${e.message}</p>`;
+        grid.innerHTML = `<p class="text-red-400 col-span-full text-center py-12">Error loading listings: ${e.message}</p>`;
     }
 }
 
@@ -5971,6 +6021,50 @@ async function loadPendingVerifications() {
                     ${company.statsUpdatedAt ? `<p class="text-xs text-zinc-500 mt-4">Last updated: ${new Date(company.statsUpdatedAt).toLocaleDateString()}</p>` : ''}
                 </div>`;
 
+
+            // Load on-chain equity balance
+            let equityHTML = '';
+            try {
+                const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+                const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
+                const project = await equityReadOnly.getProject(companyId);
+                if (project.exists && connectedAddress) {
+                    const [units, bps] = await equityReadOnly.getBalance(companyId, connectedAddress);
+                    const pct = (units.toNumber() / 10000 * 100).toFixed(2);
+                    const lastSale = project.lastSalePricePerUnit.gt(0)
+                        ? `$${parseFloat(ethers.utils.formatUnits(project.lastSalePricePerUnit, 6)).toFixed(4)}/unit`
+                        : 'No trades yet';
+                    equityHTML = `
+                        <div class="bg-violet-500/10 border border-violet-500/20 rounded-2xl p-5 mb-6">
+                            <div class="flex justify-between items-center mb-2">
+                                <p class="text-violet-400 font-semibold">📊 On-Chain Equity</p>
+                                ${isOwner ? `<button onclick="showCreateEquityListingModal('${companyId}', '${company.name}', ${units.toNumber()})" class="px-4 py-2 bg-violet-600 text-white text-xs rounded-xl">List Stake for Sale</button>` : ''}
+                            </div>
+                            <p class="text-white text-2xl font-bold">${pct}% <span class="text-sm text-zinc-400">(${units.toNumber()} units)</span></p>
+                            <p class="text-xs text-zinc-400 mt-1">Last sale price: ${lastSale}</p>
+                        </div>
+                        ${isOwner ? `
+                        <div class="bg-zinc-800 rounded-2xl p-5 mb-6">
+                            <div class="flex justify-between items-center mb-3">
+                                <p class="font-semibold">📈 Update Metrics</p>
+                                ${project.metricsUpdatedAt.gt(0) ? `<p class="text-xs text-zinc-400">Last updated: ${new Date(project.metricsUpdatedAt.toNumber() * 1000).toLocaleDateString()}</p>` : ''}
+                            </div>
+                            <div class="space-y-3">
+                                <input id="metric-revenue" type="text" placeholder="Monthly Revenue (e.g. $12,000/mo)" class="w-full bg-zinc-700 rounded-xl px-4 py-3 text-sm outline-none">
+                                <input id="metric-users" type="text" placeholder="Users / Customers" class="w-full bg-zinc-700 rounded-xl px-4 py-3 text-sm outline-none">
+                                <input id="metric-growth" type="text" placeholder="MoM Growth Rate (e.g. 15%)" class="w-full bg-zinc-700 rounded-xl px-4 py-3 text-sm outline-none">
+                                <input id="metric-funding" type="text" placeholder="Total Funding Raised" class="w-full bg-zinc-700 rounded-xl px-4 py-3 text-sm outline-none">
+                                <input id="metric-website" type="text" placeholder="Website" class="w-full bg-zinc-700 rounded-xl px-4 py-3 text-sm outline-none">
+                                <button onclick="submitMetricsOnChain('${companyId}')" class="w-full py-3 bg-violet-600 hover:bg-violet-700 text-white font-semibold rounded-xl">
+                                    📡 Save & Timestamp On-Chain (~$0.01 gas)
+                                </button>
+                            </div>
+                        </div>` : ''}
+                    `;
+                }
+            } catch(e) {
+                console.warn('Equity data load failed:', e.message);
+            }
             content.innerHTML = `
                 <div class="flex justify-between items-start mb-6">
                     <div>
@@ -5982,6 +6076,7 @@ async function loadPendingVerifications() {
                     </span>
                 </div>
 
+                ${equityHTML}
                 ${statsHTML}
                 ${shareholdersHTML}
                 <h3 class="text-xl font-semibold mb-4">📋 Tasks / Subprojects</h3>
@@ -7266,11 +7361,414 @@ async function deleteAccount() {
     }
 }
 
+async function submitMetricsOnChain(companyId) {
+    if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
+
+    const revenue  = document.getElementById('metric-revenue')?.value.trim() || '';
+    const users    = document.getElementById('metric-users')?.value.trim() || '';
+    const growth   = document.getElementById('metric-growth')?.value.trim() || '';
+    const funding  = document.getElementById('metric-funding')?.value.trim() || '';
+    const website  = document.getElementById('metric-website')?.value.trim() || '';
+
+    if (!revenue && !users && !growth) return alert("Please fill in at least revenue, users, or growth.");
+
+    const metrics = {
+        revenue, users, growth, funding, website,
+        updatedAt: Date.now(),
+        projectId: companyId
+    };
+
+    // Save to Firestore
+    await db.collection("companies").doc(companyId).update({
+        revenue, userCount: users, website,
+        growthRate: growth, fundingRaised: funding,
+        statsUpdatedAt: new Date().toISOString()
+    });
+
+    // Compute hash and timestamp on-chain
+    const metricsHash = ethers.utils.keccak256(
+        ethers.utils.toUtf8Bytes(JSON.stringify(metrics))
+    );
+
+    try {
+        const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
+        const tx = await equityContract.updateMetrics(companyId, metricsHash);
+        await tx.wait();
+        alert(`✅ Metrics saved and timestamped on-chain!\nHash: ${metricsHash}\nTx: https://arbiscan.io/tx/${tx.hash}`);
+        hideProjectDetailModal();
+        loadProfileData();
+    } catch(e) {
+        const msg = e.message || '';
+        if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled — metrics saved to Firestore only.");
+        else alert("On-chain timestamp failed: " + msg + "\nMetrics saved to Firestore only.");
+    }
+}
+
+async function showCreateEquityListingModal(companyId, companyName, availableUnits) {
+    if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
+    if (availableUnits === 0) return alert("You have no equity units available to list.");
+
+    const unitsStr = prompt(`List equity in ${companyName} for sale.\n\nYou own ${availableUnits} units (${(availableUnits/10000*100).toFixed(2)}%).\n\nHow many units to list? (1 unit = 0.01%)`);
+    if (!unitsStr) return;
+    const units = parseInt(unitsStr);
+    if (isNaN(units) || units <= 0 || units > availableUnits) return alert(`Invalid amount. You can list between 1 and ${availableUnits} units.`);
+
+    const priceStr = prompt(`Price per unit in USDC?\n(e.g. 10.00 = $10 per unit · ${units} units = $${(units * 10).toLocaleString()} total)`);
+    if (!priceStr) return;
+    const price = parseFloat(priceStr);
+    if (isNaN(price) || price <= 0) return alert("Invalid price.");
+
+    const total = units * price;
+    if (!confirm(`List ${units} units (${(units/10000*100).toFixed(2)}%) in ${companyName} for $${total.toLocaleString(undefined,{maximumFractionDigits:2})} USDC total?\n\n3.5% platform fee on sale.`)) return;
+
+    try {
+        const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
+        const priceRaw = ethers.utils.parseUnits(price.toFixed(6), 6);
+        const tx = await equityContract.createListing(companyId, units, priceRaw);
+        await tx.wait();
+        alert(`✅ Listing created!\nTx: https://arbiscan.io/tx/${tx.hash}`);
+        hideProjectDetailModal();
+        loadEquityListings();
+    } catch(e) {
+        const msg = e.message || '';
+        if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
+        else alert("Listing failed: " + msg);
+    }
+}
+
 // Make sure navigateTo knows about tokenomics page
 // (add this line inside your existing navigateTo function if it already exists)
 
-// ====================== ESCROW ACTIONS ======================
+// ====================== EQUITY EXCHANGE ON-CHAIN ======================
 
+async function showEquityDetailOnChain(listingId, listing, project) {
+    const modal = document.getElementById('project-detail-modal');
+    const content = document.getElementById('detail-content');
+    const askPriceUSDC = parseFloat(ethers.utils.formatUnits(listing.askPricePerUnit, 6));
+    const totalAsk = askPriceUSDC * listing.units.toNumber();
+    const pct = (listing.units.toNumber() / 10000 * 100).toFixed(2);
+    const isOwner = connectedAddress && listing.seller.toLowerCase() === connectedAddress.toLowerCase();
+
+    // Load pending offers
+    let offersHTML = '';
+    try {
+        const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
+        const offerIds = await equityReadOnly.getListingOffers(listingId);
+
+        if (offerIds.length > 0) {
+            const offerData = await Promise.all(offerIds.map(id => equityReadOnly.getOffer(id).then(o => ({ id, ...o }))));
+            const pending = offerData.filter(o => o.status === 0 || o.status === 3); // Pending or Countered
+
+            if (pending.length > 0) {
+                offersHTML = `<h3 class="text-xl font-semibold mb-3 mt-8">Pending Offers</h3><div class="space-y-3">`;
+                for (const o of pending) {
+                    const offerPrice = parseFloat(ethers.utils.formatUnits(o.offerPricePerUnit, 6));
+                    const offerTotal = offerPrice * o.units.toNumber();
+                    const statusLabel = o.status === 3 ? '🔄 Countered' : '⏳ Pending';
+                    const counterPrice = o.counterPricePerUnit.gt(0)
+                        ? parseFloat(ethers.utils.formatUnits(o.counterPricePerUnit, 6))
+                        : null;
+
+                    const isBuyer = connectedAddress && o.buyer.toLowerCase() === connectedAddress.toLowerCase();
+                    const isSeller = connectedAddress && o.seller.toLowerCase() === connectedAddress.toLowerCase();
+
+                    offersHTML += `
+                        <div class="bg-zinc-800 rounded-2xl p-4">
+                            <div class="flex justify-between items-start mb-2">
+                                <p class="text-sm font-medium">${o.buyer.slice(0,6)}...${o.buyer.slice(-4)}</p>
+                                <span class="text-xs text-amber-400">${statusLabel}</span>
+                            </div>
+                            <p class="text-cyan-400 font-semibold">$${offerTotal.toLocaleString(undefined,{maximumFractionDigits:2})} USDC <span class="text-xs text-zinc-400">($${offerPrice.toFixed(4)}/unit)</span></p>
+                            ${counterPrice ? `<p class="text-violet-400 text-sm mt-1">Counter: $${(counterPrice * o.units.toNumber()).toLocaleString(undefined,{maximumFractionDigits:2})} ($${counterPrice.toFixed(4)}/unit)</p>` : ''}
+                            <div class="flex gap-2 mt-3">
+                                ${isSeller && o.status === 0 ? `
+                                    <button onclick="acceptOfferOnChain('${o.id}')" class="flex-1 py-2 bg-emerald-500 text-black text-sm font-semibold rounded-xl">Accept</button>
+                                    <button onclick="rejectOfferOnChain('${o.id}')" class="flex-1 py-2 border border-zinc-600 text-sm rounded-xl">Reject</button>
+                                    <button onclick="counterOfferOnChain('${o.id}')" class="flex-1 py-2 bg-violet-600 text-white text-sm font-semibold rounded-xl">Counter</button>
+                                ` : ''}
+                                ${isBuyer && o.status === 3 ? `
+                                    <button onclick="acceptCounterOnChain('${o.id}', '${listing.units}', '${ethers.utils.formatUnits(o.counterPricePerUnit, 6)}', '${ethers.utils.formatUnits(o.lockedUSDC, 6)}')" class="flex-1 py-2 bg-emerald-500 text-black text-sm font-semibold rounded-xl">Accept Counter</button>
+                                    <button onclick="rejectCounterOnChain('${o.id}')" class="flex-1 py-2 border border-zinc-600 text-sm rounded-xl">Reject</button>
+                                ` : ''}
+                                ${isBuyer && o.status === 0 ? `
+                                    <button onclick="withdrawOfferOnChain('${o.id}')" class="flex-1 py-2 border border-red-500/50 text-red-400 text-sm rounded-xl">Withdraw Offer</button>
+                                ` : ''}
+                            </div>
+                        </div>`;
+                }
+                offersHTML += '</div>';
+            }
+        }
+    } catch(e) {
+        console.warn('Could not load offers:', e.message);
+    }
+
+    content.innerHTML = `
+        <div class="flex justify-between items-start mb-4">
+            <h2 class="text-4xl font-bold">${project.name}</h2>
+            <span class="px-4 py-1 text-xs rounded-full bg-violet-500/20 text-violet-400">📈 Equity Stake</span>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <div class="bg-zinc-800 rounded-2xl p-5">
+                <p class="text-sm text-zinc-400">Equity Offered</p>
+                <p class="text-2xl font-bold text-violet-400">${pct}%</p>
+                <p class="text-xs text-zinc-500">${listing.units.toNumber()} of 10,000 units</p>
+            </div>
+            <div class="bg-zinc-800 rounded-2xl p-5">
+                <p class="text-sm text-zinc-400">Asking Price</p>
+                <p class="text-2xl font-bold text-cyan-400">$${totalAsk.toLocaleString(undefined,{maximumFractionDigits:2})}</p>
+                <p class="text-xs text-zinc-500">$${askPriceUSDC.toFixed(4)} per unit</p>
+            </div>
+        </div>
+
+        ${project.lastSalePricePerUnit.gt(0) ? `
+        <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 mb-6">
+            <p class="text-emerald-400 text-sm font-medium">📊 Last Sale Price</p>
+            <p class="text-white text-sm mt-1">$${parseFloat(ethers.utils.formatUnits(project.lastSalePricePerUnit, 6)).toFixed(4)} per unit · ${new Date(project.lastSaleAt.toNumber() * 1000).toLocaleDateString()}</p>
+        </div>` : ''}
+
+        <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6">
+            <p class="text-amber-400 text-sm font-medium">⚠️ Disclaimer</p>
+            <p class="text-zinc-400 text-xs mt-1">NQVate is not a broker or party to this transaction. Always do your own due diligence before purchasing equity.</p>
+        </div>
+
+        ${!isOwner && connectedAddress ? `
+        <div class="space-y-3 mb-4">
+            <button onclick="buyNowOnChain('${listingId}', ${totalAsk})"
+                    class="w-full py-5 bg-white text-black font-semibold rounded-3xl">
+                ✅ Buy Now — $${totalAsk.toLocaleString(undefined,{maximumFractionDigits:2})} USDC
+            </button>
+            <button onclick="makeOfferOnChain('${listingId}', ${listing.units.toNumber()})"
+                    class="w-full py-5 border border-cyan-400 text-cyan-400 font-semibold rounded-3xl">
+                💬 Make Offer
+            </button>
+        </div>` : ''}
+
+        ${isOwner ? `
+        <div class="space-y-3 mb-4">
+            <button onclick="cancelListingOnChain('${listingId}')"
+                    class="w-full py-5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-3xl">
+                🗑️ Cancel Listing
+            </button>
+        </div>` : ''}
+
+        ${!connectedAddress ? `
+        <button onclick="connectWallet()" class="w-full py-5 bg-cyan-500 text-black font-semibold rounded-3xl mb-4">
+            Connect Wallet to Trade
+        </button>` : ''}
+
+        ${offersHTML}
+    `;
+
+    modal.classList.remove('hidden');
+}
+
+async function buyNowOnChain(listingId, totalUSDC) {
+    if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
+    if (!confirm(`Buy this stake for $${totalUSDC.toFixed(2)} USDC?\n\n3.5% platform fee applies. 96.5% goes to seller.`)) return;
+
+    try {
+        const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
+        const listing = await equityContract.getListing(listingId);
+        const totalRaw = listing.units.mul(listing.askPricePerUnit);
+
+        // Approve USDC
+        const allowance = await usdcContract.allowance(connectedAddress, EQUITY_REGISTRY_ADDRESS);
+        if (allowance.lt(totalRaw)) {
+            const approveTx = await usdcContract.approve(EQUITY_REGISTRY_ADDRESS, totalRaw);
+            await approveTx.wait();
+        }
+
+        const tx = await equityContract.buyNow(listingId);
+        await tx.wait();
+
+        alert(`✅ Purchase complete!\nTx: https://arbiscan.io/tx/${tx.hash}`);
+        hideProjectDetailModal();
+        loadEquityListings();
+    } catch(e) {
+        const msg = e.message || '';
+        if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
+        else alert("Purchase failed: " + msg);
+    }
+}
+
+async function makeOfferOnChain(listingId, units) {
+    if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
+
+    const pricePerUnitStr = prompt(`Make an offer for ${units} units.\n\nEnter your price per unit in USDC (e.g. 5.00 = $5 per unit):`);
+    if (!pricePerUnitStr) return;
+
+    const pricePerUnit = parseFloat(pricePerUnitStr);
+    if (isNaN(pricePerUnit) || pricePerUnit <= 0) return alert("Invalid price.");
+
+    const totalOffer = pricePerUnit * units;
+    if (!confirm(`Submit offer of $${totalOffer.toFixed(2)} USDC total ($${pricePerUnit.toFixed(4)}/unit)?\n\nYour USDC will be locked until the seller responds or the offer expires in 7 days.`)) return;
+
+    try {
+        const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
+        const priceRaw = ethers.utils.parseUnits(pricePerUnit.toFixed(6), 6);
+        const totalRaw = priceRaw.mul(units);
+
+        const allowance = await usdcContract.allowance(connectedAddress, EQUITY_REGISTRY_ADDRESS);
+        if (allowance.lt(totalRaw)) {
+            const approveTx = await usdcContract.approve(EQUITY_REGISTRY_ADDRESS, totalRaw);
+            await approveTx.wait();
+        }
+
+        const tx = await equityContract.makeOffer(listingId, priceRaw);
+        await tx.wait();
+
+        alert(`✅ Offer submitted! $${totalOffer.toFixed(2)} USDC locked.\nTx: https://arbiscan.io/tx/${tx.hash}`);
+        hideProjectDetailModal();
+        loadEquityListings();
+    } catch(e) {
+        const msg = e.message || '';
+        if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
+        else alert("Offer failed: " + msg);
+    }
+}
+
+async function acceptOfferOnChain(offerId) {
+    if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
+    if (!confirm("Accept this offer? Trade will execute immediately.")) return;
+    try {
+        const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
+        const tx = await equityContract.acceptOffer(offerId);
+        await tx.wait();
+        alert(`✅ Offer accepted! Equity transferred.\nTx: https://arbiscan.io/tx/${tx.hash}`);
+        hideProjectDetailModal();
+        loadEquityListings();
+    } catch(e) {
+        const msg = e.message || '';
+        if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
+        else alert("Failed: " + msg);
+    }
+}
+
+async function rejectOfferOnChain(offerId) {
+    if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
+    if (!confirm("Reject this offer? USDC will be refunded to the buyer.")) return;
+    try {
+        const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
+        const tx = await equityContract.rejectOffer(offerId);
+        await tx.wait();
+        alert("✅ Offer rejected. Buyer refunded.");
+        hideProjectDetailModal();
+        loadEquityListings();
+    } catch(e) {
+        const msg = e.message || '';
+        if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
+        else alert("Failed: " + msg);
+    }
+}
+
+async function counterOfferOnChain(offerId) {
+    if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
+    const counterStr = prompt("Enter your counter price per unit in USDC:");
+    if (!counterStr) return;
+    const counter = parseFloat(counterStr);
+    if (isNaN(counter) || counter <= 0) return alert("Invalid price.");
+    try {
+        const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
+        const counterRaw = ethers.utils.parseUnits(counter.toFixed(6), 6);
+        const tx = await equityContract.counterOffer(offerId, counterRaw);
+        await tx.wait();
+        alert(`✅ Counter offer sent at $${counter.toFixed(4)}/unit.`);
+        hideProjectDetailModal();
+        loadEquityListings();
+    } catch(e) {
+        const msg = e.message || '';
+        if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
+        else alert("Failed: " + msg);
+    }
+}
+
+async function acceptCounterOnChain(offerId, units, counterPriceStr, lockedUSDCStr) {
+    if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
+    const counterTotal = parseFloat(counterPriceStr) * parseInt(units);
+    const alreadyLocked = parseFloat(lockedUSDCStr);
+    const topUp = counterTotal - alreadyLocked;
+
+    if (!confirm(`Accept counter offer?\nTotal: $${counterTotal.toFixed(2)} USDC${topUp > 0 ? `\nAdditional payment needed: $${topUp.toFixed(2)} USDC` : topUp < 0 ? `\nRefund: $${Math.abs(topUp).toFixed(2)} USDC` : ''}`)) return;
+
+    try {
+        const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
+
+        if (topUp > 0) {
+            const topUpRaw = ethers.utils.parseUnits(topUp.toFixed(6), 6);
+            const allowance = await usdcContract.allowance(connectedAddress, EQUITY_REGISTRY_ADDRESS);
+            if (allowance.lt(topUpRaw)) {
+                const approveTx = await usdcContract.approve(EQUITY_REGISTRY_ADDRESS, topUpRaw);
+                await approveTx.wait();
+            }
+        }
+
+        const tx = await equityContract.acceptCounter(offerId);
+        await tx.wait();
+        alert(`✅ Counter accepted! Trade complete.\nTx: https://arbiscan.io/tx/${tx.hash}`);
+        hideProjectDetailModal();
+        loadEquityListings();
+    } catch(e) {
+        const msg = e.message || '';
+        if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
+        else alert("Failed: " + msg);
+    }
+}
+
+async function rejectCounterOnChain(offerId) {
+    if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
+    if (!confirm("Reject counter offer? Your USDC will be refunded.")) return;
+    try {
+        const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
+        const tx = await equityContract.rejectCounter(offerId);
+        await tx.wait();
+        alert("✅ Counter rejected. USDC refunded.");
+        hideProjectDetailModal();
+        loadEquityListings();
+    } catch(e) {
+        const msg = e.message || '';
+        if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
+        else alert("Failed: " + msg);
+    }
+}
+
+async function withdrawOfferOnChain(offerId) {
+    if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
+    if (!confirm("Withdraw your offer? USDC will be refunded to you.")) return;
+    try {
+        const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
+        const tx = await equityContract.withdrawOffer(offerId);
+        await tx.wait();
+        alert("✅ Offer withdrawn. USDC refunded.");
+        hideProjectDetailModal();
+        loadEquityListings();
+    } catch(e) {
+        const msg = e.message || '';
+        if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
+        else alert("Failed: " + msg);
+    }
+}
+
+async function cancelListingOnChain(listingId) {
+    if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
+    if (!confirm("Cancel this listing? Your units will be returned to you.")) return;
+    try {
+        const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
+        const tx = await equityContract.cancelListing(listingId);
+        await tx.wait();
+        alert("✅ Listing cancelled. Units returned.");
+        hideProjectDetailModal();
+        loadEquityListings();
+    } catch(e) {
+        const msg = e.message || '';
+        if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
+        else alert("Failed: " + msg);
+    }
+}
+
+// ====================== ESCROW ACTIONS ======================
 async function fileProjectDispute(projectId) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
     const usdcRaw = await usdcContract.balanceOf(connectedAddress);
