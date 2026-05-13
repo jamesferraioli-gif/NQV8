@@ -1556,7 +1556,8 @@ const TREASURY_ABI = [
     "function founderWindowResets() external view returns (uint256)",
     "event NQV8Purchased(address indexed buyer, uint256 usdcPaid, uint256 nqv8Received, uint256 price)",
     "event BonusClaimed(address indexed recipient, uint256 amount)",
-    "event PegEnded(uint256 timestamp)"
+    "event PegEnded(uint256 timestamp)",
+    "function totalBonusClaimed() external view returns (uint256)"
 ];
 
 // ---- Wallet state ----
@@ -6500,17 +6501,20 @@ async function loadTokenomics() {
         const treasuryReadOnly = new ethers.Contract(TREASURY_CONTRACT_ADDRESS, TREASURY_ABI, arbProvider);
         const nqv8ReadOnly = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, arbProvider);
 
-        const [totalSoldRaw, pegEndedBool, treasuryBalRaw] = await Promise.all([
+        const [totalSoldRaw, totalBonusRaw, pegEndedBool, treasuryBalRaw] = await Promise.all([
             treasuryReadOnly.totalNQV8Sold(),
+            treasuryReadOnly.totalBonusClaimed(),
             treasuryReadOnly.pegEnded(),
             nqv8ReadOnly.balanceOf(TREASURY_CONTRACT_ADDRESS)
         ]);
-
+        
         const totalSold = parseFloat(ethers.utils.formatUnits(totalSoldRaw, NQV8_DECIMALS));
+        const totalBonus = parseFloat(ethers.utils.formatUnits(totalBonusRaw, NQV8_DECIMALS));
+        const totalCirculating = totalSold + totalBonus;
         const treasuryBal = parseFloat(ethers.utils.formatUnits(treasuryBalRaw, NQV8_DECIMALS));
 
-        if (circulatingEl) circulatingEl.textContent = Math.round(totalSold).toLocaleString();
-
+        if (circulatingEl) circulatingEl.textContent = Math.round(totalCirculating).toLocaleString();
+        
         window._nqv8FloatMode = pegEndedBool;
 
         if (pegStatusEl) {
@@ -6523,7 +6527,7 @@ async function loadTokenomics() {
                 `;
                 loadNQV8MarketPrice();
             } else {
-                const remaining = 10_000_000 - totalSold;
+                const remaining = 10_000_000 - totalCirculating;
                 pegStatusEl.innerHTML = `
                     <div class="text-cyan-400 text-xs font-semibold uppercase tracking-wider mb-3">Current Peg</div>
                     <div class="text-4xl font-bold mb-1">$0.01</div>
