@@ -4773,7 +4773,7 @@ async function loadChatList(searchTerm = "") {
                 const postedGrid = document.getElementById('my-posted-projects');
                 postedGrid.innerHTML = '<p class="col-span-full text-zinc-400">Loading...</p>';
                 try {
-                    const postedSnap = await db.collection("projects")
+                    const postedSnap = await db.collection("subprojects")
                         .where("ownerUid", "==", currentUser.uid)
                         .orderBy("createdAt", "desc")
                         .get();
@@ -4786,7 +4786,7 @@ async function loadChatList(searchTerm = "") {
                         const card = document.createElement('div');
                         card.className = "bg-zinc-800 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-cyan-400";
                         card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs ${p.status === 'in-progress' ? 'text-amber-400' : 'text-zinc-400'}">${p.type} • ${p.compensation}</span>`;
-                        card.onclick = () => showParentProjectDetail(doc.id, p);
+                        card.onclick = () => showProjectDetail(doc.id, p);
                         postedGrid.appendChild(card);
                     });
                 } catch (e) {
@@ -4798,7 +4798,7 @@ async function loadChatList(searchTerm = "") {
                 const workingGrid = document.getElementById('working-on-projects');
                 workingGrid.innerHTML = '<p class="col-span-full text-zinc-400">Loading...</p>';
                 try {
-                    const workingSnap = await db.collection("projects")
+                    const workingSnap = await db.collection("subprojects")
                         .where("acceptedBidderUid", "==", currentUser.uid)
                         .where("status", "==", "in-progress")
                         .get();
