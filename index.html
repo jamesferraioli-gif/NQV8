@@ -5716,7 +5716,13 @@ async function loadEquityListings() {
         const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
         const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
 
-        const listingIds = await equityReadOnly.getAllListingIds();
+        let listingIds = [];
+        try {
+            listingIds = await equityReadOnly.getAllListingIds();
+        } catch(e) {
+            // Empty array returns can throw on some RPC nodes — treat as no listings
+            listingIds = [];
+        }
 
         if (listingIds.length === 0) {
             grid.innerHTML = `<p class="col-span-full text-center text-zinc-400 py-12">No equity listings yet. Be the first to list a stake!</p>`;
