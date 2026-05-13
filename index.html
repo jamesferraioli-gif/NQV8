@@ -1553,7 +1553,8 @@ const ESCROW_ABI = [
     "function canAutoRelease(bytes32 escrowId) external view returns (bool)",
     "function canClaimRefund(bytes32 escrowId) external view returns (bool)",
     "function previewWorkerPayout(uint256 amount) external pure returns (uint256 workerAmount, uint256 platformFee)",
-    "function projectToEscrow(string) external view returns (bytes32)"
+    "function projectToEscrow(string) external view returns (bytes32)",
+    "event EscrowReleased(bytes32 indexed escrowId, address worker, uint256 workerAmount, uint256 platformFee)"
 ];
 
 function deadlineToTimestamp(deadlineStr) {
