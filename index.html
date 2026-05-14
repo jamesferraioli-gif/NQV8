@@ -8975,10 +8975,17 @@ async function cancelListingOnChain(listingId) {
 // ====================== ESCROW ACTIONS ======================
 async function fileProjectDispute(projectId) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
-    const usdcRaw = await usdcContract.balanceOf(connectedAddress);
-    const usdcBal = parseFloat(ethers.utils.formatUnits(usdcRaw, 6));
-    if (usdcBal < 10) return alert(`You need $10 USDC to file a dispute. Your balance: $${usdcBal.toFixed(2)}`);
-    if (!confirm(`File a Dispute\n\n⚖️ How it works:\n• Claude AI reviews all evidence immediately\n• Claude issues a binding ruling — no human review\n• Funds are split on-chain automatically\n• There is no appeals process\n\n💡 NQVate is NOT a party to this dispute. Claude acts as sole arbitrator.\n\nFee: $10 in NQV8 (non-refundable, even if you lose)\n\nContinue?`)) return;
+
+    // Calculate $10 in NQV8 at current price
+    const disputeNQV8Amount = await usdToNQV8(10.00);
+    const nqv8Raw = await nqv8Contract.balanceOf(connectedAddress);
+    const nqv8Bal = parseFloat(ethers.utils.formatUnits(nqv8Raw, 18));
+
+    if (nqv8Bal < disputeNQV8Amount) {
+        return alert(`You need ${disputeNQV8Amount} NQV8 (≈ $10.00) to file a dispute.\nYour balance: ${nqv8Bal.toLocaleString(undefined,{maximumFractionDigits:4})} NQV8\n\nBuy NQV8 from the Treasury on the Tokenomics page.`);
+    }
+
+    if (!confirm(`File a Dispute\n\n⚖️ How it works:\n• Claude AI reviews all evidence immediately\n• Claude issues a binding ruling — no human review\n• Funds are split on-chain automatically\n• There is no appeals process\n\n💡 NQVate is NOT a party to this dispute. Claude acts as sole arbitrator.\n\nFee: ${disputeNQV8Amount} NQV8 ≈ $10.00 (non-refundable, even if you lose)\n\nContinue?`)) return;
 
     try {
         const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
@@ -8986,10 +8993,11 @@ async function fileProjectDispute(projectId) {
         const hasEscrow = escrowId !== '0x0000000000000000000000000000000000000000000000000000000000000000';
         if (!hasEscrow) return alert("No escrow found for this project.");
 
-        const disputeFeeRaw = ethers.utils.parseUnits("10", 6);
-        const allowance = await usdcContract.allowance(connectedAddress, ESCROW_CONTRACT_ADDRESS);
+        // Pay dispute fee in NQV8 (not USDC)
+        const disputeFeeRaw = ethers.utils.parseUnits(String(disputeNQV8Amount), 18);
+        const allowance = await nqv8Contract.allowance(connectedAddress, ESCROW_CONTRACT_ADDRESS);
         if (allowance.lt(disputeFeeRaw)) {
-            const approveTx = await usdcContract.approve(ESCROW_CONTRACT_ADDRESS, disputeFeeRaw);
+            const approveTx = await nqv8Contract.approve(ESCROW_CONTRACT_ADDRESS, disputeFeeRaw);
             await approveTx.wait();
         }
 
@@ -8997,33 +9005,42 @@ async function fileProjectDispute(projectId) {
         await disputeTx.wait();
 
         await db.collection("subprojects").doc(projectId).update({
-            disputeFiled: true,
+            disputeFiled:   true,
             disputeFiledBy: currentUser.uid,
             disputeFiledAt: firebase.firestore.FieldValue.serverTimestamp(),
-            disputeTxHash: disputeTx.hash
+            disputeTxHash:  disputeTx.hash
         });
 
         const otherUid = currentUser.uid === currentProject.posterUid
             ? currentProject.acceptedBidderUid
             : currentProject.posterUid;
-        await createNotification(otherUid, 'dispute', `A dispute has been filed on: "${currentProject.title}". Claude AI will review both sides.`, { projectId });
 
-        alert(`✅ Dispute filed.\n\nClaude AI is now reviewing the evidence and will issue a binding ruling automatically. Both parties will be notified when the dispute is resolved.\n\nTx: https://arbiscan.io/tx/${disputeTx.hash}`);
+        await createNotification(
+            otherUid,
+            'dispute',
+            `A dispute has been filed on: "${currentProject.title}". Claude AI will review both sides and issue a binding ruling automatically.`,
+            { projectId }
+        );
+
+        alert(`✅ Dispute filed.\n\nClaude AI is now reviewing the evidence and will issue a binding ruling automatically. Both parties will be notified when resolved.\n\nTx: https://arbiscan.io/tx/${disputeTx.hash}`);
+
         hideProjectDetailModal();
         loadMarketplace();
-        // Auto-trigger Claude resolution immediately
+
+        // Auto-trigger Claude resolution immediately — fire and forget
         fetch('/api/resolve-dispute', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ projectId })
         }).then(r => r.json()).then(result => {
             if (result.success) {
-                console.log(`⚖️ Dispute auto-resolved: ${result.workerPct}% worker / ${result.posterPct}% poster`);
+                console.log(`⚖️ Dispute auto-resolved: ${result.workerPct}% worker / ${result.posterPct}% poster. Tx: ${result.txHash}`);
             } else {
                 console.error('Auto-resolution failed:', result.error);
             }
         }).catch(e => console.error('Dispute resolution error:', e.message));
-    } catch (e) {
+
+    } catch(e) {
         const msg = e.message || '';
         if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
         else alert("Failed to file dispute: " + msg);
