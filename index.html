@@ -1035,8 +1035,8 @@
 
         <div class="flex flex-col md:flex-row h-[calc(100vh-120px)] bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-700">
 
-            <!-- Sidebar -->
-            <div class="w-full md:w-80 border-b md:border-b-0 md:border-r border-zinc-700 flex flex-col h-44 md:h-auto">
+            <!-- Sidebar — full height on mobile, fixed width on desktop -->
+            <div id="chat-sidebar" class="w-full md:w-80 border-b md:border-b-0 md:border-r border-zinc-700 flex flex-col md:h-auto h-full">
                 <div class="p-4 border-b border-zinc-700 space-y-2">
                     <input id="chat-search" type="text" placeholder="Search by username..."
                            onkeyup="searchUsersForChat()"
@@ -1049,18 +1049,22 @@
                 <div id="chat-list" class="flex-1 overflow-auto p-2"></div>
             </div>
 
-            <!-- Main Chat Area -->
-            <div class="flex-1 flex flex-col min-h-0">
-                <div id="chat-header" class="px-6 py-4 border-b border-zinc-700 flex items-center justify-between">
+            <!-- Main Chat Area — hidden on mobile until chat selected -->
+            <div id="chat-main" class="hidden md:flex flex-1 flex-col min-h-0">
+                <div id="chat-header" class="px-4 py-4 border-b border-zinc-700 flex items-center justify-between">
                     <div class="flex items-center gap-3">
-                        <div id="chat-avatar" class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold"></div>
-                        <div>
-                            <p id="chat-with-name" class="font-semibold">Select a chat</p>
-                            <p id="chat-with-username" class="text-xs text-zinc-400"></p>
+                        <!-- Back button — mobile only -->
+                        <button onclick="showChatSidebar()" class="md:hidden mr-1 text-zinc-400 hover:text-white">
+                            <i class="fa-solid fa-arrow-left text-lg"></i>
+                        </button>
+                        <div id="chat-avatar" class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"></div>
+                        <div class="min-w-0">
+                            <p id="chat-with-name" class="font-semibold truncate">Select a chat</p>
+                            <p id="chat-with-username" class="text-xs text-zinc-400 truncate"></p>
                         </div>
                     </div>
-                    <button onclick="startVideoCall()" class="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-600 text-black px-5 py-2 rounded-2xl text-sm font-medium">
-                        <i class="fa-solid fa-video"></i> Video Call
+                    <button onclick="startVideoCall()" class="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-600 text-black px-3 md:px-5 py-2 rounded-2xl text-sm font-medium flex-shrink-0">
+                        <i class="fa-solid fa-video"></i><span class="hidden md:inline ml-1">Video Call</span>
                     </button>
                 </div>
 
@@ -4952,6 +4956,9 @@ async function loadChatList(searchTerm = "") {
             // Remove any existing video banner
             document.getElementById('video-call-banner')?.remove();
 
+            // Mobile: switch to conversation view
+            showChatMain();
+
             const messagesDiv = document.getElementById('chat-messages');
             messagesDiv.innerHTML = '';
 
@@ -5001,6 +5008,29 @@ async function loadChatList(searchTerm = "") {
             } catch (e) {
                 console.error(e);
                 alert("Failed to send message");
+            }
+        }
+
+        function showChatSidebar() {
+            // Mobile — go back to sidebar list
+            document.getElementById('chat-sidebar').classList.remove('hidden');
+            document.getElementById('chat-sidebar').classList.add('flex');
+            document.getElementById('chat-main').classList.add('hidden');
+            document.getElementById('chat-main').classList.remove('flex');
+        }
+
+        function showChatMain() {
+            // Mobile — hide sidebar, show conversation
+            const isMobile = window.innerWidth < 768;
+            if (isMobile) {
+                document.getElementById('chat-sidebar').classList.add('hidden');
+                document.getElementById('chat-sidebar').classList.remove('flex');
+                document.getElementById('chat-main').classList.remove('hidden');
+                document.getElementById('chat-main').classList.add('flex');
+            } else {
+                // Desktop — both visible
+                document.getElementById('chat-main').classList.remove('hidden');
+                document.getElementById('chat-main').classList.add('flex');
             }
         }
 
@@ -7180,6 +7210,9 @@ function openGroupChat(chatId, chatData) {
 
     document.getElementById('chat-with-name').textContent = chatData.groupName || 'Group Chat';
     document.getElementById('chat-with-username').textContent = `${(chatData.participants || []).length} members`;
+
+    // Mobile: switch to conversation view
+    showChatMain();
 
     const messagesDiv = document.getElementById('chat-messages');
     messagesDiv.innerHTML = '';
