@@ -1863,25 +1863,63 @@ async function connectWallet() {
 function showWalletPickerModal() {
     document.getElementById('wallet-picker-modal')?.remove();
 
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const hasMetaMaskExtension = !!(window.ethereum?.isMetaMask);
+
     const modal = document.createElement('div');
     modal.id = 'wallet-picker-modal';
     modal.className = 'fixed inset-0 bg-black/95 flex items-center justify-center z-[999999]';
     modal.innerHTML = `
         <div class="bg-zinc-900 border border-zinc-700 rounded-3xl p-8 w-full max-w-sm mx-4">
             <h3 class="text-xl font-bold mb-2">Connect Wallet</h3>
-            <p class="text-zinc-400 text-sm mb-6">Connect your MetaMask wallet to NQVate on Arbitrum</p>
+            <p class="text-zinc-400 text-sm mb-6">Connect to NQVate on Arbitrum One</p>
 
+            ${hasMetaMaskExtension ? `
+            <!-- Desktop with MetaMask extension -->
             <button onclick="connectWithMetaMask()"
-                    class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors mb-4">
+                    class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors mb-3">
                 <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" class="w-8 h-8">
                 <div class="text-left">
                     <p class="font-medium">MetaMask</p>
-                    <p class="text-xs text-zinc-400">Browser extension wallet</p>
+                    <p class="text-xs text-zinc-400">Browser extension</p>
+                </div>
+                <span class="ml-auto text-xs text-emerald-400">Detected ✓</span>
+            </button>` : ''}
+
+            ${isMobile ? `
+            <!-- Mobile — deep link into MetaMask app -->
+            <button onclick="connectWithMetaMaskMobile()"
+                    class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors mb-3">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" class="w-8 h-8">
+                <div class="text-left">
+                    <p class="font-medium">MetaMask</p>
+                    <p class="text-xs text-zinc-400">Open in MetaMask app</p>
+                </div>
+            </button>` : ''}
+
+            <!-- WalletConnect — works for all wallets on all devices -->
+            <button onclick="connectWithWalletConnect()"
+                    class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors mb-3">
+                <img src="https://avatars.githubusercontent.com/u/37784886" class="w-8 h-8 rounded-full">
+                <div class="text-left">
+                    <p class="font-medium">WalletConnect</p>
+                    <p class="text-xs text-zinc-400">${isMobile ? 'Any wallet app' : 'QR code · any wallet'}</p>
                 </div>
             </button>
 
+            ${!isMobile && !hasMetaMaskExtension ? `
+            <!-- Desktop without extension — suggest install -->
+            <button onclick="window.open('https://metamask.io/download/', '_blank')"
+                    class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors mb-3">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" class="w-8 h-8">
+                <div class="text-left">
+                    <p class="font-medium">Install MetaMask</p>
+                    <p class="text-xs text-zinc-400">Get the browser extension</p>
+                </div>
+            </button>` : ''}
+
             <button onclick="document.getElementById('wallet-picker-modal').remove()"
-                    class="w-full py-3 text-zinc-500 hover:text-zinc-300 text-sm">
+                    class="w-full py-3 text-zinc-500 hover:text-zinc-300 text-sm mt-2">
                 Cancel
             </button>
         </div>
