@@ -1,0 +1,43 @@
+{
+  "name": "NQVate",
+  "short_name": "NQVate",
+  "description": "Innovate. Incubate. Incuvate. A decentralized marketplace for builders and ideas.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/public/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/public/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["finance", "business", "productivity"],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Marketplace",
+      "url": "/?page=marketplace",
+      "description": "Browse build requests and funding opportunities"
+    },
+    {
+      "name": "My Profile",
+      "url": "/?page=profile",
+      "description": "View your profile and equity stakes"
+    },
+    {
+      "name": "NQV8 Tokenomics",
+      "url": "/?page=tokenomics",
+      "description": "Buy NQV8 and view rewards"
+    }
+  ]
+}
