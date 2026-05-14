@@ -4941,6 +4941,9 @@ async function loadChatList(searchTerm = "") {
             document.getElementById('chat-with-name').textContent = partnerData.fullName || partnerData.username;
             document.getElementById('chat-with-username').textContent = '@' + (partnerData.username || 'user');
 
+            // Remove any existing video banner
+            document.getElementById('video-call-banner')?.remove();
+
             const messagesDiv = document.getElementById('chat-messages');
             messagesDiv.innerHTML = '';
 
@@ -4949,6 +4952,9 @@ async function loadChatList(searchTerm = "") {
             currentChatUnsubscribe = db.collection("chats").doc(chatId).onSnapshot(doc => {
                 const chat = doc.data();
                 messagesDiv.innerHTML = '';
+
+                // Check for active video call
+                checkForActiveVideoCall(chat);
 
                 if (chat && chat.messages) {
                     chat.messages.forEach(msg => {
@@ -4966,7 +4972,6 @@ async function loadChatList(searchTerm = "") {
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
             });
         }
-
         async function sendMessage() {
             const input = document.getElementById('chat-input');
             const text = input.value.trim();
@@ -4997,72 +5002,120 @@ async function loadChatList(searchTerm = "") {
         }
 
         // ====================== VIDEO CALL ======================
-        let localStream = null;
-        let isMuted = false;
+async function startVideoCall() {
+            if (!currentChatId) return alert("Open a chat first");
 
-        async function startVideoCall() {
-            if (!currentChatPartnerUid) return alert("Open a chat first");
-
-            const modalHTML = `
-                <div id="video-call-modal" class="fixed inset-0 bg-black/95 flex items-center justify-center z-[100000]">
-                    <div class="bg-zinc-900 rounded-3xl p-6 w-full max-w-5xl">
-                        <div class="flex justify-between items-center mb-6">
-                            <h3 class="text-2xl font-bold">Video Call</h3>
-                            <button onclick="endVideoCall()" class="text-4xl leading-none hover:text-red-400">×</button>
-                        </div>
-                        <div class="grid grid-cols-2 gap-4">
-                            <div class="relative">
-                                <p class="text-xs text-zinc-400 mb-2">You</p>
-                                <video id="local-video" autoplay muted playsinline class="w-full bg-black rounded-3xl aspect-video object-cover"></video>
-                            </div>
-                            <div class="relative">
-                                <p class="text-xs text-zinc-400 mb-2">Them</p>
-                                <video id="remote-video" autoplay playsinline class="w-full bg-black rounded-3xl aspect-video object-cover"></video>
-                            </div>
-                        </div>
-                        <div class="flex justify-center gap-6 mt-8">
-                            <button onclick="toggleMute()" id="mute-btn" class="px-8 py-4 bg-zinc-800 hover:bg-zinc-700 rounded-3xl flex items-center gap-3">
-                                <i class="fa-solid fa-microphone"></i> <span>Mute</span>
-                            </button>
-                            <button onclick="endVideoCall()" class="px-10 py-4 bg-red-600 hover:bg-red-700 rounded-3xl text-white font-medium">
-                                End Call
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            `;
-
-            const temp = document.createElement('div');
-            temp.innerHTML = modalHTML;
-            document.body.appendChild(temp.firstElementChild);
+            // Show loading state on the button
+            const callBtn = document.querySelector('button[onclick="startVideoCall()"]');
+            if (callBtn) { callBtn.textContent = '⏳ Starting...'; callBtn.disabled = true; }
 
             try {
-                localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                document.getElementById('local-video').srcObject = localStream;
-                document.getElementById('remote-video').srcObject = localStream;
-            } catch (err) {
-                alert("Camera or microphone access denied.");
-                endVideoCall();
+                // Create a Daily.co room via our backend
+                const response = await fetch('/api/create-room', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ chatId: currentChatId })
+                });
+
+                if (!response.ok) throw new Error('Could not create video room');
+                const { url } = await response.json();
+
+                // Save room URL to Firestore so partner can join
+                await db.collection('chats').doc(currentChatId).update({
+                    activeVideoRoom: url,
+                    videoRoomStartedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    videoRoomStartedBy: currentUser.uid
+                });
+
+                // Notify the other person
+                if (currentChatPartnerUid) {
+                    await createNotification(
+                        currentChatPartnerUid,
+                        'message',
+                        `📹 ${currentUser.fullName || currentUser.username} started a video call. Open your chat to join.`
+                    );
+                }
+
+                // Open Daily.co room in a modal iframe
+                showVideoCallModal(url);
+
+            } catch(e) {
+                alert('Failed to start video call: ' + e.message);
+            } finally {
+                if (callBtn) { callBtn.innerHTML = '<i class="fa-solid fa-video"></i> Video Call'; callBtn.disabled = false; }
             }
         }
 
-        function toggleMute() {
-            if (!localStream) return;
-            isMuted = !isMuted;
-            localStream.getAudioTracks().forEach(track => track.enabled = !isMuted);
-            const btn = document.getElementById('mute-btn');
-            btn.innerHTML = isMuted 
-                ? `<i class="fa-solid fa-microphone-slash"></i> <span>Unmute</span>` 
-                : `<i class="fa-solid fa-microphone"></i> <span>Mute</span>`;
+        function showVideoCallModal(roomUrl) {
+            document.getElementById('video-call-modal')?.remove();
+
+            const modal = document.createElement('div');
+            modal.id = 'video-call-modal';
+            modal.className = 'fixed inset-0 bg-black z-[100000] flex flex-col';
+            modal.innerHTML = `
+                <div class="flex items-center justify-between px-4 py-3 bg-zinc-900 border-b border-zinc-700 flex-shrink-0">
+                    <div class="flex items-center gap-3">
+                        <div class="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
+                        <span class="text-sm font-medium">Video Call · NQVate</span>
+                    </div>
+                    <button onclick="endVideoCall()"
+                            class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white text-sm font-semibold rounded-xl">
+                        End Call
+                    </button>
+                </div>
+                <iframe
+                    id="daily-iframe"
+                    src="${roomUrl}"
+                    allow="camera; microphone; fullscreen; speaker; display-capture"
+                    class="flex-1 w-full border-0">
+                </iframe>
+            `;
+            document.body.appendChild(modal);
         }
 
         function endVideoCall() {
-            if (localStream) localStream.getTracks().forEach(track => track.stop());
             const modal = document.getElementById('video-call-modal');
             if (modal) modal.remove();
+
+            // Clear the room from Firestore
+            if (currentChatId) {
+                db.collection('chats').doc(currentChatId).update({
+                    activeVideoRoom: null
+                }).catch(e => console.warn('Could not clear video room:', e.message));
+            }
         }
 
-        // ====================== PROFILE ENHANCEMENTS ======================
+        // Check if there's an active video call when opening a chat
+        function checkForActiveVideoCall(chatData) {
+            if (!chatData.activeVideoRoom) return;
+
+            // Don't auto-show if we started it
+            if (chatData.videoRoomStartedBy === currentUser.uid) return;
+
+            // Show join banner
+            const existing = document.getElementById('video-call-banner');
+            if (existing) existing.remove();
+
+            const banner = document.createElement('div');
+            banner.id = 'video-call-banner';
+            banner.className = 'bg-violet-600 px-4 py-3 flex items-center justify-between flex-shrink-0';
+            banner.innerHTML = `
+                <div class="flex items-center gap-2">
+                    <div class="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                    <span class="text-white text-sm font-medium">📹 Video call in progress</span>
+                </div>
+                <button onclick="showVideoCallModal('${chatData.activeVideoRoom}')"
+                        class="px-4 py-1.5 bg-white text-violet-700 text-sm font-semibold rounded-xl">
+                    Join
+                </button>
+            `;
+
+            // Insert banner above messages
+            const messagesDiv = document.getElementById('chat-messages');
+            if (messagesDiv?.parentNode) {
+                messagesDiv.parentNode.insertBefore(banner, messagesDiv);
+            }
+        }        // ====================== PROFILE ENHANCEMENTS ======================
         async function uploadProfilePicture() {
             const file = document.getElementById('profile-upload').files[0];
             if (!file || !currentUser) return alert("Please select an image");
