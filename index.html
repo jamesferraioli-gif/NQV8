@@ -1038,7 +1038,7 @@
             <!-- Sidebar -->
             <div class="w-full md:w-80 border-b md:border-b-0 md:border-r border-zinc-700 flex flex-col h-44 md:h-auto">
                 <div class="p-4 border-b border-zinc-700 space-y-2">
-                    <input id="chat-search" type="text" placeholder="Search users by username..."
+                    <input id="chat-search" type="text" placeholder="Search by username..."
                            onkeyup="searchUsersForChat()"
                            class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 outline-none">
                     <button onclick="showGroupChatModal()"
@@ -4825,11 +4825,19 @@ async function loadChatList(searchTerm = "") {
             });
         
             const seenPartners = new Set();
+            const seenChatKeys = new Set();
         
             for (const doc of sortedDocs) {
                 const chat = doc.data();
                 const isGroup = chat.type === 'group';
-        
+
+                // Deduplicate by participant pair regardless of order
+                if (!isGroup) {
+                    const key = (chat.participants || []).slice().sort().join('_');
+                    if (seenChatKeys.has(key)) continue;
+                    seenChatKeys.add(key);
+                }
+
                 if (isGroup) {
                     const memberCount = (chat.participants || []).length;
                     const div = document.createElement('div');
@@ -4997,7 +5005,8 @@ async function loadChatList(searchTerm = "") {
         }
 
         function searchUsersForChat() {
-            const term = document.getElementById('chat-search').value.trim();
+            // Strip leading @ so users don't need to type it
+            const term = document.getElementById('chat-search').value.trim().replace(/^@/, '');
             loadChatList(term);
         }
 
