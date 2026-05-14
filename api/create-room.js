@@ -24,7 +24,7 @@ export default async function handler(req, res) {
             },
             body: JSON.stringify({
                 name:       `nqvate-${chatId}-${Date.now()}`,
-                privacy:    'private',
+                privacy:    'public',
                 properties: {
                     exp:                    expiry,
                     max_participants:       2,
