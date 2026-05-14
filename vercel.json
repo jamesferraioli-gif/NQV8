@@ -36,6 +36,10 @@
             "dest": "/api/transfer-equity.js"
         },
         {
+            "src": "/api/create-room",
+            "dest": "/api/create-room.js"
+        },
+        {
             "src": "/api/valuate-equity",
             "dest": "/api/valuate-equity.js"
         },
