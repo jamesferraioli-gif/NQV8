@@ -763,7 +763,18 @@
                     <p id="wallet-status" class="text-center text-emerald-400 text-sm mt-3 hidden">✅ Wallet Connected</p>
                 </div>
                 
-                <button onclick="createProfile()" class="w-full mt-8 py-5 bg-white text-black font-semibold rounded-2xl text-lg">Create Account</button>
+                <div class="mt-6 flex items-start gap-3">
+                    <input type="checkbox" id="tos-agree" class="mt-1 w-4 h-4 flex-shrink-0 accent-cyan-400">
+                    <label for="tos-agree" class="text-sm text-zinc-400 leading-relaxed">
+                        I agree to the 
+                        <a href="/terms" target="_blank" class="text-cyan-400 hover:underline">Terms of Service</a> 
+                        and 
+                        <a href="/privacy" target="_blank" class="text-cyan-400 hover:underline">Privacy Policy</a>. 
+                        I understand that platform fees are non-refundable and disputes are resolved by Claude AI with no appeals process.
+                    </label>
+                </div>
+                <button onclick="createProfile()" class="w-full mt-6 py-5 bg-white text-black font-semibold rounded-2xl text-lg">Create Account</button>
+                
             </div>
 
             <div id="login-form" class="hidden">
@@ -3311,6 +3322,10 @@ async function createProfile() {
         alert("Please fill in all fields");
         return;
     }
+    if (!document.getElementById('tos-agree').checked) {
+        alert("Please agree to the Terms of Service and Privacy Policy to continue.");
+        return;
+    }
     const pwCheck = validatePassword(password);
     if (!pwCheck.valid) {
         alert("Password must be at least 8 characters, include 1 uppercase letter, and 1 special character (!@#$%^&* etc).");
@@ -3349,6 +3364,9 @@ async function createProfile() {
             pendingNQV8Bonus: 1000,
             signupBonusClaimed: false,
             walletConnected: true,
+            tosAgreed: true,
+            tosAgreedAt: new Date().toISOString(),
+            tosVersion: '1.0',
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         };
 
