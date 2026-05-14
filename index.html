@@ -9035,10 +9035,42 @@ function hideChangeWalletModal() {
 async function changeWallet() {
     hideChangeWalletModal();
 
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const hasExtension = !!(window.ethereum?.isMetaMask);
     const prevAddress = connectedAddress;
 
+    // On mobile without injected provider — use wallet picker flow
+    if (isMobile && !hasExtension) {
+        // After wallet picker connects, save the new address
+        const _origOnConnected = onWalletConnected;
+        window._changeWalletMode = true;
+        showWalletPickerModal();
+
+        // Poll for connection change — wallet picker calls onWalletConnected which sets connectedAddress
+        const check = setInterval(async () => {
+            if (connectedAddress && connectedAddress !== prevAddress) {
+                clearInterval(check);
+                try {
+                    await db.collection('users').doc(currentUser.uid).update({
+                        walletAddress: connectedAddress.toLowerCase()
+                    });
+                    currentUser.walletAddress = connectedAddress.toLowerCase();
+                    const settingsWallet = document.getElementById('settings-wallet-address');
+                    if (settingsWallet) settingsWallet.textContent = connectedAddress;
+                    alert(`✅ Wallet changed to ${connectedAddress.slice(0,6)}...${connectedAddress.slice(-4)}`);
+                } catch(e) {
+                    console.error('Failed to save new wallet:', e.message);
+                }
+            }
+        }, 500);
+
+        // Stop polling after 2 minutes
+        setTimeout(() => clearInterval(check), 120000);
+        return;
+    }
+
+    // Desktop with MetaMask extension — force account picker
     try {
-        // Force MetaMask to show the account picker
         await window.ethereum.request({
             method: 'wallet_requestPermissions',
             params: [{ eth_accounts: {} }]
@@ -9047,7 +9079,6 @@ async function changeWallet() {
         await connectInjected();
 
         if (connectedAddress && connectedAddress !== prevAddress) {
-            // Save new wallet to Firestore
             await db.collection('users').doc(currentUser.uid).update({
                 walletAddress: connectedAddress.toLowerCase()
             });
@@ -9065,7 +9096,6 @@ async function changeWallet() {
         else alert("Failed to change wallet: " + e.message);
     }
 }
-
     
     </script>    
 
