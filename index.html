@@ -8978,7 +8978,7 @@ async function fileProjectDispute(projectId) {
     const usdcRaw = await usdcContract.balanceOf(connectedAddress);
     const usdcBal = parseFloat(ethers.utils.formatUnits(usdcRaw, 6));
     if (usdcBal < 10) return alert(`You need $10 USDC to file a dispute. Your balance: $${usdcBal.toFixed(2)}`);
-    if (!confirm("File a dispute?\n\nCost: $10 USDC (non-refundable)\n\nClaude AI will review evidence from both parties and issue a binding ruling.")) return;
+    if (!confirm(`File a Dispute\n\n⚖️ How it works:\n• Claude AI reviews all evidence immediately\n• Claude issues a binding ruling — no human review\n• Funds are split on-chain automatically\n• There is no appeals process\n\n💡 NQVate is NOT a party to this dispute. Claude acts as sole arbitrator.\n\nFee: $10 in NQV8 (non-refundable, even if you lose)\n\nContinue?`)) return;
 
     try {
         const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
@@ -9008,9 +9008,21 @@ async function fileProjectDispute(projectId) {
             : currentProject.posterUid;
         await createNotification(otherUid, 'dispute', `A dispute has been filed on: "${currentProject.title}". Claude AI will review both sides.`, { projectId });
 
-        alert(`✅ Dispute filed. $10 USDC fee paid.\nTx: https://arbiscan.io/tx/${disputeTx.hash}`);
+        alert(`✅ Dispute filed.\n\nClaude AI is now reviewing the evidence and will issue a binding ruling automatically. Both parties will be notified when the dispute is resolved.\n\nTx: https://arbiscan.io/tx/${disputeTx.hash}`);
         hideProjectDetailModal();
         loadMarketplace();
+        // Auto-trigger Claude resolution immediately
+        fetch('/api/resolve-dispute', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ projectId })
+        }).then(r => r.json()).then(result => {
+            if (result.success) {
+                console.log(`⚖️ Dispute auto-resolved: ${result.workerPct}% worker / ${result.posterPct}% poster`);
+            } else {
+                console.error('Auto-resolution failed:', result.error);
+            }
+        }).catch(e => console.error('Dispute resolution error:', e.message));
     } catch (e) {
         const msg = e.message || '';
         if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
@@ -9055,13 +9067,13 @@ async function loadEscrowActions(projectId, project) {
             if (status === 'Submitted') {
                 html += `<button onclick="acceptSubmission(0)" class="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-3xl mb-3">✅ Accept & Release Funds from Escrow</button>`;
             }
-            html += `<button onclick="fileProjectDispute('${projectId}')" class="w-full py-4 border border-red-500/50 text-red-400 hover:bg-red-500/10 font-medium rounded-3xl">⚠️ File Dispute ($10 USDC)</button>`;
+            html += `<button onclick="fileProjectDispute('${projectId}')" class="w-full py-4 border border-red-500/50 text-red-400 hover:bg-red-500/10 font-medium rounded-3xl">⚖️ File Dispute — Claude Arbitrates ($10 in NQV8)</button>`;
         }
 
         if (isWorker && status === 'Submitted') {
             const canRelease = await escrowReadOnly.canAutoRelease(escrowId);
             if (canRelease) html += `<button onclick="claimAutoReleaseEscrow('${projectId}')" class="w-full py-4 bg-cyan-500 text-black font-semibold rounded-3xl mt-3">⏱ Claim Auto-Release (7 days elapsed)</button>`;
-            html += `<button onclick="fileProjectDispute('${projectId}')" class="w-full py-4 border border-red-500/50 text-red-400 hover:bg-red-500/10 font-medium rounded-3xl mt-3">⚠️ File Dispute ($10 USDC)</button>`;
+            html += `<button onclick="fileProjectDispute('${projectId}')" class="w-full py-4 border border-red-500/50 text-red-400 hover:bg-red-500/10 font-medium rounded-3xl">⚖️ File Dispute — Claude Arbitrates ($10 in NQV8)</button>`;
         }
 
         if (isPoster && status === 'Active') {
@@ -9070,7 +9082,14 @@ async function loadEscrowActions(projectId, project) {
         }
 
         if (status === 'Disputed') {
-            html += `<div class="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mt-3"><p class="text-red-400 font-semibold text-sm">Dispute In Progress</p><p class="text-zinc-400 text-xs mt-1">Claude AI is reviewing the evidence. The admin will execute the ruling on-chain.</p></div>`;
+            if (status === 'Disputed') {
+            html += `
+            <div class="bg-red-500/10 border border-red-500/30 rounded-2xl p-4 mt-3">
+                <p class="text-red-400 font-semibold text-sm">⚖️ Dispute In Progress</p>
+                <p class="text-zinc-400 text-xs mt-2">Claude AI is reviewing all evidence and will issue a binding ruling automatically. Funds will be split on-chain with no human involvement. Both parties will be notified when resolved.</p>
+                <p class="text-zinc-500 text-xs mt-2">NQVate is not a party to this dispute. Claude acts as sole arbitrator with no appeals process.</p>
+            </div>`;
+        }
         }
 
         container.innerHTML = html;
