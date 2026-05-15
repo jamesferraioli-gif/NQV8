@@ -48,6 +48,14 @@
             "dest": "/api/revaluate-equity.js"
         },
         {
+            "src": "/api/resolve-dispute",
+            "dest": "/api/resolve-dispute.js"
+        },
+        {
+            "src": "/api/claim-referral-bonus",
+            "dest": "/api/claim-referral-bonus.js"
+        },
+        {
             "src": "/admin.html",
             "dest": "/admin.html"
         },
