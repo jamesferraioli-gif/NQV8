@@ -146,11 +146,11 @@
 </nav>
 
 <!-- Guest bar — shown to non-logged-in visitors -->
-<div id="guest-bar" class="hidden bg-zinc-900 border-b border-zinc-700 px-6 py-2 flex items-center justify-between">
-    <p class="text-sm text-zinc-400">👋 You're browsing as a guest — sign in to post, bid, and earn NQV8</p>
+<div id="guest-bar" class="hidden bg-zinc-900 border-b border-zinc-700 px-4 py-2 flex items-center justify-between gap-4">
+    <p class="text-sm text-zinc-400">🎁 <span class="text-cyan-400 font-semibold">1,000 NQV8 free</span> when you sign up — plus earn 1,000 NQV8 for every 5 users you refer</p>
     <button onclick="showAuthModal()"
-            class="px-5 py-2 bg-cyan-500 text-black text-sm font-semibold rounded-2xl hover:bg-cyan-400 transition-colors">
-        Sign In / Create Account
+            class="flex-shrink-0 px-5 py-2 bg-cyan-500 text-black text-sm font-semibold rounded-2xl hover:bg-cyan-400 transition-colors">
+        Claim Bonus →
     </button>
 </div>
 
@@ -721,8 +721,21 @@
             <h2 class="text-3xl font-bold mb-6 text-center">Welcome to NQVate</h2>
             
             <div class="text-left text-zinc-300 leading-relaxed text-sm space-y-4 max-h-[60vh] overflow-auto pr-2">
-                <p>Imagine a place where ideas meet execution, bounties fuel progress, and equity flows freely on-chain. NQVate connects builders with opportunities in one seamless Web3 ecosystem: post build requests or bounties to get tasks done (paying in USDC or equity), seek funding for your projects, earn stakes by delivering work, then trade those stakes on the integrated equity exchange. It's part freelance marketplace, part decentralized VC, and part community hub—with chat, leaderboards, idea sharing, and reviews tying it all together.</p>
-    
+                
+            <!-- Bonus callout -->
+            <div class="grid grid-cols-2 gap-3 mb-6">
+                <div class="bg-cyan-500/10 border border-cyan-500/30 rounded-2xl p-4 text-center">
+                    <p class="text-3xl font-bold text-cyan-400">1,000</p>
+                    <p class="text-xs text-zinc-400 mt-1">NQV8 free on signup</p>
+                    <p class="text-xs text-zinc-500 mt-1">≈ $10 at peg</p>
+                </div>
+                <div class="bg-violet-500/10 border border-violet-500/30 rounded-2xl p-4 text-center">
+                    <p class="text-3xl font-bold text-violet-400">1,000</p>
+                    <p class="text-xs text-zinc-400 mt-1">NQV8 per 5 referrals</p>
+                    <p class="text-xs text-zinc-500 mt-1">repeatable, no limit</p>
+                </div>
+            </div>
+
                 <div>
                     <p class="text-white font-semibold mb-2">Key features include:</p>
                     <ul class="space-y-2 text-zinc-300">
@@ -757,11 +770,15 @@
                 <button onclick="switchTab(1)" id="tab-login" class="flex-1 pb-4 text-lg font-semibold text-zinc-400">Login</button>
             </div>
 
-            <div id="create-form">
-                <div class="grid grid-cols-2 gap-4">
-                    <input id="first-name" type="text" placeholder="First Name" class="bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
-                    <input id="last-name" type="text" placeholder="Last Name" class="bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
-                </div>
+        <div id="create-form">
+            <div class="bg-gradient-to-r from-cyan-500/10 to-violet-500/10 border border-cyan-500/20 rounded-2xl p-4 mb-5 text-center">
+                <p class="text-cyan-400 font-semibold">🎁 Get 1,000 NQV8 free when you sign up</p>
+                <p class="text-zinc-400 text-xs mt-1">Plus earn 1,000 NQV8 for every 5 users you refer — no limit</p>
+            </div>
+            <div class="grid grid-cols-2 gap-4">
+                <input id="first-name" type="text" placeholder="First Name" class="bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                <input id="last-name" type="text" placeholder="Last Name" class="bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+            </div>
                 <input id="create-username" type="text" placeholder="Username (unique)" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
                 <input id="create-email" type="email" placeholder="Email Address" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
                 <input id="create-password" type="password" placeholder="Password (min 6 chars)" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
@@ -1319,7 +1336,8 @@
             <div class="text-emerald-400 text-xs font-semibold uppercase tracking-wider mb-3">Circulating Supply</div>
             <div id="circulating-supply" class="text-4xl font-bold mb-1">Loading...</div>
             <div class="text-zinc-400 text-sm">NQV8 sold via Treasury</div>
-            <p class="text-xs text-emerald-400 mt-5">1,000 NQV8 signup bonus · until 10M circulating</p>
+            <p class="text-xs text-emerald-400 mt-5">🎁 1,000 NQV8 signup bonus · until 10M circulating</p>
+            <p class="text-xs text-violet-400 mt-1">🔗 +1,000 NQV8 per 5 referrals · repeatable</p>
         </div>
 
         <div class="bg-zinc-900 rounded-3xl p-6" id="peg-status">
