@@ -861,6 +861,65 @@
             </div>
         </div>
 
+        <!-- Referral Program -->
+        <div id="referral-section" class="mb-10 bg-zinc-900 rounded-3xl p-6">
+            <div class="flex items-center gap-3 mb-4">
+                <span class="text-2xl">🎁</span>
+                <div>
+                    <h2 class="text-xl font-semibold">Refer & Earn</h2>
+                    <p class="text-zinc-400 text-sm">Earn 1,000 NQV8 for every 5 users you refer who sign up and claim their bonus</p>
+                </div>
+            </div>
+
+            <div class="bg-black/50 rounded-2xl p-4 mb-4 flex items-center gap-3">
+                <input id="referral-link-input" type="text" readonly
+                       class="flex-1 bg-transparent text-cyan-400 text-sm font-mono outline-none truncate">
+                <button onclick="copyReferralLink()"
+                        class="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black text-sm font-semibold rounded-xl flex-shrink-0">
+                    Copy
+                </button>
+            </div>
+
+            <div class="grid grid-cols-3 gap-3 mb-4 text-center">
+                <div class="bg-zinc-800 rounded-2xl p-3">
+                    <p id="referral-count" class="text-2xl font-bold text-cyan-400">0</p>
+                    <p class="text-xs text-zinc-500">Verified Referrals</p>
+                </div>
+                <div class="bg-zinc-800 rounded-2xl p-3">
+                    <p id="referral-bonuses-claimed" class="text-2xl font-bold text-violet-400">0</p>
+                    <p class="text-xs text-zinc-500">Bonuses Claimed</p>
+                </div>
+                <div class="bg-zinc-800 rounded-2xl p-3">
+                    <p id="referral-nqv8-earned" class="text-2xl font-bold text-emerald-400">0</p>
+                    <p class="text-xs text-zinc-500">NQV8 Earned</p>
+                </div>
+            </div>
+
+            <div class="mb-4">
+                <div class="flex justify-between text-xs text-zinc-500 mb-1">
+                    <span id="referral-progress-label">Progress to next 1,000 NQV8</span>
+                    <span id="referral-progress-fraction">0/5</span>
+                </div>
+                <div class="h-2 bg-zinc-700 rounded-full overflow-hidden">
+                    <div id="referral-progress-bar" class="h-full bg-gradient-to-r from-cyan-400 to-violet-500 rounded-full transition-all" style="width:0%"></div>
+                </div>
+            </div>
+
+            <div id="referral-claim-container" class="hidden">
+                <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 mb-3">
+                    <p class="text-emerald-400 font-semibold">🎉 You have a referral bonus ready to claim!</p>
+                    <p id="referral-claim-desc" class="text-zinc-400 text-sm mt-1"></p>
+                </div>
+                <button onclick="claimReferralBonus()"
+                        id="claim-referral-btn"
+                        class="w-full py-3 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-bold rounded-2xl">
+                    Claim Referral Bonus
+                </button>
+            </div>
+
+            <p class="text-xs text-zinc-600 mt-3">A "verified referral" is someone who signed up using your link AND claimed their 1,000 NQV8 signup bonus. Referral bonuses are subject to Treasury availability.</p>
+        </div>
+
         <!-- My Companies -->
         <div class="mb-10">
             <div class="flex justify-between items-center mb-4">
@@ -3364,6 +3423,23 @@ async function createProfile() {
         const userCredential = await auth.createUserWithEmailAndPassword(email, password);
         const user = userCredential.user;
 
+// Check for referral code
+        const refCode = sessionStorage.getItem('nqvate_ref');
+        let referredByUid = null;
+        if (refCode) {
+            try {
+                const refSnap = await db.collection('users')
+                    .where('username', '==', refCode)
+                    .limit(1)
+                    .get();
+                if (!refSnap.empty && refSnap.docs[0].id !== user.uid) {
+                    referredByUid = refSnap.docs[0].id;
+                }
+            } catch(e) {
+                console.warn('Referral lookup failed:', e.message);
+            }
+        }
+
         const userData = {
             uid: user.uid,
             firstName,
@@ -3380,7 +3456,13 @@ async function createProfile() {
             tosAgreed: true,
             tosAgreedAt: new Date().toISOString(),
             tosVersion: '1.0',
+            referredBy: referredByUid || null,
+            referralBonusesClaimed: 0,
+            referralNQV8Earned: 0,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        };
+
+        if (refCode) sessionStorage.removeItem('nqvate_ref');
         };
 
         await db.collection("users").doc(user.uid).set(userData);
@@ -5426,8 +5508,12 @@ async function startVideoCall() {
                 
                 document.getElementById('my-reviews').innerHTML = `<p class="text-zinc-400">No reviews received yet.</p>`;
 
+                // Referral data
+                loadReferralData();
+
                 // Equity Stakes — read from chain
-                await loadProfileEquityStakes();
+                try {
+                    await loadProfileEquityStakes();
 
                 // If wallet is connected, read live from chain — otherwise show placeholder
                 if (connectedAddress && nqv8Contract && usdcContract) {
@@ -5727,6 +5813,14 @@ async function startVideoCall() {
 
         // ====================== INITIAL LOAD ======================
         window.onload = () => {
+        // Capture referral code from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const refCode   = urlParams.get('ref');
+        if (refCode) {
+            sessionStorage.setItem('nqvate_ref', refCode.toLowerCase());
+            window.history.replaceState({}, '', window.location.pathname);
+        }
+
         // Show welcome modal immediately for all visitors
             setTimeout(showWelcomeModal, 800);
             auth.onAuthStateChanged(user => {
@@ -8645,6 +8739,117 @@ async function deleteUnverifiedCompany(companyId, companyName) {
     } catch(e) {
         console.error('deleteUnverifiedCompany failed:', e);
         alert('Failed to delete: ' + e.message);
+    }
+}
+
+// ====================== REFERRAL PROGRAM ======================
+
+async function loadReferralData() {
+    if (!currentUser) return;
+
+    // Check if peg has ended (first 10M distributed)
+    // If so, hide the referral section entirely
+    try {
+        const arbProvider      = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const treasuryReadOnly = new ethers.Contract(TREASURY_CONTRACT_ADDRESS, TREASURY_ABI, arbProvider);
+        const pegEnded         = await treasuryReadOnly.pegEnded();
+
+        if (pegEnded) {
+            document.getElementById('referral-section')?.remove();
+            return;
+        }
+    } catch(e) {
+        console.warn('Could not check peg status:', e.message);
+    }
+
+    // Set referral link
+    const link  = `https://www.nqvate.com/?ref=${currentUser.username}`;
+    const input = document.getElementById('referral-link-input');
+    if (input) input.value = link;
+
+    try {
+        const snap = await db.collection('users')
+            .where('referredBy', '==', currentUser.uid)
+            .where('signupBonusClaimed', '==', true)
+            .get();
+
+        const verifiedReferrals = snap.size;
+        const bonusesClaimed    = currentUser.referralBonusesClaimed || 0;
+        const nqv8Earned        = currentUser.referralNQV8Earned || 0;
+        const tiersEarned       = Math.floor(verifiedReferrals / 5);
+        const tiersAvailable    = tiersEarned - bonusesClaimed;
+        const progressInTier    = verifiedReferrals % 5;
+        const progressPct       = (progressInTier / 5) * 100;
+
+        document.getElementById('referral-count').textContent           = verifiedReferrals;
+        document.getElementById('referral-bonuses-claimed').textContent = bonusesClaimed;
+        document.getElementById('referral-nqv8-earned').textContent     = nqv8Earned.toLocaleString();
+        document.getElementById('referral-progress-fraction').textContent = `${progressInTier}/5`;
+        document.getElementById('referral-progress-bar').style.width   = progressPct + '%';
+
+        if (tiersAvailable > 0) {
+            document.getElementById('referral-progress-bar').style.width   = '100%';
+            document.getElementById('referral-progress-fraction').textContent = '5/5';
+            document.getElementById('referral-claim-container').classList.remove('hidden');
+            document.getElementById('referral-claim-desc').textContent =
+                `You have ${tiersAvailable} unclaimed bonus${tiersAvailable > 1 ? 'es' : ''} — ${tiersAvailable * 1000} NQV8 ready to claim.`;
+            document.getElementById('referral-progress-label').textContent = '🎉 Bonus ready!';
+        } else {
+            document.getElementById('referral-claim-container').classList.add('hidden');
+            const needed = 5 - progressInTier;
+            document.getElementById('referral-progress-label').textContent =
+                `${needed} more verified referral${needed !== 1 ? 's' : ''} to next 1,000 NQV8`;
+        }
+
+    } catch(e) {
+        console.warn('loadReferralData failed:', e.message);
+    }
+}
+
+function copyReferralLink() {
+    const input = document.getElementById('referral-link-input');
+    if (!input) return;
+    navigator.clipboard.writeText(input.value).then(() => {
+        const btn = document.querySelector('button[onclick="copyReferralLink()"]');
+        if (btn) {
+            btn.textContent = 'Copied!';
+            setTimeout(() => btn.textContent = 'Copy', 2000);
+        }
+    }).catch(() => {
+        input.select();
+        document.execCommand('copy');
+    });
+}
+
+async function claimReferralBonus() {
+    if (!currentUser) return;
+    if (!connectedAddress) return alert("Please connect your wallet first.");
+
+    const btn = document.getElementById('claim-referral-btn');
+    if (btn) { btn.textContent = '⏳ Claiming...'; btn.disabled = true; }
+
+    try {
+        const response = await fetch('/api/claim-referral-bonus', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid: currentUser.uid })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            currentUser.referralBonusesClaimed = (currentUser.referralBonusesClaimed || 0) + result.tiersAwarded;
+            currentUser.referralNQV8Earned     = (currentUser.referralNQV8Earned || 0) + result.bonusAmount;
+            alert(`🎉 ${result.bonusAmount.toLocaleString()} NQV8 sent to your wallet!\n\nTx: https://arbiscan.io/tx/${result.txHash}`);
+            loadReferralData();
+            refreshOnChainBalances();
+        } else {
+            alert('❌ ' + result.error);
+            if (btn) { btn.textContent = 'Claim Referral Bonus'; btn.disabled = false; }
+        }
+    } catch(e) {
+        alert('❌ Failed to claim: ' + e.message);
+        if (btn) { btn.textContent = 'Claim Referral Bonus'; btn.disabled = false; }
     }
 }
 
