@@ -5512,8 +5512,7 @@ async function startVideoCall() {
                 loadReferralData();
 
                 // Equity Stakes — read from chain
-                try {
-                    await loadProfileEquityStakes();
+                await loadProfileEquityStakes();
 
                 // If wallet is connected, read live from chain — otherwise show placeholder
                 if (connectedAddress && nqv8Contract && usdcContract) {
