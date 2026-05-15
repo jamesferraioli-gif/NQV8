@@ -8748,12 +8748,16 @@ async function deleteUnverifiedCompany(companyId, companyName) {
 async function loadReferralData() {
     if (!currentUser) return;
 
-    // Check if peg has ended (first 10M distributed)
-    // If so, hide the referral section entirely
+    // Check if peg has ended — wrap in timeout so it never freezes the page
     try {
-        const arbProvider      = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
-        const treasuryReadOnly = new ethers.Contract(TREASURY_CONTRACT_ADDRESS, TREASURY_ABI, arbProvider);
-        const pegEnded         = await treasuryReadOnly.pegEnded();
+        const pegEnded = await Promise.race([
+            (async () => {
+                const arbProvider      = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+                const treasuryReadOnly = new ethers.Contract(TREASURY_CONTRACT_ADDRESS, TREASURY_ABI, arbProvider);
+                return await treasuryReadOnly.pegEnded();
+            })(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+        ]);
 
         if (pegEnded) {
             document.getElementById('referral-section')?.remove();
@@ -8761,6 +8765,7 @@ async function loadReferralData() {
         }
     } catch(e) {
         console.warn('Could not check peg status:', e.message);
+        // On timeout or error — show the section, don't freeze
     }
 
     // Set referral link
