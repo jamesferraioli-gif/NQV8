@@ -3463,7 +3463,6 @@ async function createProfile() {
         };
 
         if (refCode) sessionStorage.removeItem('nqvate_ref');
-        };
 
         await db.collection("users").doc(user.uid).set(userData);
         currentUser = userData;
