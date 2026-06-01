@@ -8721,40 +8721,60 @@ async function deleteUnverifiedCompany(companyId, companyName) {
             .where('companyId', '==', companyId)
             .limit(1)
             .get();
-
         if (!subSnap.empty) {
-            return alert(`❌ Cannot delete "${companyName}" — it has tasks or postings associated with it.\n\nThese are part of your work history. Archive the project instead by leaving it inactive.`);
+            return alert(`❌ Cannot delete "${companyName}" — it has tasks or postings associated with it.\n\nThese are part of your work history. Mark it inactive instead.`);
         }
 
-        // ── 2. Check for equity on-chain ──────────────────────────────────
-        if (connectedAddress) {
-            try {
-                const arbProvider    = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
-                const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
-                const project        = await equityReadOnly.getProject(companyId);
-
-                if (project.exists) {
-                    return alert(`❌ Cannot delete "${companyName}" — it has equity registered on-chain.\n\nThe equity registry record cannot be deleted. You can still remove the Firestore record but the on-chain record will remain.`);
-                }
-            } catch(e) {
-                // If equity check fails, proceed — project likely not registered
-                console.warn('Equity check failed:', e.message);
+        // ── 2. Check for equity on-chain — always, wallet or not ─────────
+        try {
+            const arbProvider    = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+            const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
+            const onChainProject = await Promise.race([
+                equityReadOnly.getProject(companyId),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
+            ]);
+            if (onChainProject.exists) {
+                return alert(`❌ Cannot delete "${companyName}" — this project has been tokenized on-chain.\n\nOnce equity is registered on Arbitrum it is permanent. Mark it inactive instead.`);
             }
+        } catch(e) {
+            if (e.message === 'timeout') {
+                return alert(`❌ Could not verify on-chain status for "${companyName}". Please try again or check your connection.`);
+            }
+            // Project not found on-chain — safe to continue
+            console.warn('Equity check:', e.message);
+        }
+
+        // ── 2b. Check for equity bounties in Firestore ────────────────────
+        const equitySubSnap = await db.collection('subprojects')
+            .where('companyId', '==', companyId)
+            .where('compensationType', 'in', ['equity', 'mixed'])
+            .limit(1)
+            .get();
+        if (!equitySubSnap.empty) {
+            return alert(`❌ Cannot delete "${companyName}" — it has equity bounties associated with it.\n\nMark it inactive instead.`);
+        }
+
+        // ── 2c. Check for funding requests ────────────────────────────────
+        const fundingSnap = await db.collection('subprojects')
+            .where('companyId', '==', companyId)
+            .where('type', '==', 'fund')
+            .limit(1)
+            .get();
+        if (!fundingSnap.empty) {
+            return alert(`❌ Cannot delete "${companyName}" — it has been used to raise capital.\n\nMark it inactive instead.`);
         }
 
         // ── 3. Double-check ownership and verification status ─────────────
         const companyDoc = await db.collection('companies').doc(companyId).get();
         if (!companyDoc.exists) return alert('Company not found.');
-
         const company = companyDoc.data();
         if (company.ownerUid !== currentUser.uid) return alert('❌ You can only delete your own projects.');
         if (company.verificationStatus === 'verified' || company.verificationStatus === 'pending') {
-            return alert(`❌ Cannot delete a verified or pending-verification project.\n\nYou have submitted legal documents for this entity. Contact support if you need to remove it.`);
+            return alert(`❌ Cannot delete a verified or pending-verification project.\n\nYou have submitted legal documents for this entity. Mark it inactive instead.`);
         }
 
         // ── 4. Delete from Firestore ──────────────────────────────────────
         await db.collection('companies').doc(companyId).delete();
-
         alert(`✅ "${companyName}" has been deleted.`);
         loadProfileData();
 
