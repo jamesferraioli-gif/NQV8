@@ -8391,46 +8391,56 @@ async function loadProfileEquityStakes() {
         const arbProvider    = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
         const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
 
-        // ── 1. Get all registered project IDs ────────────────────────────
-        const allProjectIds = await equityReadOnly.getAllProjectIds();
+// ── 1. Get registered project IDs from Firestore ─────────────────
+        // More reliable than on-chain enumeration since contract has no getAllProjectIds
+        const companiesSnap = await db.collection('companies')
+            .where('equityRegistered', '==', true)
+            .get();
+
+        // Also check companies the user owns that may be registered
+        const ownedSnap = await db.collection('companies')
+            .where('ownerUid', '==', currentUser.uid)
+            .get();
+
+        // Merge both sets, deduplicated
+        const projectIdSet = new Set();
+        companiesSnap.forEach(doc => projectIdSet.add(doc.id));
+        ownedSnap.forEach(doc => projectIdSet.add(doc.id));
+        const allProjectIds = [...projectIdSet];
 
         if (allProjectIds.length === 0) {
             container.innerHTML = `<p class="text-zinc-400">No equity stakes yet. Complete equity bounties or purchase stakes on the Equity Exchange.</p>`;
             return;
         }
 
-        // ── 2. Check balance for each project ─────────────────────────────
-        // Run in parallel batches of 10 to avoid hammering the RPC
+        // ── 2. Check on-chain balance for each project ────────────────────
         const stakes = [];
-        const batchSize = 10;
+        const results = await Promise.all(
+            allProjectIds.map(async (projectId) => {
+                try {
+                    const [units] = await equityReadOnly.getBalance(projectId, connectedAddress);
+                    if (units.toNumber() === 0) return null;
 
-        for (let i = 0; i < allProjectIds.length; i += batchSize) {
-            const batch = allProjectIds.slice(i, i + batchSize);
-            const results = await Promise.all(
-                batch.map(async (projectId) => {
-                    try {
-                        const [units] = await equityReadOnly.getBalance(projectId, connectedAddress);
-                        if (units.toNumber() === 0) return null;
+                    const project = await equityReadOnly.getProject(projectId);
+                    if (!project.exists) return null;
 
-                        const project = await equityReadOnly.getProject(projectId);
-                        return {
-                            projectId,
-                            name:       project.name,
-                            units:      units.toNumber(),
-                            percentage: (units.toNumber() / 10000 * 100).toFixed(2),
-                            lastSalePricePerUnit: project.lastSalePricePerUnit.gt(0)
-                                ? parseFloat(ethers.utils.formatUnits(project.lastSalePricePerUnit, 6))
-                                : null,
-                            lastSaleAt: project.lastSaleAt.toNumber(),
-                            founder:    project.founder
-                        };
-                    } catch(e) {
-                        return null;
-                    }
-                })
-            );
-            stakes.push(...results.filter(Boolean));
-        }
+                    return {
+                        projectId,
+                        name:       project.name,
+                        units:      units.toNumber(),
+                        percentage: (units.toNumber() / 10000 * 100).toFixed(2),
+                        lastSalePricePerUnit: project.lastSalePricePerUnit.gt(0)
+                            ? parseFloat(ethers.utils.formatUnits(project.lastSalePricePerUnit, 6))
+                            : null,
+                        lastSaleAt: project.lastSaleAt.toNumber(),
+                        founder:    project.founder
+                    };
+                } catch(e) {
+                    return null;
+                }
+            })
+        );
+        stakes.push(...results.filter(Boolean));
 
         if (stakes.length === 0) {
             container.innerHTML = `<p class="text-zinc-400">No equity stakes yet. Complete equity bounties or purchase stakes on the Equity Exchange.</p>`;
