@@ -10235,8 +10235,8 @@ function hideNewFlowMapModal() {
 }
 
 async function submitNewFlowMap(useAI = false) {
-    if (!currentUser) return;
-    if (!connectedAddress && useAI) return alert('Please connect your wallet first.');
+    if (!currentUser) { showAuthModal(); return; }
+    if (useAI && !connectedAddress) return alert('Please connect your wallet first.');
 
     const name = document.getElementById('flowmap-name-input').value.trim();
     const description = document.getElementById('flowmap-description').value.trim();
@@ -10244,9 +10244,9 @@ async function submitNewFlowMap(useAI = false) {
     const linkedProjectId = document.getElementById('flowmap-project-link').value;
 
     if (!name) return alert('Please enter a project name.');
-    if (!description || description.length < 20) return alert('Please describe your project in more detail (at least 20 characters).');
+    if (useAI && (!description || description.length < 20)) return alert('Please describe your project in more detail (at least 20 characters).');
 
-    const btn = document.getElementById('generate-flowmap-btn');
+    const btn = document.getElementById(useAI ? 'generate-flowmap-btn' : 'create-flowmap-btn');
     const statusEl = document.getElementById('flowmap-modal-status');
     const setStatus = (msg) => {
         statusEl.classList.remove('hidden');
@@ -10254,10 +10254,11 @@ async function submitNewFlowMap(useAI = false) {
     };
 
     btn.disabled = true;
-    btn.textContent = '⏳ Processing payment...';
+    btn.textContent = '⏳ Please wait...';
 
     try {
-        let payTx = null;
+        let payTxHash = null;
+        let nodes = [];
 
         if (useAI) {
             // Pay $5 NQV8
@@ -10266,10 +10267,9 @@ async function submitNewFlowMap(useAI = false) {
             const nqv8Bal = parseFloat(ethers.utils.formatUnits(nqv8Raw, 18));
             if (nqv8Bal < nqv8Amount) {
                 btn.disabled = false;
-                btn.textContent = 'Generate Flow Map ($5 NQV8)';
+                btn.textContent = '✨ AI ($5 NQV8)';
                 return alert(`❌ Insufficient NQV8. You need ${nqv8Amount} NQV8 (≈ $5.00).`);
             }
-
             const rewardsContract = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
             const amountRaw = ethers.utils.parseUnits(String(nqv8Amount), 18);
             const allowance = await nqv8Contract.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
@@ -10279,14 +10279,11 @@ async function submitNewFlowMap(useAI = false) {
                 await approveTx.wait();
             }
             btn.textContent = '⏳ Paying...';
-            payTx = await rewardsContract.payNQV8Fee(connectedAddress, amountRaw);
+            const payTx = await rewardsContract.payNQV8Fee(connectedAddress, amountRaw);
             await payTx.wait();
             await recordProtocolFee(5, 'flow-map-generation', payTx.hash);
-        }
+            payTxHash = payTx.hash;
 
-        let parsed;
-
-        if (useAI) {
             setStatus('🤖 Claude is generating your flow map...');
             btn.textContent = '⏳ Generating...';
 
@@ -10295,52 +10292,43 @@ async function submitNewFlowMap(useAI = false) {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, description, stack })
             });
-
             if (!response.ok) throw new Error('Flow map generation failed. Please try again.');
+            const parsed = await response.json();
+            if (!parsed.nodes || !Array.isArray(parsed.nodes)) throw new Error('Invalid response from Claude. Please try again.');
+            nodes = parsed.nodes;
 
-            try {
-                parsed = await response.json();
-            } catch(e) {
-                throw new Error('Claude returned invalid JSON. Please try again.');
-            }
-
-            if (!parsed.nodes || !Array.isArray(parsed.nodes)) {
-                throw new Error('Invalid flow map structure. Please try again.');
-            }
         } else {
-            // Blank map — start with a single empty node as a prompt
-            parsed = {
-                nodes: [{
-                    title: 'First Step',
-                    description: 'Click to edit this node and describe your first task.',
-                    category: 'Other',
-                    priority: 'normal',
-                    estimatedHours: null,
-                    dependencies: [],
-                    instructions: '',
-                    bestPractices: [],
-                    pitfalls: [],
-                    tools: [],
-                    status: 'todo'
-                }]
-            };
+            // Blank map — one starter node
+            nodes = [{
+                title: 'First Step',
+                description: 'Click to edit this node and describe your first task.',
+                category: 'Other',
+                priority: 'normal',
+                estimatedHours: null,
+                dependencies: [],
+                instructions: '',
+                bestPractices: [],
+                pitfalls: [],
+                tools: [],
+                status: 'todo'
+            }];
         }
 
         // Save to Firestore
         const fmRef = await db.collection('flowMaps').add({
             ownerUid: currentUser.uid,
             name,
-            description,
-            stack,
+            description: description || '',
+            stack: stack || '',
             linkedProjectId: linkedProjectId || null,
-            nodes: parsed.nodes,
-            paymentTxHash: payTx?.hash || null,
+            nodes,
+            paymentTxHash: payTxHash,
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
         currentFlowMapId = fmRef.id;
-        currentFlowMap = { id: fmRef.id, name, description, stack, nodes: parsed.nodes };
+        currentFlowMap = { id: fmRef.id, name, description, stack, nodes };
 
         hideNewFlowMapModal();
         await loadStudioProjectList();
@@ -10348,11 +10336,11 @@ async function submitNewFlowMap(useAI = false) {
         renderFlowMap(currentFlowMap);
 
         btn.disabled = false;
-        btn.textContent = 'Generate Flow Map ($5 NQV8)';
+        btn.textContent = useAI ? '✨ AI ($5 NQV8)' : '🆓 Free';
 
     } catch(e) {
         btn.disabled = false;
-        btn.textContent = 'Generate Flow Map ($5 NQV8)';
+        btn.textContent = useAI ? '✨ AI ($5 NQV8)' : '🆓 Free';
         setStatus('❌ ' + e.message);
     }
 }
@@ -10806,7 +10794,7 @@ async function loadGrowTab() {
             </select>
             <button onclick="showNewFlowMapModal()"
                     class="px-6 py-3 bg-white text-black font-semibold rounded-2xl text-sm flex items-center gap-2 hover:bg-cyan-400 transition-colors">
-                <i class="fa-solid fa-plus"></i> New Flow Map ($5 NQV8)
+                <i class="fa-solid fa-plus"></i> New Flow Map
             </button>
         </div>
 
@@ -10819,9 +10807,9 @@ async function loadGrowTab() {
                     class="flex-1 py-4 border border-zinc-600 text-zinc-300 font-semibold rounded-3xl hover:bg-zinc-800">
                 Create Blank Map (Free)
             </button>
-            <button onclick="submitNewFlowMap(true)" id="generate-flowmap-btn"
-                    class="flex-1 py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-3xl">
-                ✨ AI Generate ($5 NQV8)
+            <button onclick="showNewFlowMapModal()"
+                    class="px-6 py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-2xl">
+                + New Flow Map
             </button>
         </div>
 
