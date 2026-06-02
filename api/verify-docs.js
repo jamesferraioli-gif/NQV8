@@ -51,10 +51,11 @@ Review all three documents and respond ONLY with valid JSON in this exact format
   "companyNameMatch": true or false,
   "entityTypeMatch": true or false,
   "idPresent": true or false,
-  "issues": ["list of any issues found, empty array if none"],
+  "issues": ["specific issue 1", "specific issue 2"],
+  "missingDocuments": ["any document that is missing or unreadable"],
+  "recommendation": "specific actionable advice on what to fix and resubmit if rejected",
   "summary": "one sentence summary of the verification result"
 }
-
 Check for:
 - Does the company name on the formation document match the claimed name "${companyName}"?
 - Does the entity type match the claimed "${entityType}"?
@@ -62,8 +63,9 @@ Check for:
 - Is the government ID present and appears legitimate?
 - Are there any obvious signs of tampering, inconsistency, or fraud?
 - Do names on the ID match the authorized representative on formation documents if visible?
-
+- Are all documents clearly legible and unobstructed?
 Be strict but fair. Reject if critical fields are missing, names don't match, or documents appear tampered.
+If rejecting, be specific in "issues" and "recommendation" about exactly what was wrong and what the user needs to fix — they paid a non-refundable fee and deserve a clear explanation.
 Respond with JSON only, no other text.`
                         }
                     ]
