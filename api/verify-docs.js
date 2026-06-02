@@ -90,6 +90,8 @@ export default async function handler(req) {
  
         const data = await response.json();
         const resultText = data.content?.[0]?.text?.trim() || '{"approved": false, "summary": "Verification failed"}';
+        console.log('RAW CLAUDE RESPONSE:', resultText);
+        console.log('ANTHROPIC DATA:', JSON.stringify(data));
  
         try {
             return new Response(JSON.stringify(JSON.parse(resultText)), {
