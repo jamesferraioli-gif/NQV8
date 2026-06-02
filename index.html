@@ -3210,7 +3210,17 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                     })
                 });
                 
-                const result = await verifyResponse.json();
+                //const result = await verifyResponse.json();
+                const rawText = await verifyResponse.text();
+                console.log('VERIFY RAW RESPONSE:', rawText);
+                console.log('VERIFY STATUS:', verifyResponse.status);
+                let result;
+                try {
+                    result = JSON.parse(rawText);
+                } catch(e) {
+                    console.error('JSON PARSE FAILED:', e.message);
+                    result = { approved: false, summary: 'Could not parse verification response: ' + rawText.slice(0, 200) };
+                }
 
                 // Step 4: Upload docs to Firebase Storage regardless of result
                 const uploadFile = async (file, name) => {
