@@ -3200,13 +3200,16 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         incorporationBase64,
+                        incorporationMediaType: docIncorporation.type || 'application/pdf',
                         einBase64,
+                        einMediaType: docEin.type || 'application/pdf',
                         idBase64,
+                        idMediaType: docId.type || 'image/jpeg',
                         companyName: company.name,
                         entityType: company.entityType || company.type || 'Unknown'
                     })
                 });
-
+                
                 const result = await verifyResponse.json();
 
                 // Step 4: Upload docs to Firebase Storage regardless of result
