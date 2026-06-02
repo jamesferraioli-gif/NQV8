@@ -6363,11 +6363,19 @@ async function loadEquityListings() {
 
         // Fetch all listings in parallel
         const listings = await Promise.all(
-            listingIds.map(id => equityReadOnly.listings(id).then(l => ({ id, ...l })))
+            listingIds.map(id => equityReadOnly.listings(id).then(l => ({ 
+                id,
+                projectId: l.projectId,
+                seller: l.seller,
+                units: l.units,
+                askPricePerUnit: l.askPricePerUnit,
+                status: l.status,
+                createdAt: l.createdAt
+            })))
         );
 
         // Only show active listings (status === 0)
-        const active = listings.filter(l => l.status === 0);
+        const active = listings.filter(l => parseInt(l.status.toString()) === 0);
 
         if (active.length === 0) {
             grid.innerHTML = `<p class="col-span-full text-center text-zinc-400 py-12">No active equity listings right now.</p>`;
@@ -6381,8 +6389,8 @@ async function loadEquityListings() {
             const project = await equityReadOnly.projects(l.projectId);
             const askPriceUSDC = parseFloat(ethers.utils.formatUnits(l.askPricePerUnit, 6));
             const totalAsk = askPriceUSDC * l.units.toNumber();
-            const pct = (l.units.toNumber() / 10000 * 100).toFixed(2);
-            const isOwner = connectedAddress && l.seller.toLowerCase() === connectedAddress.toLowerCase();
+            const pct = (parseInt(l.units.toString()) / 10000 * 100).toFixed(2);
+            const totalAsk = askPriceUSDC * parseInt(l.units.toString());
 
             // Get last sale price for valuation context
             const lastSale = project.lastSalePricePerUnit.gt(0)
