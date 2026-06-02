@@ -3122,7 +3122,6 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
             if (!verificationCompanyId) return alert("No company selected");
             if (!connectedAddress) return alert("Please connect your wallet first");
 
-            // Explicit non-refundable confirmation
             if (!confirm(
                 `⚠️ Non-Refundable Fee Confirmation\n\n` +
                 `You are about to pay $10.00 in NQV8 for entity verification.\n\n` +
@@ -3136,18 +3135,15 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                 `Do you want to proceed?`
             )) return;
 
-            // Get company details
             const companySnap = await db.collection("companies").doc(verificationCompanyId).get();
             const company = companySnap.data();
 
-            // Show processing UI
             const btn = document.querySelector('#verification-modal button[onclick="submitVerification()"]');
             const originalText = btn.innerHTML;
             btn.innerHTML = '⏳ Processing payment...';
             btn.disabled = true;
 
             try {
-            // Step 1: Charge $10 worth of NQV8
                 btn.innerHTML = '⏳ Fetching NQV8 price...';
                 const verifNQV8Amount = await usdToNQV8(10.00);
 
@@ -3156,12 +3152,12 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                 if (nqv8Bal < verifNQV8Amount) {
                     btn.innerHTML = originalText;
                     btn.disabled = false;
-                    return alert(`❌ Insufficient NQV8. You have ${nqv8Bal.toLocaleString(undefined,{maximumFractionDigits:4})} NQV8 but need ${verifNQV8Amount} NQV8 (≈ $10.00) for verification.\n\nBuy NQV8 from the Treasury on the Tokenomics page.`);
+                    return alert(`❌ Insufficient NQV8. You have ${nqv8Bal.toLocaleString(undefined,{maximumFractionDigits:4})} NQV8 but need ${verifNQV8Amount} NQV8 (≈ $10.00) for verification.`);
                 }
 
                 btn.innerHTML = `⏳ Confirm ${verifNQV8Amount} NQV8 in wallet...`;
                 const rewardsContract = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
-                const verifAmountRaw  = ethers.utils.parseUnits(String(verifNQV8Amount), 18);
+                const verifAmountRaw = ethers.utils.parseUnits(String(verifNQV8Amount), 18);
                 const allowance = await nqv8Contract.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
                 if (allowance.lt(verifAmountRaw)) {
                     btn.innerHTML = '⏳ Approve NQV8 in wallet...';
@@ -3174,16 +3170,14 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                 const txHash = verifyPayTx.hash;
                 await recordProtocolFee(10, 'verification', txHash);
 
-                // Step 2: Convert docs to base64
+                console.log('✅ Payment done:', txHash);
+
+                // Convert docs to base64
                 btn.innerHTML = '⏳ Analyzing documents with AI...';
 
                 const toBase64 = (file) => new Promise((resolve, reject) => {
                     const reader = new FileReader();
-                    reader.onload = () => {
-                        // Strip the data URL prefix, keep only base64 data
-                        const base64 = reader.result.split(',')[1];
-                        resolve(base64);
-                    };
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
                     reader.onerror = reject;
                     reader.readAsDataURL(file);
                 });
@@ -3193,14 +3187,11 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                     toBase64(docEin),
                     toBase64(docId)
                 ]);
-                console.log('Base64 lengths:', incorporationBase64?.length, einBase64?.length, idBase64?.length);
 
-                // Step 3: Send to Claude for verification
-                console.log('Sending to verify-docs API...');
-                console.log('Incorporation type:', docIncorporation.type, 'size:', docIncorporation.size);
-                console.log('EIN type:', docEin.type, 'size:', docEin.size);
-                console.log('ID type:', docId.type, 'size:', docId.size);
-                console.log('Company:', company.name, 'Entity:', company.entityType || company.type);
+                console.log('✅ Base64 done, lengths:', incorporationBase64?.length, einBase64?.length, idBase64?.length);
+                console.log('Doc types:', docIncorporation.type, docEin.type, docId.type);
+
+                // Send to Claude
                 const verifyResponse = await fetch('/api/verify-docs', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -3215,20 +3206,20 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                         entityType: company.entityType || company.type || 'Unknown'
                     })
                 });
-                
-                //const result = await verifyResponse.json();
+
                 const rawText = await verifyResponse.text();
-                console.log('VERIFY RAW RESPONSE:', rawText);
                 console.log('VERIFY STATUS:', verifyResponse.status);
+                console.log('VERIFY RAW RESPONSE:', rawText);
+
                 let result;
                 try {
                     result = JSON.parse(rawText);
-                } catch(e) {
-                    console.error('JSON PARSE FAILED:', e.message);
-                    result = { approved: false, summary: 'Could not parse verification response: ' + rawText.slice(0, 200) };
+                } catch(parseErr) {
+                    console.error('JSON parse failed:', parseErr.message, 'Raw:', rawText);
+                    result = { approved: false, summary: 'Could not parse verification response. Please try again.' };
                 }
 
-                // Step 4: Upload docs to Firebase Storage regardless of result
+                // Upload docs to Firebase Storage
                 const uploadFile = async (file, name) => {
                     const ref = storage.ref(`verification/${verificationCompanyId}/${name}-${Date.now()}`);
                     await ref.put(file);
@@ -3241,9 +3232,8 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                     uploadFile(docId, 'id')
                 ]);
 
-                // Step 5: Update Firestore based on Claude's decision
+                // Handle result
                 if (result.approved && result.confidence !== 'low') {
-                    // Auto-approve
                     await db.collection("companies").doc(verificationCompanyId).update({
                         verificationStatus: 'verified',
                         equityUnlocked: true,
@@ -3255,7 +3245,6 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                         verificationMethod: 'claude-ai'
                     });
 
-                    // Mint equity on-chain — register project in equity registry
                     if (connectedAddress && signer) {
                         try {
                             btn.innerHTML = '⏳ Minting equity on-chain...';
@@ -3270,22 +3259,18 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                                 equityRegistered: true,
                                 equityMintTxHash: mintTx.hash
                             });
-                            console.log('✅ Equity minted on-chain:', mintTx.hash);
                         } catch(equityErr) {
                             console.error('Equity mint failed:', equityErr.message);
-                            // Don't block verification — equity can be minted manually later
                         }
                     }
 
                     btn.innerHTML = originalText;
                     btn.disabled = false;
-                    alert(`✅ Verification approved!\n\n${result.summary}\n\nEquity features are now unlocked for ${company.name}.\n10,000 equity units minted to your wallet.`);
+                    alert(`✅ Verification approved!\n\n${result.summary}\n\nEquity features are now unlocked for ${company.name}.`);
                     hideVerificationModal();
                     loadProfileData();
 
                 } else {
-                    // Flag for manual review or reject
-                    const issues = result.issues?.join(', ') || 'Documents could not be verified';
                     await db.collection("companies").doc(verificationCompanyId).update({
                         verificationStatus: result.approved ? 'pending' : 'rejected',
                         equityUnlocked: false,
@@ -3299,17 +3284,13 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                     btn.innerHTML = originalText;
                     btn.disabled = false;
 
-                    if (result.approved && result.confidence !== 'low') {
-                        // This case won't hit here (handled above) but just in case
-                        hideVerificationModal();
-                    } else if (result.approved && result.confidence === 'low') {
+                    if (result.approved && result.confidence === 'low') {
                         hideVerificationModal();
                         alert(`⏳ Verification submitted for manual review.\n\n${result.summary}\n\nYou will be notified when review is complete.`);
                     } else {
-                        // Rejected — keep modal open, show result inside it
+                        // Rejected — keep modal open, show banner inside
                         const resultBanner = document.getElementById('verif-status-banner');
-                        const resultText   = document.getElementById('verif-status-text');
-
+                        const resultText = document.getElementById('verif-status-text');
                         if (resultBanner && resultText) {
                             resultBanner.classList.remove('hidden');
                             resultBanner.className = 'mb-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/30';
@@ -3336,10 +3317,10 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                 }
 
             } catch(e) {
-                console.error(e);
+                console.error('submitVerification error:', e);
                 btn.innerHTML = originalText;
                 btn.disabled = false;
-                alert("Verification failed: " + e.message);
+                alert("❌ Verification failed: " + e.message);
             }
         }
 
