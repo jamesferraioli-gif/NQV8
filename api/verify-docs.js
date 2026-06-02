@@ -1,11 +1,11 @@
-export const config = { runtime: 'nodejs' };
-
+export const config = { runtime: 'edge' };
+ 
 export default async function handler(req) {
     if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
-
+ 
     try {
         const { incorporationBase64, incorporationMediaType, einBase64, einMediaType, idBase64, idMediaType, companyName, entityType } = await req.json();
-
+ 
         const makeBlock = (base64, mediaType) => {
             if (mediaType === 'application/pdf') {
                 return {
@@ -26,7 +26,7 @@ export default async function handler(req) {
                 }
             };
         };
-
+ 
         const response = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
             headers: {
@@ -46,16 +46,16 @@ export default async function handler(req) {
                         {
                             type: "text",
                             text: `You are a business document verifier for NQVate, a Web3 marketplace platform.
-
+ 
 A user is submitting documents to verify their business entity for equity features.
 Company name claimed: "${companyName}"
 Entity type claimed: "${entityType}"
-
+ 
 The three documents provided are:
 1. Articles of Incorporation / Formation document
 2. EIN / Tax ID document  
 3. Government-issued ID of the authorized representative
-
+ 
 Review all three documents and respond ONLY with valid JSON in this exact format:
 {
   "approved": true or false,
@@ -84,10 +84,10 @@ Respond with JSON only, no other text.`
                 }]
             })
         });
-
+ 
         const data = await response.json();
         const resultText = data.content?.[0]?.text?.trim() || '{"approved": false, "summary": "Verification failed"}';
-
+ 
         try {
             return new Response(JSON.stringify(JSON.parse(resultText)), {
                 status: 200,
