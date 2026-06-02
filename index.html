@@ -1832,27 +1832,21 @@ const EQUITY_REGISTRY_ABI = [
     "function makeOffer(bytes32 listingId, uint256 offerPricePerUnit) external returns (bytes32)",
     "function acceptOffer(bytes32 offerId) external",
     "function rejectOffer(bytes32 offerId) external",
-    "function counterOffer(bytes32 offerId, uint256 counterPricePerUnit) external",
-    "function acceptCounter(bytes32 offerId) external",
-    "function rejectCounter(bytes32 offerId) external",
-    "function withdrawOffer(bytes32 offerId) external",
-    "function expireOffer(bytes32 offerId) external",
-    "function getBalance(string projectId, address wallet) external view returns (uint256 units, uint256 percentageBps)",
-    "function getProject(string projectId) external view returns (tuple(string projectId, string name, address founder, bool exists, uint256 createdAt, uint256 lastSalePricePerUnit, uint256 lastSaleAt, uint256 totalTradeVolume, bytes32 metricsHash, uint256 metricsUpdatedAt))",
-    "function getListing(bytes32 listingId) external view returns (tuple(bytes32 listingId, string projectId, address seller, uint256 units, uint256 askPricePerUnit, uint8 status, uint256 createdAt))",
-    "function getOffer(bytes32 offerId) external view returns (tuple(bytes32 offerId, bytes32 listingId, string projectId, address buyer, address seller, uint256 units, uint256 offerPricePerUnit, uint256 counterPricePerUnit, uint256 lockedUSDC, uint8 status, uint256 createdAt, uint256 expiresAt))",
-    "function getListingOffers(bytes32 listingId) external view returns (bytes32[])",
-    "function getAllListingIds() external view returns (bytes32[])",
-    "function previewBuyNow(bytes32 listingId) external view returns (uint256 totalPrice, uint256 sellerAmount, uint256 platformFee)",
-    "function previewOffer(bytes32 listingId, uint256 offerPricePerUnit) external view returns (uint256 totalLocked, uint256 sellerWouldReceive, uint256 platformFee)",
-    "function getStats() external view returns (uint256 projectsRegistered, uint256 tradesExecuted, uint256 platformFees, uint256 equityTransferred)",
+    "function balances(string projectId, address wallet) external view returns (uint256 units, uint256 percentageBps)",
+    "function projects(string projectId) external view returns (tuple(string projectId, string name, address founder, bool exists, uint256 createdAt, uint256 lastSalePricePerUnit, uint256 lastSaleAt, uint256 totalTradeVolume, bytes32 metricsHash, uint256 metricsUpdatedAt))",
+    "function listings(bytes32 listingId) external view returns (tuple(bytes32 listingId, string projectId, address seller, uint256 units, uint256 askPricePerUnit, uint8 status, uint256 createdAt))",
+    "function offers(bytes32 offerId) external view returns (tuple(bytes32 offerId, bytes32 listingId, string projectId, address buyer, address seller, uint256 units, uint256 offerPricePerUnit, uint256 counterPricePerUnit, uint256 lockedUSDC, uint8 status, uint256 createdAt, uint256 expiresAt))",
+    "function listingOffers(bytes32 listingId) external view returns (bytes32[])",
+    "function allListingIds() external view returns (bytes32[])",
+    "function totalProjectsRegistered() external view returns (uint256)",
+    "function totalTradesExecuted() external view returns (uint256)",
+    "function totalPlatformFeesCollected() external view returns (uint256)",
+    "function totalEquityTransferred() external view returns (uint256)",
     "event ProjectRegistered(string indexed projectId, string name, address indexed founder)",
     "event ListingCreated(bytes32 indexed listingId, string projectId, address seller, uint256 units, uint256 askPricePerUnit)",
     "event BoughtNow(bytes32 indexed listingId, address buyer, uint256 units, uint256 totalPrice, uint256 platformFee)",
     "event OfferSubmitted(bytes32 indexed offerId, bytes32 indexed listingId, address buyer, uint256 offerPricePerUnit, uint256 lockedUSDC)",
-    "event OfferAccepted(bytes32 indexed offerId, uint256 totalPrice, uint256 platformFee)",
-    "event OfferCountered(bytes32 indexed offerId, uint256 counterPricePerUnit)",
-    "event CounterAccepted(bytes32 indexed offerId, uint256 totalPrice, uint256 platformFee)"
+    "event OfferAccepted(bytes32 indexed offerId, uint256 totalPrice, uint256 platformFee)"
 ];
 const ESCROW_ABI = [
     "function createEscrow(string projectId, address worker, uint256 amount, uint8 currency, uint256 deadline) external returns (bytes32)",
@@ -6346,7 +6340,7 @@ async function loadEquityListings() {
 
         let listingIds = [];
         try {
-            listingIds = await equityReadOnly.getAllListingIds();
+            listingIds = await equityReadOnly.allListingIds();
         } catch(e) {
             // Empty array returns can throw on some RPC nodes — treat as no listings
             listingIds = [];
@@ -6359,7 +6353,7 @@ async function loadEquityListings() {
 
         // Fetch all listings in parallel
         const listings = await Promise.all(
-            listingIds.map(id => equityReadOnly.getListing(id).then(l => ({ id, ...l })))
+            listingIds.map(id => equityReadOnly.listings(id).then(l => ({ id, ...l })))
         );
 
         // Only show active listings (status === 0)
@@ -6374,7 +6368,7 @@ async function loadEquityListings() {
 
         for (const l of active) {
             // Look up project info from registry
-            const project = await equityReadOnly.getProject(l.projectId);
+            const project = await equityReadOnly.projects(l.projectId);
             const askPriceUSDC = parseFloat(ethers.utils.formatUnits(l.askPricePerUnit, 6));
             const totalAsk = askPriceUSDC * l.units.toNumber();
             const pct = (l.units.toNumber() / 10000 * 100).toFixed(2);
@@ -6696,9 +6690,9 @@ async function loadPendingVerifications() {
             try {
                 const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
                 const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
-                const project = await equityReadOnly.getProject(companyId);
+                const project = await equityReadOnly.projects(companyId);
                 if (project.exists && connectedAddress) {
-                    const [units, bps] = await equityReadOnly.getBalance(companyId, connectedAddress);
+                    const [units, bps] = await equityReadOnly.balances(companyId, connectedAddress);
                     const pct = (units.toNumber() / 10000 * 100).toFixed(2);
                     const lastSale = project.lastSalePricePerUnit.gt(0)
                         ? `$${parseFloat(ethers.utils.formatUnits(project.lastSalePricePerUnit, 6)).toFixed(4)}/unit`
@@ -8469,10 +8463,10 @@ async function loadProfileEquityStakes() {
         const results = await Promise.all(
             allProjectIds.map(async (projectId) => {
                 try {
-                    const [units] = await equityReadOnly.getBalance(projectId, connectedAddress);
+                    const [units] = await equityReadOnly.balances(projectId, connectedAddress);
                     if (units.toNumber() === 0) return null;
 
-                    const project = await equityReadOnly.getProject(projectId);
+                    const project = await equityReadOnly.projects(projectId);
                     if (!project.exists) return null;
 
                     return {
@@ -8791,7 +8785,7 @@ async function deleteUnverifiedCompany(companyId, companyName) {
             const arbProvider    = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
             const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
             const onChainProject = await Promise.race([
-                equityReadOnly.getProject(companyId),
+                equityReadOnly.projects(companyId),
                 new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
             ]);
             if (onChainProject.exists) {
@@ -8979,10 +8973,10 @@ async function showEquityDetailOnChain(listingId, listing, project) {
     try {
         const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
         const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
-        const offerIds = await equityReadOnly.getListingOffers(listingId);
+        const offerIds = await equityReadOnly.listingOffers(listingId);
 
         if (offerIds.length > 0) {
-            const offerData = await Promise.all(offerIds.map(id => equityReadOnly.getOffer(id).then(o => ({ id, ...o }))));
+            const offerData = await Promise.all(offerIds.map(id => equityReadOnly.offers(id).then(o => ({ id, ...o }))));
             const pending = offerData.filter(o => o.status === 0 || o.status === 3); // Pending or Countered
 
             if (pending.length > 0) {
@@ -9167,7 +9161,7 @@ async function makeOfferOnChain(listingId, units) {
         try {
             const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
             const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
-            const offer = await equityReadOnly.getOffer(offerId);
+            const offer = await equityReadOnly.offers(offerId);
             triggerEquityRevaluation(offer.projectId);
         } catch(e) { console.warn('Could not trigger revaluation:', e.message); }
     } catch(e) {
