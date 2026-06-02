@@ -6,14 +6,26 @@ export default async function handler(req) {
     try {
         const { incorporationBase64, einBase64, idBase64, companyName, entityType } = await req.json();
 
-        const makeImageBlock = (base64) => ({
-            type: "image",
-            source: {
-                type: "base64",
-                media_type: "image/jpeg",
-                data: base64
+        const makeBlock = (base64, mediaType) => {
+            if (mediaType === 'application/pdf') {
+                return {
+                    type: "document",
+                    source: {
+                        type: "base64",
+                        media_type: "application/pdf",
+                        data: base64
+                    }
+                };
             }
-        });
+            return {
+                type: "image",
+                source: {
+                    type: "base64",
+                    media_type: mediaType || "image/jpeg",
+                    data: base64
+                }
+            };
+        };
 
         const response = await fetch("https://api.anthropic.com/v1/messages", {
             method: "POST",
