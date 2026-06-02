@@ -87,6 +87,10 @@
                     <a onclick="navigateTo('tokenomics')" class="hover:text-cyan-400 cursor-pointer whitespace-nowrap flex items-center gap-1">
                         <i class="fa-solid fa-coins"></i> NQV8 Tokenomics
                     </a>
+                    <a onclick="navigateTo('studio')" class="hover:text-cyan-400 cursor-pointer whitespace-nowrap flex items-center gap-1">
+                        <i class="fa-solid fa-diagram-project"></i> Studio
+                    </a>
+                    </a>
                 </div>
                 <div id="nav-loggedin" class="hidden"></div>
 
@@ -160,6 +164,7 @@
     <a onclick="navigateToChat(); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">💬 Chat</a>
     <a onclick="navigateTo('leaderboard'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏆 Leaderboard</a>
     <a onclick="navigateTo('tokenomics'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🪙 NQV8 Tokenomics</a>
+    <a onclick="navigateTo('studio'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🗺️ Studio</a>
     <a onclick="viewProfile(); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">👤 My Profile</a>
     <a onclick="logout()" class="block py-2 text-red-400 cursor-pointer">Logout</a>
 </div>
@@ -3601,7 +3606,7 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
 
 function navigateTo(page) {
             // Pages that require login
-            const protectedPages = ['profile', 'chat'];
+            const protectedPages = ['profile', 'chat', 'studio'];
             if (protectedPages.includes(page) && !currentUser) {
                 showAuthModal();
                 return;
@@ -3617,6 +3622,7 @@ function navigateTo(page) {
             if (page === 'leaderboard') loadLeaderboard();
             if (page === 'ideas') loadIdeas();
             if (page === 'tokenomics') { loadTokenomics(); loadRewards(); }
+            if (page === 'studio') { switchStudioTab('plan'); loadStudioProjectList(); }
         }
 
         // ====================== NAVBAR & PROFILE ======================
@@ -9869,7 +9875,681 @@ async function changeWallet() {
         else alert("Failed to change wallet: " + e.message);
     }
 }
-    
+
+
+// ====================== STUDIO ======================
+let currentStudioTab = 'plan';
+let currentFlowMapId = null;
+let currentFlowMap = null;
+
+function switchStudioTab(tab) {
+    currentStudioTab = tab;
+    ['plan','build','grow'].forEach(t => {
+        const btn = document.getElementById(`studio-tab-${t}`);
+        const content = document.getElementById(`studio-${t}`);
+        const isActive = t === tab;
+        btn.classList.toggle('border-b-2', isActive);
+        btn.classList.toggle('border-cyan-400', isActive);
+        btn.classList.toggle('text-zinc-400', !isActive);
+        content.classList.toggle('hidden', !isActive);
+    });
+    if (tab === 'plan') loadStudioProjectList();
+    if (tab === 'build') renderBuildTab();
+    if (tab === 'grow') loadGrowTab();
+}
+
+async function loadStudioProjectList() {
+    if (!currentUser) return;
+    const sel = document.getElementById('studio-project-select');
+    const linkSel = document.getElementById('flowmap-project-link');
+    sel.innerHTML = '<option value="">— Select a project —</option>';
+    if (linkSel) linkSel.innerHTML = '<option value="">— No project linked —</option>';
+
+    try {
+        const snap = await db.collection('flowMaps')
+            .where('ownerUid', '==', currentUser.uid)
+            .orderBy('createdAt', 'desc')
+            .get();
+
+        snap.forEach(doc => {
+            const fm = doc.data();
+            const opt = document.createElement('option');
+            opt.value = doc.id;
+            opt.textContent = fm.name;
+            sel.appendChild(opt);
+        });
+
+        // Also populate project link dropdown from companies
+        const compSnap = await db.collection('companies')
+            .where('ownerUid', '==', currentUser.uid)
+            .get();
+        compSnap.forEach(doc => {
+            const c = doc.data();
+            if (linkSel) {
+                const opt = document.createElement('option');
+                opt.value = doc.id;
+                opt.textContent = c.name;
+                linkSel.appendChild(opt);
+            }
+        });
+
+        if (snap.empty) {
+            document.getElementById('plan-empty').classList.remove('hidden');
+            document.getElementById('plan-flowmap').classList.add('hidden');
+        }
+    } catch(e) {
+        console.error('loadStudioProjectList:', e.message);
+    }
+}
+
+async function loadStudioProject() {
+    const sel = document.getElementById('studio-project-select');
+    const fmId = sel.value;
+    if (!fmId) {
+        document.getElementById('plan-empty').classList.remove('hidden');
+        document.getElementById('plan-flowmap').classList.add('hidden');
+        return;
+    }
+    currentFlowMapId = fmId;
+    try {
+        const doc = await db.collection('flowMaps').doc(fmId).get();
+        if (!doc.exists) return;
+        currentFlowMap = { id: doc.id, ...doc.data() };
+        renderFlowMap(currentFlowMap);
+    } catch(e) {
+        console.error('loadStudioProject:', e.message);
+    }
+}
+
+function renderFlowMap(fm) {
+    document.getElementById('plan-empty').classList.add('hidden');
+    document.getElementById('plan-flowmap').classList.remove('hidden');
+    document.getElementById('flowmap-project-name').textContent = fm.name;
+    document.getElementById('flowmap-project-desc').textContent = fm.description || '';
+
+    const nodes = fm.nodes || [];
+    const todo = nodes.filter(n => n.status === 'todo').length;
+    const inprog = nodes.filter(n => n.status === 'in-progress').length;
+    const done = nodes.filter(n => n.status === 'done').length;
+    const inbuild = nodes.filter(n => n.status === 'build').length;
+    const completed = done + inbuild;
+    const pct = nodes.length > 0 ? Math.round((completed / nodes.length) * 100) : 0;
+
+    document.getElementById('flowmap-progress-bar').style.width = pct + '%';
+    document.getElementById('flowmap-progress-text').textContent = pct + '%';
+    document.getElementById('flowmap-stat-todo').textContent = `${todo} to do`;
+    document.getElementById('flowmap-stat-inprogress').textContent = `${inprog} in progress`;
+    document.getElementById('flowmap-stat-done').textContent = `${done} done`;
+    document.getElementById('flowmap-stat-build').textContent = `${inbuild} sent to build`;
+
+    const container = document.getElementById('flowmap-nodes');
+    container.innerHTML = '';
+
+    nodes.forEach((node, idx) => {
+        const statusColors = {
+            'todo':        'border-zinc-700 bg-zinc-900',
+            'in-progress': 'border-amber-500/50 bg-amber-500/5',
+            'done':        'border-emerald-500/50 bg-emerald-500/5',
+            'build':       'border-violet-500/50 bg-violet-500/5'
+        };
+        const statusBadge = {
+            'todo':        '<span class="px-2 py-0.5 rounded-full text-xs bg-zinc-700 text-zinc-400">To Do</span>',
+            'in-progress': '<span class="px-2 py-0.5 rounded-full text-xs bg-amber-500/20 text-amber-400">In Progress</span>',
+            'done':        '<span class="px-2 py-0.5 rounded-full text-xs bg-emerald-500/20 text-emerald-400">Done</span>',
+            'build':       '<span class="px-2 py-0.5 rounded-full text-xs bg-violet-500/20 text-violet-400">In Build</span>'
+        };
+        const categoryIcon = {
+            'Frontend':      '🎨',
+            'Backend':       '⚙️',
+            'Database':      '🗄️',
+            'Auth':          '🔐',
+            'API':           '🔌',
+            'Infrastructure':'🏗️',
+            'Testing':       '🧪',
+            'Design':        '✏️',
+            'Marketing':     '📣',
+            'Legal':         '⚖️',
+            'Other':         '📋'
+        }[node.category] || '📋';
+
+        const card = document.createElement('div');
+        card.className = `border rounded-2xl p-5 cursor-pointer transition-all hover:ring-1 hover:ring-cyan-400 ${statusColors[node.status] || statusColors.todo}`;
+        card.innerHTML = `
+            <div class="flex items-start gap-4">
+                <!-- Step number -->
+                <div class="w-8 h-8 rounded-full bg-zinc-800 border border-zinc-600 flex items-center justify-center text-sm font-bold flex-shrink-0 mt-0.5">
+                    ${idx + 1}
+                </div>
+                <div class="flex-1 min-w-0">
+                    <div class="flex flex-wrap items-center gap-2 mb-1">
+                        <span class="text-lg">${categoryIcon}</span>
+                        <p class="font-bold text-lg">${node.title}</p>
+                        ${statusBadge[node.status] || statusBadge.todo}
+                        ${node.priority === 'high' ? '<span class="px-2 py-0.5 rounded-full text-xs bg-red-500/20 text-red-400">High Priority</span>' : ''}
+                    </div>
+                    <p class="text-zinc-400 text-sm line-clamp-2">${node.description}</p>
+                    <div class="flex flex-wrap gap-2 mt-3">
+                        <span class="text-xs text-zinc-500">${node.category || 'General'}</span>
+                        ${node.estimatedHours ? `<span class="text-xs text-zinc-500">~${node.estimatedHours}h</span>` : ''}
+                        ${node.dependencies?.length > 0 ? `<span class="text-xs text-zinc-500">Depends on: ${node.dependencies.join(', ')}</span>` : ''}
+                    </div>
+                </div>
+                <!-- Quick actions -->
+                <div class="flex gap-2 flex-shrink-0">
+                    ${node.status !== 'done' && node.status !== 'build' ? `
+                    <button onclick="event.stopPropagation(); sendNodeToBuild(${idx})"
+                            class="px-3 py-1.5 bg-violet-600 hover:bg-violet-700 text-white text-xs font-medium rounded-xl">
+                        → Build
+                    </button>` : ''}
+                    ${node.status === 'todo' ? `
+                    <button onclick="event.stopPropagation(); setNodeStatus(${idx}, 'in-progress')"
+                            class="px-3 py-1.5 bg-amber-500/20 text-amber-400 text-xs font-medium rounded-xl hover:bg-amber-500/30">
+                        Start
+                    </button>` : ''}
+                    ${node.status === 'in-progress' ? `
+                    <button onclick="event.stopPropagation(); setNodeStatus(${idx}, 'done')"
+                            class="px-3 py-1.5 bg-emerald-500/20 text-emerald-400 text-xs font-medium rounded-xl hover:bg-emerald-500/30">
+                        ✓ Done
+                    </button>` : ''}
+                </div>
+            </div>
+        `;
+        card.onclick = () => showFlowNodeModal(idx);
+        container.appendChild(card);
+    });
+}
+
+function showFlowNodeModal(idx) {
+    if (!currentFlowMap) return;
+    const node = currentFlowMap.nodes[idx];
+    document.getElementById('node-modal-title').textContent = `${idx + 1}. ${node.title}`;
+
+    const statusOptions = ['todo','in-progress','done','build'].map(s => 
+        `<option value="${s}" ${node.status === s ? 'selected' : ''}>${
+            {todo:'To Do','in-progress':'In Progress',done:'Done',build:'In Build'}[s]
+        }</option>`
+    ).join('');
+
+    document.getElementById('node-modal-content').innerHTML = `
+        <div class="space-y-5">
+            <!-- Status + category row -->
+            <div class="grid grid-cols-2 gap-4">
+                <div>
+                    <p class="text-xs text-zinc-400 mb-2">Status</p>
+                    <select onchange="setNodeStatus(${idx}, this.value)"
+                            class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none text-sm">
+                        ${statusOptions}
+                    </select>
+                </div>
+                <div>
+                    <p class="text-xs text-zinc-400 mb-2">Category</p>
+                    <p class="text-sm font-medium mt-3">${node.category || 'General'}</p>
+                </div>
+            </div>
+
+            <!-- Description -->
+            <div>
+                <p class="text-xs text-zinc-400 mb-2">Description</p>
+                <p class="text-zinc-300 text-sm leading-relaxed">${node.description}</p>
+            </div>
+
+            <!-- Claude Instructions -->
+            ${node.instructions ? `
+            <div class="bg-cyan-500/10 border border-cyan-500/20 rounded-2xl p-5">
+                <p class="text-cyan-400 text-xs font-semibold uppercase tracking-wider mb-3">🤖 Claude's Instructions</p>
+                <div class="text-zinc-300 text-sm leading-relaxed whitespace-pre-wrap">${node.instructions}</div>
+            </div>` : ''}
+
+            <!-- Best Practices -->
+            ${node.bestPractices?.length > 0 ? `
+            <div class="bg-violet-500/10 border border-violet-500/20 rounded-2xl p-5">
+                <p class="text-violet-400 text-xs font-semibold uppercase tracking-wider mb-3">✨ Best Practices</p>
+                <ul class="space-y-2">
+                    ${node.bestPractices.map(bp => `
+                        <li class="flex items-start gap-2 text-sm text-zinc-300">
+                            <span class="text-violet-400 flex-shrink-0 mt-0.5">→</span>${bp}
+                        </li>`).join('')}
+                </ul>
+            </div>` : ''}
+
+            <!-- Pitfalls -->
+            ${node.pitfalls?.length > 0 ? `
+            <div class="bg-red-500/10 border border-red-500/20 rounded-2xl p-5">
+                <p class="text-red-400 text-xs font-semibold uppercase tracking-wider mb-3">⚠️ Common Pitfalls</p>
+                <ul class="space-y-2">
+                    ${node.pitfalls.map(p => `
+                        <li class="flex items-start gap-2 text-sm text-zinc-300">
+                            <span class="text-red-400 flex-shrink-0 mt-0.5">✗</span>${p}
+                        </li>`).join('')}
+                </ul>
+            </div>` : ''}
+
+            <!-- Tools/Resources -->
+            ${node.tools?.length > 0 ? `
+            <div>
+                <p class="text-xs text-zinc-400 mb-2">Recommended Tools / Libraries</p>
+                <div class="flex flex-wrap gap-2">
+                    ${node.tools.map(t => `<span class="px-3 py-1 bg-zinc-800 rounded-full text-xs text-zinc-300">${t}</span>`).join('')}
+                </div>
+            </div>` : ''}
+
+            <!-- Est hours + dependencies -->
+            <div class="grid grid-cols-2 gap-4 text-sm">
+                ${node.estimatedHours ? `<div><p class="text-xs text-zinc-400 mb-1">Estimated Hours</p><p class="font-medium">~${node.estimatedHours}h</p></div>` : ''}
+                ${node.dependencies?.length > 0 ? `<div><p class="text-xs text-zinc-400 mb-1">Depends On</p><p class="font-medium">${node.dependencies.join(', ')}</p></div>` : ''}
+            </div>
+
+            <!-- Edit title/description -->
+            <div class="border-t border-zinc-700 pt-5">
+                <p class="text-xs text-zinc-500 mb-3">Edit this node</p>
+                <input id="node-edit-title" type="text" value="${node.title}"
+                       class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none text-sm mb-3">
+                <textarea id="node-edit-desc" rows="3"
+                          class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none text-sm mb-3">${node.description}</textarea>
+                <div class="flex gap-3">
+                    <button onclick="saveNodeEdits(${idx})"
+                            class="flex-1 py-3 bg-white text-black font-semibold rounded-xl text-sm">Save Changes</button>
+                    <button onclick="sendNodeToBuild(${idx}); hideFlowNodeModal()"
+                            class="flex-1 py-3 bg-violet-600 text-white font-semibold rounded-xl text-sm">→ Send to Build</button>
+                    <button onclick="deleteFlowNode(${idx}); hideFlowNodeModal()"
+                            class="py-3 px-4 border border-red-500/30 text-red-400 rounded-xl text-sm">🗑</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.getElementById('flow-node-modal').classList.remove('hidden');
+}
+
+function hideFlowNodeModal() {
+    document.getElementById('flow-node-modal').classList.add('hidden');
+}
+
+async function setNodeStatus(idx, status) {
+    if (!currentFlowMap || !currentFlowMapId) return;
+    currentFlowMap.nodes[idx].status = status;
+    await db.collection('flowMaps').doc(currentFlowMapId).update({ nodes: currentFlowMap.nodes });
+    renderFlowMap(currentFlowMap);
+}
+
+async function sendNodeToBuild(idx) {
+    if (!currentFlowMap || !currentFlowMapId) return;
+    currentFlowMap.nodes[idx].status = 'build';
+    await db.collection('flowMaps').doc(currentFlowMapId).update({ nodes: currentFlowMap.nodes });
+    renderFlowMap(currentFlowMap);
+    alert(`✅ "${currentFlowMap.nodes[idx].title}" sent to Build tab.`);
+}
+
+async function saveNodeEdits(idx) {
+    if (!currentFlowMap || !currentFlowMapId) return;
+    const title = document.getElementById('node-edit-title').value.trim();
+    const desc = document.getElementById('node-edit-desc').value.trim();
+    if (!title) return alert('Title cannot be empty');
+    currentFlowMap.nodes[idx].title = title;
+    currentFlowMap.nodes[idx].description = desc;
+    await db.collection('flowMaps').doc(currentFlowMapId).update({ nodes: currentFlowMap.nodes });
+    hideFlowNodeModal();
+    renderFlowMap(currentFlowMap);
+}
+
+async function deleteFlowNode(idx) {
+    if (!currentFlowMap || !currentFlowMapId) return;
+    if (!confirm('Delete this node?')) return;
+    currentFlowMap.nodes.splice(idx, 1);
+    await db.collection('flowMaps').doc(currentFlowMapId).update({ nodes: currentFlowMap.nodes });
+    renderFlowMap(currentFlowMap);
+}
+
+async function addFlowNode() {
+    if (!currentFlowMap || !currentFlowMapId) return;
+    const title = prompt('Node title:');
+    if (!title) return;
+    const desc = prompt('Brief description:') || '';
+    currentFlowMap.nodes.push({
+        title: title.trim(),
+        description: desc.trim(),
+        status: 'todo',
+        category: 'Other',
+        instructions: '',
+        bestPractices: [],
+        pitfalls: [],
+        tools: [],
+        estimatedHours: null,
+        dependencies: []
+    });
+    await db.collection('flowMaps').doc(currentFlowMapId).update({ nodes: currentFlowMap.nodes });
+    renderFlowMap(currentFlowMap);
+}
+
+function showNewFlowMapModal() {
+    if (!currentUser) { showAuthModal(); return; }
+    document.getElementById('new-flowmap-modal').classList.remove('hidden');
+    document.getElementById('flowmap-name-input').value = '';
+    document.getElementById('flowmap-description').value = '';
+    document.getElementById('flowmap-stack').value = '';
+    document.getElementById('flowmap-modal-status').classList.add('hidden');
+    loadStudioProjectList();
+}
+
+function hideNewFlowMapModal() {
+    document.getElementById('new-flowmap-modal').classList.add('hidden');
+}
+
+async function submitNewFlowMap() {
+    if (!currentUser) return;
+    if (!connectedAddress) return alert('Please connect your wallet first.');
+
+    const name = document.getElementById('flowmap-name-input').value.trim();
+    const description = document.getElementById('flowmap-description').value.trim();
+    const stack = document.getElementById('flowmap-stack').value;
+    const linkedProjectId = document.getElementById('flowmap-project-link').value;
+
+    if (!name) return alert('Please enter a project name.');
+    if (!description || description.length < 20) return alert('Please describe your project in more detail (at least 20 characters).');
+
+    const btn = document.getElementById('generate-flowmap-btn');
+    const statusEl = document.getElementById('flowmap-modal-status');
+    const setStatus = (msg) => {
+        statusEl.classList.remove('hidden');
+        statusEl.textContent = msg;
+    };
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Processing payment...';
+
+    try {
+        // Pay $5 NQV8
+        const nqv8Amount = await usdToNQV8(5.00);
+        const nqv8Raw = await nqv8Contract.balanceOf(connectedAddress);
+        const nqv8Bal = parseFloat(ethers.utils.formatUnits(nqv8Raw, 18));
+        if (nqv8Bal < nqv8Amount) {
+            btn.disabled = false;
+            btn.textContent = 'Generate Flow Map ($5 NQV8)';
+            return alert(`❌ Insufficient NQV8. You need ${nqv8Amount} NQV8 (≈ $5.00).`);
+        }
+
+        const rewardsContract = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
+        const amountRaw = ethers.utils.parseUnits(String(nqv8Amount), 18);
+        const allowance = await nqv8Contract.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
+        if (allowance.lt(amountRaw)) {
+            btn.textContent = '⏳ Approve NQV8...';
+            const approveTx = await nqv8Contract.approve(REWARDS_CONTRACT_ADDRESS, amountRaw);
+            await approveTx.wait();
+        }
+        btn.textContent = '⏳ Paying...';
+        const payTx = await rewardsContract.payNQV8Fee(connectedAddress, amountRaw);
+        await payTx.wait();
+        await recordProtocolFee(5, 'flow-map-generation', payTx.hash);
+
+        setStatus('🤖 Claude is generating your flow map...');
+        btn.textContent = '⏳ Generating...';
+
+        // Call Claude API
+        const response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                model: 'claude-sonnet-4-20250514',
+                max_tokens: 4000,
+                messages: [{
+                    role: 'user',
+                    content: `You are a senior software architect and product manager. Generate a detailed development flow map for the following project.
+
+Project Name: ${name}
+Tech Stack: ${stack || 'Not specified'}
+Description: ${description}
+
+Return ONLY a JSON object with this exact structure (no markdown, no explanation):
+{
+  "nodes": [
+    {
+      "title": "Short node title",
+      "description": "2-3 sentence description of what this step involves",
+      "category": "one of: Frontend, Backend, Database, Auth, API, Infrastructure, Testing, Design, Marketing, Legal, Other",
+      "priority": "high or normal",
+      "estimatedHours": number or null,
+      "dependencies": ["titles of nodes this depends on"],
+      "instructions": "Detailed step-by-step instructions for completing this node. Be specific and technical. 3-6 sentences.",
+      "bestPractices": ["array of 3-5 specific best practices for this step"],
+      "pitfalls": ["array of 2-4 common mistakes to avoid"],
+      "tools": ["array of recommended libraries, tools, or services"],
+      "status": "todo"
+    }
+  ]
+}
+
+Generate 8-16 nodes ordered logically from foundation to launch. Each node should be a discrete, buildable unit of work. Be specific to the tech stack and project type described.`
+                }]
+            })
+        });
+
+        const data = await response.json();
+        const text = data.content?.find(c => c.type === 'text')?.text || '';
+        let parsed;
+        try {
+            const clean = text.replace(/```json|```/g, '').trim();
+            parsed = JSON.parse(clean);
+        } catch(e) {
+            throw new Error('Claude returned invalid JSON. Please try again.');
+        }
+
+        if (!parsed.nodes || !Array.isArray(parsed.nodes)) {
+            throw new Error('Invalid flow map structure. Please try again.');
+        }
+
+        // Save to Firestore
+        const fmRef = await db.collection('flowMaps').add({
+            ownerUid: currentUser.uid,
+            name,
+            description,
+            stack,
+            linkedProjectId: linkedProjectId || null,
+            nodes: parsed.nodes,
+            paymentTxHash: payTx.hash,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+
+        currentFlowMapId = fmRef.id;
+        currentFlowMap = { id: fmRef.id, name, description, stack, nodes: parsed.nodes };
+
+        hideNewFlowMapModal();
+        await loadStudioProjectList();
+        document.getElementById('studio-project-select').value = fmRef.id;
+        renderFlowMap(currentFlowMap);
+
+        btn.disabled = false;
+        btn.textContent = 'Generate Flow Map ($5 NQV8)';
+
+    } catch(e) {
+        btn.disabled = false;
+        btn.textContent = 'Generate Flow Map ($5 NQV8)';
+        setStatus('❌ ' + e.message);
+    }
+}
+
+async function regenerateFlowMap() {
+    if (!currentFlowMap || !currentFlowMapId) return;
+    if (!confirm('Regenerate the entire flow map? Your current nodes will be replaced. ($5 NQV8)')) return;
+    document.getElementById('flowmap-name-input').value = currentFlowMap.name;
+    document.getElementById('flowmap-description').value = currentFlowMap.description || '';
+    document.getElementById('flowmap-stack').value = currentFlowMap.stack || '';
+    showNewFlowMapModal();
+}
+
+// ===== BUILD TAB =====
+function renderBuildTab() {
+    if (!currentFlowMap) {
+        document.getElementById('build-empty').classList.remove('hidden');
+        document.getElementById('build-nodes').innerHTML = '';
+        return;
+    }
+
+    const buildNodes = (currentFlowMap.nodes || [])
+        .map((n, i) => ({ ...n, originalIdx: i }))
+        .filter(n => n.status === 'build');
+
+    const container = document.getElementById('build-nodes');
+    const empty = document.getElementById('build-empty');
+
+    if (buildNodes.length === 0) {
+        empty.classList.remove('hidden');
+        container.innerHTML = '';
+        return;
+    }
+
+    empty.classList.add('hidden');
+    container.innerHTML = '';
+
+    buildNodes.forEach(node => {
+        const card = document.createElement('div');
+        card.className = 'bg-zinc-900 border border-violet-500/30 rounded-2xl p-6';
+        card.innerHTML = `
+            <div class="flex justify-between items-start mb-4">
+                <div>
+                    <p class="font-bold text-lg">${node.title}</p>
+                    <p class="text-zinc-400 text-sm mt-1">${node.description}</p>
+                </div>
+                <span class="px-3 py-1 rounded-full text-xs bg-violet-500/20 text-violet-400 flex-shrink-0 ml-4">In Build</span>
+            </div>
+            ${node.instructions ? `
+            <div class="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4 mb-4">
+                <p class="text-cyan-400 text-xs font-semibold mb-2">🤖 Claude's Instructions</p>
+                <p class="text-zinc-300 text-sm leading-relaxed">${node.instructions}</p>
+            </div>` : ''}
+            <div class="flex flex-wrap gap-3 mt-4">
+                <button onclick="setNodeStatus(${node.originalIdx}, 'done'); renderBuildTab()"
+                        class="px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-xl text-sm font-medium hover:bg-emerald-500/30">
+                    ✓ Mark Complete
+                </button>
+                <button onclick="postNodeToMarketplace(${node.originalIdx})"
+                        class="px-4 py-2 bg-white text-black rounded-xl text-sm font-semibold hover:bg-cyan-400 transition-colors">
+                    📣 Post to Marketplace
+                </button>
+                <button onclick="setNodeStatus(${node.originalIdx}, 'todo'); renderBuildTab()"
+                        class="px-4 py-2 border border-zinc-600 text-zinc-400 rounded-xl text-sm hover:bg-zinc-800">
+                    ← Back to Plan
+                </button>
+            </div>
+        `;
+        container.appendChild(card);
+    });
+}
+
+function postNodeToMarketplace(idx) {
+    if (!currentFlowMap) return;
+    const node = currentFlowMap.nodes[idx];
+    // Pre-fill the bounty modal with node details
+    showPostBountyModal().then(() => {
+        setTimeout(() => {
+            const titleEl = document.getElementById('bounty-title');
+            const descEl = document.getElementById('bounty-desc');
+            if (titleEl) titleEl.value = node.title;
+            if (descEl) descEl.value = `${node.description}\n\n${node.instructions || ''}`.trim();
+        }, 300);
+    });
+}
+
+// ===== GROW TAB =====
+async function loadGrowTab() {
+    if (!currentUser) return;
+    const container = document.getElementById('grow-companies');
+    const empty = document.getElementById('grow-empty');
+    container.innerHTML = '<p class="text-zinc-400 animate-pulse col-span-2">Loading...</p>';
+
+    try {
+        const snap = await db.collection('companies')
+            .where('ownerUid', '==', currentUser.uid)
+            .orderBy('createdAt', 'desc')
+            .get();
+
+        if (snap.empty) {
+            container.innerHTML = '';
+            empty.classList.remove('hidden');
+            return;
+        }
+
+        empty.classList.add('hidden');
+        container.innerHTML = '';
+
+        snap.forEach(doc => {
+            const c = { id: doc.id, ...doc.data() };
+            const isVerified = c.verificationStatus === 'verified';
+            const isActive = c.isActive !== false;
+
+            const card = document.createElement('div');
+            card.className = 'bg-zinc-900 rounded-3xl p-6 border border-zinc-800';
+            card.innerHTML = `
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <p class="font-bold text-xl">${c.name}</p>
+                        <p class="text-zinc-400 text-sm">${c.entityType || c.type || 'Project'}</p>
+                    </div>
+                    <div class="flex flex-col items-end gap-2">
+                        <span class="px-3 py-1 rounded-full text-xs ${isVerified ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-700 text-zinc-400'}">
+                            ${isVerified ? '✅ Verified' : 'Unverified'}
+                        </span>
+                        <span class="px-3 py-1 rounded-full text-xs ${isActive ? 'bg-cyan-500/20 text-cyan-400' : 'bg-zinc-700 text-zinc-400'}">
+                            ${isActive ? '🟢 Live' : '🔨 Building'}
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Metrics row -->
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="bg-zinc-800 rounded-xl p-3 text-center">
+                        <p class="text-xs text-zinc-500 mb-1">Revenue</p>
+                        <p class="font-semibold text-sm ${c.metricsVerified ? 'text-emerald-400' : 'text-zinc-500'}">
+                            ${c.metricsVerified ? c.revenueBucket : '—'}
+                        </p>
+                        ${c.metricsVerified ? '<p class="text-xs text-zinc-600">✅ verified</p>' : ''}
+                    </div>
+                    <div class="bg-zinc-800 rounded-xl p-3 text-center">
+                        <p class="text-xs text-zinc-500 mb-1">Users</p>
+                        <p class="font-semibold text-sm ${c.metricsVerified ? 'text-cyan-400' : 'text-zinc-500'}">
+                            ${c.metricsVerified ? c.usersBucket : '—'}
+                        </p>
+                        ${c.metricsVerified ? '<p class="text-xs text-zinc-600">✅ verified</p>' : ''}
+                    </div>
+                </div>
+
+                <!-- Action buttons -->
+                <div class="space-y-2">
+                    ${!c.metricsVerified ? `
+                    <button onclick="navigateTo('profile'); setTimeout(() => showCompanyDetail('${c.id}', ${JSON.stringify(c).replace(/"/g, '&quot;')}), 500)"
+                            class="w-full py-3 bg-gradient-to-r from-cyan-400 to-violet-500 text-black text-sm font-semibold rounded-xl">
+                        ✨ Verify Metrics & Generate Deck
+                    </button>` : `
+                    <button onclick="showInvestorDeck('${c.id}', ${JSON.stringify(c).replace(/"/g, '&quot;')})"
+                            class="w-full py-3 bg-violet-600 text-white text-sm font-semibold rounded-xl hover:bg-violet-700">
+                        📄 View Investor Deck
+                    </button>`}
+                    ${isVerified ? `
+                    <button onclick="hideNewFlowMapModal(); navigateTo('marketplace'); setTimeout(()=>switchMarketplaceTab(1), 300)"
+                            class="w-full py-3 border border-zinc-600 text-zinc-300 text-sm rounded-xl hover:bg-zinc-800">
+                        💰 Post Funding Request
+                    </button>
+                    <button onclick="navigateTo('marketplace'); setTimeout(()=>switchMarketplaceTab(2), 300)"
+                            class="w-full py-3 border border-zinc-600 text-zinc-300 text-sm rounded-xl hover:bg-zinc-800">
+                        📈 Equity Exchange
+                    </button>` : `
+                    <button onclick="showVerificationModal('${c.id}')"
+                            class="w-full py-3 border border-violet-500/50 text-violet-400 text-sm rounded-xl hover:bg-violet-500/10">
+                        🔐 Verify Entity to Unlock Equity
+                    </button>`}
+                    <button onclick="showCompanyDetail('${c.id}', ${JSON.stringify(c).replace(/"/g, '&quot;')})"
+                            class="w-full py-3 border border-zinc-700 text-zinc-400 text-sm rounded-xl hover:bg-zinc-800">
+                        ⚙️ Manage Company
+                    </button>
+                </div>
+            `;
+            container.appendChild(card);
+        });
+
+    } catch(e) {
+        console.error('loadGrowTab:', e.message);
+        container.innerHTML = '<p class="text-red-400">Error loading companies.</p>';
+    }
+}
     </script>    
 
     <!-- BUY NQV8 MODAL -->
@@ -10097,6 +10777,189 @@ async function changeWallet() {
                 Pay $5.00 in NQV8 & Verify
             </button>
         </div>
+    </div>
+</div>
+
+<!-- ==================== STUDIO PAGE ==================== -->
+<div id="studio-page" class="hidden max-w-6xl mx-auto pt-6 px-4 md:px-6 pb-16">
+
+    <div class="mb-8">
+        <h1 class="text-3xl md:text-5xl font-bold tracking-tighter mb-2">Studio</h1>
+        <p class="text-zinc-400">Plan, build, and grow your project — from idea to launch.</p>
+    </div>
+
+    <!-- Studio Sub-Tabs -->
+    <div class="flex border-b border-zinc-700 mb-8">
+        <button onclick="switchStudioTab('plan')" id="studio-tab-plan"
+                class="flex-1 pb-3 text-sm md:text-lg font-semibold border-b-2 border-cyan-400 flex items-center justify-center gap-2">
+            🗺️ <span class="hidden sm:inline">Plan</span>
+        </button>
+        <button onclick="switchStudioTab('build')" id="studio-tab-build"
+                class="flex-1 pb-3 text-sm md:text-lg font-semibold text-zinc-400 flex items-center justify-center gap-2">
+            🔨 <span class="hidden sm:inline">Build</span>
+        </button>
+        <button onclick="switchStudioTab('grow')" id="studio-tab-grow"
+                class="flex-1 pb-3 text-sm md:text-lg font-semibold text-zinc-400 flex items-center justify-center gap-2">
+            🚀 <span class="hidden sm:inline">Grow</span>
+        </button>
+    </div>
+
+    <!-- ===== PLAN TAB ===== -->
+    <div id="studio-plan" class="studio-tab-content">
+
+        <!-- Project selector -->
+        <div class="flex gap-4 mb-6 items-center flex-wrap">
+            <select id="studio-project-select" onchange="loadStudioProject()"
+                    class="flex-1 bg-zinc-900 border border-zinc-700 rounded-2xl px-5 py-3 outline-none text-sm">
+                <option value="">— Select a project —</option>
+            </select>
+            <button onclick="showNewFlowMapModal()"
+                    class="px-6 py-3 bg-white text-black font-semibold rounded-2xl text-sm flex items-center gap-2 hover:bg-cyan-400 transition-colors">
+                <i class="fa-solid fa-plus"></i> New Flow Map ($5 NQV8)
+            </button>
+        </div>
+
+        <!-- Empty state -->
+        <div id="plan-empty" class="text-center py-20">
+            <div class="text-6xl mb-4">🗺️</div>
+            <p class="text-2xl font-bold mb-2">No flow map yet</p>
+            <p class="text-zinc-400 mb-6">Describe your project and Claude will generate a step-by-step development flow map.</p>
+            <button onclick="showNewFlowMapModal()"
+                    class="px-8 py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-2xl">
+                Generate Flow Map ($5 NQV8)
+            </button>
+        </div>
+
+        <!-- Flow map canvas -->
+        <div id="plan-flowmap" class="hidden">
+            <div class="flex justify-between items-center mb-6">
+                <div>
+                    <h2 id="flowmap-project-name" class="text-2xl font-bold"></h2>
+                    <p id="flowmap-project-desc" class="text-zinc-400 text-sm mt-1"></p>
+                </div>
+                <div class="flex gap-3">
+                    <button onclick="addFlowNode()"
+                            class="px-4 py-2 border border-cyan-400 text-cyan-400 rounded-xl text-sm font-medium hover:bg-cyan-400/10">
+                        + Add Node
+                    </button>
+                    <button onclick="regenerateFlowMap()"
+                            class="px-4 py-2 border border-zinc-600 text-zinc-400 rounded-xl text-sm hover:bg-zinc-800">
+                        ↺ Regenerate ($5 NQV8)
+                    </button>
+                </div>
+            </div>
+
+            <!-- Progress bar -->
+            <div class="bg-zinc-900 rounded-2xl p-4 mb-6">
+                <div class="flex justify-between text-sm mb-2">
+                    <span class="text-zinc-400">Overall Progress</span>
+                    <span id="flowmap-progress-text" class="text-cyan-400 font-semibold">0%</span>
+                </div>
+                <div class="h-2 bg-zinc-700 rounded-full overflow-hidden">
+                    <div id="flowmap-progress-bar" class="h-full bg-gradient-to-r from-cyan-400 to-violet-500 rounded-full transition-all" style="width:0%"></div>
+                </div>
+                <div class="flex gap-4 mt-3 text-xs text-zinc-500">
+                    <span id="flowmap-stat-todo">0 to do</span>
+                    <span id="flowmap-stat-inprogress">0 in progress</span>
+                    <span id="flowmap-stat-done">0 done</span>
+                    <span id="flowmap-stat-build">0 sent to build</span>
+                </div>
+            </div>
+
+            <!-- Nodes grid -->
+            <div id="flowmap-nodes" class="space-y-3"></div>
+        </div>
+    </div>
+
+    <!-- ===== BUILD TAB ===== -->
+    <div id="studio-build" class="studio-tab-content hidden">
+        <div class="flex justify-between items-center mb-6">
+            <p class="text-zinc-400">Nodes sent here from your flow map. Build solo or post to marketplace.</p>
+        </div>
+        <div id="build-empty" class="text-center py-20 hidden">
+            <div class="text-6xl mb-4">🔨</div>
+            <p class="text-2xl font-bold mb-2">Nothing in build yet</p>
+            <p class="text-zinc-400">Send nodes from your Plan tab to start building.</p>
+        </div>
+        <div id="build-nodes" class="space-y-4"></div>
+    </div>
+
+    <!-- ===== GROW TAB ===== -->
+    <div id="studio-grow" class="studio-tab-content hidden">
+        <div class="mb-6">
+            <p class="text-zinc-400">Your launchpad for live products. Manage metrics, equity, funding, and growth.</p>
+        </div>
+        <div id="grow-empty" class="hidden text-center py-20">
+            <div class="text-6xl mb-4">🚀</div>
+            <p class="text-2xl font-bold mb-2">No active companies yet</p>
+            <p class="text-zinc-400 mb-6">Verify a company to unlock the Grow launchpad.</p>
+            <button onclick="showCreateProjectModal()"
+                    class="px-8 py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-2xl">
+                Create a Project
+            </button>
+        </div>
+        <div id="grow-companies" class="grid grid-cols-1 md:grid-cols-2 gap-6"></div>
+    </div>
+</div>
+
+<!-- NEW FLOW MAP MODAL -->
+<div id="new-flowmap-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999] overflow-auto">
+    <div class="bg-zinc-900 w-full max-w-2xl mx-4 rounded-3xl p-6 md:p-8 my-8">
+        <div class="flex justify-between items-center mb-2">
+            <h2 class="text-2xl font-bold">Generate Flow Map</h2>
+            <button onclick="hideNewFlowMapModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
+        </div>
+        <p class="text-zinc-400 text-sm mb-6">Describe what you're building and Claude will break it into a detailed development flow map with instructions for each step.</p>
+
+        <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 mb-6">
+            <p class="text-amber-400 text-xs">💰 Cost: $5.00 in NQV8 · Claude generates your full development path</p>
+        </div>
+
+        <!-- Project selector or name -->
+        <p class="text-sm text-zinc-400 mb-2">Project (optional — link to an existing project)</p>
+        <select id="flowmap-project-link" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 outline-none text-sm mb-4">
+            <option value="">— No project linked —</option>
+        </select>
+
+        <input id="flowmap-name-input" type="text" placeholder="Project / App Name"
+               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
+
+        <select id="flowmap-stack" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 outline-none text-sm mb-4">
+            <option value="">Tech stack (optional)</option>
+            <option value="React + Firebase">React + Firebase</option>
+            <option value="Next.js + Supabase">Next.js + Supabase</option>
+            <option value="React Native">React Native (Mobile)</option>
+            <option value="Vue + Node">Vue + Node.js</option>
+            <option value="Python + FastAPI">Python + FastAPI</option>
+            <option value="Solidity + Web3">Solidity + Web3</option>
+            <option value="No-code (Webflow/Bubble)">No-code (Webflow / Bubble)</option>
+            <option value="Other">Other / Mixed</option>
+        </select>
+
+        <textarea id="flowmap-description" rows="6"
+                  placeholder="Describe what you're building in as much detail as possible. What does it do? Who is it for? What are the core features? What integrations does it need?"
+                  class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6 text-sm"></textarea>
+
+        <div id="flowmap-modal-status" class="hidden mb-4 p-4 rounded-2xl bg-zinc-800 text-sm text-zinc-300 text-center animate-pulse"></div>
+
+        <div class="flex gap-3">
+            <button onclick="hideNewFlowMapModal()" class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+            <button onclick="submitNewFlowMap()" id="generate-flowmap-btn"
+                    class="flex-1 py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-3xl">
+                Generate Flow Map ($5 NQV8)
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- FLOW NODE DETAIL MODAL -->
+<div id="flow-node-modal" class="hidden fixed inset-0 bg-black/95 flex items-start justify-center z-[99999] overflow-y-auto py-6">
+    <div class="bg-zinc-900 w-full max-w-2xl mx-4 rounded-3xl p-6 my-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h2 id="node-modal-title" class="text-2xl font-bold"></h2>
+            <button onclick="hideFlowNodeModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
+        </div>
+        <div id="node-modal-content"></div>
     </div>
 </div>
 </body>
