@@ -8984,8 +8984,9 @@ async function showEquityDetailOnChain(listingId, listing, project) {
     const modal = document.getElementById('project-detail-modal');
     const content = document.getElementById('detail-content');
     const askPriceUSDC = parseFloat(ethers.utils.formatUnits(listing.askPricePerUnit, 6));
-    const totalAsk = askPriceUSDC * listing.units.toNumber();
-    const pct = (listing.units.toNumber() / 10000 * 100).toFixed(2);
+    const unitsNum = parseInt(listing.units.toString());
+    const totalAsk = askPriceUSDC * unitsNum;
+    const pct = (unitsNum / 10000 * 100).toFixed(2);
     const isOwner = connectedAddress && listing.seller.toLowerCase() === connectedAddress.toLowerCase();
 
     // Load pending offers
@@ -9053,7 +9054,7 @@ async function showEquityDetailOnChain(listingId, listing, project) {
             <div class="bg-zinc-800 rounded-2xl p-5">
                 <p class="text-sm text-zinc-400">Equity Offered</p>
                 <p class="text-2xl font-bold text-violet-400">${pct}%</p>
-                <p class="text-xs text-zinc-500">${listing.units.toNumber()} of 10,000 units</p>
+                <p class="text-xs text-zinc-500">${unitsNum} of 10,000 units</p>
             </div>
             <div class="bg-zinc-800 rounded-2xl p-5">
                 <p class="text-sm text-zinc-400">Asking Price</p>
@@ -9061,12 +9062,6 @@ async function showEquityDetailOnChain(listingId, listing, project) {
                 <p class="text-xs text-zinc-500">$${askPriceUSDC.toFixed(4)} per unit</p>
             </div>
         </div>
-
-        ${project.lastSalePricePerUnit.gt(0) ? `
-        <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 mb-6">
-            <p class="text-emerald-400 text-sm font-medium">📊 Last Sale Price</p>
-            <p class="text-white text-sm mt-1">$${parseFloat(ethers.utils.formatUnits(project.lastSalePricePerUnit, 6)).toFixed(4)} per unit · ${new Date(project.lastSaleAt.toNumber() * 1000).toLocaleDateString()}</p>
-        </div>` : ''}
 
         <div id="valuation-section-${listingId}" class="bg-zinc-800 rounded-2xl p-5 mb-6">
             <div class="flex justify-between items-center mb-2">
@@ -9092,7 +9087,7 @@ async function showEquityDetailOnChain(listingId, listing, project) {
                     class="w-full py-5 bg-white text-black font-semibold rounded-3xl">
                 ✅ Buy Now — $${totalAsk.toLocaleString(undefined,{maximumFractionDigits:2})} USDC
             </button>
-            <button onclick="makeOfferOnChain('${listingId}', ${listing.units.toNumber()})"
+            <button onclick="makeOfferOnChain('${listingId}', ${unitsNum})"
                     class="w-full py-5 border border-cyan-400 text-cyan-400 font-semibold rounded-3xl">
                 💬 Make Offer
             </button>
