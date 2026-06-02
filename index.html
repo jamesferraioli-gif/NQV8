@@ -10234,9 +10234,9 @@ function hideNewFlowMapModal() {
     document.getElementById('new-flowmap-modal').classList.add('hidden');
 }
 
-async function submitNewFlowMap() {
+async function submitNewFlowMap(useAI = false) {
     if (!currentUser) return;
-    if (!connectedAddress) return alert('Please connect your wallet first.');
+    if (!connectedAddress && useAI) return alert('Please connect your wallet first.');
 
     const name = document.getElementById('flowmap-name-input').value.trim();
     const description = document.getElementById('flowmap-description').value.trim();
@@ -10257,50 +10257,73 @@ async function submitNewFlowMap() {
     btn.textContent = '⏳ Processing payment...';
 
     try {
-        // Pay $5 NQV8
-        const nqv8Amount = await usdToNQV8(5.00);
-        const nqv8Raw = await nqv8Contract.balanceOf(connectedAddress);
-        const nqv8Bal = parseFloat(ethers.utils.formatUnits(nqv8Raw, 18));
-        if (nqv8Bal < nqv8Amount) {
-            btn.disabled = false;
-            btn.textContent = 'Generate Flow Map ($5 NQV8)';
-            return alert(`❌ Insufficient NQV8. You need ${nqv8Amount} NQV8 (≈ $5.00).`);
+        let payTx = null;
+
+        if (useAI) {
+            // Pay $5 NQV8
+            const nqv8Amount = await usdToNQV8(5.00);
+            const nqv8Raw = await nqv8Contract.balanceOf(connectedAddress);
+            const nqv8Bal = parseFloat(ethers.utils.formatUnits(nqv8Raw, 18));
+            if (nqv8Bal < nqv8Amount) {
+                btn.disabled = false;
+                btn.textContent = 'Generate Flow Map ($5 NQV8)';
+                return alert(`❌ Insufficient NQV8. You need ${nqv8Amount} NQV8 (≈ $5.00).`);
+            }
+
+            const rewardsContract = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
+            const amountRaw = ethers.utils.parseUnits(String(nqv8Amount), 18);
+            const allowance = await nqv8Contract.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
+            if (allowance.lt(amountRaw)) {
+                btn.textContent = '⏳ Approve NQV8...';
+                const approveTx = await nqv8Contract.approve(REWARDS_CONTRACT_ADDRESS, amountRaw);
+                await approveTx.wait();
+            }
+            btn.textContent = '⏳ Paying...';
+            payTx = await rewardsContract.payNQV8Fee(connectedAddress, amountRaw);
+            await payTx.wait();
+            await recordProtocolFee(5, 'flow-map-generation', payTx.hash);
         }
-
-        const rewardsContract = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
-        const amountRaw = ethers.utils.parseUnits(String(nqv8Amount), 18);
-        const allowance = await nqv8Contract.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
-        if (allowance.lt(amountRaw)) {
-            btn.textContent = '⏳ Approve NQV8...';
-            const approveTx = await nqv8Contract.approve(REWARDS_CONTRACT_ADDRESS, amountRaw);
-            await approveTx.wait();
-        }
-        btn.textContent = '⏳ Paying...';
-        const payTx = await rewardsContract.payNQV8Fee(connectedAddress, amountRaw);
-        await payTx.wait();
-        await recordProtocolFee(5, 'flow-map-generation', payTx.hash);
-
-        setStatus('🤖 Claude is generating your flow map...');
-        btn.textContent = '⏳ Generating...';
-
-        // Call backend API route
-        const response = await fetch('/api/generate-flowmap', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, description, stack })
-        });
-
-        if (!response.ok) throw new Error('Flow map generation failed. Please try again.');
 
         let parsed;
-        try {
-            parsed = await response.json();
-        } catch(e) {
-            throw new Error('Claude returned invalid JSON. Please try again.');
-        }
 
-        if (!parsed.nodes || !Array.isArray(parsed.nodes)) {
-            throw new Error('Invalid flow map structure. Please try again.');
+        if (useAI) {
+            setStatus('🤖 Claude is generating your flow map...');
+            btn.textContent = '⏳ Generating...';
+
+            const response = await fetch('/api/generate-flowmap', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, description, stack })
+            });
+
+            if (!response.ok) throw new Error('Flow map generation failed. Please try again.');
+
+            try {
+                parsed = await response.json();
+            } catch(e) {
+                throw new Error('Claude returned invalid JSON. Please try again.');
+            }
+
+            if (!parsed.nodes || !Array.isArray(parsed.nodes)) {
+                throw new Error('Invalid flow map structure. Please try again.');
+            }
+        } else {
+            // Blank map — start with a single empty node as a prompt
+            parsed = {
+                nodes: [{
+                    title: 'First Step',
+                    description: 'Click to edit this node and describe your first task.',
+                    category: 'Other',
+                    priority: 'normal',
+                    estimatedHours: null,
+                    dependencies: [],
+                    instructions: '',
+                    bestPractices: [],
+                    pitfalls: [],
+                    tools: [],
+                    status: 'todo'
+                }]
+            };
         }
 
         // Save to Firestore
@@ -10311,7 +10334,7 @@ async function submitNewFlowMap() {
             stack,
             linkedProjectId: linkedProjectId || null,
             nodes: parsed.nodes,
-            paymentTxHash: payTx.hash,
+            paymentTxHash: payTx?.hash || null,
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
@@ -10750,9 +10773,10 @@ async function loadGrowTab() {
 <!-- ==================== STUDIO PAGE ==================== -->
 <div id="studio-page" class="hidden max-w-6xl mx-auto pt-6 px-4 md:px-6 pb-16">
 
+
     <div class="mb-8">
         <h1 class="text-3xl md:text-5xl font-bold tracking-tighter mb-2">Studio</h1>
-        <p class="text-zinc-400">Plan, build, and grow your project — from idea to launch.</p>
+        <p class="text-zinc-400">Your end-to-end development workspace. Map out every step of your build, track progress node by node, post tasks to the marketplace, and manage your live business — all in one place.</p>
     </div>
 
     <!-- Studio Sub-Tabs -->
@@ -10791,9 +10815,13 @@ async function loadGrowTab() {
             <div class="text-6xl mb-4">🗺️</div>
             <p class="text-2xl font-bold mb-2">No flow map yet</p>
             <p class="text-zinc-400 mb-6">Describe your project and Claude will generate a step-by-step development flow map.</p>
-            <button onclick="showNewFlowMapModal()"
-                    class="px-8 py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-2xl">
-                Generate Flow Map ($5 NQV8)
+            <button onclick="submitNewFlowMap(false)" id="create-flowmap-btn"
+                    class="flex-1 py-4 border border-zinc-600 text-zinc-300 font-semibold rounded-3xl hover:bg-zinc-800">
+                Create Blank Map (Free)
+            </button>
+            <button onclick="submitNewFlowMap(true)" id="generate-flowmap-btn"
+                    class="flex-1 py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-3xl">
+                ✨ AI Generate ($5 NQV8)
             </button>
         </div>
 
@@ -10879,7 +10907,7 @@ async function loadGrowTab() {
         <p class="text-zinc-400 text-sm mb-6">Describe what you're building and Claude will break it into a detailed development flow map with instructions for each step.</p>
 
         <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 mb-6">
-            <p class="text-amber-400 text-xs">💰 Cost: $5.00 in NQV8 · Claude generates your full development path</p>
+            <p class="text-zinc-400 text-xs">✨ AI Generate ($5 NQV8) — Claude breaks your description into a full node-by-node development path with instructions and best practices for each step.<br><br>🆓 Create Blank — start with an empty map and add your own nodes manually at no cost.</p>
         </div>
 
         <!-- Project selector or name -->
@@ -10910,10 +10938,15 @@ async function loadGrowTab() {
         <div id="flowmap-modal-status" class="hidden mb-4 p-4 rounded-2xl bg-zinc-800 text-sm text-zinc-300 text-center animate-pulse"></div>
 
         <div class="flex gap-3">
-            <button onclick="hideNewFlowMapModal()" class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
-            <button onclick="submitNewFlowMap()" id="generate-flowmap-btn"
-                    class="flex-1 py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-3xl">
-                Generate Flow Map ($5 NQV8)
+                    <button onclick="hideNewFlowMapModal()" class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+                    <div class="flex gap-3 justify-center">
+            <button onclick="showNewFlowMapModal()"
+                    class="px-6 py-4 border border-zinc-600 text-zinc-300 font-semibold rounded-2xl hover:bg-zinc-800">
+                🆓 Build My Own
+            </button>
+            <button onclick="showNewFlowMapModal()"
+                    class="px-6 py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-2xl">
+                ✨ AI Generate ($5 NQV8)
             </button>
         </div>
     </div>
