@@ -3245,23 +3245,30 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                         verificationMethod: 'claude-ai'
                     });
 
-                    if (connectedAddress && signer) {
-                        try {
-                            btn.innerHTML = '⏳ Minting equity on-chain...';
-                            const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
-                            const mintTx = await equityContract.registerProject(
-                                verificationCompanyId,
-                                company.name,
-                                connectedAddress
-                            );
-                            await mintTx.wait();
+                    try {
+                        btn.innerHTML = '⏳ Registering equity on-chain...';
+                        const equityResponse = await fetch('/api/register-equity', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                projectId: verificationCompanyId,
+                                companyName: company.name,
+                                founderWallet: connectedAddress,
+                                callerUid: currentUser.uid
+                            })
+                        });
+                        const equityResult = await equityResponse.json();
+                        if (equityResult.success) {
                             await db.collection("companies").doc(verificationCompanyId).update({
                                 equityRegistered: true,
-                                equityMintTxHash: mintTx.hash
+                                equityMintTxHash: equityResult.txHash
                             });
-                        } catch(equityErr) {
-                            console.error('Equity mint failed:', equityErr.message);
+                            console.log('✅ Equity registered:', equityResult.txHash);
+                        } else {
+                            console.error('Equity registration failed:', equityResult.error);
                         }
+                    } catch(equityErr) {
+                        console.error('Equity mint failed:', equityErr.message);
                     }
 
                     btn.innerHTML = originalText;
