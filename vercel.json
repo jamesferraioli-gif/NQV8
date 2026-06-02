@@ -72,6 +72,10 @@
             "dest": "/api/claim-referral-bonus.js"
         },
         {
+            "src": "/api/generate-flowmap",
+            "dest": "/api/generate-flowmap.js"
+        },
+        {
             "src": "/admin.html",
             "dest": "/admin.html"
         },
