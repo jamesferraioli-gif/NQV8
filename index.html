@@ -6384,18 +6384,22 @@ async function loadEquityListings() {
 
         grid.innerHTML = '';
 
+
         for (const l of active) {
-            // Look up project info from registry
-            const project = await equityReadOnly.projects(l.projectId);
             const askPriceUSDC = parseFloat(ethers.utils.formatUnits(l.askPricePerUnit, 6));
             const unitsNum = parseInt(l.units.toString());
             const pct = (unitsNum / 10000 * 100).toFixed(2);
             const totalAsk = askPriceUSDC * unitsNum;
             const isOwner = connectedAddress && l.seller.toLowerCase() === connectedAddress.toLowerCase();
-            // Get last sale price for valuation context
-            const lastSale = project.lastSalePricePerUnit.gt(0)
-                ? `$${parseFloat(ethers.utils.formatUnits(project.lastSalePricePerUnit, 6)).toFixed(4)}/unit`
-                : 'No prior sales';
+            const lastSale = 'No prior sales';
+            const projectName = l.projectId; // fallback — will look up from Firestore below
+            
+            // Look up project name from Firestore
+            let displayName = l.projectId;
+            try {
+                const companyDoc = await db.collection('companies').doc(l.projectId).get();
+                if (companyDoc.exists) displayName = companyDoc.data().name || l.projectId;
+            } catch(e) {}
 
             const card = document.createElement('div');
             card.className = "bg-zinc-900 rounded-3xl p-6 hover:ring-2 hover:ring-violet-400 cursor-pointer transition-all";
@@ -6404,7 +6408,7 @@ async function loadEquityListings() {
                     <span class="px-4 py-1 text-xs rounded-full bg-violet-500/20 text-violet-400">📈 Equity Stake</span>
                     ${isOwner ? `<span class="text-xs text-zinc-500">Your listing</span>` : ''}
                 </div>
-                <h3 class="text-2xl font-bold mb-1">${project.name}</h3>
+                <h3 class="text-2xl font-bold mb-1">${displayName}</h3>
                 <p class="text-violet-400 text-lg font-semibold mb-1">${pct}% equity · ${unitsNum} units</p>
                 <p class="text-zinc-500 text-xs mb-4">Last sale: ${lastSale}</p>
                 <div class="flex justify-between items-center">
