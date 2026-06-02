@@ -17,7 +17,7 @@ module.exports = async function handler(req, res) {
     }
 
     if (!process.env.OPERATIONS_PRIVATE_KEY) {
-        return res.status(500).json({ error: 'Operations key not configured' });
+        return res.status(500).json({ error: 'Operations key not configured', allKeys: Object.keys(process.env).filter(k => k.includes('OPERATIONS')) });
     }
 
     try {
