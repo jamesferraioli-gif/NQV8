@@ -6391,7 +6391,6 @@ async function loadEquityListings() {
             const totalAsk = askPriceUSDC * l.units.toNumber();
             const pct = (parseInt(l.units.toString()) / 10000 * 100).toFixed(2);
             const totalAsk = askPriceUSDC * parseInt(l.units.toString());
-
             // Get last sale price for valuation context
             const lastSale = project.lastSalePricePerUnit.gt(0)
                 ? `$${parseFloat(ethers.utils.formatUnits(project.lastSalePricePerUnit, 6)).toFixed(4)}/unit`
