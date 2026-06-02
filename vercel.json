@@ -6,6 +6,14 @@
             "use": "@vercel/static"
         },
         {
+            "src": "manifest.json",
+            "use": "@vercel/static"
+        },
+        {
+            "src": "favicon.svg",
+            "use": "@vercel/static"
+        },
+        {
             "src": "api/*.js",
             "use": "@vercel/node"
         }
