@@ -6962,17 +6962,21 @@ async function showCompanyDetail(companyId, company) {
         <div class="bg-zinc-800 rounded-3xl p-6 mb-8">
             <div class="flex justify-between mb-4">
                 <h3 class="font-semibold text-lg">📊 Live Stats</h3>
-                ${isOwner ? `<button onclick="showEditCompanyStats('${companyId}', ${JSON.stringify(company).replace(/"/g, '&quot;')})" class="px-5 py-2 bg-white text-black text-sm rounded-2xl">✏️ Update Stats</button>` : ''}
+                ${isOwner ? `<button onclick="showEditCompanyStats('${companyId}', ${JSON.stringify(company).replace(/"/g, '&quot;')})" class="px-5 py-2 bg-white text-black text-sm rounded-2xl">✏️ Edit</button>` : ''}
             </div>
             <div class="grid grid-cols-2 gap-6 text-sm">
                 <div><span class="text-zinc-400">Status:</span> <span class="font-medium ${company.isActive ? 'text-emerald-400' : 'text-amber-400'}">${company.isActive ? '🟢 Active' : '🔨 In Build-Out'}</span></div>
-                <div><span class="text-zinc-400">Revenue:</span> <span class="font-medium">${company.revenue || 'Not disclosed'}</span></div>
-                <div><span class="text-zinc-400">Users:</span> <span class="font-medium">${company.userCount || 'Not disclosed'}</span></div>
                 <div><span class="text-zinc-400">Website:</span> ${company.website ? `<a href="${company.website}" target="_blank" class="text-cyan-400 hover:underline">${company.website}</a>` : '<span class="text-zinc-500">Not listed</span>'}</div>
+                ${company.metricsVerified ? `
+                <div><span class="text-zinc-400">Revenue:</span> <span class="font-medium text-emerald-400">${company.revenueBucket} <span class="text-xs text-zinc-500">✅ verified</span></span></div>
+                <div><span class="text-zinc-400">Users:</span> <span class="font-medium text-cyan-400">${company.usersBucket} <span class="text-xs text-zinc-500">✅ verified</span></span></div>
+                ` : `
+                <div class="col-span-2 text-xs text-zinc-500">Revenue & users not yet verified. Use "Verify Metrics & Generate Deck" below.</div>
+                `}
             </div>
             ${company.statsUpdatedAt ? `<p class="text-xs text-zinc-500 mt-4">Last updated: ${new Date(company.statsUpdatedAt).toLocaleDateString()}</p>` : ''}
         </div>`;
-
+    
     // Load on-chain equity balance
     let equityHTML = '';
     try {
@@ -6994,22 +6998,24 @@ async function showCompanyDetail(companyId, company) {
                     </div>
                     ${isOwner ? `
                     <div class="bg-zinc-800 rounded-2xl p-5 mb-6">
-                        <div class="flex justify-between items-center mb-3">
-                            <p class="font-semibold">📈 Update Metrics</p>
+                        <div class="flex justify-between items-center">
+                            <p class="font-semibold">📈 Metrics</p>
                             <button onclick="hideProjectDetailModal(); showVerifyMetricsModal('${companyId}', ${JSON.stringify(company).replace(/"/g, '&quot;')})" 
                                     class="px-4 py-2 bg-gradient-to-r from-cyan-400 to-violet-500 text-black text-xs font-semibold rounded-xl">
-                                ${company.metricsVerified ? '🔄 Re-verify & Regenerate Deck' : '✨ Verify Metrics & Generate Deck ($5 NQV8)'}
+                                ${company.metricsVerified ? '🔄 Re-verify & Regenerate Deck ($5 NQV8)' : '✨ Verify Metrics & Generate Deck ($5 NQV8)'}
                             </button>
                         </div>
                         ${company.metricsVerified ? `
-                        <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 mb-3">
+                        <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 mt-3">
                             <p class="text-emerald-400 text-xs font-semibold">✅ Metrics Verified by Claude AI</p>
                             <p class="text-zinc-400 text-xs mt-1">Revenue: ${company.revenueBucket} · Users: ${company.usersBucket}</p>
                             <button onclick="showInvestorDeck('${companyId}', ${JSON.stringify(company).replace(/"/g, '&quot;')})" 
                                     class="mt-2 px-3 py-1 bg-violet-600 text-white text-xs rounded-lg">
                                 📄 View Investor Deck
                             </button>
-                        </div>` : ''}
+                        </div>` : `
+                        <p class="text-zinc-500 text-xs mt-3">Upload revenue and user proof documents to get Claude-verified metrics and an auto-generated investor deck.</p>`}
+                    </div>` : ''}
                         <div class="space-y-3">
                             <input id="metric-revenue" type="text" placeholder="Monthly Revenue (e.g. $12,000/mo)" class="w-full bg-zinc-700 rounded-xl px-4 py-3 text-sm outline-none">
                             <input id="metric-users" type="text" placeholder="Users / Customers" class="w-full bg-zinc-700 rounded-xl px-4 py-3 text-sm outline-none">
@@ -7057,21 +7063,15 @@ async function showCompanyDetail(companyId, company) {
 function showEditCompanyStats(companyId, company) {
     const website = prompt("Website URL:", company.website || '');
     if (website === null) return;
-    const revenue = prompt("Monthly Revenue (e.g. $12,000/mo or 'Pre-revenue'):", company.revenue || '');
-    if (revenue === null) return;
-    const userCount = prompt("Users / Customers:", company.userCount || '');
-    if (userCount === null) return;
-    const isActiveStr = prompt("Is the company active and operational? (yes/no):", company.isActive ? 'yes' : 'no');
+    const isActiveStr = prompt("Is the company active and live? (yes/no):", company.isActive ? 'yes' : 'no');
     if (isActiveStr === null) return;
 
     db.collection("companies").doc(companyId).update({
         website: website.trim(),
-        revenue: revenue.trim(),
-        userCount: userCount.trim(),
         isActive: isActiveStr.toLowerCase().startsWith('y'),
         statsUpdatedAt: new Date().toISOString()
     }).then(() => {
-        alert("✅ Company stats updated!");
+        alert("✅ Updated!\n\nTo update revenue and users, use \"Verify Metrics & Generate Deck\".");
         hideProjectDetailModal();
         loadProfileData();
     }).catch(e => alert("Error: " + e.message));
