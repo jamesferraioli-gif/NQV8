@@ -1832,7 +1832,7 @@ const EQUITY_REGISTRY_ABI = [
     "function makeOffer(bytes32 listingId, uint256 offerPricePerUnit) external returns (bytes32)",
     "function acceptOffer(bytes32 offerId) external",
     "function rejectOffer(bytes32 offerId) external",
-    "function balances(string projectId, address wallet) external view returns (uint256 units, uint256 percentageBps)",
+    "function balances(string projectId, address wallet) external view returns (uint256)",
     "function projects(string projectId) external view returns (tuple(string projectId, string name, address founder, bool exists, uint256 createdAt, uint256 lastSalePricePerUnit, uint256 lastSaleAt, uint256 totalTradeVolume, bytes32 metricsHash, uint256 metricsUpdatedAt))",
     "function listings(bytes32 listingId) external view returns (tuple(bytes32 listingId, string projectId, address seller, uint256 units, uint256 askPricePerUnit, uint8 status, uint256 createdAt))",
     "function offers(bytes32 offerId) external view returns (tuple(bytes32 offerId, bytes32 listingId, string projectId, address buyer, address seller, uint256 units, uint256 offerPricePerUnit, uint256 counterPricePerUnit, uint256 lockedUSDC, uint8 status, uint256 createdAt, uint256 expiresAt))",
