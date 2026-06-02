@@ -91,6 +91,10 @@
             "src": "/(.*)",
             "dest": "/index.html"
         }
+        {
+            "src": "/api/verify-metrics",
+            "dest": "/api/verify-metrics.js"
+        },
     ],
     "crons": [
         {
