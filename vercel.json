@@ -28,6 +28,10 @@
             "dest": "/api/verify-docs.js"
         },
         {
+            "src": "/api/register-equity",
+            "dest": "/api/register-equity.js"
+        },
+        {
             "src": "/api/improve-posting(.*)",
             "dest": "/api/improve-posting.js"
         },
