@@ -1771,6 +1771,271 @@
 </div>
     
 <script>
+
+
+        // ====================== METRICS VERIFICATION & INVESTOR DECK ======================
+let verifyMetricsCompanyId = null;
+let verifyMetricsCompany = null;
+
+function showVerifyMetricsModal(companyId, company) {
+    verifyMetricsCompanyId = companyId;
+    verifyMetricsCompany = company;
+    document.getElementById('verify-metrics-modal').classList.remove('hidden');
+    document.getElementById('metrics-status-banner').classList.add('hidden');
+    document.getElementById('metric-revenue-doc').value = '';
+    document.getElementById('metric-users-doc').value = '';
+    document.getElementById('metric-optional-doc').value = '';
+}
+
+function hideVerifyMetricsModal() {
+    document.getElementById('verify-metrics-modal').classList.add('hidden');
+    verifyMetricsCompanyId = null;
+    verifyMetricsCompany = null;
+}
+
+async function submitMetricsVerification() {
+    if (!verifyMetricsCompanyId || !verifyMetricsCompany) return;
+    if (!connectedAddress) return alert("Please connect your wallet first.");
+
+    const revenueDoc = document.getElementById('metric-revenue-doc').files[0];
+    const usersDoc = document.getElementById('metric-users-doc').files[0];
+
+    if (!revenueDoc || !usersDoc) return alert("Please upload at least revenue and user proof documents.");
+
+    const claimedRevenue = document.getElementById('metric-claimed-revenue').value;
+    const claimedUsers = document.getElementById('metric-claimed-users').value;
+
+    const btn = document.getElementById('verify-metrics-btn');
+    const banner = document.getElementById('metrics-status-banner');
+    const setBanner = (msg, color) => {
+        banner.classList.remove('hidden');
+        banner.className = `mb-4 p-4 rounded-2xl ${color}`;
+        banner.textContent = msg;
+    };
+
+    btn.disabled = true;
+    btn.textContent = '⏳ Processing payment...';
+
+    try {
+        // Pay $5 in NQV8
+        const metricsNQV8Amount = await usdToNQV8(5.00);
+        const nqv8Raw = await nqv8Contract.balanceOf(connectedAddress);
+        const nqv8Bal = parseFloat(ethers.utils.formatUnits(nqv8Raw, 18));
+
+        if (nqv8Bal < metricsNQV8Amount) {
+            btn.disabled = false;
+            btn.textContent = 'Pay $5.00 in NQV8 & Verify';
+            return alert(`❌ Insufficient NQV8. You need ${metricsNQV8Amount} NQV8 (≈ $5.00).`);
+        }
+
+        const rewardsContract = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
+        const amountRaw = ethers.utils.parseUnits(String(metricsNQV8Amount), 18);
+        const allowance = await nqv8Contract.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
+        if (allowance.lt(amountRaw)) {
+            btn.textContent = '⏳ Approve NQV8...';
+            const approveTx = await nqv8Contract.approve(REWARDS_CONTRACT_ADDRESS, amountRaw);
+            await approveTx.wait();
+        }
+        btn.textContent = '⏳ Paying...';
+        const payTx = await rewardsContract.payNQV8Fee(connectedAddress, amountRaw);
+        await payTx.wait();
+        await recordProtocolFee(5, 'metrics-verification', payTx.hash);
+
+        // Convert to base64
+        btn.textContent = '⏳ Analyzing with Claude AI...';
+        const toBase64 = (file) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result.split(',')[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+
+        const revenueBase64 = await toBase64(revenueDoc);
+        const usersBase64 = await toBase64(usersDoc);
+        const optionalDoc = document.getElementById('metric-optional-doc').files[0];
+        const optionalBase64 = optionalDoc ? await toBase64(optionalDoc) : null;
+
+        // Call API
+        const response = await fetch('/api/verify-metrics', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                revenueBase64,
+                revenueMediaType: revenueDoc.type || 'image/jpeg',
+                usersBase64,
+                usersMediaType: usersDoc.type || 'image/jpeg',
+                optionalBase64: optionalBase64 || null,
+                optionalMediaType: optionalDoc?.type || null,
+                companyName: verifyMetricsCompany.name,
+                entityType: verifyMetricsCompany.entityType || verifyMetricsCompany.type || 'LLC',
+                description: verifyMetricsCompany.description || '',
+                website: verifyMetricsCompany.website || '',
+                claimedRevenue,
+                claimedUsers
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.metricsVerified && result.confidence !== 'low') {
+            // Store verified metrics + deck in Firestore
+            await db.collection('companies').doc(verifyMetricsCompanyId).update({
+                metricsVerified: true,
+                metricsVerifiedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                metricsVerificationTxHash: payTx.hash,
+                metricsConfidence: result.confidence,
+                revenueBucket: result.revenueBucket,
+                usersBucket: result.usersBucket,
+                investorDeck: result.deck,
+                metricsVerificationResult: {
+                    revenueBucket: result.revenueBucket,
+                    usersBucket: result.usersBucket,
+                    confidence: result.confidence,
+                    summary: result.summary
+                }
+            });
+
+            // Timestamp on-chain
+            if (connectedAddress && signer) {
+                try {
+                    const metricsData = { revenueBucket: result.revenueBucket, usersBucket: result.usersBucket, verifiedAt: Date.now() };
+                    const metricsHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(JSON.stringify(metricsData)));
+                    const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
+                    const tx = await equityContract.updateMetrics(verifyMetricsCompanyId, metricsHash);
+                    await tx.wait();
+                } catch(e) {
+                    console.warn('On-chain metrics timestamp failed:', e.message);
+                }
+            }
+
+            btn.disabled = false;
+            btn.textContent = 'Pay $5.00 in NQV8 & Verify';
+            hideVerifyMetricsModal();
+            alert(`✅ Metrics verified!\n\nRevenue: ${result.revenueBucket}\nUsers: ${result.usersBucket}\n\nInvestor deck has been generated.`);
+            loadProfileData();
+
+        } else if (result.metricsVerified && result.confidence === 'low') {
+            btn.disabled = false;
+            btn.textContent = 'Pay $5.00 in NQV8 & Verify';
+            setBanner(`⚠️ Low confidence: ${result.summary}`, 'bg-amber-500/10 border border-amber-500/30 text-amber-400');
+        } else {
+            btn.disabled = false;
+            btn.textContent = 'Pay $5.00 in NQV8 & Verify';
+            setBanner(`❌ Verification failed: ${result.summary}${result.issues?.length ? '\n\nIssues: ' + result.issues.join(', ') : ''}`, 'bg-red-500/10 border border-red-500/30 text-red-400');
+        }
+
+    } catch(e) {
+        btn.disabled = false;
+        btn.textContent = 'Pay $5.00 in NQV8 & Verify';
+        alert('❌ Error: ' + e.message);
+    }
+}
+
+function showInvestorDeck(companyId, company) {
+    if (!connectedAddress) return alert("Please connect your wallet to view investor decks.");
+
+    const deck = company.investorDeck;
+    if (!deck) return alert("No investor deck available for this company.");
+
+    document.getElementById('deck-company-name').textContent = company.name;
+
+    const revBadge = company.revenueBucket ? `<span class="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-sm">💰 ${company.revenueBucket}</span>` : '';
+    const userBadge = company.usersBucket ? `<span class="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-sm">👥 ${company.usersBucket}</span>` : '';
+    const verifiedDate = company.metricsVerifiedAt?.toDate ? new Date(company.metricsVerifiedAt.toDate()).toLocaleDateString() : '';
+
+    document.getElementById('deck-content').innerHTML = `
+        <!-- Header -->
+        <div class="text-center py-10 border-b border-zinc-800">
+            <div class="w-20 h-20 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-3xl flex items-center justify-center text-4xl font-bold mx-auto mb-6">
+                ${company.name[0]}
+            </div>
+            <h1 class="text-5xl font-bold mb-4">${company.name}</h1>
+            <p class="text-xl text-zinc-300 max-w-2xl mx-auto mb-6">${deck.tagline}</p>
+            <div class="flex gap-3 justify-center flex-wrap">
+                ${revBadge}
+                ${userBadge}
+                ${verifiedDate ? `<span class="px-3 py-1 bg-violet-500/20 text-violet-400 rounded-full text-sm">✅ Claude-verified · ${verifiedDate}</span>` : ''}
+                ${company.website ? `<a href="${company.website}" target="_blank" class="px-3 py-1 bg-zinc-800 text-cyan-400 rounded-full text-sm hover:bg-zinc-700">🌐 ${company.website}</a>` : ''}
+            </div>
+        </div>
+
+        <!-- Highlights -->
+        <div class="bg-gradient-to-br from-cyan-500/10 to-violet-500/10 border border-cyan-500/20 rounded-3xl p-8">
+            <h2 class="text-2xl font-bold mb-6">✨ Highlights</h2>
+            <div class="space-y-3">
+                ${(deck.highlights || []).map(h => `
+                    <div class="flex items-start gap-3">
+                        <span class="text-cyan-400 mt-0.5 flex-shrink-0">→</span>
+                        <p class="text-zinc-200">${h}</p>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+
+        <!-- Problem -->
+        <div class="bg-zinc-900 rounded-3xl p-8">
+            <h2 class="text-2xl font-bold mb-4 text-red-400">🎯 The Problem</h2>
+            <p class="text-zinc-300 leading-relaxed text-lg">${deck.problem}</p>
+        </div>
+
+        <!-- Solution -->
+        <div class="bg-zinc-900 rounded-3xl p-8">
+            <h2 class="text-2xl font-bold mb-4 text-emerald-400">💡 The Solution</h2>
+            <p class="text-zinc-300 leading-relaxed text-lg">${deck.solution}</p>
+        </div>
+
+        <!-- Traction -->
+        <div class="bg-zinc-900 rounded-3xl p-8">
+            <h2 class="text-2xl font-bold mb-4 text-cyan-400">📈 Traction</h2>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                ${company.revenueBucket ? `
+                <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 text-center">
+                    <p class="text-xs text-zinc-400 mb-1">Monthly Revenue</p>
+                    <p class="text-2xl font-bold text-emerald-400">${company.revenueBucket}</p>
+                    <p class="text-xs text-emerald-600 mt-1">Claude-verified</p>
+                </div>` : ''}
+                ${company.usersBucket ? `
+                <div class="bg-cyan-500/10 border border-cyan-500/20 rounded-2xl p-4 text-center">
+                    <p class="text-xs text-zinc-400 mb-1">Users / Customers</p>
+                    <p class="text-2xl font-bold text-cyan-400">${company.usersBucket}</p>
+                    <p class="text-xs text-cyan-600 mt-1">Claude-verified</p>
+                </div>` : ''}
+            </div>
+            <p class="text-zinc-300 leading-relaxed">${deck.traction}</p>
+        </div>
+
+        <!-- Market Opportunity -->
+        <div class="bg-zinc-900 rounded-3xl p-8">
+            <h2 class="text-2xl font-bold mb-4 text-violet-400">🌐 Market Opportunity</h2>
+            <p class="text-zinc-300 leading-relaxed text-lg">${deck.marketOpportunity}</p>
+        </div>
+
+        <!-- Business Model -->
+        <div class="bg-zinc-900 rounded-3xl p-8">
+            <h2 class="text-2xl font-bold mb-4 text-amber-400">💼 Business Model</h2>
+            <p class="text-zinc-300 leading-relaxed text-lg">${deck.businessModel}</p>
+        </div>
+
+        <!-- Why Now -->
+        <div class="bg-zinc-900 rounded-3xl p-8">
+            <h2 class="text-2xl font-bold mb-4 text-pink-400">⚡ Why Now</h2>
+            <p class="text-zinc-300 leading-relaxed text-lg">${deck.whyNow}</p>
+        </div>
+
+        <!-- Use of Funds -->
+        <div class="bg-zinc-900 rounded-3xl p-8">
+            <h2 class="text-2xl font-bold mb-4 text-cyan-400">🎯 Use of Funds</h2>
+            <p class="text-zinc-300 leading-relaxed text-lg">${deck.useOfFunds}</p>
+        </div>
+
+        <!-- Disclaimer -->
+        <div class="bg-zinc-800/50 rounded-2xl p-6 text-center">
+            <p class="text-xs text-zinc-500">This investor deck was generated by Claude AI based on founder-submitted information and Claude-verified metrics. NQVate is not a broker, advisor, or party to any investment. Always do your own due diligence.</p>
+        </div>
+    `;
+
+    document.getElementById('investor-deck-modal').classList.remove('hidden');
+}
         console.log("✅ SCRIPT LOADED SUCCESSFULLY");
 
         const firebaseConfig = {
@@ -6732,7 +6997,20 @@ async function showCompanyDetail(companyId, company) {
                     <div class="bg-zinc-800 rounded-2xl p-5 mb-6">
                         <div class="flex justify-between items-center mb-3">
                             <p class="font-semibold">📈 Update Metrics</p>
+                            <button onclick="hideProjectDetailModal(); showVerifyMetricsModal('${companyId}', ${JSON.stringify(company).replace(/"/g, '&quot;')})" 
+                                    class="px-4 py-2 bg-gradient-to-r from-cyan-400 to-violet-500 text-black text-xs font-semibold rounded-xl">
+                                ${company.metricsVerified ? '🔄 Re-verify & Regenerate Deck' : '✨ Verify Metrics & Generate Deck ($5 NQV8)'}
+                            </button>
                         </div>
+                        ${company.metricsVerified ? `
+                        <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 mb-3">
+                            <p class="text-emerald-400 text-xs font-semibold">✅ Metrics Verified by Claude AI</p>
+                            <p class="text-zinc-400 text-xs mt-1">Revenue: ${company.revenueBucket} · Users: ${company.usersBucket}</p>
+                            <button onclick="showInvestorDeck('${companyId}', ${JSON.stringify(company).replace(/"/g, '&quot;')})" 
+                                    class="mt-2 px-3 py-1 bg-violet-600 text-white text-xs rounded-lg">
+                                📄 View Investor Deck
+                            </button>
+                        </div>` : ''}
                         <div class="space-y-3">
                             <input id="metric-revenue" type="text" placeholder="Monthly Revenue (e.g. $12,000/mo)" class="w-full bg-zinc-700 rounded-xl px-4 py-3 text-sm outline-none">
                             <input id="metric-users" type="text" placeholder="Users / Customers" class="w-full bg-zinc-700 rounded-xl px-4 py-3 text-sm outline-none">
@@ -9086,6 +9364,10 @@ async function showEquityDetailOnChain(listingId, listing, project) {
 
         ${!isOwner && connectedAddress ? `
         <div class="space-y-3 mb-4">
+            <button onclick="loadAndShowDeck('${listing.projectId}')"
+                    class="w-full py-4 border border-violet-400 text-violet-400 font-semibold rounded-3xl">
+                📄 View Investor Deck
+            </button>
             <button onclick="buyNowOnChain('${listingId}', ${totalAsk})"
                     class="w-full py-5 bg-white text-black font-semibold rounded-3xl">
                 ✅ Buy Now — $${totalAsk.toLocaleString(undefined,{maximumFractionDigits:2})} USDC
@@ -9115,6 +9397,22 @@ async function showEquityDetailOnChain(listingId, listing, project) {
     modal.classList.remove('hidden');
 }
 
+
+async function loadAndShowDeck(companyId) {
+    if (!connectedAddress) return alert("Please connect your wallet to view investor decks.");
+    try {
+        const doc = await db.collection('companies').doc(companyId).get();
+        if (!doc.exists) return alert("Company not found.");
+        const company = { id: doc.id, ...doc.data() };
+        if (!company.investorDeck) {
+            alert("No investor deck available yet. The founder hasn't submitted metric verification.");
+            return;
+        }
+        showInvestorDeck(companyId, company);
+    } catch(e) {
+        alert("Failed to load deck: " + e.message);
+    }
+}
 async function buyNowOnChain(listingId, totalUSDC) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
     if (!confirm(`Buy this stake for $${totalUSDC.toFixed(2)} USDC?\n\n3.5% platform fee applies. 96.5% goes to seller.`)) return;
@@ -9727,6 +10025,91 @@ async function changeWallet() {
         </div>
     </div>
 </div>
+<!-- INVESTOR DECK MODAL -->
+<div id="investor-deck-modal" class="hidden fixed inset-0 bg-black z-[999999] flex flex-col overflow-auto">
+    <div class="flex items-center justify-between px-6 py-4 bg-zinc-900 border-b border-zinc-800 flex-shrink-0">
+        <div class="flex items-center gap-3">
+            <div class="w-8 h-8 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-xl flex items-center justify-center text-sm font-bold">NQV8</div>
+            <div>
+                <p id="deck-company-name" class="font-bold text-lg"></p>
+                <p class="text-xs text-zinc-400">Investor Deck · Confidential · NQVate</p>
+            </div>
+        </div>
+        <button onclick="document.getElementById('investor-deck-modal').classList.add('hidden')" 
+                class="text-zinc-400 hover:text-white px-4 py-2 border border-zinc-700 rounded-xl text-sm">
+            Close
+        </button>
+    </div>
+    <div id="deck-content" class="flex-1 max-w-4xl mx-auto w-full px-6 py-10 space-y-10">
+        <!-- Populated by JS -->
+    </div>
+</div>
 
+<!-- VERIFY METRICS MODAL -->
+<div id="verify-metrics-modal" class="hidden fixed inset-0 bg-black/95 flex items-start justify-center z-[99999] overflow-y-auto py-6">
+    <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-6 my-auto">
+        <div class="flex justify-between items-center mb-2">
+            <h2 class="text-2xl font-bold">Verify Metrics & Generate Deck</h2>
+            <button onclick="hideVerifyMetricsModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
+        </div>
+        <p class="text-zinc-400 text-sm mb-6">Upload proof of your revenue and user metrics. Documents are reviewed by Claude AI and immediately deleted — only the verified ranges are stored.</p>
+
+        <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 mb-6">
+            <p class="text-amber-400 text-xs">💰 Cost: $5.00 in NQV8 (non-refundable) · Includes metric verification + investor deck generation</p>
+        </div>
+
+        <div class="space-y-4 mb-6">
+            <div>
+                <p class="text-sm text-zinc-400 mb-2">Revenue Proof <span class="text-zinc-500">(Stripe, PayPal, bank statement, etc.)</span></p>
+                <input type="file" id="metric-revenue-doc" accept=".pdf,.jpg,.png" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
+            </div>
+            <div>
+                <p class="text-sm text-zinc-400 mb-2">User/Customer Proof <span class="text-zinc-500">(Google Analytics, App Store, CRM, etc.)</span></p>
+                <input type="file" id="metric-users-doc" accept=".pdf,.jpg,.png" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
+            </div>
+            <div>
+                <p class="text-sm text-zinc-400 mb-2">Additional Proof <span class="text-zinc-500">(optional)</span></p>
+                <input type="file" id="metric-optional-doc" accept=".pdf,.jpg,.png" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 mb-6">
+            <div>
+                <p class="text-sm text-zinc-400 mb-2">Your claimed monthly revenue</p>
+                <select id="metric-claimed-revenue" class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none text-sm">
+                    <option value="Pre-revenue">Pre-revenue</option>
+                    <option value="$1-$500/mo">$1-$500/mo</option>
+                    <option value="$500-$2,000/mo">$500-$2,000/mo</option>
+                    <option value="$2,000-$5,000/mo">$2,000-$5,000/mo</option>
+                    <option value="$5,000-$10,000/mo">$5,000-$10,000/mo</option>
+                    <option value="$10,000-$25,000/mo">$10,000-$25,000/mo</option>
+                    <option value="$25,000+/mo">$25,000+/mo</option>
+                </select>
+            </div>
+            <div>
+                <p class="text-sm text-zinc-400 mb-2">Your claimed user count</p>
+                <select id="metric-claimed-users" class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none text-sm">
+                    <option value="Pre-launch">Pre-launch</option>
+                    <option value="1-50 users">1-50 users</option>
+                    <option value="50-250 users">50-250 users</option>
+                    <option value="250-1,000 users">250-1,000 users</option>
+                    <option value="1,000-5,000 users">1,000-5,000 users</option>
+                    <option value="5,000-25,000 users">5,000-25,000 users</option>
+                    <option value="25,000+ users">25,000+ users</option>
+                </select>
+            </div>
+        </div>
+
+        <div id="metrics-status-banner" class="hidden mb-4 p-4 rounded-2xl"></div>
+
+        <div class="flex gap-3">
+            <button onclick="hideVerifyMetricsModal()" class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+            <button onclick="submitMetricsVerification()" id="verify-metrics-btn"
+                    class="flex-1 py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-3xl">
+                Pay $5.00 in NQV8 & Verify
+            </button>
+        </div>
+    </div>
+</div>
 </body>
 </html>
