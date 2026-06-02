@@ -6420,7 +6420,10 @@ async function loadEquityListings() {
                 </div>
                 <p class="text-xs text-zinc-500 mt-3 font-mono">${l.seller.slice(0,6)}...${l.seller.slice(-4)}</p>
             `;
-            card.onclick = () => showEquityDetailOnChain(l.id, l, project);
+            const listingSnapshot = { ...l };
+            const listingId = l.id;
+            const projectInfo = { name: displayName };
+            card.onclick = () => showEquityDetailOnChain(listingId, listingSnapshot, projectInfo);
             grid.appendChild(card);
         }
 
