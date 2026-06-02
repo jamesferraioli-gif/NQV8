@@ -517,12 +517,13 @@
                         <p class="text-sm text-zinc-400 mb-3">Fee Breakdown</p>
                         <div class="flex justify-between text-sm mb-2">
                             <span class="text-zinc-300">AI Document Verification</span>
-                            <span>$10.00 USDC</span>
+                            <span>$10.00 in NQV8</span>
                         </div>
                         <div class="border-t border-zinc-700 mt-3 pt-3 flex justify-between font-semibold">
                             <span>Total</span>
-                            <span class="text-cyan-400">$10.00 USDC</span>
+                            <span class="text-cyan-400">$10.00 in NQV8</span>
                         </div>
+                        
                     </div>
 
                     <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 mb-4">
@@ -3259,8 +3260,8 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
 
                     btn.innerHTML = originalText;
                     btn.disabled = false;
-                    hideVerificationModal();
                     alert(`✅ Verification approved!\n\n${result.summary}\n\nEquity features are now unlocked for ${company.name}.\n10,000 equity units minted to your wallet.`);
+                    hideVerificationModal();
                     loadProfileData();
 
                 } else {
@@ -3278,12 +3279,40 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
 
                     btn.innerHTML = originalText;
                     btn.disabled = false;
-                    hideVerificationModal();
 
-                    if (result.approved) {
-                        alert(`⏳ Verification submitted for manual review.\n\n${result.summary}\n\nThe $10 USDC fee has been collected. You will be notified when review is complete.`);
+                    if (result.approved && result.confidence !== 'low') {
+                        // This case won't hit here (handled above) but just in case
+                        hideVerificationModal();
+                    } else if (result.approved && result.confidence === 'low') {
+                        hideVerificationModal();
+                        alert(`⏳ Verification submitted for manual review.\n\n${result.summary}\n\nYou will be notified when review is complete.`);
                     } else {
-                        alert(`❌ Verification rejected.\n\nIssues found: ${issues}\n\nThe $10 USDC fee is non-refundable. Please correct the issues and resubmit.`);
+                        // Rejected — keep modal open, show result inside it
+                        const resultBanner = document.getElementById('verif-status-banner');
+                        const resultText   = document.getElementById('verif-status-text');
+
+                        if (resultBanner && resultText) {
+                            resultBanner.classList.remove('hidden');
+                            resultBanner.className = 'mb-6 p-4 rounded-2xl bg-red-500/10 border border-red-500/30';
+                            resultText.innerHTML = `
+                                <p class="text-red-400 font-semibold mb-2">❌ Verification Rejected</p>
+                                <p class="text-zinc-300 text-sm mb-3">${result.summary || 'Documents could not be verified'}</p>
+                                ${result.issues?.length > 0 ? `
+                                <p class="text-zinc-400 text-xs font-semibold mb-1">Issues found:</p>
+                                <ul class="text-zinc-400 text-xs space-y-1 mb-3">
+                                    ${result.issues.map(i => `<li>• ${i}</li>`).join('')}
+                                </ul>` : ''}
+                                ${result.missingDocuments?.length > 0 ? `
+                                <p class="text-zinc-400 text-xs font-semibold mb-1">Missing:</p>
+                                <ul class="text-zinc-400 text-xs space-y-1 mb-3">
+                                    ${result.missingDocuments.map(m => `<li>• ${m}</li>`).join('')}
+                                </ul>` : ''}
+                                ${result.recommendation ? `
+                                <p class="text-amber-400 text-xs font-semibold mb-1">What to fix:</p>
+                                <p class="text-zinc-300 text-xs">${result.recommendation}</p>` : ''}
+                                <p class="text-zinc-500 text-xs mt-3">The $10.00 NQV8 fee is non-refundable. Correct the issues above and resubmit.</p>
+                            `;
+                        }
                     }
                 }
 
