@@ -4,7 +4,7 @@ export default async function handler(req) {
     if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
 
     try {
-        const { incorporationBase64, einBase64, idBase64, companyName, entityType } = await req.json();
+        const { incorporationBase64, incorporationMediaType, einBase64, einMediaType, idBase64, idMediaType, companyName, entityType } = await req.json();
 
         const makeBlock = (base64, mediaType) => {
             if (mediaType === 'application/pdf') {
@@ -40,9 +40,9 @@ export default async function handler(req) {
                 messages: [{
                     role: "user",
                     content: [
-                        makeImageBlock(incorporationBase64),
-                        makeImageBlock(einBase64),
-                        makeImageBlock(idBase64),
+                        makeBlock(incorporationBase64, incorporationMediaType),
+                        makeBlock(einBase64, einMediaType),
+                        makeBlock(idBase64, idMediaType),
                         {
                             type: "text",
                             text: `You are a business document verifier for NQVate, a Web3 marketplace platform.
