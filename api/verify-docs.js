@@ -46,39 +46,42 @@ export default async function handler(req) {
                         {
                             type: "text",
                             text: `You are a business document verifier for NQVate, a Web3 marketplace platform.
- 
-A user is submitting documents to verify their business entity for equity features.
-Company name claimed: "${companyName}"
-Entity type claimed: "${entityType}"
- 
-The three documents provided are:
-1. Articles of Incorporation / Formation document
-2. EIN / Tax ID document  
-3. Government-issued ID of the authorized representative
- 
-Review all three documents and respond ONLY with valid JSON in this exact format:
-{
-  "approved": true or false,
-  "confidence": "high", "medium", or "low",
-  "companyNameMatch": true or false,
-  "entityTypeMatch": true or false,
-  "idPresent": true or false,
-  "issues": ["specific issue 1", "specific issue 2"],
-  "missingDocuments": ["any document that is missing or unreadable"],
-  "recommendation": "specific actionable advice on what to fix and resubmit if rejected",
-  "summary": "one sentence summary of the verification result"
-}
-Check for:
-- Does the company name on the formation document match the claimed name "${companyName}"? Note: treat name matching as case-insensitive and ignore entity suffixes like LLC, Inc, Corp, Ltd — so "NQVate" matches "NQVATE LLC" and "nqvate llc".
-- Does the entity type match the claimed "${entityType}"?
-- Is the EIN document present and showing a valid tax ID format?
-- Is the government ID present and appears legitimate?
-- Are there any obvious signs of tampering, inconsistency, or fraud?
-- Do names on the ID match the authorized representative on formation documents if visible?
-- Are all documents clearly legible and unobstructed?
-Be strict but fair. Reject if critical fields are missing, names don't match, or documents appear tampered.
-If rejecting, be specific in "issues" and "recommendation" about exactly what was wrong and what the user needs to fix — they paid a non-refundable fee and deserve a clear explanation.
-Respond with JSON only, no other text.`
+                            
+                            A user is submitting documents to verify their business entity for equity features.
+                            Company name claimed: "${companyName}"
+                            Entity type claimed: "${entityType}"
+                            
+                            The three documents provided are:
+                            1. Articles of Incorporation / Formation document
+                            2. EIN / Tax ID document  
+                            3. Government-issued ID of the authorized representative
+                            
+                            IMPORTANT NAME MATCHING RULES:
+                            - Name matching is case-insensitive ("NQVate" = "NQVATE" = "nqvate")
+                            - Ignore entity suffixes when comparing ("NQVate" matches "NQVATE LLC" or "NQVate LLC")
+                            - Partial matches are acceptable if the core business name is present
+                            
+                            Approve if:
+                            - The core company name appears on the formation document (case-insensitive, ignoring LLC/Inc/Corp)
+                            - An EIN or Tax ID number is visible on the tax document
+                            - A government ID is present and appears legitimate
+                            - No obvious signs of tampering or fraud
+                            
+                            Only reject if documents are completely unreadable, clearly fraudulent, or a completely different company name appears.
+                            
+                            Respond ONLY with valid JSON:
+                            {
+                              "approved": true or false,
+                              "confidence": "high", "medium", or "low",
+                              "companyNameMatch": true or false,
+                              "entityTypeMatch": true or false,
+                              "idPresent": true or false,
+                              "issues": ["specific issue 1"],
+                              "missingDocuments": [],
+                              "recommendation": "specific actionable advice if rejected",
+                              "summary": "one sentence summary"
+                            }
+                            Respond with JSON only, no other text.`
                         }
                     ]
                 }]
