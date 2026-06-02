@@ -10283,51 +10283,18 @@ async function submitNewFlowMap() {
         setStatus('🤖 Claude is generating your flow map...');
         btn.textContent = '⏳ Generating...';
 
-        // Call Claude API
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
+        // Call backend API route
+        const response = await fetch('/api/generate-flowmap', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                model: 'claude-sonnet-4-20250514',
-                max_tokens: 4000,
-                messages: [{
-                    role: 'user',
-                    content: `You are a senior software architect and product manager. Generate a detailed development flow map for the following project.
-
-Project Name: ${name}
-Tech Stack: ${stack || 'Not specified'}
-Description: ${description}
-
-Return ONLY a JSON object with this exact structure (no markdown, no explanation):
-{
-  "nodes": [
-    {
-      "title": "Short node title",
-      "description": "2-3 sentence description of what this step involves",
-      "category": "one of: Frontend, Backend, Database, Auth, API, Infrastructure, Testing, Design, Marketing, Legal, Other",
-      "priority": "high or normal",
-      "estimatedHours": number or null,
-      "dependencies": ["titles of nodes this depends on"],
-      "instructions": "Detailed step-by-step instructions for completing this node. Be specific and technical. 3-6 sentences.",
-      "bestPractices": ["array of 3-5 specific best practices for this step"],
-      "pitfalls": ["array of 2-4 common mistakes to avoid"],
-      "tools": ["array of recommended libraries, tools, or services"],
-      "status": "todo"
-    }
-  ]
-}
-
-Generate 8-16 nodes ordered logically from foundation to launch. Each node should be a discrete, buildable unit of work. Be specific to the tech stack and project type described.`
-                }]
-            })
+            body: JSON.stringify({ name, description, stack })
         });
 
-        const data = await response.json();
-        const text = data.content?.find(c => c.type === 'text')?.text || '';
+        if (!response.ok) throw new Error('Flow map generation failed. Please try again.');
+
         let parsed;
         try {
-            const clean = text.replace(/```json|```/g, '').trim();
-            parsed = JSON.parse(clean);
+            parsed = await response.json();
         } catch(e) {
             throw new Error('Claude returned invalid JSON. Please try again.');
         }
