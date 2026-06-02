@@ -9919,12 +9919,13 @@ async function loadStudioProjectList() {
             sel.appendChild(opt);
         });
 
-        // Also populate project link dropdown from companies
+        // Populate project link dropdown — active companies only
         const compSnap = await db.collection('companies')
             .where('ownerUid', '==', currentUser.uid)
             .get();
         compSnap.forEach(doc => {
             const c = doc.data();
+            if (c.isActive === false) return; // skip inactive
             if (linkSel) {
                 const opt = document.createElement('option');
                 opt.value = doc.id;
@@ -10332,7 +10333,15 @@ async function submitNewFlowMap(useAI = false) {
 
         hideNewFlowMapModal();
         await loadStudioProjectList();
-        document.getElementById('studio-project-select').value = fmRef.id;
+
+        // Select the newly created map and show it
+        const sel = document.getElementById('studio-project-select');
+        sel.value = fmRef.id;
+
+        // Force hide empty state and show flowmap
+        document.getElementById('plan-empty').classList.add('hidden');
+        document.getElementById('plan-flowmap').classList.remove('hidden');
+
         renderFlowMap(currentFlowMap);
 
         btn.disabled = false;
