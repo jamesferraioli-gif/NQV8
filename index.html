@@ -3193,8 +3193,14 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                     toBase64(docEin),
                     toBase64(docId)
                 ]);
+                console.log('Base64 lengths:', incorporationBase64?.length, einBase64?.length, idBase64?.length);
 
                 // Step 3: Send to Claude for verification
+                console.log('Sending to verify-docs API...');
+                console.log('Incorporation type:', docIncorporation.type, 'size:', docIncorporation.size);
+                console.log('EIN type:', docEin.type, 'size:', docEin.size);
+                console.log('ID type:', docId.type, 'size:', docId.size);
+                console.log('Company:', company.name, 'Entity:', company.entityType || company.type);
                 const verifyResponse = await fetch('/api/verify-docs', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
