@@ -69,7 +69,7 @@ Review all three documents and respond ONLY with valid JSON in this exact format
   "summary": "one sentence summary of the verification result"
 }
 Check for:
-- Does the company name on the formation document match the claimed name "${companyName}"?
+- Does the company name on the formation document match the claimed name "${companyName}"? Note: treat name matching as case-insensitive and ignore entity suffixes like LLC, Inc, Corp, Ltd — so "NQVate" matches "NQVATE LLC" and "nqvate llc".
 - Does the entity type match the claimed "${entityType}"?
 - Is the EIN document present and showing a valid tax ID format?
 - Is the government ID present and appears legitimate?
