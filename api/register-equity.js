@@ -1,4 +1,4 @@
-import { ethers } from 'ethers';
+const { ethers } = require('ethers');
 
 const ARBITRUM_RPC = 'https://arb1.arbitrum.io/rpc';
 const EQUITY_REGISTRY_ADDRESS = '0xb4085b1eDd626cc401FB87784b73E23D5c4eb909';
@@ -7,7 +7,7 @@ const EQUITY_REGISTRY_ABI = [
     "function registerProject(string projectId, string name, address founder) external"
 ];
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     const { projectId, companyName, founderWallet, callerUid } = req.body;
