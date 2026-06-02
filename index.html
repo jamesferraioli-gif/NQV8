@@ -1837,7 +1837,7 @@ const EQUITY_REGISTRY_ABI = [
     "function listings(bytes32 listingId) external view returns (tuple(bytes32 listingId, string projectId, address seller, uint256 units, uint256 askPricePerUnit, uint8 status, uint256 createdAt))",
     "function offers(bytes32 offerId) external view returns (tuple(bytes32 offerId, bytes32 listingId, string projectId, address buyer, address seller, uint256 units, uint256 offerPricePerUnit, uint256 counterPricePerUnit, uint256 lockedUSDC, uint8 status, uint256 createdAt, uint256 expiresAt))",
     "function listingOffers(bytes32 listingId) external view returns (bytes32[])",
-    "function allListingIds() external view returns (bytes32[])",
+    "function allListingIds(uint256 index) external view returns (bytes32)",
     "function totalProjectsRegistered() external view returns (uint256)",
     "function totalTradesExecuted() external view returns (uint256)",
     "function totalPlatformFeesCollected() external view returns (uint256)",
@@ -6340,9 +6340,19 @@ async function loadEquityListings() {
 
         let listingIds = [];
         try {
-            listingIds = await equityReadOnly.allListingIds();
+            const total = await equityReadOnly.totalProjectsRegistered();
+            // allListingIds is index-based — fetch until we get a revert
+            let i = 0;
+            while (true) {
+                try {
+                    const id = await equityReadOnly.allListingIds(i);
+                    listingIds.push(id);
+                    i++;
+                } catch(e) {
+                    break; // no more listings
+                }
+            }
         } catch(e) {
-            // Empty array returns can throw on some RPC nodes — treat as no listings
             listingIds = [];
         }
 
