@@ -6088,7 +6088,6 @@ async function startVideoCall() {
                 const user = userDoc.data();
 
                 // Basic Info
-                document.getElementById('user-profile-name').textContent = user.fullName || user.username || 'User';
                 document.getElementById('user-profile-username').textContent = '@' + (user.username || 'user');
                 document.getElementById('user-profile-bio').textContent = user.bio || "No bio yet.";
 
