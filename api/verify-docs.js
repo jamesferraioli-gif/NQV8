@@ -100,7 +100,7 @@ Respond with JSON only, no other text.`
             });
         }
 
-        const resultText = anthropicData.content?.[0]?.text?.trim() || '{"approved": false, "summary": "Verification failed"}';
+        const resultText = (anthropicData.content?.[0]?.text?.trim() || '{"approved": false, "summary": "Verification failed"}').replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
         try {
             return new Response(JSON.stringify(JSON.parse(resultText)), {
