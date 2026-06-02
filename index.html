@@ -530,16 +530,17 @@
                         <p class="text-zinc-400 text-xs mt-1">Documents are reviewed instantly by Claude AI. Clear, matching documents are approved immediately. Edge cases are flagged for manual review. Fee paid in NQV8 at current market rate.</p>
                     </div>
 
-                    <p class="text-xs text-zinc-500 mb-6 text-center">
-                        $10.00 worth of NQV8 is charged to your connected wallet at current market price. Fee is non-refundable.
-                    </p>
+                    <div class="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 mb-6">
+                        <p class="text-red-400 text-sm font-semibold mb-1">⚠️ Fee is non-refundable</p>
+                        <p class="text-zinc-400 text-xs">$10.00 in NQV8 is charged at current market price regardless of outcome. If your documents are rejected you will need to resubmit and pay again. Make sure all three documents are clear, legible, and match the entity name exactly before submitting.</p>
+                    </div>
             
                     <div class="flex gap-3">
                         <button onclick="hideVerificationModal()" 
                                 class="flex-1 py--4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
                         <button onclick="submitVerification()" 
                                 class="flex-1 py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-3xl">
-                                Verify & Pay $10.00 in NQV8
+                                Pay $10.00 in NQV8 & Submit (non-refundable)
                         </button>
                     </div>
                 </div>
@@ -3119,6 +3120,20 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
             }
             if (!verificationCompanyId) return alert("No company selected");
             if (!connectedAddress) return alert("Please connect your wallet first");
+
+            // Explicit non-refundable confirmation
+            if (!confirm(
+                `⚠️ Non-Refundable Fee Confirmation\n\n` +
+                `You are about to pay $10.00 in NQV8 for entity verification.\n\n` +
+                `This fee is NON-REFUNDABLE regardless of outcome:\n` +
+                `• If approved → equity features unlocked ✅\n` +
+                `• If rejected → fee is lost, must resubmit and pay again ❌\n\n` +
+                `Before continuing, make sure:\n` +
+                `• All documents are clear and legible\n` +
+                `• Entity name matches exactly across all documents\n` +
+                `• Documents are current and not expired\n\n` +
+                `Do you want to proceed?`
+            )) return;
 
             // Get company details
             const companySnap = await db.collection("companies").doc(verificationCompanyId).get();
