@@ -6692,7 +6692,7 @@ async function loadPendingVerifications() {
                 const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
                 const project = await equityReadOnly.projects(companyId);
                 if (project.exists && connectedAddress) {
-                    const [units, bps] = await equityReadOnly.balances(companyId, connectedAddress);
+                    const units = await equityReadOnly.balances(companyId, connectedAddress);
                     const pct = (units.toNumber() / 10000 * 100).toFixed(2);
                     const lastSale = project.lastSalePricePerUnit.gt(0)
                         ? `$${parseFloat(ethers.utils.formatUnits(project.lastSalePricePerUnit, 6)).toFixed(4)}/unit`
