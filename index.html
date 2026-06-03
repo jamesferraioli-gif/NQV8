@@ -9963,7 +9963,6 @@ async function loadStudioProject() {
             db.collection('subprojects')
                 .where('companyId', '==', projectId)
                 .where('planNode', '==', true)
-                .orderBy('nodeOrder', 'asc')
                 .get()
         ]);
 
@@ -9974,9 +9973,13 @@ async function loadStudioProject() {
         document.getElementById('plan-empty').classList.add('hidden');
         document.getElementById('plan-flowmap').classList.remove('hidden');
 
-        renderFlowNodes(nodesSnap.docs.map(d => ({ id: d.id, ...d.data() })));
+    const nodes = nodesSnap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => (a.nodeOrder ?? 0) - (b.nodeOrder ?? 0));
+        renderFlowNodes(nodes);
     } catch(e) {
-        console.error('loadStudioProject:', e.message);
+        console.error('loadStudioProject error:', e.message);
+        alert('Error loading plan: ' + e.message);
     }
 }
 
