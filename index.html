@@ -10238,56 +10238,60 @@ function hideNewFlowMapModal() {
 async function submitNewFlowMap(useAI = false) {
     if (!currentUser) { showAuthModal(); return; }
     if (useAI && !connectedAddress) return alert('Please connect your wallet first.');
-
+ 
     const name = document.getElementById('flowmap-name-input').value.trim();
     const description = document.getElementById('flowmap-description').value.trim();
     const stack = document.getElementById('flowmap-stack').value;
     const linkedProjectId = document.getElementById('flowmap-project-link').value;
-
+ 
     if (!name) return alert('Please enter a project name.');
     if (useAI && (!description || description.length < 20)) return alert('Please describe your project in more detail (at least 20 characters).');
-
-    const btn = document.getElementById(useAI ? 'generate-flowmap-btn' : 'create-flowmap-btn');
+ 
     const statusEl = document.getElementById('flowmap-modal-status');
     const setStatus = (msg) => {
         statusEl.classList.remove('hidden');
         statusEl.textContent = msg;
     };
-
-    btn.disabled = true;
-    btn.textContent = '⏳ Please wait...';
-
+ 
+    // Disable both buttons while working
+    const btnAI = document.getElementById('generate-flowmap-btn');
+    const btnFree = document.getElementById('create-flowmap-btn');
+    if (btnAI) btnAI.disabled = true;
+    if (btnFree) btnFree.disabled = true;
+    if (useAI && btnAI) btnAI.textContent = '⏳ Please wait...';
+    if (!useAI && btnFree) btnFree.textContent = '⏳ Saving...';
+ 
     try {
         let payTxHash = null;
         let nodes = [];
-
+ 
         if (useAI) {
             // Pay $5 NQV8
             const nqv8Amount = await usdToNQV8(5.00);
             const nqv8Raw = await nqv8Contract.balanceOf(connectedAddress);
             const nqv8Bal = parseFloat(ethers.utils.formatUnits(nqv8Raw, 18));
             if (nqv8Bal < nqv8Amount) {
-                btn.disabled = false;
-                btn.textContent = '✨ AI ($5 NQV8)';
+                if (btnAI) { btnAI.disabled = false; btnAI.textContent = '✨ AI ($5 NQV8)'; }
+                if (btnFree) { btnFree.disabled = false; btnFree.textContent = '🆓 Free'; }
                 return alert(`❌ Insufficient NQV8. You need ${nqv8Amount} NQV8 (≈ $5.00).`);
             }
             const rewardsContract = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
             const amountRaw = ethers.utils.parseUnits(String(nqv8Amount), 18);
             const allowance = await nqv8Contract.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
             if (allowance.lt(amountRaw)) {
-                btn.textContent = '⏳ Approve NQV8...';
+                if (btnAI) btnAI.textContent = '⏳ Approve NQV8...';
                 const approveTx = await nqv8Contract.approve(REWARDS_CONTRACT_ADDRESS, amountRaw);
                 await approveTx.wait();
             }
-            btn.textContent = '⏳ Paying...';
+            if (btnAI) btnAI.textContent = '⏳ Paying...';
             const payTx = await rewardsContract.payNQV8Fee(connectedAddress, amountRaw);
             await payTx.wait();
             await recordProtocolFee(5, 'flow-map-generation', payTx.hash);
             payTxHash = payTx.hash;
-
+ 
             setStatus('🤖 Claude is generating your flow map...');
-            btn.textContent = '⏳ Generating...';
-
+            if (btnAI) btnAI.textContent = '⏳ Generating...';
+ 
             const response = await fetch('/api/generate-flowmap', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -10297,7 +10301,7 @@ async function submitNewFlowMap(useAI = false) {
             const parsed = await response.json();
             if (!parsed.nodes || !Array.isArray(parsed.nodes)) throw new Error('Invalid response from Claude. Please try again.');
             nodes = parsed.nodes;
-
+ 
         } else {
             // Blank map — one starter node
             nodes = [{
@@ -10314,7 +10318,7 @@ async function submitNewFlowMap(useAI = false) {
                 status: 'todo'
             }];
         }
-
+ 
         // Save to Firestore
         const fmRef = await db.collection('flowMaps').add({
             ownerUid: currentUser.uid,
@@ -10327,30 +10331,24 @@ async function submitNewFlowMap(useAI = false) {
             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-
+ 
         currentFlowMapId = fmRef.id;
         currentFlowMap = { id: fmRef.id, name, description, stack, nodes };
-
+ 
         hideNewFlowMapModal();
         await loadStudioProjectList();
-
+ 
         // Select the newly created map and show it
-        const sel = document.getElementById('studio-project-select');
-        sel.value = fmRef.id;
-
-        // Force hide empty state and show flowmap
+        document.getElementById('studio-project-select').value = fmRef.id;
         document.getElementById('plan-empty').classList.add('hidden');
         document.getElementById('plan-flowmap').classList.remove('hidden');
-
         renderFlowMap(currentFlowMap);
-
-        btn.disabled = false;
-        btn.textContent = useAI ? '✨ AI ($5 NQV8)' : '🆓 Free';
-
+ 
     } catch(e) {
-        btn.disabled = false;
-        btn.textContent = useAI ? '✨ AI ($5 NQV8)' : '🆓 Free';
         setStatus('❌ ' + e.message);
+    } finally {
+        if (btnAI) { btnAI.disabled = false; btnAI.textContent = '✨ AI ($5 NQV8)'; }
+        if (btnFree) { btnFree.disabled = false; btnFree.textContent = '🆓 Free'; }
     }
 }
 
