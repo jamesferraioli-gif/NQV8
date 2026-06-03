@@ -5710,7 +5710,7 @@ async function startVideoCall() {
                             </div>
                             <div class="flex gap-2 mb-3">
                                 ${roleBadge}
-                                ${c.isActive ? `<span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full">🟢 Active</span>` : `<span class="text-xs bg-zinc-700 text-zinc-400 px-2 py-1 rounded-full">🔨 Building</span>`}
+                                ${c.projectStatus === 'live' ? `<span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full">🟢 Live</span>` : c.projectStatus === 'inactive' ? `<span class="text-xs bg-zinc-700 text-zinc-400 px-2 py-1 rounded-full">⚫ Inactive</span>` : `<span class="text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-full">🔨 In Development</span>`}
                             </div>
                             ${c.role === 'owner' && !c.equityUnlocked ? `
                             <button onclick="event.stopPropagation(); showVerificationModal('${c.id}')"
@@ -5733,15 +5733,16 @@ async function startVideoCall() {
 
                             // Active/Inactive toggle button
                             const toggleBtn = document.createElement('button');
-                            toggleBtn.className = `flex-1 py-2 text-xs rounded-xl font-medium transition-colors ${
-                                isActive
-                                    ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
-                                    : 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600'
-                            }`;
-                            toggleBtn.textContent = isActive ? '🟢 Active' : '⚫ Inactive';
+                            const _statusCls = c.projectStatus === 'live'
+                                ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
+                                : c.projectStatus === 'inactive'
+                                ? 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600'
+                                : 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30';
+                            toggleBtn.className = `flex-1 py-2 text-xs rounded-xl font-medium transition-colors ${_statusCls}`;
+                            toggleBtn.textContent = c.projectStatus === 'live' ? '🟢 Live' : c.projectStatus === 'inactive' ? '⚫ Inactive' : '🔨 In Development';
                             toggleBtn.onclick = async (e) => {
                                 e.stopPropagation();
-                                await toggleCompanyActive(c.id, isActive, card, toggleBtn);
+                                await toggleCompanyActive(c.id, c.projectStatus || 'in-development', card, toggleBtn);
                             };
                             actionsRow.appendChild(toggleBtn);
 
@@ -6981,7 +6982,7 @@ async function showCompanyDetail(companyId, company) {
                 ${isOwner ? `<button onclick="showEditCompanyStats('${companyId}', ${JSON.stringify(company).replace(/"/g, '&quot;')})" class="px-5 py-2 bg-white text-black text-sm rounded-2xl">✏️ Edit</button>` : ''}
             </div>
             <div class="grid grid-cols-2 gap-6 text-sm">
-                <div><span class="text-zinc-400">Status:</span> <span class="font-medium ${company.isActive ? 'text-emerald-400' : 'text-amber-400'}">${company.isActive ? '🟢 Active' : '🔨 In Build-Out'}</span></div>
+                <div><span class="text-zinc-400">Status:</span> <span class="font-medium ${company.projectStatus === 'live' ? 'text-emerald-400' : company.projectStatus === 'inactive' ? 'text-zinc-400' : 'text-amber-400'}">${company.projectStatus === 'live' ? '🟢 Live' : company.projectStatus === 'inactive' ? '⚫ Inactive' : '🔨 In Development'}</span></div>
                 <div><span class="text-zinc-400">Website:</span> ${company.website ? `<a href="${company.website}" target="_blank" class="text-cyan-400 hover:underline">${company.website}</a>` : '<span class="text-zinc-500">Not listed</span>'}</div>
                 ${company.metricsVerified ? `
                 <div><span class="text-zinc-400">Revenue:</span> <span class="font-medium text-emerald-400">${company.revenueBucket} <span class="text-xs text-zinc-500">✅ verified</span></span></div>
@@ -7068,12 +7069,15 @@ async function showCompanyDetail(companyId, company) {
 function showEditCompanyStats(companyId, company) {
     const website = prompt("Website URL:", company.website || '');
     if (website === null) return;
-    const isActiveStr = prompt("Is the company active and live? (yes/no):", company.isActive ? 'yes' : 'no');
-    if (isActiveStr === null) return;
+    const statusStr = prompt("Project status:\n1 = Live (appears in Grow)\n2 = In Development\n3 = Inactive\n\nEnter 1, 2, or 3:", company.projectStatus === 'live' ? '1' : company.projectStatus === 'inactive' ? '3' : '2');
+    if (statusStr === null) return;
+    const projectStatus = statusStr.trim() === '1' ? 'live' : statusStr.trim() === '3' ? 'inactive' : 'in-development';
+    const isActive = projectStatus !== 'inactive';
 
     db.collection("companies").doc(companyId).update({
         website: website.trim(),
-        isActive: isActiveStr.toLowerCase().startsWith('y'),
+        projectStatus,
+        isActive,
         statsUpdatedAt: new Date().toISOString()
     }).then(() => {
         alert("✅ Updated!\n\nTo update revenue and users, use \"Verify Metrics & Generate Deck\".");
@@ -9000,27 +9004,35 @@ function toggleCompletedPostings() {
 
 // ====================== COMPANY ACTIVE/INACTIVE ======================
 
-async function toggleCompanyActive(companyId, currentlyActive, card, btn) {
-    const newState = !currentlyActive;
+async function toggleCompanyActive(companyId, currentStatus, card, btn) {
+    // Cycle: in-development → live → inactive → in-development
+    const cycle = { 'in-development': 'live', 'live': 'inactive', 'inactive': 'in-development' };
+    const newStatus = cycle[currentStatus] || 'live';
+    const isActive = newStatus !== 'inactive';
+
     try {
         await db.collection('companies').doc(companyId).update({
-            isActive: newState
+            projectStatus: newStatus,
+            isActive
         });
 
-        // Update card appearance instantly
-        card.dataset.active = newState ? 'true' : 'false';
-        card.classList.toggle('opacity-50', !newState);
+        card.dataset.active = isActive ? 'true' : 'false';
+        card.classList.toggle('opacity-50', !isActive);
 
-        btn.textContent = newState ? '🟢 Active' : '⚫ Inactive';
-        btn.className = `flex-1 py-2 text-xs rounded-xl font-medium transition-colors ${
-            newState
-                ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
-                : 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600'
-        }`;
+        const labels = {
+            'live':           { text: '🟢 Live',           cls: 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' },
+            'in-development': { text: '🔨 In Development', cls: 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' },
+            'inactive':       { text: '⚫ Inactive',        cls: 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600' }
+        };
+        const l = labels[newStatus];
+        btn.textContent = l.text;
+        btn.className = `flex-1 py-2 text-xs rounded-xl font-medium transition-colors ${l.cls}`;
+        btn.onclick = async (e) => {
+            e.stopPropagation();
+            await toggleCompanyActive(companyId, newStatus, card, btn);
+        };
 
-        // Re-apply hide filter
         applyInactiveFilter();
-
     } catch(e) {
         alert('Failed to update status: ' + e.message);
     }
@@ -10572,7 +10584,9 @@ async function loadGrowTab() {
             .orderBy('createdAt', 'desc')
             .get();
 
-        if (snap.empty) {
+        const liveDocs = snap.docs.filter(d => d.data().projectStatus === 'live');
+
+        if (liveDocs.length === 0) {
             container.innerHTML = '';
             if (empty) empty.classList.remove('hidden');
             return;
@@ -10581,10 +10595,10 @@ async function loadGrowTab() {
         if (empty) empty.classList.add('hidden');
         container.innerHTML = '';
 
-        snap.forEach(doc => {
+        liveDocs.forEach(doc => {
             const c = { id: doc.id, ...doc.data() };
             const isVerified = c.verificationStatus === 'verified';
-            const isActive   = c.isActive !== false;
+            const isActive   = true;
 
             const card = document.createElement('div');
             card.className = 'bg-zinc-900 rounded-3xl p-6 border border-zinc-800';
@@ -10986,7 +11000,8 @@ async function loadGrowTab() {
         <p class="text-zinc-400 mb-6">Your launchpad for live products. Manage metrics, equity, funding, and growth.</p>
         <div id="grow-empty" class="hidden text-center py-20">
             <div class="text-6xl mb-4">🚀</div>
-            <p class="text-2xl font-bold mb-2">No active companies yet</p>
+            <p class="text-2xl font-bold mb-2">No live projects yet</p>
+            <p class="text-zinc-400 mb-2">Mark a project as <span class="text-emerald-400">🟢 Live</span> from your profile to see it here.</p>
             <p class="text-zinc-400 mb-6">Create a project to unlock the Grow launchpad.</p>
             <button onclick="showCreateProjectModal()"
                     class="px-8 py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-2xl">
