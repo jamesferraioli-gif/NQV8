@@ -5722,7 +5722,7 @@ async function startVideoCall() {
 
                         // Active/Inactive toggle (owner only)
                         if (c.role === 'owner') {
-                            const isActive = c.isActive !== false; // default to active
+                            const isActive = c.projectStatus !== 'inactive';
                             card.dataset.active = isActive ? 'true' : 'false';
 
                             // Dim inactive cards
@@ -5762,8 +5762,10 @@ async function startVideoCall() {
                             card.appendChild(actionsRow);
                         }
 
-                        companiesGrid.appendChild(card);
+                    companiesGrid.appendChild(card);
                     });
+                    // Apply inactive filter immediately after rendering
+                    applyInactiveFilter();
                 } catch(e) {
                     console.error("Companies error:", e);
                     companiesGrid.innerHTML = `<p class="text-red-400">Error loading companies</p>`;
