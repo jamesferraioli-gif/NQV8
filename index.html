@@ -4414,7 +4414,7 @@ async function loadTotalFundingReceivedStat() {
             showProjectDetail(id, data);
         }
 
-        async function deletePosting(projectId) {
+async function deletePosting(projectId) {
             if (!currentUser) return;
         
             const snap = await db.collection("subprojects").doc(projectId).get();
@@ -4425,43 +4425,52 @@ async function loadTotalFundingReceivedStat() {
             if (project.ownerUid !== currentUser.uid && project.posterUid !== currentUser.uid) {
                 return alert("❌ You can only delete your own postings.");
             }
-        
-            if (project.status === "in-progress" || project.status === "completed" || project.bidsOpen === false) {
-                return alert("❌ You cannot delete a posting once a bid has been accepted.");
+
+            // Only enforce bid/status lock for marketplace postings, not studio plan nodes
+            if (!project.planNode) {
+                if (project.status === "in-progress" || project.status === "completed" || project.bidsOpen === false) {
+                    return alert("❌ You cannot delete a posting once a bid has been accepted.");
+                }
             }
         
             if (!confirm(`Delete "${project.title}"?\n\nThis cannot be undone.`)) return;
 
+            const doDelete = async () => {
+                try {
+                    await db.collection("subprojects").doc(projectId).delete();
 
-            showPaymentPicker(
-                `Delete posting: "${project.title}" — $0.01 fee`,
-                0.01, 1,
-                async (txHash) => {
-                    try {
-                        await db.collection("subprojects").doc(projectId).delete();
-
-                        if (project.bids && project.bids.length > 0) {
-                            for (const bid of project.bids) {
-                                if (bid.bidderUid && bid.bidderUid !== currentUser.uid) {
-                                    await createNotification(
-                                        bid.bidderUid,
-                                        'system',
-                                        `The posting "${project.title}" you bid on has been deleted by the poster.`,
-                                        {}
-                                    );
-                                }
+                    if (project.bids && project.bids.length > 0) {
+                        for (const bid of project.bids) {
+                            if (bid.bidderUid && bid.bidderUid !== currentUser.uid) {
+                                await createNotification(
+                                    bid.bidderUid,
+                                    'system',
+                                    `The posting "${project.title}" you bid on has been deleted by the poster.`,
+                                    {}
+                                );
                             }
                         }
-
-                        alert("✅ Posting deleted.");
-                        hideProjectDetailModal();
-                        loadMarketplace();
-                    } catch (e) {
-                        console.error(e);
-                        alert("Payment succeeded but failed to delete: " + e.message);
                     }
+
+                    alert("✅ Posting deleted.");
+                    hideProjectDetailModal();
+                    loadMarketplace();
+                } catch (e) {
+                    console.error(e);
+                    alert("Failed to delete: " + e.message);
                 }
-            );
+            };
+
+            // Studio plan nodes are free to delete — marketplace postings cost $0.01
+            if (project.planNode === true) {
+                await doDelete();
+            } else {
+                showPaymentPicker(
+                    `Delete posting: "${project.title}" — $0.01 fee`,
+                    0.01, 1,
+                    doDelete
+                );
+            }
         }
     
         function hideProjectDetailModal() {
