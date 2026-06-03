@@ -10117,16 +10117,16 @@ function renderFlowNodes(nodes) {
     const addY = nodes.length * UNIT;
     html += `
         <line x1="320" y1="${addY}" x2="320" y2="${addY + 18}" stroke="#3f3f46" stroke-width="1" opacity="0.4"/>
-        <g onclick="addFlowNode()" style="cursor:pointer">
-            <rect x="220" y="${addY + 18}" width="200" height="40" rx="10"
-                  fill="none" stroke="#3f3f46" stroke-width="1" stroke-dasharray="4 3"
-                  onmouseenter="this.setAttribute('stroke','#22d3ee')" onmouseleave="this.setAttribute('stroke','#3f3f46')"/>
-            <text x="320" y="${addY + 38}" text-anchor="middle" dominant-baseline="central"
-                  style="font-size:13px;fill:#71717a;pointer-events:none">+ Add Node</text>
-        </g>
     </svg>`;
 
     container.innerHTML = html;
+
+    // Add node button as real HTML element so onclick works reliably
+    const addBtn = document.createElement('button');
+    addBtn.onclick = addFlowNode;
+    addBtn.className = 'w-full mt-1 py-3 border border-dashed border-zinc-600 text-zinc-400 rounded-xl text-sm font-medium hover:border-cyan-400 hover:text-cyan-400 transition-colors flex items-center justify-center gap-2';
+    addBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Add Node';
+    container.appendChild(addBtn);
 }
 
 // ── Node status update ────────────────────────────────────────────────
