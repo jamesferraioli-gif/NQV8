@@ -90,6 +90,8 @@
                     <a onclick="navigateTo('studio')" class="hover:text-cyan-400 cursor-pointer whitespace-nowrap flex items-center gap-1">
                         <i class="fa-solid fa-diagram-project"></i> Studio
                     </a>
+                    <a onclick="navigateTo('about')" class="hover:text-cyan-400 cursor-pointer whitespace-nowrap flex items-center gap-1">
+                        <i class="fa-solid fa-circle-info"></i> About
                     </a>
                 </div>
                 <div id="nav-loggedin" class="hidden"></div>
@@ -165,6 +167,7 @@
     <a onclick="navigateTo('leaderboard'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏆 Leaderboard</a>
     <a onclick="navigateTo('tokenomics'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🪙 NQV8 Tokenomics</a>
     <a onclick="navigateTo('studio'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🗺️ Studio</a>
+    <a onclick="navigateTo('about'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">ℹ️ About</a>
     <a onclick="viewProfile(); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">👤 My Profile</a>
     <a onclick="logout()" class="block py-2 text-red-400 cursor-pointer">Logout</a>
 </div>
@@ -1774,9 +1777,24 @@
         </div>
     </div>
 </div>
+
     
 <script>
 
+// ====================== ABOUT ======================
+function switchAboutTab(tab) {
+    ['overview','started'].forEach(t => {
+        const btn = document.getElementById(`about-tab-${t}`);
+        const content = document.getElementById(`about-${t}`);
+        const isActive = t === tab;
+        if (btn) {
+            btn.classList.toggle('border-b-2', isActive);
+            btn.classList.toggle('border-cyan-400', isActive);
+            btn.classList.toggle('text-zinc-400', !isActive);
+        }
+        if (content) content.classList.toggle('hidden', !isActive);
+    });
+}
 
         // ====================== METRICS VERIFICATION & INVESTOR DECK ======================
 let verifyMetricsCompanyId = null;
@@ -3623,6 +3641,7 @@ function navigateTo(page) {
             if (page === 'ideas') loadIdeas();
             if (page === 'tokenomics') { loadTokenomics(); loadRewards(); }
             if (page === 'studio') { switchStudioTab('plan'); loadStudioProjectList(); }
+            if (page === 'about') switchAboutTab('overview');
         }
 
         // ====================== NAVBAR & PROFILE ======================
@@ -11082,6 +11101,585 @@ async function loadGrowTab() {
             <button onclick="hideFlowNodeModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
         </div>
         <div id="node-modal-content"></div>
+    </div>
+</div>
+
+<!-- ==================== ABOUT PAGE ==================== -->
+<div id="about-page" class="hidden max-w-5xl mx-auto pt-6 px-4 md:px-6 pb-16">
+
+    <div class="mb-8">
+        <h1 class="text-3xl md:text-5xl font-bold tracking-tighter mb-2">About NQVate</h1>
+        <p class="text-zinc-400">Everything you need to know about the platform and how to get started.</p>
+    </div>
+
+    <!-- Sub-tabs -->
+    <div class="flex border-b border-zinc-700 mb-10">
+        <button onclick="switchAboutTab('overview')" id="about-tab-overview"
+                class="flex-1 pb-3 text-sm md:text-lg font-semibold border-b-2 border-cyan-400 flex items-center justify-center gap-2">
+            🌐 <span class="hidden sm:inline">Overview</span>
+        </button>
+        <button onclick="switchAboutTab('started')" id="about-tab-started"
+                class="flex-1 pb-3 text-sm md:text-lg font-semibold text-zinc-400 flex items-center justify-center gap-2">
+            🚀 <span class="hidden sm:inline">Getting Started</span>
+        </button>
+    </div>
+
+    <!-- ===== OVERVIEW TAB ===== -->
+    <div id="about-overview" class="about-tab-content">
+
+        <!-- Hero -->
+        <div class="bg-gradient-to-br from-cyan-500/10 to-violet-500/10 border border-cyan-500/20 rounded-3xl p-8 md:p-12 mb-10 text-center">
+            <div class="w-20 h-20 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-3xl flex items-center justify-center text-3xl font-bold mx-auto mb-6 shadow-2xl">NQV8</div>
+            <h2 class="text-3xl md:text-4xl font-bold mb-4">Innovate. Incubate. Incuvate.</h2>
+            <p class="text-zinc-300 text-lg max-w-2xl mx-auto leading-relaxed">NQVate is a decentralized marketplace where builders meet opportunities, bounties fuel progress, and equity flows freely on-chain — all on Arbitrum One.</p>
+            <div class="flex flex-wrap gap-3 justify-center mt-6">
+                <span class="px-4 py-2 bg-cyan-500/20 text-cyan-400 rounded-full text-sm font-medium">Built on Arbitrum</span>
+                <span class="px-4 py-2 bg-violet-500/20 text-violet-400 rounded-full text-sm font-medium">On-chain equity</span>
+                <span class="px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-full text-sm font-medium">AI-powered</span>
+                <span class="px-4 py-2 bg-amber-500/20 text-amber-400 rounded-full text-sm font-medium">NQV8 token</span>
+            </div>
+        </div>
+
+        <!-- What is NQVate -->
+        <div class="mb-12">
+            <h2 class="text-2xl font-bold mb-6">What is NQVate?</h2>
+            <p class="text-zinc-300 leading-relaxed text-lg mb-6">NQVate is part freelance marketplace, part decentralized VC, and part community hub. It connects people who have ideas and projects with the builders, investors, and contributors who can make them real — with every transaction recorded transparently on the blockchain.</p>
+            <p class="text-zinc-300 leading-relaxed text-lg">Unlike traditional platforms, NQVate lets founders offer real equity stakes in their companies as compensation, lets builders earn ownership in the projects they help build, and lets investors buy and sell those stakes on an integrated exchange — all without lawyers, paperwork, or gatekeepers.</p>
+        </div>
+
+        <!-- Core Features -->
+        <div class="mb-12">
+            <h2 class="text-2xl font-bold mb-8">What can you do on NQVate?</h2>
+
+            <!-- Marketplace -->
+            <div class="bg-zinc-900 rounded-3xl p-6 md:p-8 mb-6 border border-zinc-800">
+                <div class="flex items-start gap-4 mb-6">
+                    <div class="w-12 h-12 bg-cyan-500/20 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0">🔨</div>
+                    <div>
+                        <h3 class="text-xl font-bold">Marketplace — Post & Bid on Work</h3>
+                        <p class="text-zinc-400 mt-1">The heart of NQVate. Post tasks you need done, or bid on tasks others have posted.</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <div class="bg-zinc-800 rounded-2xl p-5">
+                        <p class="font-semibold text-cyan-400 mb-3">🔨 Build Requests (Bounties)</p>
+                        <p class="text-zinc-400 text-sm leading-relaxed">Post a specific task — a smart contract, a UI component, a logo, anything. Set your compensation in USDC, NQV8, equity, or a combination. Builders browse and bid. You review bids and accept the best one. Funds are locked in escrow automatically and released when you approve the work.</p>
+                        <div class="mt-4 p-3 bg-black/30 rounded-xl border border-zinc-700">
+                            <p class="text-xs text-zinc-500 mb-2">Example posting:</p>
+                            <p class="text-sm font-semibold">Build a Solidity staking contract</p>
+                            <p class="text-xs text-zinc-400 mt-1">Compensation: $2,500 USDC · Category: Blockchain</p>
+                            <p class="text-xs text-emerald-400 mt-1">✅ Funds locked in escrow on acceptance</p>
+                        </div>
+                    </div>
+                    <div class="bg-zinc-800 rounded-2xl p-5">
+                        <p class="font-semibold text-violet-400 mb-3">💰 Funding Requests</p>
+                        <p class="text-zinc-400 text-sm leading-relaxed">Seeking investment for your project? Post a funding request outlining what you're raising and what you're offering. Investors browse and submit funding proposals. Equity terms are locked on-chain when accepted, giving investors a permanent, verifiable ownership stake.</p>
+                        <div class="mt-4 p-3 bg-black/30 rounded-xl border border-zinc-700">
+                            <p class="text-xs text-zinc-500 mb-2">Example posting:</p>
+                            <p class="text-sm font-semibold">Raising $50,000 USDC — 10% equity</p>
+                            <p class="text-xs text-zinc-400 mt-1">For: AI SaaS product · Verified LLC</p>
+                            <p class="text-xs text-violet-400 mt-1">📈 Equity registered on Arbitrum</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4">
+                    <p class="text-amber-400 text-sm font-semibold mb-1">💡 How escrow works</p>
+                    <p class="text-zinc-400 text-sm">When you accept a bid, the agreed payment is automatically locked in the NQVate Escrow smart contract on Arbitrum. The builder does the work, submits it, and you review it. If you approve — funds release instantly to the builder. If there's a dispute, Claude AI acts as the arbitrator and splits funds fairly. No humans, no delays.</p>
+                </div>
+            </div>
+
+            <!-- Equity Exchange -->
+            <div class="bg-zinc-900 rounded-3xl p-6 md:p-8 mb-6 border border-zinc-800">
+                <div class="flex items-start gap-4 mb-6">
+                    <div class="w-12 h-12 bg-pink-500/20 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0">📈</div>
+                    <div>
+                        <h3 class="text-xl font-bold">Equity Exchange</h3>
+                        <p class="text-zinc-400 mt-1">Buy and sell ownership stakes in projects — all on-chain.</p>
+                    </div>
+                </div>
+                <p class="text-zinc-300 leading-relaxed mb-4">Every equity stake earned through bounty completion or investment is tokenized on the NQVate Equity Registry smart contract. Stake holders can list their equity for sale on the exchange, and buyers can purchase at the asking price or make counter-offers — all settled in USDC directly on-chain.</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-zinc-800 rounded-2xl p-4 text-center">
+                        <p class="text-2xl mb-2">🏗️</p>
+                        <p class="font-semibold text-sm">Earn Equity</p>
+                        <p class="text-xs text-zinc-400 mt-1">Complete bounties that offer equity compensation</p>
+                    </div>
+                    <div class="bg-zinc-800 rounded-2xl p-4 text-center">
+                        <p class="text-2xl mb-2">📋</p>
+                        <p class="font-semibold text-sm">List for Sale</p>
+                        <p class="text-xs text-zinc-400 mt-1">Set your asking price per unit on the exchange</p>
+                    </div>
+                    <div class="bg-zinc-800 rounded-2xl p-4 text-center">
+                        <p class="text-2xl mb-2">💸</p>
+                        <p class="font-semibold text-sm">Trade in USDC</p>
+                        <p class="text-xs text-zinc-400 mt-1">Buy now or make offers, settled on-chain instantly</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Studio -->
+            <div class="bg-zinc-900 rounded-3xl p-6 md:p-8 mb-6 border border-zinc-800">
+                <div class="flex items-start gap-4 mb-6">
+                    <div class="w-12 h-12 bg-violet-500/20 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0">🗺️</div>
+                    <div>
+                        <h3 class="text-xl font-bold">Studio — Plan, Build, Grow</h3>
+                        <p class="text-zinc-400 mt-1">Your end-to-end workspace for taking a project from idea to launch.</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-zinc-800 rounded-2xl p-5">
+                        <p class="font-semibold text-cyan-400 mb-2">🗺️ Plan</p>
+                        <p class="text-zinc-400 text-sm">Describe your project and let Claude AI generate a full development flow map — every step, with instructions, best practices, and pitfalls for each node. Or build your own map manually for free.</p>
+                    </div>
+                    <div class="bg-zinc-800 rounded-2xl p-5">
+                        <p class="font-semibold text-violet-400 mb-2">🔨 Build</p>
+                        <p class="text-zinc-400 text-sm">Send nodes from your plan to the Build tab. Work on them yourself or post them directly to the Marketplace for builders to bid on. Track what's done, in progress, or complete.</p>
+                    </div>
+                    <div class="bg-zinc-800 rounded-2xl p-5">
+                        <p class="font-semibold text-emerald-400 mb-2">🚀 Grow</p>
+                        <p class="text-zinc-400 text-sm">Once your project is live, manage it from Grow. View Claude-verified metrics, generate an investor deck, post funding requests, and manage equity from one place.</p>
+                    </div>
+                </div>
+                <div class="bg-violet-500/10 border border-violet-500/20 rounded-2xl p-4">
+                    <p class="text-violet-400 text-sm font-semibold mb-1">✨ AI-powered planning</p>
+                    <p class="text-zinc-400 text-sm">For $5 in NQV8, Claude generates a complete node-by-node development plan tailored to your project — including tech stack recommendations, time estimates, common pitfalls, and best practices for each step.</p>
+                </div>
+            </div>
+
+            <!-- Explore & Chat -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800">
+                    <div class="flex items-start gap-3 mb-4">
+                        <div class="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center text-xl flex-shrink-0">🔎</div>
+                        <h3 class="text-lg font-bold mt-1">Explore</h3>
+                    </div>
+                    <p class="text-zinc-400 text-sm leading-relaxed">Share ideas, news, and projects with the community. Upvote, comment, and discover what builders are working on. Each post costs $0.01 in NQV8 to keep the feed high quality.</p>
+                </div>
+                <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800">
+                    <div class="flex items-start gap-3 mb-4">
+                        <div class="w-10 h-10 bg-cyan-500/20 rounded-xl flex items-center justify-center text-xl flex-shrink-0">💬</div>
+                        <h3 class="text-lg font-bold mt-1">Chat</h3>
+                    </div>
+                    <p class="text-zinc-400 text-sm leading-relaxed">Direct message any user on the platform. Chat is automatically opened when you accept a bid, so you can coordinate with your builder or client. Video calls powered by Daily.co are built in.</p>
+                </div>
+            </div>
+
+            <!-- NQV8 Token -->
+            <div class="bg-zinc-900 rounded-3xl p-6 md:p-8 mb-6 border border-zinc-800">
+                <div class="flex items-start gap-4 mb-6">
+                    <div class="w-12 h-12 bg-amber-500/20 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0">🪙</div>
+                    <div>
+                        <h3 class="text-xl font-bold">NQV8 Token</h3>
+                        <p class="text-zinc-400 mt-1">The native utility token powering the platform.</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <p class="text-zinc-300 leading-relaxed text-sm mb-4">NQV8 is used for all platform fees — posting bounties, submitting bids, verifying your entity, generating AI flow maps, and more. Fees are kept low (most actions cost $0.01–$5.00 equivalent) to make the platform accessible to everyone.</p>
+                        <p class="text-zinc-300 leading-relaxed text-sm">Every month, 20% of all platform fees are redistributed back to active NQV8 users, proportional to their on-chain activity. The more you use the platform, the more you earn back.</p>
+                    </div>
+                    <div class="space-y-3">
+                        <div class="bg-zinc-800 rounded-2xl p-4 flex justify-between items-center">
+                            <span class="text-zinc-400 text-sm">Current price</span>
+                            <span class="text-amber-400 font-bold">$0.01 (pegged)</span>
+                        </div>
+                        <div class="bg-zinc-800 rounded-2xl p-4 flex justify-between items-center">
+                            <span class="text-zinc-400 text-sm">Signup bonus</span>
+                            <span class="text-cyan-400 font-bold">1,000 NQV8 free</span>
+                        </div>
+                        <div class="bg-zinc-800 rounded-2xl p-4 flex justify-between items-center">
+                            <span class="text-zinc-400 text-sm">Referral reward</span>
+                            <span class="text-violet-400 font-bold">1,000 NQV8 / 5 users</span>
+                        </div>
+                        <div class="bg-zinc-800 rounded-2xl p-4 flex justify-between items-center">
+                            <span class="text-zinc-400 text-sm">Monthly rewards</span>
+                            <span class="text-emerald-400 font-bold">20% of fees</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- AI & Security -->
+            <div class="bg-zinc-900 rounded-3xl p-6 md:p-8 border border-zinc-800">
+                <div class="flex items-start gap-4 mb-6">
+                    <div class="w-12 h-12 bg-emerald-500/20 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0">🤖</div>
+                    <div>
+                        <h3 class="text-xl font-bold">Claude AI — Built into Everything</h3>
+                        <p class="text-zinc-400 mt-1">NQVate uses Claude AI throughout the platform to keep things fair, fast, and trustworthy.</p>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="flex items-start gap-3">
+                        <span class="text-cyan-400 mt-0.5 flex-shrink-0">→</span>
+                        <div>
+                            <p class="font-medium text-sm">Entity Verification</p>
+                            <p class="text-zinc-400 text-xs mt-1">Claude reviews your LLC/company documents instantly and either approves or rejects — no waiting days for a human reviewer.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="text-cyan-400 mt-0.5 flex-shrink-0">→</span>
+                        <div>
+                            <p class="font-medium text-sm">Metrics Verification</p>
+                            <p class="text-zinc-400 text-xs mt-1">Upload revenue and user screenshots and Claude verifies them, assigns verified buckets, and auto-generates an investor deck.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="text-cyan-400 mt-0.5 flex-shrink-0">→</span>
+                        <div>
+                            <p class="font-medium text-sm">Dispute Resolution</p>
+                            <p class="text-zinc-400 text-xs mt-1">If a poster and builder disagree, Claude reviews all evidence and issues a binding ruling — splitting escrow funds automatically. No appeals, no bias.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="text-cyan-400 mt-0.5 flex-shrink-0">→</span>
+                        <div>
+                            <p class="font-medium text-sm">Content Moderation</p>
+                            <p class="text-zinc-400 text-xs mt-1">Every posting, bid, and submission is reviewed by Claude before going live to ensure it meets community standards.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="text-cyan-400 mt-0.5 flex-shrink-0">→</span>
+                        <div>
+                            <p class="font-medium text-sm">Studio Planning</p>
+                            <p class="text-zinc-400 text-xs mt-1">Generate a full development plan for any project with step-by-step instructions and best practices tailored to your tech stack.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <span class="text-cyan-400 mt-0.5 flex-shrink-0">→</span>
+                        <div>
+                            <p class="font-medium text-sm">Submission Review</p>
+                            <p class="text-zinc-400 text-xs mt-1">Claude scans submitted work against the original requirements and flags missing deliverables before the poster even sees them.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CTA -->
+        <div class="text-center py-10 border-t border-zinc-800">
+            <p class="text-zinc-400 mb-6">Ready to start building?</p>
+            <div class="flex flex-wrap gap-4 justify-center">
+                <button onclick="showAuthModal()"
+                        class="px-8 py-4 bg-white text-black font-semibold rounded-2xl hover:bg-cyan-400 transition-colors">
+                    Create Account — Get 1,000 NQV8 Free
+                </button>
+                <button onclick="navigateTo('marketplace')"
+                        class="px-8 py-4 border border-zinc-600 text-zinc-300 font-semibold rounded-2xl hover:bg-zinc-800 transition-colors">
+                    Browse Marketplace
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ===== GETTING STARTED TAB ===== -->
+    <div id="about-started" class="about-tab-content hidden">
+
+        <div class="bg-gradient-to-br from-emerald-500/10 to-cyan-500/10 border border-emerald-500/20 rounded-3xl p-6 md:p-8 mb-10">
+            <h2 class="text-2xl font-bold mb-2">Getting Started on NQVate</h2>
+            <p class="text-zinc-300">New to Web3? No problem. Follow these steps and you'll be up and running in under 15 minutes. We'll explain everything — including the crypto parts — in plain English.</p>
+        </div>
+
+        <!-- Step 1 -->
+        <div class="mb-8">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-10 h-10 rounded-full bg-cyan-500 flex items-center justify-center text-black font-bold text-lg flex-shrink-0">1</div>
+                <h3 class="text-xl font-bold">Create your NQVate account</h3>
+            </div>
+            <div class="ml-14">
+                <p class="text-zinc-300 mb-4">Click <strong class="text-white">Create Account</strong> in the top right. You'll need:</p>
+                <div class="space-y-3 mb-4">
+                    <div class="flex items-start gap-3 bg-zinc-900 rounded-2xl p-4">
+                        <span class="text-emerald-400 font-bold flex-shrink-0">✓</span>
+                        <div>
+                            <p class="font-medium">A username</p>
+                            <p class="text-zinc-400 text-sm">Your public identity on NQVate. Choose something you're happy to be known by — it's shown on all your posts and bids.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3 bg-zinc-900 rounded-2xl p-4">
+                        <span class="text-emerald-400 font-bold flex-shrink-0">✓</span>
+                        <div>
+                            <p class="font-medium">An email and password</p>
+                            <p class="text-zinc-400 text-sm">Used to log in. Your email is private — it's never shown publicly.</p>
+                        </div>
+                    </div>
+                    <div class="flex items-start gap-3 bg-zinc-900 rounded-2xl p-4">
+                        <span class="text-emerald-400 font-bold flex-shrink-0">✓</span>
+                        <div>
+                            <p class="font-medium">A connected wallet (required)</p>
+                            <p class="text-zinc-400 text-sm">This is where your NQV8 tokens, USDC payments, and equity stakes will live. Don't worry — we'll walk you through setting one up in the next step.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-cyan-500/10 border border-cyan-500/20 rounded-2xl p-4">
+                    <p class="text-cyan-400 font-semibold text-sm">🎁 Signup bonus</p>
+                    <p class="text-zinc-400 text-sm mt-1">Every new account gets 1,000 NQV8 (worth $10 at the $0.01 peg) claimed directly to your wallet — enough to post several bounties, bids, and explore posts right away.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="border-l-2 border-zinc-700 ml-5 h-6 mb-2"></div>
+
+        <!-- Step 2 -->
+        <div class="mb-8">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-10 h-10 rounded-full bg-cyan-500 flex items-center justify-center text-black font-bold text-lg flex-shrink-0">2</div>
+                <h3 class="text-xl font-bold">Set up a crypto wallet</h3>
+            </div>
+            <div class="ml-14">
+                <p class="text-zinc-300 mb-2">A wallet is like a bank account for crypto — it holds your tokens and signs transactions. You need one to use NQVate. <strong class="text-white">MetaMask</strong> is the most popular and easiest to set up.</p>
+                <div class="bg-zinc-900 rounded-2xl p-5 mb-4 border border-zinc-800">
+                    <p class="font-semibold mb-3 text-cyan-400">Setting up MetaMask (5 minutes)</p>
+                    <ol class="space-y-3 text-sm text-zinc-300">
+                        <li class="flex items-start gap-3">
+                            <span class="bg-zinc-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">1</span>
+                            <span>Go to <a href="https://metamask.io/download/" target="_blank" class="text-cyan-400 hover:underline">metamask.io/download</a> and install the browser extension (Chrome, Firefox, or Brave).</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="bg-zinc-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">2</span>
+                            <span>Click <strong>Create a new wallet</strong> and follow the prompts to set a password.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="bg-zinc-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">3</span>
+                            <span><strong class="text-amber-400">⚠️ Write down your Secret Recovery Phrase</strong> and store it somewhere safe offline. This is the only way to recover your wallet if you lose access. Never share it with anyone — ever.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="bg-zinc-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">4</span>
+                            <span>Your wallet is ready. You'll see an address like <code class="bg-zinc-800 px-1 rounded text-cyan-400">0x1234...abcd</code> — this is your public address, safe to share.</span>
+                        </li>
+                    </ol>
+                </div>
+                <div class="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
+                    <p class="font-semibold text-sm mb-2">On mobile?</p>
+                    <p class="text-zinc-400 text-sm">Download the <strong class="text-white">MetaMask app</strong> from the App Store or Google Play. You can also use WalletConnect to connect any mobile wallet — tap "Connect Wallet" on NQVate and select WalletConnect to scan a QR code.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="border-l-2 border-zinc-700 ml-5 h-6 mb-2"></div>
+
+        <!-- Step 3 -->
+        <div class="mb-8">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-10 h-10 rounded-full bg-cyan-500 flex items-center justify-center text-black font-bold text-lg flex-shrink-0">3</div>
+                <h3 class="text-xl font-bold">Add Arbitrum to your wallet</h3>
+            </div>
+            <div class="ml-14">
+                <p class="text-zinc-300 mb-4">NQVate runs on <strong class="text-white">Arbitrum One</strong> — a fast, cheap version of Ethereum. You need to add it to MetaMask before you can use it.</p>
+                <div class="bg-zinc-900 rounded-2xl p-5 mb-4 border border-zinc-800">
+                    <p class="font-semibold mb-3 text-violet-400">Adding Arbitrum to MetaMask</p>
+                    <ol class="space-y-3 text-sm text-zinc-300">
+                        <li class="flex items-start gap-3">
+                            <span class="bg-zinc-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">1</span>
+                            <span>Go to <a href="https://chainlist.org/chain/42161" target="_blank" class="text-cyan-400 hover:underline">chainlist.org/chain/42161</a> and click <strong>Add to MetaMask</strong>. This adds Arbitrum One automatically.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="bg-zinc-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">2</span>
+                            <span>Or: in MetaMask, click the network dropdown at the top → <strong>Add a custom network</strong> and enter these details manually:</span>
+                        </li>
+                    </ol>
+                    <div class="mt-4 bg-black/40 rounded-xl p-4 font-mono text-xs space-y-1">
+                        <div class="flex justify-between"><span class="text-zinc-500">Network Name</span><span class="text-white">Arbitrum One</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-500">RPC URL</span><span class="text-cyan-400">https://arb1.arbitrum.io/rpc</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-500">Chain ID</span><span class="text-white">42161</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-500">Symbol</span><span class="text-white">ETH</span></div>
+                        <div class="flex justify-between"><span class="text-zinc-500">Explorer</span><span class="text-cyan-400">https://arbiscan.io</span></div>
+                    </div>
+                </div>
+                <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4">
+                    <p class="text-emerald-400 text-sm font-semibold">💡 Why Arbitrum?</p>
+                    <p class="text-zinc-400 text-sm mt-1">Arbitrum is built on top of Ethereum but transactions cost a fraction of a cent (vs. $5–$50 on Ethereum mainnet). This makes small actions like posting bids or paying platform fees practical. Your assets are just as secure — Arbitrum settles everything back to Ethereum.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="border-l-2 border-zinc-700 ml-5 h-6 mb-2"></div>
+
+        <!-- Step 4 -->
+        <div class="mb-8">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-10 h-10 rounded-full bg-cyan-500 flex items-center justify-center text-black font-bold text-lg flex-shrink-0">4</div>
+                <h3 class="text-xl font-bold">Get ETH for gas fees</h3>
+            </div>
+            <div class="ml-14">
+                <p class="text-zinc-300 mb-4">Every transaction on the blockchain costs a tiny fee called "gas" — paid in ETH. On Arbitrum, gas fees are very small (usually under $0.05), but you need a small amount of ETH in your wallet to pay them.</p>
+                <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800 mb-4">
+                    <p class="font-semibold mb-3">Two ways to get ETH on Arbitrum:</p>
+                    <div class="space-y-4">
+                        <div class="border border-zinc-700 rounded-xl p-4">
+                            <p class="font-medium text-cyan-400 mb-2">Option A — Buy directly on Arbitrum (easiest)</p>
+                            <p class="text-zinc-400 text-sm">Use <a href="https://www.coinbase.com" target="_blank" class="text-cyan-400 hover:underline">Coinbase</a>, <a href="https://www.kraken.com" target="_blank" class="text-cyan-400 hover:underline">Kraken</a>, or <a href="https://www.binance.com" target="_blank" class="text-cyan-400 hover:underline">Binance</a> to buy ETH and withdraw directly to Arbitrum One. When withdrawing, select <strong class="text-white">Arbitrum</strong> as the network. You only need $5–$10 worth of ETH for gas.</p>
+                        </div>
+                        <div class="border border-zinc-700 rounded-xl p-4">
+                            <p class="font-medium text-violet-400 mb-2">Option B — Bridge from Ethereum mainnet</p>
+                            <p class="text-zinc-400 text-sm">If you already have ETH on Ethereum mainnet, use the <a href="https://bridge.arbitrum.io" target="_blank" class="text-cyan-400 hover:underline">official Arbitrum Bridge</a> to move it to Arbitrum. Connect your wallet, enter the amount, and confirm. Takes ~10 minutes. Note: the bridge transaction itself costs Ethereum gas, so only worth it if you're moving more than ~$50.</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4">
+                    <p class="text-amber-400 text-sm font-semibold">⚠️ How much ETH do I need?</p>
+                    <p class="text-zinc-400 text-sm mt-1">For normal NQVate usage, $2–$5 worth of ETH will last you a very long time. Each NQVate action uses roughly $0.01–$0.05 in gas. You won't need to top up often.</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="border-l-2 border-zinc-700 ml-5 h-6 mb-2"></div>
+
+        <!-- Step 5 -->
+        <div class="mb-8">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-10 h-10 rounded-full bg-cyan-500 flex items-center justify-center text-black font-bold text-lg flex-shrink-0">5</div>
+                <h3 class="text-xl font-bold">Claim your free NQV8 and start exploring</h3>
+            </div>
+            <div class="ml-14">
+                <p class="text-zinc-300 mb-4">Once your wallet is connected and you have a little ETH for gas, claim your 1,000 NQV8 signup bonus from your Profile page. Then you're ready to go.</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
+                        <p class="font-semibold text-cyan-400 mb-3">As a builder 🔨</p>
+                        <ul class="space-y-2 text-sm text-zinc-300">
+                            <li class="flex items-start gap-2"><span class="text-cyan-400 flex-shrink-0">→</span>Browse the Marketplace for open bounties</li>
+                            <li class="flex items-start gap-2"><span class="text-cyan-400 flex-shrink-0">→</span>Place bids on projects matching your skills</li>
+                            <li class="flex items-start gap-2"><span class="text-cyan-400 flex-shrink-0">→</span>Get accepted, do the work, submit deliverables</li>
+                            <li class="flex items-start gap-2"><span class="text-cyan-400 flex-shrink-0">→</span>Get paid in USDC or earn equity on-chain</li>
+                        </ul>
+                    </div>
+                    <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
+                        <p class="font-semibold text-violet-400 mb-3">As a founder 🚀</p>
+                        <ul class="space-y-2 text-sm text-zinc-300">
+                            <li class="flex items-start gap-2"><span class="text-violet-400 flex-shrink-0">→</span>Create a project in Studio → Plan</li>
+                            <li class="flex items-start gap-2"><span class="text-violet-400 flex-shrink-0">→</span>Post bounties to get tasks built</li>
+                            <li class="flex items-start gap-2"><span class="text-violet-400 flex-shrink-0">→</span>Verify your entity to unlock equity features</li>
+                            <li class="flex items-start gap-2"><span class="text-violet-400 flex-shrink-0">→</span>Raise funding or list equity when you're ready</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="border-l-2 border-zinc-700 ml-5 h-6 mb-2"></div>
+
+        <!-- Step 6 — USDC -->
+        <div class="mb-10">
+            <div class="flex items-center gap-4 mb-4">
+                <div class="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-black font-bold text-lg flex-shrink-0">6</div>
+                <h3 class="text-xl font-bold">Getting USDC for payments (optional but useful)</h3>
+            </div>
+            <div class="ml-14">
+                <p class="text-zinc-300 mb-4">Most bounties on NQVate are paid in USDC — a stablecoin always worth $1.00. If you're posting bounties or making investments, you'll need USDC on Arbitrum.</p>
+                <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
+                    <p class="font-semibold mb-3">Getting USDC on Arbitrum:</p>
+                    <ol class="space-y-3 text-sm text-zinc-300">
+                        <li class="flex items-start gap-3">
+                            <span class="bg-zinc-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">1</span>
+                            <span>Buy USDC on <a href="https://www.coinbase.com" target="_blank" class="text-cyan-400 hover:underline">Coinbase</a> or any major exchange.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="bg-zinc-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">2</span>
+                            <span>When withdrawing, select <strong class="text-white">Arbitrum One</strong> as the network and paste your wallet address. The USDC will arrive in your MetaMask within a few minutes.</span>
+                        </li>
+                        <li class="flex items-start gap-3">
+                            <span class="bg-zinc-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">3</span>
+                            <span>Alternatively, use <a href="https://app.uniswap.org" target="_blank" class="text-cyan-400 hover:underline">Uniswap</a> on Arbitrum to swap ETH for USDC directly in your wallet.</span>
+                        </li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+
+        <!-- FAQ -->
+        <div class="mb-10">
+            <h2 class="text-2xl font-bold mb-6">Common Questions</h2>
+            <div class="space-y-4">
+                <details class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800 group">
+                    <summary class="font-semibold cursor-pointer flex justify-between items-center">
+                        Do I need crypto experience to use NQVate?
+                        <span class="text-zinc-400 group-open:rotate-180 transition-transform">▾</span>
+                    </summary>
+                    <p class="text-zinc-400 text-sm mt-4 leading-relaxed">No. The guide above covers everything from scratch. The only crypto-specific things you need are a MetaMask wallet and a small amount of ETH for gas fees. Everything else — posting, bidding, chatting — works like any other web platform.</p>
+                </details>
+                <details class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800 group">
+                    <summary class="font-semibold cursor-pointer flex justify-between items-center">
+                        What if I lose my wallet?
+                        <span class="text-zinc-400 group-open:rotate-180 transition-transform">▾</span>
+                    </summary>
+                    <p class="text-zinc-400 text-sm mt-4 leading-relaxed">Your wallet can be recovered using your 12-word Secret Recovery Phrase (also called a seed phrase). This is why it's critical to write it down and store it safely offline when you first create your wallet. If you lose both your device and your seed phrase, the wallet cannot be recovered — no one can help you, not even MetaMask or NQVate.</p>
+                </details>
+                <details class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800 group">
+                    <summary class="font-semibold cursor-pointer flex justify-between items-center">
+                        Is my NQVate account tied to my wallet?
+                        <span class="text-zinc-400 group-open:rotate-180 transition-transform">▾</span>
+                    </summary>
+                    <p class="text-zinc-400 text-sm mt-4 leading-relaxed">Yes, but you can change your connected wallet from your Profile → Settings at any time. Your NQVate account (username, profile, posts) lives in our database. Your tokens and equity stakes live on the blockchain in your wallet. Changing your wallet updates where future payments and rewards are sent.</p>
+                </details>
+                <details class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800 group">
+                    <summary class="font-semibold cursor-pointer flex justify-between items-center">
+                        What fees does NQVate charge?
+                        <span class="text-zinc-400 group-open:rotate-180 transition-transform">▾</span>
+                    </summary>
+                    <div class="mt-4 space-y-2">
+                        <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
+                            <span class="text-zinc-400">Post a bounty or funding request</span>
+                            <span class="text-white">$1.00 in NQV8</span>
+                        </div>
+                        <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
+                            <span class="text-zinc-400">Place a bid</span>
+                            <span class="text-white">$0.01 in NQV8</span>
+                        </div>
+                        <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
+                            <span class="text-zinc-400">Post to Explore / comment</span>
+                            <span class="text-white">$0.01 in NQV8</span>
+                        </div>
+                        <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
+                            <span class="text-zinc-400">Entity verification</span>
+                            <span class="text-white">$10.00 in NQV8</span>
+                        </div>
+                        <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
+                            <span class="text-zinc-400">Metrics verification + investor deck</span>
+                            <span class="text-white">$5.00 in NQV8</span>
+                        </div>
+                        <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
+                            <span class="text-zinc-400">AI flow map generation</span>
+                            <span class="text-white">$5.00 in NQV8</span>
+                        </div>
+                        <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
+                            <span class="text-zinc-400">Escrow release (bounty completion)</span>
+                            <span class="text-white">3.5% of bounty value</span>
+                        </div>
+                        <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
+                            <span class="text-zinc-400">Equity trade</span>
+                            <span class="text-white">3.5% of sale price</span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-zinc-400">Dispute filing</span>
+                            <span class="text-white">$10.00 in NQV8</span>
+                        </div>
+                    </div>
+                </details>
+                <details class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800 group">
+                    <summary class="font-semibold cursor-pointer flex justify-between items-center">
+                        What is equity on NQVate? Is it legally binding?
+                        <span class="text-zinc-400 group-open:rotate-180 transition-transform">▾</span>
+                    </summary>
+                    <p class="text-zinc-400 text-sm mt-4 leading-relaxed">NQVate equity is tokenized ownership recorded on the Arbitrum blockchain via the NQVate Equity Registry smart contract. It represents a stake in a project, registered on-chain against a verified entity. However, NQVate is not a broker, legal advisor, or party to any equity transaction. The on-chain record is a transparent, immutable ledger entry — but the legal enforceability of equity stakes depends on the agreements between the parties involved. For significant transactions, consult a lawyer.</p>
+                </details>
+                <details class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800 group">
+                    <summary class="font-semibold cursor-pointer flex justify-between items-center">
+                        What happens if there's a dispute?
+                        <span class="text-zinc-400 group-open:rotate-180 transition-transform">▾</span>
+                    </summary>
+                    <p class="text-zinc-400 text-sm mt-4 leading-relaxed">Either party can file a dispute for $10 in NQV8. Claude AI immediately reviews the project description, the accepted bid, all submitted deliverables, and any evidence provided by both parties. Claude issues a binding ruling, splitting the escrow funds proportionally — typically within minutes. There is no appeals process and NQVate is not involved. This keeps things fast and unbiased.</p>
+                </details>
+            </div>
+        </div>
+
+        <!-- CTA -->
+        <div class="text-center py-10 border-t border-zinc-800">
+            <p class="text-2xl font-bold mb-2">Ready to jump in?</p>
+            <p class="text-zinc-400 mb-6">Create your account, connect your wallet, and claim your free 1,000 NQV8.</p>
+            <button onclick="showAuthModal()"
+                    class="px-10 py-5 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-bold rounded-2xl text-lg hover:scale-105 transition-transform">
+                Get Started — 1,000 NQV8 Free 🎁
+            </button>
+        </div>
     </div>
 </div>
 </body>
