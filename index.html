@@ -10432,6 +10432,26 @@ async function submitNewFlowMap(useAI = false) {
             nodes = [];
         }
 
+        // If project already has nodes, ask whether to replace or add
+        const existingSnap = await db.collection('subprojects')
+            .where('companyId', '==', selectedFlowmapProjectId)
+            .where('planNode', '==', true)
+            .get();
+
+        if (existingSnap.size > 0 && useAI) {
+            const choice = confirm(
+                `This project already has ${existingSnap.size} plan nodes.\n\n` +
+                `OK = Replace all existing nodes with the new AI plan\n` +
+                `Cancel = Add new nodes alongside existing ones`
+            );
+            if (choice) {
+                // Delete existing nodes first
+                const deleteBatch = db.batch();
+                existingSnap.docs.forEach(d => deleteBatch.delete(d.ref));
+                await deleteBatch.commit();
+            }
+        }
+
         // Save each node as a subproject
         setStatus('💾 Saving...');
         const batch = db.batch();
