@@ -6398,7 +6398,7 @@ async function startVideoCall() {
                             createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                             comments: [],
                             likes: 0,
-                            dislikes: 0,
+                            likedBy: [],
                             paymentTxHash: txHash
                         });
                         alert("✅ Post published!");
@@ -6432,6 +6432,8 @@ async function startVideoCall() {
                     if (post.type === 'news') typeIcon = '📰';
                     if (post.type === 'project') typeIcon = '🚀';
 
+                    const hasLiked = currentUser && (post.likedBy || []).includes(currentUser.uid);
+
                     card.innerHTML = `
                         <div class="flex justify-between">
                             <span class="text-2xl">${typeIcon}</span>
@@ -6448,7 +6450,13 @@ async function startVideoCall() {
                             </div>
                         </div>` : ''}
                         
-                        <p class="text-xs text-violet-400 mt-4">Posted by @${post.username}</p>
+                        <div class="flex items-center justify-between mt-4">
+                            <p class="text-xs text-violet-400">Posted by @${post.username}</p>
+                            <button onclick="event.stopPropagation(); togglePostLike('${doc.id}', ${hasLiked})"
+                                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${hasLiked ? 'bg-cyan-500/20 text-cyan-400' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}">
+                                👍 <span id="likes-${doc.id}">${post.likes || 0}</span>
+                            </button>
+                        </div>
                     `;
                     card.onclick = () => viewPostDetail(doc.id, post);
                     grid.appendChild(card);
@@ -7485,6 +7493,32 @@ await checkAndImprovePosting('Funding Request', desc, 'Funding', 'fund', 'fund',
         }
     );
 }); // ← close checkAndImprovePosting callback
+}
+
+async function togglePostLike(postId, hasLiked) {
+    if (!currentUser) return alert("Please log in to upvote.");
+
+    const ref = db.collection("posts").doc(postId);
+
+    try {
+        if (hasLiked) {
+            // Unlike
+            await ref.update({
+                likes: firebase.firestore.FieldValue.increment(-1),
+                likedBy: firebase.firestore.FieldValue.arrayRemove(currentUser.uid)
+            });
+        } else {
+            // Like
+            await ref.update({
+                likes: firebase.firestore.FieldValue.increment(1),
+                likedBy: firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
+            });
+        }
+        // Reload to reflect new state
+        loadIdeas();
+    } catch(e) {
+        alert("Failed to update: " + e.message);
+    }
 }
 
 // ====================== UPDATED showPostEquityModal ======================
