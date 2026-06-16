@@ -6279,10 +6279,13 @@ async function startVideoCall() {
         }
 
         // ====================== VIEW OTHER USER PROFILE ======================
-        async function viewUserProfile(uid) {
+async function viewUserProfile(uid) {
             if (!uid) return alert("User ID not available.");
 
             navigateTo('user-profile');
+
+            // Update URL so it's shareable
+            window.history.pushState({ uid }, '', `/u/${uid}`);
 
             try {
                 const userDoc = await db.collection("users").doc(uid).get();
@@ -6296,67 +6299,121 @@ async function startVideoCall() {
 
                 // Avatar
                 const avatarEl = document.getElementById('user-profile-avatar');
-                avatarEl.innerHTML = user.photoURL 
-                    ? `<img src="${user.photoURL}" class="w-full h-full object-cover">` 
+                avatarEl.innerHTML = user.photoURL
+                    ? `<img src="${user.photoURL}" class="w-full h-full object-cover">`
                     : `<span class="text-6xl font-bold">${(user.fullName || user.username || '?')[0]}</span>`;
 
-                // Stats from Firestore (fast)
-                document.getElementById('user-working-on').textContent = user.projectsInProgress || "0";
-                document.getElementById('user-completed').textContent = user.projectsCompleted || "0";
-                document.getElementById('user-avg-rating').textContent = user.avgRating ? user.avgRating.toFixed(1) : "—";
-                document.getElementById('user-leaderboard-rank').textContent = "—";
+                // Copy profile link button
+                const existingCopy = document.getElementById('copy-profile-link-btn');
+                if (existingCopy) existingCopy.remove();
+                const copyBtn = document.createElement('button');
+                copyBtn.id = 'copy-profile-link-btn';
+                copyBtn.className = 'mt-4 px-4 py-2 border border-zinc-600 text-zinc-400 rounded-xl text-xs hover:bg-zinc-800 flex items-center gap-2';
+                copyBtn.innerHTML = '<i class="fa-solid fa-link"></i> Copy Profile Link';
+                copyBtn.onclick = () => {
+                    navigator.clipboard.writeText(`https://www.nqvate.com/u/${uid}`);
+                    copyBtn.textContent = '✅ Copied!';
+                    setTimeout(() => {
+                        copyBtn.innerHTML = '<i class="fa-solid fa-link"></i> Copy Profile Link';
+                    }, 2000);
+                };
+                document.getElementById('user-profile-bio').after(copyBtn);
 
-                // NQV8 balance — read live from Arbitrum if wallet address is known
+                // Live stats from Firestore
+                const [completedSnap, workingSnap] = await Promise.all([
+                    db.collection('subprojects')
+                        .where('acceptedBidderUid', '==', uid)
+                        .where('status', '==', 'completed')
+                        .where('planNode', '!=', true)
+                        .get(),
+                    db.collection('subprojects')
+                        .where('acceptedBidderUid', '==', uid)
+                        .where('status', '==', 'in-progress')
+                        .where('planNode', '!=', true)
+                        .get()
+                ]);
+
+                document.getElementById('user-working-on').textContent = workingSnap.size;
+                document.getElementById('user-completed').textContent = completedSnap.size;
+                document.getElementById('user-avg-rating').textContent = user.avgRating ? user.avgRating.toFixed(1) : '—';
+                document.getElementById('user-leaderboard-rank').textContent = '—';
+
+                // NQV8 balance
                 if (user.walletAddress && nqv8Contract) {
                     try {
                         const raw = await nqv8Contract.balanceOf(user.walletAddress);
                         const bal = parseFloat(ethers.utils.formatUnits(raw, 18));
                         document.getElementById('user-nqv8-earned').textContent = bal.toLocaleString();
-                    } catch (e) {
+                    } catch(e) {
                         document.getElementById('user-nqv8-earned').textContent = (user.totalNQV8Earned || 0).toLocaleString();
                     }
-            } else {
+                } else {
                     document.getElementById('user-nqv8-earned').textContent = (user.totalNQV8Earned || 0).toLocaleString();
                 }
 
-            // Load reviews for this user
+                // Completed bounties portfolio
+                let portfolioHTML = '';
+                completedSnap.forEach(doc => {
+                    const p = doc.data();
+                    portfolioHTML += `
+                        <div class="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
+                            <p class="font-semibold text-sm">${p.title}</p>
+                            <p class="text-xs text-zinc-400 mt-1">${p.category || ''} · ${p.compensation || ''}</p>
+                            <span class="text-xs text-emerald-400">✅ Completed</span>
+                        </div>`;
+                });
+
+                // Insert portfolio section before reviews
+                const reviewsList = document.getElementById('user-reviews-list');
+                const portfolioSection = document.getElementById('user-portfolio-section');
+                if (portfolioSection) portfolioSection.remove();
+
+                if (portfolioHTML) {
+                    const section = document.createElement('div');
+                    section.id = 'user-portfolio-section';
+                    section.className = 'mb-8';
+                    section.innerHTML = `
+                        <h2 class="text-2xl font-semibold mb-4">Completed Work</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">${portfolioHTML}</div>
+                    `;
+                    reviewsList.parentNode.insertBefore(section, reviewsList.parentNode.querySelector('div:has(#user-reviews-list)') || reviewsList);
+                }
+
+                // Reviews
                 try {
-                    const userReviewsSnap = await db.collection('reviews')
+                    const reviewsSnap = await db.collection('reviews')
                         .where('revieweeUid', '==', uid)
                         .orderBy('createdAt', 'desc')
                         .get();
 
-                    const userReviewsList = document.getElementById('user-reviews-list');
-
-                    if (userReviewsSnap.empty) {
-                        userReviewsList.innerHTML = '<p class="text-zinc-400">No reviews yet.</p>';
+                    if (reviewsSnap.empty) {
+                        reviewsList.innerHTML = '<p class="text-zinc-400">No reviews yet.</p>';
                     } else {
-                        userReviewsList.innerHTML = '';
-                        userReviewsSnap.forEach(doc => {
+                        reviewsList.innerHTML = '';
+                        reviewsSnap.forEach(doc => {
                             const r = doc.data();
                             const stars = '⭐'.repeat(r.rating || 0);
                             const date = r.createdAt?.toDate ? new Date(r.createdAt.toDate()).toLocaleDateString() : '';
                             const div = document.createElement('div');
-                            div.className = 'bg-zinc-900 rounded-2xl p-5';
+                            div.className = 'bg-zinc-900 rounded-2xl p-5 border border-zinc-800';
                             div.innerHTML = `
                                 <div class="flex justify-between items-start mb-2">
                                     <div>
                                         <p class="font-semibold">@${r.reviewerUsername || r.reviewerName || 'Anonymous'}</p>
                                         <p class="text-xs text-zinc-500">${r.projectTitle || ''} · ${date}</p>
                                     </div>
-                                    <span class="text-sm">${stars}</span>
+                                    <span>${stars}</span>
                                 </div>
                                 <p class="text-zinc-300 text-sm leading-relaxed">${r.text}</p>
                             `;
-                            userReviewsList.appendChild(div);
+                            reviewsList.appendChild(div);
                         });
                     }
                 } catch(e) {
-                    console.error('User reviews error:', e);
-                    document.getElementById('user-reviews-list').innerHTML = '<p class="text-red-400">Error loading reviews.</p>';
+                    reviewsList.innerHTML = '<p class="text-zinc-400">Could not load reviews.</p>';
                 }
 
-            } catch (e) {
+            } catch(e) {
                 console.error(e);
                 alert("Failed to load user profile");
             }
@@ -6386,6 +6443,27 @@ async function startVideoCall() {
             sessionStorage.setItem('nqvate_ref', refCode.toLowerCase());
             window.history.replaceState({}, '', window.location.pathname);
         }
+
+        // Handle /u/:uid deep links — load public profile directly
+        const pathMatch = window.location.pathname.match(/^\/u\/([a-zA-Z0-9]+)$/);
+        if (pathMatch) {
+            const uid = pathMatch[1];
+            // Wait for auth to settle then load the profile
+            const unsubscribe = auth.onAuthStateChanged(() => {
+                unsubscribe();
+                setTimeout(() => viewUserProfile(uid), 500);
+            });
+        }
+
+        // Handle browser back/forward between profiles
+        window.addEventListener('popstate', (e) => {
+            const match = window.location.pathname.match(/^\/u\/([a-zA-Z0-9]+)$/);
+            if (match) {
+                viewUserProfile(match[1]);
+            } else if (window.location.pathname === '/') {
+                navigateTo('marketplace');
+            }
+        });
 
         // Show welcome modal immediately for all visitors
             setTimeout(showWelcomeModal, 800);
