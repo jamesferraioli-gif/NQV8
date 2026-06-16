@@ -842,7 +842,8 @@
                     <p id="profile-fullname" class="text-2xl md:text-4xl font-bold"></p>
                     <p id="profile-username" class="text-cyan-400 text-lg md:text-2xl"></p>
                     <p id="profile-email" class="text-zinc-400 text-sm"></p>
-                    <p id="profile-bio" class="mt-4 text-zinc-300 leading-relaxed"></p>
+                    <div id="profile-reputation" class="mt-4 hidden"></div>
+                    <p id="profile-bio" class="mt-3 text-zinc-300 leading-relaxed"></p>
                     <div id="profile-skills" class="flex flex-wrap gap-2 mt-3"></div>
                     <button onclick="showEditProfileModal()"
                             class="mt-4 px-4 py-2 border border-zinc-600 text-zinc-400 rounded-xl text-xs hover:bg-zinc-800 flex items-center gap-2 w-fit">
@@ -1086,7 +1087,8 @@
 
                 <div class="flex-1 text-center md:text-left">
                     <p id="user-profile-username" class="text-cyan-400 text-3xl"></p>
-                    <p id="user-profile-bio" class="mt-4 text-zinc-300 leading-relaxed"></p>
+                    <div id="user-profile-reputation" class="mt-3 hidden"></div>
+                    <p id="user-profile-bio" class="mt-3 text-zinc-300 leading-relaxed"></p>
                     <div id="user-profile-skills" class="flex flex-wrap gap-2 mt-3"></div>
 
                     <div class="mt-6 flex gap-8">
@@ -3677,6 +3679,19 @@ function navigateTo(page) {
             document.getElementById('profile-username').textContent = currentUser.username || '';
             document.getElementById('profile-email').textContent = currentUser.email || '';
 
+            // Reputation score
+            const repEl = document.getElementById('profile-reputation');
+            if (repEl) {
+                const score = calculateReputationScore({
+                    avgRating:          currentUser.avgRating || 0,
+                    bountiesCompleted:  currentUser.projectsCompleted || 0,
+                    bountyValue:        currentUser.totalEarned || 0,
+                    nqv8Earned:         currentUser.totalNQV8Earned || 0
+                });
+                repEl.innerHTML = renderReputationBadge(score);
+                repEl.classList.remove('hidden');
+            }
+
             // Bio
             const bioEl = document.getElementById('profile-bio');
             if (bioEl) bioEl.textContent = currentUser.bio || 'No bio yet. Click "Edit Bio & Skills" to add one.';
@@ -4676,6 +4691,49 @@ async function saveProfileBioSkills() {
         alert('Failed to save: ' + e.message);
     }
 }
+
+ // ====================== REPUTATION SCORE ======================
+function calculateReputationScore({ avgRating, bountiesCompleted, bountyValue, nqv8Earned }) {
+    // Rating component (0-40 points): avg rating out of 5 → scaled to 40
+    const ratingScore = Math.min((avgRating / 5) * 40, 40);
+
+    // Bounties component (0-30 points): log scale, 10 bounties = ~20pts, 50 = 30pts
+    const bountyScore = Math.min((Math.log10(bountiesCompleted + 1) / Math.log10(51)) * 30, 30);
+
+    // Value component (0-20 points): $10k earned = ~20pts
+    const valueScore = Math.min((Math.log10(bountyValue + 1) / Math.log10(10001)) * 20, 20);
+
+    // NQV8 component (0-10 points): 10k NQV8 earned = 10pts
+    const nqv8Score = Math.min((Math.log10(nqv8Earned + 1) / Math.log10(10001)) * 10, 10);
+
+    return Math.round(ratingScore + bountyScore + valueScore + nqv8Score);
+}
+
+function getReputationTier(score) {
+    if (score >= 76) return { label: 'Elite',       icon: '💎', color: 'text-cyan-400',   bg: 'bg-cyan-500/20',   border: 'border-cyan-500/40' };
+    if (score >= 51) return { label: 'Expert',      icon: '🥇', color: 'text-amber-400',  bg: 'bg-amber-500/20',  border: 'border-amber-500/40' };
+    if (score >= 26) return { label: 'Pro Builder', icon: '🥈', color: 'text-zinc-300',   bg: 'bg-zinc-700/50',   border: 'border-zinc-600' };
+    return                  { label: 'Builder',     icon: '🥉', color: 'text-amber-600',  bg: 'bg-amber-900/20',  border: 'border-amber-900/40' };
+}
+
+function renderReputationBadge(score) {
+    const tier = getReputationTier(score);
+    const pct  = Math.min(score, 100);
+    return `
+        <div class="flex items-center gap-3 ${tier.bg} border ${tier.border} rounded-2xl px-4 py-2.5 w-fit">
+            <span class="text-xl">${tier.icon}</span>
+            <div>
+                <div class="flex items-center gap-2">
+                    <span class="font-semibold text-sm ${tier.color}">${tier.label}</span>
+                    <span class="text-xs text-zinc-500">· ${score}/100</span>
+                </div>
+                <div class="w-32 h-1.5 bg-zinc-700 rounded-full mt-1 overflow-hidden">
+                    <div class="h-full rounded-full transition-all" 
+                         style="width:${pct}%;background:linear-gradient(90deg,#22d3ee,#8b5cf6)"></div>
+                </div>
+            </div>
+        </div>`;
+}   
     
         function hideEditPostingModal() {
             document.getElementById('edit-posting-modal').classList.add('hidden');
@@ -6417,6 +6475,20 @@ async function viewUserProfile(uid) {
 
                 // Basic Info
                 document.getElementById('user-profile-username').textContent = '@' + (user.username || 'user');
+
+                // Reputation
+                const userRepEl = document.getElementById('user-profile-reputation');
+                if (userRepEl) {
+                    const score = calculateReputationScore({
+                        avgRating:         user.avgRating || 0,
+                        bountiesCompleted: user.projectsCompleted || 0,
+                        bountyValue:       user.totalEarned || 0,
+                        nqv8Earned:        user.totalNQV8Earned || 0
+                    });
+                    userRepEl.innerHTML = renderReputationBadge(score);
+                    userRepEl.classList.remove('hidden');
+                }
+
                 document.getElementById('user-profile-bio').textContent = user.bio || '';
 
                 // Skills
