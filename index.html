@@ -1114,8 +1114,8 @@
             </div>
         </div>
 
-<!-- Stats -->
-        <div class="grid grid-cols-3 md:grid-cols-6 gap-3 mb-10 text-center">
+        <!-- Stats -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10 text-center">
             <div class="bg-zinc-900 rounded-2xl p-3 md:p-5">
                 <p id="user-working-on" class="text-2xl md:text-3xl font-bold text-cyan-400">0</p>
                 <p class="text-xs text-zinc-400">Working On</p>
@@ -1125,23 +1125,15 @@
                 <p class="text-xs text-zinc-400">Completed</p>
             </div>
             <div class="bg-zinc-900 rounded-2xl p-3 md:p-5">
-                <p id="user-nqv8-earned" class="text-2xl md:text-3xl font-bold text-violet-400">0</p>
-                <p class="text-xs text-zinc-400">NQV8 Earned</p>
-            </div>
-            <div class="bg-zinc-900 rounded-2xl p-3 md:p-5">
-                <p id="user-avg-rating" class="text-2xl md:text-3xl font-bold text-yellow-400">0.0</p>
+                <p id="user-avg-rating" class="text-2xl md:text-3xl font-bold text-yellow-400">—</p>
                 <p class="text-xs text-zinc-400">Avg Rating</p>
             </div>
             <div class="bg-zinc-900 rounded-2xl p-3 md:p-5">
-                <p id="user-leaderboard-rank" class="text-2xl md:text-3xl font-bold text-pink-400">—</p>
-                <p class="text-xs text-zinc-400">Rank</p>
-            </div>
-            <div class="bg-zinc-900 rounded-2xl p-3 md:p-5">
-                <p id="user-total-funding" class="text-2xl md:text-3xl font-bold text-amber-400">$0</p>
-                <p class="text-xs text-zinc-400">Funding</p>
+                <p id="user-total-earned" class="text-2xl md:text-3xl font-bold text-emerald-400">—</p>
+                <p class="text-xs text-zinc-400">Total Earned</p>
             </div>
         </div>
-
+        
         <!-- Reviews -->
         <div>
             <h2 class="text-2xl font-semibold mb-4">Reviews Received</h2>
@@ -1789,7 +1781,60 @@
 
     
 <script>
+// ====================== EARNINGS FROM CHAIN ======================
+async function getTotalEarningsUSD(walletAddress) {
+    try {
+        const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const escrowReadOnly = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, arbProvider);
 
+        const releaseFilter = escrowReadOnly.filters.EscrowReleased();
+        const latestBlock = await arbProvider.getBlockNumber();
+        const fromBlock = Math.max(0, latestBlock - 2000000);
+        const events = await escrowReadOnly.queryFilter(releaseFilter, fromBlock, latestBlock);
+
+        const workerEvents = events.filter(e =>
+            e.args.worker.toLowerCase() === walletAddress.toLowerCase()
+        );
+
+        let totalUSD = 0;
+
+        // Get NQV8 price once
+        let nqv8Price = 0.01;
+        try {
+            const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${NQV8_TOKEN_ADDRESS}`);
+            const data = await res.json();
+            nqv8Price = parseFloat(data.pairs?.[0]?.priceUsd || '0.01');
+        } catch(e) {}
+
+        for (const event of workerEvents) {
+            const snap = await db.collection('subprojects')
+                .where('escrowReleaseTxHash', '==', event.transactionHash)
+                .limit(1).get();
+
+            if (!snap.empty) {
+                const proj = snap.docs[0].data();
+                const amountStr = proj.acceptedBid?.amount || proj.compensation || '0';
+                const isNQV8 = String(amountStr).toUpperCase().includes('NQV8');
+                const humanAmount = isNQV8
+                    ? parseFloat(ethers.utils.formatUnits(event.args.workerAmount, 18))
+                    : parseFloat(ethers.utils.formatUnits(event.args.workerAmount, 6));
+                totalUSD += isNQV8 ? humanAmount * nqv8Price : humanAmount;
+            }
+        }
+
+        return totalUSD;
+    } catch(e) {
+        console.warn('getTotalEarningsUSD failed:', e.message);
+        return null;
+    }
+}
+
+function formatUSD(amount) {
+    if (amount === null) return '—';
+    if (amount >= 1000000) return '$' + (amount / 1000000).toFixed(1) + 'M';
+    if (amount >= 1000) return '$' + (amount / 1000).toFixed(1) + 'K';
+    return '$' + amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
 // ====================== ABOUT ======================
 function switchAboutTab(tab) {
     ['overview','started'].forEach(t => {
@@ -6287,86 +6332,19 @@ async function startVideoCall() {
                 try {
                     if (!connectedAddress) {
                         document.getElementById('profile-total-earnings').textContent = 'Connect wallet to view';
-                        throw new Error('no wallet');
+                    } else {
+                        document.getElementById('profile-total-earnings').textContent = '⏳ Loading...';
+                        const totalUSD = await getTotalEarningsUSD(connectedAddress);
+                        document.getElementById('profile-total-earnings').textContent = formatUSD(totalUSD);
                     }
-                    const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
-                    const escrowReadOnly = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, arbProvider);
-
-                    // Get all EscrowReleased events where worker = connected wallet
-                    const releaseFilter = escrowReadOnly.filters.EscrowReleased();
-                    const latestBlock = await arbProvider.getBlockNumber();
-                    const fromBlock = Math.max(0, latestBlock - 2000000); // ~last 6 months on Arbitrum
-                    const events = await escrowReadOnly.queryFilter(releaseFilter, fromBlock, latestBlock);
-
-                    // Filter to only this wallet's earnings
-                    const myEvents = events.filter(e =>
-                        e.args.worker.toLowerCase() === connectedAddress.toLowerCase()
-                    );
-
-                    let totalUSD = 0;
-
-                    for (const event of myEvents) {
-                        const workerAmount = event.args.workerAmount;
-                        const currency = event.args.currency; // not in current ABI — use projectId lookup below
-
-                        // Get the block to determine timestamp
-                        const block = await arbProvider.getBlock(event.blockNumber);
-                        const timestamp = block.timestamp;
-
-                        // Look up the project in Firestore to get currency type
-                        // The escrow event has escrowId — match to Firestore via escrowTxHash
-                        const receipt = await arbProvider.getTransactionReceipt(event.transactionHash);
-
-                        // Find matching subproject
-                        const snap = await db.collection("subprojects")
-                            .where("escrowReleaseTxHash", "==", event.transactionHash)
-                            .limit(1).get();
-
-                        if (!snap.empty) {
-                            const proj = snap.docs[0].data();
-                            const amountStr = proj.acceptedBid?.amount || proj.compensation || '0';
-                            const isNQV8 = String(amountStr).toUpperCase().includes('NQV8');
-                            const humanAmount = isNQV8
-                                ? parseFloat(ethers.utils.formatUnits(workerAmount, 18))
-                                : parseFloat(ethers.utils.formatUnits(workerAmount, 6));
-
-                            if (isNQV8) {
-                                // Get NQV8 price at time of payment via DexScreener
-                                try {
-                                    const res = await fetch(
-                                        `https://api.dexscreener.com/latest/dex/tokens/${NQV8_TOKEN_ADDRESS}`
-                                    );
-                                    const data = await res.json();
-                                    // DexScreener doesn't have historical prices — use current price
-                                    // as best approximation, or $0.01 peg if not yet listed
-                                    const price = parseFloat(data.pairs?.[0]?.priceUsd || '0.01');
-                                    totalUSD += humanAmount * price;
-                                } catch(e) {
-                                    totalUSD += humanAmount * 0.01;
-                                }
-                            } else {
-                                // USDC is always $1
-                                totalUSD += humanAmount;
-                            }
-                        }
-                    }
-
-                    const fmt = totalUSD >= 1000
-                        ? '$' + (totalUSD / 1000).toFixed(1) + 'K'
-                        : '$' + totalUSD.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-                    document.getElementById('profile-total-earnings').textContent = fmt;
-                    // Populate settings fields
                     const settingsWallet = document.getElementById('settings-wallet-address');
-                    const settingsEmail = document.getElementById('settings-email');
+                    const settingsEmail  = document.getElementById('settings-email');
                     if (settingsWallet) settingsWallet.textContent = connectedAddress || 'Not connected';
-                    if (settingsEmail) settingsEmail.textContent = currentUser.email || '';
-
+                    if (settingsEmail)  settingsEmail.textContent  = currentUser.email || '';
                 } catch(e) {
                     console.warn('Total earnings from chain failed:', e.message);
                     document.getElementById('profile-total-earnings').textContent = '$0.00';
-                }
-                // Restore completed postings toggle preference
+                }                // Restore completed postings toggle preference
                 if (currentUser.hideCompletedPostings) {
                     const toggle = document.getElementById('show-completed-toggle');
                     if (toggle) {
@@ -6575,17 +6553,17 @@ async function viewUserProfile(uid) {
                 document.getElementById('user-avg-rating').textContent = user.avgRating ? user.avgRating.toFixed(1) : '—';
                 document.getElementById('user-leaderboard-rank').textContent = '—';
 
-                // NQV8 balance
-                if (user.walletAddress && nqv8Contract) {
-                    try {
-                        const raw = await nqv8Contract.balanceOf(user.walletAddress);
-                        const bal = parseFloat(ethers.utils.formatUnits(raw, 18));
-                        document.getElementById('user-nqv8-earned').textContent = bal.toLocaleString();
-                    } catch(e) {
-                        document.getElementById('user-nqv8-earned').textContent = (user.totalNQV8Earned || 0).toLocaleString();
+                // Total earned from chain
+                const totalEarnedEl = document.getElementById('user-total-earned');
+                if (totalEarnedEl) {
+                    if (user.walletAddress) {
+                        totalEarnedEl.textContent = '⏳';
+                        getTotalEarningsUSD(user.walletAddress).then(total => {
+                            totalEarnedEl.textContent = formatUSD(total);
+                        });
+                    } else {
+                        totalEarnedEl.textContent = '—';
                     }
-                } else {
-                    document.getElementById('user-nqv8-earned').textContent = (user.totalNQV8Earned || 0).toLocaleString();
                 }
 
                 // Completed bounties portfolio
