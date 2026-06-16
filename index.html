@@ -6630,8 +6630,8 @@ async function viewUserProfile(uid) {
                 }
 
             } catch(e) {
-                console.error(e);
-                alert("Failed to load user profile");
+                console.error('viewUserProfile error:', e.code, e.message, e.stack);
+                alert("Failed to load user profile: " + e.message);
             }
         }
 
