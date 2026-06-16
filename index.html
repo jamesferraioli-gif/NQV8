@@ -3977,11 +3977,12 @@ async function createProfile() {
                 } else {
                     snapshot.forEach(doc => {
                         const p = doc.data();
+                        // Skip studio plan nodes that were never actually posted to marketplace
+                        if (p.planNode === true && !p.acceptedBidderUid) return;
                         if (p.status === "in-progress") inprogress++;
                         else if (p.status === "completed") completed++;
                         if (p.nqv8Awarded) totalNQV8 += Number(p.nqv8Awarded) || 0;
                         if (p.status === "in-progress" || p.status === "completed") return;
-                        if (currentMarketplaceFilter && currentMarketplaceFilter !== 'equity-exchange' && p.type !== currentMarketplaceFilter) return;
 
                         open++;
                         const card = document.createElement('div');
