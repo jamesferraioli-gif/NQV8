@@ -11258,17 +11258,30 @@ async function sendNodeBackToPlan(nodeId) {
 }
 
 async function postNodeToMarketplace(nodeId, title) {
-    // Get node data then pre-fill the bounty modal
     try {
         const doc = await db.collection('subprojects').doc(nodeId).get();
         const node = doc.data();
-        await showPostBountyModal();
-        setTimeout(() => {
-            const titleEl = document.getElementById('bounty-title');
-            const descEl  = document.getElementById('bounty-desc');
-            if (titleEl) titleEl.value = node.title;
-            if (descEl)  descEl.value  = `${node.description}\n\n${node.instructions || ''}`.trim();
-        }, 400);
+
+        // Pre-select the project and skip straight to step 2
+        selectedBountyProjectId = node.companyId;
+        _bountySelectedTags = [];
+
+        // Get company name for the label
+        const companyDoc = await db.collection('companies').doc(node.companyId).get();
+        const companyName = companyDoc.exists ? companyDoc.data().name : 'Your Project';
+
+        // Open modal at step 2 directly
+        document.getElementById('post-bounty-modal').classList.remove('hidden');
+        document.getElementById('bounty-step-1').classList.add('hidden');
+        document.getElementById('bounty-step-2').classList.remove('hidden');
+        document.getElementById('bounty-project-label').textContent = `Project: ${companyName}`;
+        initTagsPicker('bounty-tags-picker', _bountySelectedTags);
+        selectBountyCompType('cash');
+
+        // Pre-fill title and description
+        document.getElementById('bounty-title').value = node.title || '';
+        document.getElementById('bounty-desc').value = `${node.description || ''}\n\n${node.instructions || ''}`.trim();
+
     } catch(e) {
         alert('Failed: ' + e.message);
     }
