@@ -3845,9 +3845,19 @@ async function createProfile() {
                 alert("Please enter your email address first");
                 return;
             }
-            auth.sendPasswordResetEmail(email)
-                .then(() => alert("Password reset email sent! Check your inbox."))
-                .catch(err => alert(err.message));
+            auth.sendPasswordResetEmail(email, {
+                url: 'https://www.nqvate.com',
+                handleCodeInApp: false
+            })
+                .then(() => alert("Password reset email sent! Check your inbox and spam folder."))
+                .catch(err => {
+                    if (err.code === 'auth/user-not-found') {
+                        // Don't reveal whether email exists — security best practice
+                        alert("If that email is registered, a reset link has been sent.");
+                    } else {
+                        alert(err.message);
+                    }
+                });
         }
 
         function finishLogin() {
