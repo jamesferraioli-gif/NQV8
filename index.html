@@ -6324,17 +6324,17 @@ async function viewUserProfile(uid) {
                     db.collection('subprojects')
                         .where('acceptedBidderUid', '==', uid)
                         .where('status', '==', 'completed')
-                        .where('planNode', '!=', true)
                         .get(),
                     db.collection('subprojects')
                         .where('acceptedBidderUid', '==', uid)
                         .where('status', '==', 'in-progress')
-                        .where('planNode', '!=', true)
                         .get()
                 ]);
 
-                document.getElementById('user-working-on').textContent = workingSnap.size;
-                document.getElementById('user-completed').textContent = completedSnap.size;
+                const completedCount = completedSnap.docs.filter(d => !d.data().planNode).length;
+                const workingCount   = workingSnap.docs.filter(d => !d.data().planNode).length;
+                document.getElementById('user-working-on').textContent = workingCount;
+                document.getElementById('user-completed').textContent = completedCount;
                 document.getElementById('user-avg-rating').textContent = user.avgRating ? user.avgRating.toFixed(1) : '—';
                 document.getElementById('user-leaderboard-rank').textContent = '—';
 
@@ -6355,6 +6355,7 @@ async function viewUserProfile(uid) {
                 let portfolioHTML = '';
                 completedSnap.forEach(doc => {
                     const p = doc.data();
+                    if (p.planNode === true) return; // skip studio nodes
                     portfolioHTML += `
                         <div class="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
                             <p class="font-semibold text-sm">${p.title}</p>
