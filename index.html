@@ -10046,8 +10046,8 @@ function renderFlowNodes(nodes) {
 
     const statusConfig = {
         'open':        { border: '#52525b', bg: '#18181b', badge: '#3f3f46', badgeText: '#a1a1aa', label: 'To Do' },
-        'in-progress': { border: '#f59e0b', bg: '#1c1400', badge: '#451a03', badgeText: '#fbbf24', label: 'In Progress' },
-        'completed':   { border: '#10b981', bg: '#001a0e', badge: '#052e16', badgeText: '#34d399', label: '✓ Done' },
+        'in-progress': { border: '#52525b', bg: '#18181b', badge: '#3f3f46', badgeText: '#a1a1aa', label: 'To Do' },
+        'completed':   { border: '#52525b', bg: '#18181b', badge: '#3f3f46', badgeText: '#a1a1aa', label: 'To Do' },
         'build':       { border: '#8b5cf6', bg: '#0d0a1a', badge: '#2e1065', badgeText: '#c4b5fd', label: '→ In Build' }
     };
     const categoryIcon = {
@@ -10095,18 +10095,9 @@ function renderFlowNodes(nodes) {
             <rect x="${640 - 106}" y="${y + NODE_H/2 - 12}" width="98" height="22" rx="11" fill="${sc.badge}"/>
             <text x="${640 - 57}" y="${y + NODE_H/2}" text-anchor="middle" dominant-baseline="central"
                   style="font-size:11px;font-weight:500;fill:${sc.badgeText};pointer-events:none">${sc.label}</text>
-            ${effectiveStatus === 'open' ? `
             <text x="${640 - 116}" y="${y + NODE_H/2}" text-anchor="end" dominant-baseline="central"
-                  style="font-size:11px;fill:#f59e0b;cursor:pointer;pointer-events:all"
-                  onclick="event.stopPropagation();updateNodeStatus('${node.id}','in-progress')">Start ▶</text>` : ''}
-            ${effectiveStatus === 'in-progress' ? `
-            <text x="${640 - 116}" y="${y + NODE_H/2}" text-anchor="end" dominant-baseline="central"
-                  style="font-size:11px;fill:#10b981;cursor:pointer;pointer-events:all"
-                  onclick="event.stopPropagation();updateNodeStatus('${node.id}','completed')">✓ Done</text>` : ''}
-            ${effectiveStatus !== 'build' && effectiveStatus !== 'completed' ? `
-            <text x="${640 - 220}" y="${y + NODE_H/2}" text-anchor="end" dominant-baseline="central"
                   style="font-size:11px;fill:#a78bfa;cursor:pointer;pointer-events:all"
-                  onclick="event.stopPropagation();sendNodeToBuild('${node.id}','${(node.title||'').replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">→ Build</text>` : ''}
+                  onclick="event.stopPropagation();sendNodeToBuild('${node.id}','${(node.title||'').replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">→ Send to Build</text>
         </g>
         ${!isLast ? `
         <line x1="320" y1="${y + NODE_H}" x2="320" y2="${y + NODE_H + CONNECTOR_H - 6}"
@@ -10198,19 +10189,14 @@ function showFlowNodeModal(node) {
 
     document.getElementById('node-modal-content').innerHTML = `
         <div class="space-y-5">
-            <div class="grid grid-cols-2 gap-4">
+            <div class="flex gap-4 mb-2">
                 <div>
-                    <p class="text-xs text-zinc-400 mb-2">Status</p>
-                    <select onchange="updateNodeStatus('${node.id}', this.value); hideFlowNodeModal()"
-                            class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none text-sm">
-                        <option value="open" ${effectiveStatus==='open'?'selected':''}>To Do</option>
-                        <option value="in-progress" ${effectiveStatus==='in-progress'?'selected':''}>In Progress</option>
-                        <option value="completed" ${effectiveStatus==='completed'?'selected':''}>Done</option>
-                    </select>
+                    <p class="text-xs text-zinc-400 mb-1">Status</p>
+                    <span class="px-3 py-1 rounded-full text-xs bg-zinc-700 text-zinc-400">To Do</span>
                 </div>
                 <div>
-                    <p class="text-xs text-zinc-400 mb-2">Category</p>
-                    <p class="text-sm font-medium mt-3">${node.nodeCategory || 'General'}</p>
+                    <p class="text-xs text-zinc-400 mb-1">Category</p>
+                    <span class="text-sm font-medium">${node.nodeCategory || 'General'}</span>
                 </div>
             </div>
 
