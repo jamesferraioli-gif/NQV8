@@ -5295,13 +5295,37 @@ if (hasEscrow) {
 
             try {
                 const projectRef = db.collection("subprojects").doc(currentReviewProjectId);
+                const projectSnap = await projectRef.get();
+                const projectData = projectSnap.data();
 
+                // Determine who is being reviewed
+                const isReviewerPoster = currentUser.uid === projectData.posterUid || currentUser.uid === projectData.ownerUid;
+                const revieweeUid = isReviewerPoster ? projectData.acceptedBidderUid : (projectData.posterUid || projectData.ownerUid);
+                const revieweeUsername = isReviewerPoster ? projectData.acceptedBidderUsername : projectData.posterUsername;
+
+                const reviewData = {
+                    reviewerUid: currentUser.uid,
+                    reviewerName: currentUser.fullName || currentUser.username,
+                    reviewerUsername: currentUser.username,
+                    revieweeUid,
+                    revieweeUsername,
+                    rating: currentReviewRating,
+                    text,
+                    projectId: currentReviewProjectId,
+                    projectTitle: projectData.title || '',
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                // Write to reviews collection (queryable by revieweeUid)
+                await db.collection('reviews').add(reviewData);
+
+                // Also keep on subproject for reference
                 await projectRef.update({
                     reviews: firebase.firestore.FieldValue.arrayUnion({
                         reviewerUid: currentUser.uid,
                         reviewerName: currentUser.fullName || currentUser.username,
                         rating: currentReviewRating,
-                        text: text,
+                        text,
                         createdAt: new Date()
                     })
                 });
@@ -5972,13 +5996,49 @@ async function startVideoCall() {
                     completedGrid.innerHTML = `<p class="text-red-400">Error loading completed projects</p>`;
                 }
 
-                // My Reviews (from completed projects)
+                // My Reviews
                 const reviewsDiv = document.getElementById('my-reviews');
                 reviewsDiv.innerHTML = '<p class="text-zinc-400">Loading reviews...</p>';
-                // (Reviews will be populated from project reviews array - expanded in next update)
-                reviewsDiv.innerHTML = `<p class="text-zinc-400">Reviews received will appear here.</p>`;
-                
-                document.getElementById('my-reviews').innerHTML = `<p class="text-zinc-400">No reviews received yet.</p>`;
+                try {
+                    const reviewsSnap = await db.collection('reviews')
+                        .where('revieweeUid', '==', currentUser.uid)
+                        .orderBy('createdAt', 'desc')
+                        .get();
+
+                    if (reviewsSnap.empty) {
+                        reviewsDiv.innerHTML = '<p class="text-zinc-400">No reviews yet — complete a bounty to receive your first review.</p>';
+                    } else {
+                        let totalRating = 0;
+                        reviewsDiv.innerHTML = '';
+
+                        reviewsSnap.forEach(doc => {
+                            const r = doc.data();
+                            totalRating += r.rating || 0;
+                            const stars = '⭐'.repeat(r.rating || 0);
+                            const date = r.createdAt?.toDate ? new Date(r.createdAt.toDate()).toLocaleDateString() : '';
+                            const div = document.createElement('div');
+                            div.className = 'bg-zinc-900 rounded-2xl p-5';
+                            div.innerHTML = `
+                                <div class="flex justify-between items-start mb-2">
+                                    <div>
+                                        <p class="font-semibold">@${r.reviewerUsername || r.reviewerName || 'Anonymous'}</p>
+                                        <p class="text-xs text-zinc-500">${r.projectTitle || ''} · ${date}</p>
+                                    </div>
+                                    <span class="text-sm">${stars}</span>
+                                </div>
+                                <p class="text-zinc-300 text-sm leading-relaxed">${r.text}</p>
+                            `;
+                            reviewsDiv.appendChild(div);
+                        });
+
+                        // Update avg rating in Firestore
+                        const avgRating = Math.round((totalRating / reviewsSnap.size) * 10) / 10;
+                        await db.collection('users').doc(currentUser.uid).update({ avgRating });
+                    }
+                } catch(e) {
+                    console.error('Reviews load error:', e);
+                    reviewsDiv.innerHTML = '<p class="text-red-400">Error loading reviews.</p>';
+                }
 
                 // Referral data
                 loadReferralData();
@@ -6259,10 +6319,42 @@ async function startVideoCall() {
                     document.getElementById('user-nqv8-earned').textContent = (user.totalNQV8Earned || 0).toLocaleString();
                 }
 
-                // Reviews placeholder
-                document.getElementById('user-reviews-list').innerHTML = `
-                    <p class="text-zinc-400">Reviews will appear here once the review system is fully active.</p>
-                `;
+            // Load reviews for this user
+                try {
+                    const userReviewsSnap = await db.collection('reviews')
+                        .where('revieweeUid', '==', uid)
+                        .orderBy('createdAt', 'desc')
+                        .get();
+
+                    const userReviewsList = document.getElementById('user-reviews-list');
+
+                    if (userReviewsSnap.empty) {
+                        userReviewsList.innerHTML = '<p class="text-zinc-400">No reviews yet.</p>';
+                    } else {
+                        userReviewsList.innerHTML = '';
+                        userReviewsSnap.forEach(doc => {
+                            const r = doc.data();
+                            const stars = '⭐'.repeat(r.rating || 0);
+                            const date = r.createdAt?.toDate ? new Date(r.createdAt.toDate()).toLocaleDateString() : '';
+                            const div = document.createElement('div');
+                            div.className = 'bg-zinc-900 rounded-2xl p-5';
+                            div.innerHTML = `
+                                <div class="flex justify-between items-start mb-2">
+                                    <div>
+                                        <p class="font-semibold">@${r.reviewerUsername || r.reviewerName || 'Anonymous'}</p>
+                                        <p class="text-xs text-zinc-500">${r.projectTitle || ''} · ${date}</p>
+                                    </div>
+                                    <span class="text-sm">${stars}</span>
+                                </div>
+                                <p class="text-zinc-300 text-sm leading-relaxed">${r.text}</p>
+                            `;
+                            userReviewsList.appendChild(div);
+                        });
+                    }
+                } catch(e) {
+                    console.error('User reviews error:', e);
+                    document.getElementById('user-reviews-list').innerHTML = '<p class="text-red-400">Error loading reviews.</p>';
+                }
 
             } catch (e) {
                 console.error(e);
