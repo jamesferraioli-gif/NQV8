@@ -6551,7 +6551,6 @@ async function viewUserProfile(uid) {
                 document.getElementById('user-working-on').textContent = workingCount;
                 document.getElementById('user-completed').textContent = completedCount;
                 document.getElementById('user-avg-rating').textContent = user.avgRating ? user.avgRating.toFixed(1) : '—';
-                document.getElementById('user-leaderboard-rank').textContent = '—';
 
                 // Total earned from chain
                 const totalEarnedEl = document.getElementById('user-total-earned');
