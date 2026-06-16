@@ -4415,7 +4415,11 @@ async function loadTotalFundingReceivedStat() {
         ${alreadyBid ? `<p class="text-emerald-400 text-center mt-4">✅ You have already placed a bid on this project.</p>` : ''}
         ${isPoster ? `
             <p class="text-amber-400 text-center mt-4">👆 Click any bid above to review it and accept.</p>
-            <div class="border-t border-zinc-700 mt-8 pt-6">
+            <div class="border-t border-zinc-700 mt-8 pt-6 space-y-3">
+                <button onclick="showEditPostingModal('${projectId}')"
+                        class="w-full py-4 border border-zinc-600 text-zinc-300 hover:bg-zinc-800 font-medium rounded-3xl flex items-center justify-center gap-2 transition-colors">
+                    <i class="fa-solid fa-pen"></i> Edit Posting
+                </button>
                 <button onclick="deletePosting('${projectId}')"
                         class="w-full py-4 border border-red-500/50 text-red-400 hover:bg-red-500/10 font-medium rounded-3xl flex items-center justify-center gap-2 transition-colors">
                     <i class="fa-solid fa-trash-can"></i> ${project.planNode ? 'Delete Node' : 'Delete This Posting ($0.01 USDC or 1 NQV8)'}
@@ -4494,8 +4498,104 @@ async function deletePosting(projectId) {
             }
         }
     
-        function hideProjectDetailModal() {
+    function hideProjectDetailModal() {
             document.getElementById('project-detail-modal').classList.add('hidden');
+        }
+
+        // ====================== EDIT POSTING ======================
+        let editingPostingId = null;
+
+        async function showEditPostingModal(projectId) {
+            const snap = await db.collection('subprojects').doc(projectId).get();
+            if (!snap.exists) return alert('Posting not found.');
+            const p = snap.data();
+
+            if (p.status === 'in-progress' || p.status === 'completed') {
+                return alert('❌ Cannot edit a posting once a bid has been accepted.');
+            }
+
+            const bidCount = p.bids?.length || 0;
+
+            if (bidCount > 0) {
+                const proceed = confirm(
+                    `⚠️ This posting has ${bidCount} bid${bidCount !== 1 ? 's' : ''} on it.\n\n` +
+                    `You can only edit the title and description — compensation and category are locked because bidders submitted offers based on those terms.\n\n` +
+                    `If you need to change compensation, delete this posting and create a new one.\n\n` +
+                    `Continue to edit title/description only?`
+                );
+                if (!proceed) return;
+            }
+
+            editingPostingId = projectId;
+            window._editingHasBids = bidCount > 0;
+
+            document.getElementById('edit-posting-title').value = p.title || '';
+            document.getElementById('edit-posting-desc').value = p.description || '';
+            document.getElementById('edit-posting-compensation').value = p.compensation || '';
+            document.getElementById('edit-posting-category').value = p.category || '';
+
+            const compEl    = document.getElementById('edit-posting-compensation');
+            const catEl     = document.getElementById('edit-posting-category');
+            const warningEl = document.getElementById('edit-posting-bid-warning');
+
+            if (bidCount > 0) {
+                compEl.disabled = true;
+                compEl.classList.add('opacity-50', 'cursor-not-allowed');
+                catEl.disabled = true;
+                catEl.classList.add('opacity-50', 'cursor-not-allowed');
+                warningEl.classList.remove('hidden');
+            } else {
+                compEl.disabled = false;
+                compEl.classList.remove('opacity-50', 'cursor-not-allowed');
+                catEl.disabled = false;
+                catEl.classList.remove('opacity-50', 'cursor-not-allowed');
+                warningEl.classList.add('hidden');
+            }
+
+            document.getElementById('edit-posting-modal').classList.remove('hidden');
+        }
+
+        function hideEditPostingModal() {
+            document.getElementById('edit-posting-modal').classList.add('hidden');
+            editingPostingId = null;
+            window._editingHasBids = false;
+        }
+
+        async function submitEditPosting() {
+            if (!editingPostingId) return;
+
+            const title        = document.getElementById('edit-posting-title').value.trim();
+            const description  = document.getElementById('edit-posting-desc').value.trim();
+            const compensation = document.getElementById('edit-posting-compensation').value.trim();
+            const category     = document.getElementById('edit-posting-category').value;
+
+            if (!title || !description) return alert('Please fill in title and description.');
+            if (!window._editingHasBids && !compensation) return alert('Please enter compensation.');
+
+            const modResult = await moderateContent(`${title} ${description}`, 'marketplace posting');
+            if (!modResult.approved) return alert(`❌ ${modResult.reason}`);
+
+            try {
+                const updateData = {
+                    title,
+                    description,
+                    editedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+
+                if (!window._editingHasBids) {
+                    updateData.compensation = compensation;
+                    updateData.category     = category;
+                }
+
+                await db.collection('subprojects').doc(editingPostingId).update(updateData);
+
+                hideEditPostingModal();
+                hideProjectDetailModal();
+                loadMarketplace();
+                alert('✅ Posting updated.');
+            } catch(e) {
+                alert('Failed to update: ' + e.message);
+            }
         }
 
         async function placeBid(projectId) {
@@ -11725,6 +11825,46 @@ async function loadGrowTab() {
                     class="px-10 py-5 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-bold rounded-2xl text-lg hover:scale-105 transition-transform">
                 Get Started — 1,000 NQV8 Free 🎁
             </button>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT POSTING MODAL -->
+<div id="edit-posting-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999] overflow-auto">
+    <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-6 md:p-8 my-8">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold">Edit Posting</h2>
+            <button onclick="hideEditPostingModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
+        </div>
+
+        <input id="edit-posting-title" type="text" placeholder="Title"
+               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
+
+        <textarea id="edit-posting-desc" rows="4" placeholder="Description"
+                  class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4"></textarea>
+
+        <input id="edit-posting-compensation" type="text" placeholder="Compensation"
+               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
+
+        <select id="edit-posting-category" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
+            <option value="">Select Category</option>
+            <option value="AI/ML">AI / Machine Learning</option>
+            <option value="Blockchain">Crypto / Blockchain</option>
+            <option value="DeFi">DeFi / Finance</option>
+            <option value="Gaming">Gaming / Metaverse</option>
+            <option value="Infrastructure">Infrastructure / Tools</option>
+            <option value="Social">Social / Community</option>
+            <option value="Other">Other</option>
+        </select>
+
+        <div id="edit-posting-bid-warning" class="hidden bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6">
+            <p class="text-amber-400 text-sm font-semibold">⚠️ Compensation & category locked</p>
+            <p class="text-zinc-400 text-xs mt-1">This posting has bids. Compensation and category cannot be changed since bidders submitted offers based on those terms.</p>
+        </div>
+
+        <div class="flex gap-3">
+            <button onclick="hideEditPostingModal()" class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+            <button onclick="submitEditPosting()" class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Save Changes</button>
         </div>
     </div>
 </div>
