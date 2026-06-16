@@ -5795,6 +5795,8 @@ async function startVideoCall() {
 
                     postedSnap.forEach(doc => {
                         const p = doc.data();
+                        // Skip studio plan/build nodes — only show actual marketplace postings
+                        if (p.planNode === true) return;
                         // Skip completed — they show in Completed Postings section
                         if (p.status === 'completed' || p.status === 'refunded') return;
                         const card = document.createElement('div');
@@ -5820,8 +5822,9 @@ async function startVideoCall() {
                     workingGrid.innerHTML = workingSnap.empty ? 
                         `<p class="text-zinc-400">No active projects yet.</p>` : '';
 
-                    workingSnap.forEach(doc => {
+                workingSnap.forEach(doc => {
                         const p = doc.data();
+                        if (p.planNode === true) return; // skip studio nodes
                         const card = document.createElement('div');
                         card.className = "bg-emerald-900/30 border border-emerald-500/30 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-emerald-400";
                         card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs text-emerald-400">In Progress • ${p.compensation}</span>`;
@@ -5845,8 +5848,9 @@ async function startVideoCall() {
                     completedGrid.innerHTML = completedSnap.empty ? 
                         `<p class="text-zinc-400">No completed projects yet.</p>` : '';
 
-                    completedSnap.forEach(doc => {
+                completedSnap.forEach(doc => {
                         const p = doc.data();
+                        if (p.planNode === true) return; // skip studio nodes
                         const card = document.createElement('div');
                         card.className = "bg-zinc-800 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-emerald-400";
                         card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs text-emerald-400">Completed • ${p.compensation}</span>`;
