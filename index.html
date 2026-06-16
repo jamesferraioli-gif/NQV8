@@ -228,6 +228,26 @@
                     <option value="2000-10000">$2,000 – $10,000</option>
                     <option value="10000+">$10,000+</option>
                 </select>
+                <!-- Skill tag filter -->
+                <select id="filter-tag" onchange="applyMarketplaceFilters()"
+                        class="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 outline-none text-sm">
+                    <option value="">Any Skill</option>
+                    <option value="Solidity">Solidity</option>
+                    <option value="React">React</option>
+                    <option value="Next.js">Next.js</option>
+                    <option value="Node.js">Node.js</option>
+                    <option value="Python">Python</option>
+                    <option value="TypeScript">TypeScript</option>
+                    <option value="Rust">Rust</option>
+                    <option value="UI/UX Design">UI/UX Design</option>
+                    <option value="Smart Contracts">Smart Contracts</option>
+                    <option value="Machine Learning">Machine Learning</option>
+                    <option value="DevOps">DevOps</option>
+                    <option value="Web3">Web3</option>
+                    <option value="DeFi">DeFi</option>
+                    <option value="Figma">Figma</option>
+                    <option value="Marketing">Marketing</option>
+                </select>
                 <!-- Clear filters -->
                 <button onclick="clearMarketplaceFilters()"
                         id="clear-filters-btn"
@@ -363,7 +383,10 @@
             </div>
 
             <input id="bounty-compensation" type="text" placeholder="Compensation (e.g. $2,500 USDC)"
-                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-6">
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+
+            <p class="text-sm text-zinc-400 mb-2">Skills Required <span class="text-zinc-500">(optional — helps builders find your posting)</span></p>
+            <div id="bounty-tags-picker" class="flex flex-wrap gap-2 mb-6"></div>
 
             <div class="flex gap-3">
                 <button onclick="bountyGoToStep1()" class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">← Back</button>
@@ -513,7 +536,10 @@
                class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
 
         <textarea id="funding-desc" placeholder="Describe the funding round, what it's for, and what you're offering investors..." rows="4"
-                  class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6"></textarea>
+                  class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-4"></textarea>
+
+        <p class="text-sm text-zinc-400 mb-2">Tags <span class="text-zinc-500">(optional)</span></p>
+        <div id="funding-tags-picker" class="flex flex-wrap gap-2 mb-6"></div>
 
         <div class="flex gap-3">
             <button onclick="hidePostFundingModal()"
@@ -1823,6 +1849,38 @@
 
     
 <script>
+
+// ====================== BOUNTY TAGS ======================
+const BOUNTY_TAG_OPTIONS = [
+    'Solidity','React','Next.js','Node.js','Python','TypeScript','JavaScript',
+    'Rust','Go','Swift','Flutter','UI/UX Design','Graphic Design','Smart Contracts',
+    'DeFi','Web3','Machine Learning','DevOps','Firebase','AWS','PostgreSQL',
+    'GraphQL','Docker','Figma','Marketing','Copywriting','Legal'
+];
+
+let _bountySelectedTags = [];
+let _fundingSelectedTags = [];
+
+function initTagsPicker(containerId, selectedArr) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = BOUNTY_TAG_OPTIONS.map(tag => {
+        const selected = selectedArr.includes(tag);
+        return `<button type="button" onclick="toggleBountyTag('${containerId}', '${tag}')"
+                        class="px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                            selected ? 'bg-cyan-500 text-black' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                        }">${tag}</button>`;
+    }).join('');
+}
+
+function toggleBountyTag(containerId, tag) {
+    const arr = containerId === 'bounty-tags-picker' ? _bountySelectedTags : _fundingSelectedTags;
+    const idx = arr.indexOf(tag);
+    if (idx > -1) arr.splice(idx, 1);
+    else if (arr.length < 5) arr.push(tag);
+    else return alert('Maximum 5 tags per posting.');
+    initTagsPicker(containerId, arr);
+}
 // ====================== EARNINGS FROM CHAIN ======================
 async function getTotalEarningsUSD(walletAddress) {
     try {
@@ -3434,26 +3492,26 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                             createdAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
 
-                        await db.collection("subprojects").add({
-                            projectId: projectRef.id,
-                            companyId: selectedCompanyId,
-                            ownerUid: currentUser.uid,
-                            ownerUsername: currentUser.username,
-                            posterName: currentUser.fullName || currentUser.username,
-                            title: subTitle,
-                            description: subDesc,
-                            category,
-                            compensation,
-                            compensationType: selectedProjectType === 'equity'
-                                ? (document.getElementById('subproject-comp-type')?.value || 'cash')
-                                : 'cash',
-                            type: currentMarketplaceFilter,
-                            bids: [],
-                            bidsOpen: true,
-                            status: 'open',
-                            paymentTxHash: txHash,
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
+                await db.collection("subprojects").add({
+                    projectId: selectedFundingProjectId,
+                    companyId: selectedFundingProjectId,
+                    ownerUid: currentUser.uid,
+                    ownerUsername: currentUser.username,
+                    posterName: currentUser.fullName || currentUser.username,
+                    title: `Funding Request: ${project.name}`,
+                    description: finalDesc,
+                    category: project.category || 'Other',
+                    tags: _fundingSelectedTags,
+                    compensation: ask,
+                    compensationType: 'fund',
+                    type: 'fund',
+                    bids: [],
+                    bidsOpen: true,
+                    status: 'open',
+                    postingCost: '$1.00 USDC',
+                    paymentTxHash: txHash,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
 
                         alert("✅ Project and first task posted!");
                         hidePostProjectModal();
@@ -4045,19 +4103,21 @@ async function createProfile() {
 
         function applyMarketplaceFilters() {
             const grid = document.getElementById('projects-grid');
-            const search   = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
-            const category = document.getElementById('filter-category')?.value || '';
-            const compType = document.getElementById('filter-comp-type')?.value || '';
+            const search    = (document.getElementById('search-input')?.value || '').toLowerCase().trim();
+            const category  = document.getElementById('filter-category')?.value || '';
+            const compType  = document.getElementById('filter-comp-type')?.value || '';
             const compRange = document.getElementById('filter-comp-range')?.value || '';
-            const clearBtn = document.getElementById('clear-filters-btn');
+            const tag       = document.getElementById('filter-tag')?.value || '';
+            const clearBtn  = document.getElementById('clear-filters-btn');
 
-            const hasFilters = search || category || compType || compRange;
+            const hasFilters = search || category || compType || compRange || tag;
             if (clearBtn) clearBtn.classList.toggle('hidden', !hasFilters);
 
             const filtered = _allMarketplacePostings.filter(p => {
-                // Search
+                // Search — also searches tags
                 if (search) {
-                    const text = `${p.title} ${p.description} ${p.category || ''} ${p.posterUsername || ''} ${p.compensation || ''}`.toLowerCase();
+                    const tagStr = (p.tags || []).join(' ').toLowerCase();
+                    const text = `${p.title} ${p.description} ${p.category || ''} ${p.posterUsername || ''} ${p.compensation || ''} ${tagStr}`.toLowerCase();
                     if (!text.includes(search)) return false;
                 }
                 // Category
@@ -4067,11 +4127,13 @@ async function createProfile() {
                 // Compensation range
                 if (compRange) {
                     const amount = parseFloat((p.compensation || '0').replace(/[^0-9.]/g, '')) || 0;
-                    if (compRange === '0-500'       && amount > 500)    return false;
-                    if (compRange === '500-2000'    && (amount < 500  || amount > 2000))  return false;
-                    if (compRange === '2000-10000'  && (amount < 2000 || amount > 10000)) return false;
-                    if (compRange === '10000+'      && amount < 10000) return false;
+                    if (compRange === '0-500'      && amount > 500)                       return false;
+                    if (compRange === '500-2000'   && (amount < 500  || amount > 2000))  return false;
+                    if (compRange === '2000-10000' && (amount < 2000 || amount > 10000)) return false;
+                    if (compRange === '10000+'     && amount < 10000)                    return false;
                 }
+                // Tag filter
+                if (tag && !(p.tags || []).includes(tag)) return false;
                 return true;
             });
 
@@ -4098,7 +4160,10 @@ async function createProfile() {
                     <h3 class="text-2xl font-bold mb-2">${p.title}</h3>
                     <p class="text-zinc-400 line-clamp-3 mb-4">${p.description}</p>
                     <div class="text-cyan-400 font-medium">${p.compensation}</div>
-                    ${p.category ? `<p class="text-xs text-violet-400 mt-2">${p.category}</p>` : ''}
+                    <div class="flex flex-wrap gap-1 mt-2">
+                        ${p.category ? `<span class="px-2 py-0.5 bg-violet-500/20 text-violet-400 rounded-full text-xs">${p.category}</span>` : ''}
+                        ${(p.tags || []).map(t => `<span class="px-2 py-0.5 bg-zinc-700 text-zinc-300 rounded-full text-xs">${t}</span>`).join('')}
+                    </div>
                     <p onclick="event.stopPropagation(); viewUserProfile('${p.posterUid}')"
                        class="text-cyan-400 hover:underline cursor-pointer text-xs mt-3">
                         Posted by @${p.posterUsername || p.posterName || 'anonymous'}
@@ -4110,14 +4175,10 @@ async function createProfile() {
         }
 
         function clearMarketplaceFilters() {
-            const searchEl   = document.getElementById('search-input');
-            const categoryEl = document.getElementById('filter-category');
-            const compTypeEl = document.getElementById('filter-comp-type');
-            const compRangeEl = document.getElementById('filter-comp-range');
-            if (searchEl)    searchEl.value    = '';
-            if (categoryEl)  categoryEl.value  = '';
-            if (compTypeEl)  compTypeEl.value  = '';
-            if (compRangeEl) compRangeEl.value = '';
+            ['search-input','filter-category','filter-comp-type','filter-comp-range','filter-tag'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
             document.getElementById('clear-filters-btn')?.classList.add('hidden');
             applyMarketplaceFilters();
         }
@@ -7770,9 +7831,11 @@ async function showPostBountyModal() {
     if (!currentUser) return alert("Please log in first");
     selectedBountyProjectId = null;
     selectedBountyCompType = 'cash';
+    _bountySelectedTags = [];
     document.getElementById('post-bounty-modal').classList.remove('hidden');
     document.getElementById('bounty-step-1').classList.remove('hidden');
     document.getElementById('bounty-step-2').classList.add('hidden');
+    initTagsPicker('bounty-tags-picker', _bountySelectedTags);
     await populateBountyProjectList();
 }
 
@@ -7938,10 +8001,12 @@ let selectedFundingProjectId = null;
 async function showPostFundingModal() {
     if (!currentUser) return alert("Please log in first");
     selectedFundingProjectId = null;
+    _fundingSelectedTags = [];
     document.getElementById('post-funding-modal').classList.remove('hidden');
     document.getElementById('funding-verif-notice').classList.add('hidden');
     document.getElementById('funding-ask').value = '';
     document.getElementById('funding-desc').value = '';
+    initTagsPicker('funding-tags-picker', _fundingSelectedTags);
     await populateFundingProjectList();
 }
 
@@ -8035,24 +8100,26 @@ await checkAndImprovePosting('Funding Request', desc, 'Funding', 'fund', 'fund',
                 const project = projectSnap.data();
 
                 await db.collection("subprojects").add({
-                    projectId: selectedFundingProjectId,
-                    companyId: selectedFundingProjectId,
-                    ownerUid: currentUser.uid,
-                    ownerUsername: currentUser.username,
-                    posterName: currentUser.fullName || currentUser.username,
-                    title: `Funding Request: ${project.name}`,
-                    description: finalDesc, // ← uses whichever version they chose
-                    category: project.category || 'Other',
-                    compensation: ask,
-                    compensationType: 'fund',
-                    type: 'fund',
-                    bids: [],
-                    bidsOpen: true,
-                    status: 'open',
-                    postingCost: '$1.00 USDC',
-                    paymentTxHash: txHash,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
+                        projectId: selectedBountyProjectId,
+                        companyId: selectedBountyProjectId,
+                        ownerUid: currentUser.uid,
+                        ownerUsername: currentUser.username,
+                        posterName: currentUser.fullName || currentUser.username,
+                        title,
+                        description: finalDesc,
+                        category,
+                        tags: _bountySelectedTags,
+                        compensation,
+                        compensationType: selectedBountyCompType,
+                        equityUnits: equityUnits || 0,
+                        type: 'build',
+                        bids: [],
+                        bidsOpen: true,
+                        status: 'open',
+                        postingCost: '$1.00 USDC',
+                        paymentTxHash: txHash,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
 
                 alert("✅ Funding request posted!");
                 hidePostFundingModal();
