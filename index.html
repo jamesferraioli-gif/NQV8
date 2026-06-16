@@ -842,7 +842,12 @@
                     <p id="profile-fullname" class="text-2xl md:text-4xl font-bold"></p>
                     <p id="profile-username" class="text-cyan-400 text-lg md:text-2xl"></p>
                     <p id="profile-email" class="text-zinc-400 text-sm"></p>
-                    <p id="profile-bio" class="mt-6 text-zinc-300 leading-relaxed"></p>
+                    <p id="profile-bio" class="mt-4 text-zinc-300 leading-relaxed"></p>
+                    <div id="profile-skills" class="flex flex-wrap gap-2 mt-3"></div>
+                    <button onclick="showEditProfileModal()"
+                            class="mt-4 px-4 py-2 border border-zinc-600 text-zinc-400 rounded-xl text-xs hover:bg-zinc-800 flex items-center gap-2 w-fit">
+                        <i class="fa-solid fa-pen"></i> Edit Bio & Skills
+                    </button>
 
 
 <!-- NQV8 Claim Bonus Banner -->
@@ -1082,6 +1087,7 @@
                 <div class="flex-1 text-center md:text-left">
                     <p id="user-profile-username" class="text-cyan-400 text-3xl"></p>
                     <p id="user-profile-bio" class="mt-4 text-zinc-300 leading-relaxed"></p>
+                    <div id="user-profile-skills" class="flex flex-wrap gap-2 mt-3"></div>
 
                     <div class="mt-6 flex gap-8">
                         <div>
@@ -3671,7 +3677,20 @@ function navigateTo(page) {
             document.getElementById('profile-username').textContent = currentUser.username || '';
             document.getElementById('profile-email').textContent = currentUser.email || '';
 
-            loadProfileData();   // ← This line loads the new sections
+            // Bio
+            const bioEl = document.getElementById('profile-bio');
+            if (bioEl) bioEl.textContent = currentUser.bio || 'No bio yet. Click "Edit Bio & Skills" to add one.';
+
+            // Skills tags
+            const skillsEl = document.getElementById('profile-skills');
+            if (skillsEl) {
+                const skills = currentUser.skills || [];
+                skillsEl.innerHTML = skills.map(s =>
+                    `<span class="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-xs font-medium">${s}</span>`
+                ).join('');
+            }
+
+            loadProfileData();
         }
 
         let walletConnected = false;
@@ -4555,6 +4574,109 @@ async function deletePosting(projectId) {
             document.getElementById('edit-posting-modal').classList.remove('hidden');
         }
 
+// ====================== EDIT PROFILE BIO & SKILLS ======================
+const SKILL_OPTIONS = [
+    'Solidity', 'React', 'Next.js', 'Node.js', 'Python', 'TypeScript',
+    'JavaScript', 'Rust', 'Go', 'Swift', 'Kotlin', 'Flutter',
+    'UI/UX Design', 'Graphic Design', 'Product Management', 'Marketing',
+    'Copywriting', 'SEO', 'Data Science', 'Machine Learning', 'DevOps',
+    'Smart Contracts', 'DeFi', 'Web3', 'Firebase', 'AWS', 'PostgreSQL',
+    'MongoDB', 'GraphQL', 'Docker', 'Figma', 'Video Editing', 'Legal'
+];
+
+let _selectedSkills = [];
+
+function showEditProfileModal() {
+    if (!currentUser) return;
+    _selectedSkills = [...(currentUser.skills || [])];
+
+    document.getElementById('edit-bio-input').value = currentUser.bio || '';
+    document.getElementById('custom-skill-input').value = '';
+    renderSkillsPicker();
+    document.getElementById('edit-profile-modal').classList.remove('hidden');
+}
+
+function hideEditProfileModal() {
+    document.getElementById('edit-profile-modal').classList.add('hidden');
+}
+
+function renderSkillsPicker() {
+    const picker = document.getElementById('skills-picker');
+    const preview = document.getElementById('selected-skills-preview');
+
+    picker.innerHTML = SKILL_OPTIONS.map(skill => {
+        const selected = _selectedSkills.includes(skill);
+        return `<button onclick="toggleSkill('${skill}')"
+                        class="px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                            selected
+                                ? 'bg-cyan-500 text-black'
+                                : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                        }">
+                    ${skill}
+                </button>`;
+    }).join('');
+
+    preview.innerHTML = _selectedSkills.length > 0
+        ? _selectedSkills.map(s => `
+            <span class="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-xs font-medium flex items-center gap-1">
+                ${s}
+                <button onclick="toggleSkill('${s}')" class="text-cyan-600 hover:text-red-400 ml-1">×</button>
+            </span>`).join('')
+        : '<p class="text-xs text-zinc-500">No skills selected yet</p>';
+}
+
+function toggleSkill(skill) {
+    if (_selectedSkills.includes(skill)) {
+        _selectedSkills = _selectedSkills.filter(s => s !== skill);
+    } else {
+        if (_selectedSkills.length >= 10) return alert('Maximum 10 skills.');
+        _selectedSkills.push(skill);
+    }
+    renderSkillsPicker();
+}
+
+function addCustomSkill() {
+    const input = document.getElementById('custom-skill-input');
+    const skill = input.value.trim();
+    if (!skill) return;
+    if (_selectedSkills.includes(skill)) return alert('Already added.');
+    if (_selectedSkills.length >= 10) return alert('Maximum 10 skills.');
+    _selectedSkills.push(skill);
+    input.value = '';
+    renderSkillsPicker();
+}
+
+async function saveProfileBioSkills() {
+    if (!currentUser) return;
+    const bio = document.getElementById('edit-bio-input').value.trim();
+
+    try {
+        await db.collection('users').doc(currentUser.uid).update({
+            bio,
+            skills: _selectedSkills
+        });
+
+        currentUser.bio    = bio;
+        currentUser.skills = _selectedSkills;
+
+        // Update display immediately
+        const bioEl = document.getElementById('profile-bio');
+        if (bioEl) bioEl.textContent = bio || 'No bio yet.';
+
+        const skillsEl = document.getElementById('profile-skills');
+        if (skillsEl) {
+            skillsEl.innerHTML = _selectedSkills.map(s =>
+                `<span class="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-xs font-medium">${s}</span>`
+            ).join('');
+        }
+
+        hideEditProfileModal();
+        alert('✅ Profile updated!');
+    } catch(e) {
+        alert('Failed to save: ' + e.message);
+    }
+}
+    
         function hideEditPostingModal() {
             document.getElementById('edit-posting-modal').classList.add('hidden');
             editingPostingId = null;
@@ -6295,7 +6417,16 @@ async function viewUserProfile(uid) {
 
                 // Basic Info
                 document.getElementById('user-profile-username').textContent = '@' + (user.username || 'user');
-                document.getElementById('user-profile-bio').textContent = user.bio || "No bio yet.";
+                document.getElementById('user-profile-bio').textContent = user.bio || '';
+
+                // Skills
+                const userSkillsEl = document.getElementById('user-profile-skills');
+                if (userSkillsEl) {
+                    const skills = user.skills || [];
+                    userSkillsEl.innerHTML = skills.length > 0
+                        ? skills.map(s => `<span class="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-xs font-medium">${s}</span>`).join('')
+                        : '';
+                }
 
                 // Avatar
                 const avatarEl = document.getElementById('user-profile-avatar');
@@ -12036,6 +12167,42 @@ async function loadGrowTab() {
         <div class="flex gap-3">
             <button onclick="hideEditPostingModal()" class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
             <button onclick="submitEditPosting()" class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Save Changes</button>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT PROFILE MODAL -->
+<div id="edit-profile-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999] overflow-auto">
+    <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-6 md:p-8 my-8">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold">Edit Profile</h2>
+            <button onclick="hideEditProfileModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
+        </div>
+
+        <label class="block text-sm text-zinc-400 mb-2">Bio</label>
+        <textarea id="edit-bio-input" rows="4" placeholder="Tell the community who you are and what you build..."
+                  class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm mb-6"></textarea>
+
+        <label class="block text-sm text-zinc-400 mb-2">Skills <span class="text-zinc-500">(select all that apply)</span></label>
+        <div id="skills-picker" class="flex flex-wrap gap-2 mb-6">
+            <!-- Populated by JS -->
+        </div>
+
+        <label class="block text-sm text-zinc-400 mb-2">Custom skill <span class="text-zinc-500">(optional)</span></label>
+        <div class="flex gap-2 mb-6">
+            <input id="custom-skill-input" type="text" placeholder="e.g. Rust, Product Design..."
+                   class="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none text-sm">
+            <button onclick="addCustomSkill()"
+                    class="px-4 py-3 bg-zinc-700 hover:bg-zinc-600 text-white rounded-xl text-sm font-medium">
+                Add
+            </button>
+        </div>
+
+        <div id="selected-skills-preview" class="flex flex-wrap gap-2 mb-6 min-h-8"></div>
+
+        <div class="flex gap-3">
+            <button onclick="hideEditProfileModal()" class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
+            <button onclick="saveProfileBioSkills()" class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Save</button>
         </div>
     </div>
 </div>
