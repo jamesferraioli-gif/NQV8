@@ -865,8 +865,28 @@
     </div>
 </div>
                     
+<!-- Stats Grid -->
+                    <div class="mt-6 grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                        <div class="bg-black/50 rounded-2xl p-3 text-center">
+                            <p id="profile-stat-completed" class="text-2xl font-bold text-emerald-400">0</p>
+                            <p class="text-xs text-zinc-400 mt-1">Bounties Done</p>
+                        </div>
+                        <div class="bg-black/50 rounded-2xl p-3 text-center">
+                            <p id="profile-stat-rating" class="text-2xl font-bold text-yellow-400">—</p>
+                            <p class="text-xs text-zinc-400 mt-1">Avg Rating</p>
+                        </div>
+                        <div class="bg-black/50 rounded-2xl p-3 text-center">
+                            <p id="profile-stat-working" class="text-2xl font-bold text-cyan-400">0</p>
+                            <p class="text-xs text-zinc-400 mt-1">In Progress</p>
+                        </div>
+                        <div class="bg-black/50 rounded-2xl p-3 text-center">
+                            <p id="profile-stat-reviews" class="text-2xl font-bold text-violet-400">0</p>
+                            <p class="text-xs text-zinc-400 mt-1">Reviews</p>
+                        </div>
+                    </div>
+
 <!-- Wallet Balances -->
-                    <div class="mt-6 bg-black/50 rounded-2xl p-4 md:p-6">
+                    <div class="mt-4 bg-black/50 rounded-2xl p-4 md:p-6">
                         <div class="grid grid-cols-2 gap-4 mb-4">
                             <div>
                                 <p class="text-xs text-zinc-400 mb-1">NQV8 Balance</p>
@@ -1083,24 +1103,13 @@
 
         <div class="bg-zinc-900 rounded-3xl p-5 md:p-8 mb-6">
             <div class="flex flex-col md:flex-row gap-6 items-center md:items-start">
-                <div id="user-profile-avatar" class="w-32 h-32 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-3xl flex items-center justify-center text-6xl font-bold ring-4 ring-cyan-400 overflow-hidden"></div>
+                <div id="user-profile-avatar" class="w-32 h-32 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-3xl flex items-center justify-center text-6xl font-bold ring-4 ring-cyan-400 overflow-hidden flex-shrink-0"></div>
 
                 <div class="flex-1 text-center md:text-left">
-                    <p id="user-profile-username" class="text-cyan-400 text-3xl"></p>
-                    <div id="user-profile-reputation" class="mt-3 hidden"></div>
-                    <p id="user-profile-bio" class="mt-3 text-zinc-300 leading-relaxed"></p>
-                    <div id="user-profile-skills" class="flex flex-wrap gap-2 mt-3"></div>
-
-                    <div class="mt-6 flex gap-8">
-                        <div>
-                            <p class="text-5xl font-bold text-cyan-400" id="user-avg-rating">0.0</p>
-                            <p class="text-sm text-zinc-400">Average Rating</p>
-                        </div>
-                        <div>
-                            <p class="text-5xl font-bold" id="user-nqv8-earned">0</p>
-                            <p class="text-sm text-zinc-400">NQV8 Earned</p>
-                        </div>
-                    </div>
+                    <p id="user-profile-username" class="text-cyan-400 text-3xl font-bold"></p>
+                    <div id="user-profile-reputation" class="mt-3 flex justify-center md:justify-start"></div>
+                    <p id="user-profile-bio" class="mt-3 text-zinc-300 leading-relaxed text-sm"></p>
+                    <div id="user-profile-skills" class="flex flex-wrap gap-2 mt-3 justify-center md:justify-start"></div>
                 </div>
             </div>
         </div>
@@ -6176,7 +6185,32 @@ async function startVideoCall() {
                     completedGrid.innerHTML = `<p class="text-red-400">Error loading completed projects</p>`;
                 }
 
-                // My Reviews
+                // Own profile stats
+                try {
+                    const [myCompletedSnap, myWorkingSnap, myReviewsSnap] = await Promise.all([
+                        db.collection('subprojects').where('acceptedBidderUid', '==', currentUser.uid).where('status', '==', 'completed').get(),
+                        db.collection('subprojects').where('acceptedBidderUid', '==', currentUser.uid).where('status', '==', 'in-progress').get(),
+                        db.collection('reviews').where('revieweeUid', '==', currentUser.uid).get()
+                    ]);
+                    const myCompleted = myCompletedSnap.docs.filter(d => !d.data().planNode).length;
+                    const myWorking   = myWorkingSnap.docs.filter(d => !d.data().planNode).length;
+                    const myReviews   = myReviewsSnap.size;
+                    const myAvgRating = myReviews > 0
+                        ? (myReviewsSnap.docs.reduce((s, d) => s + (d.data().rating || 0), 0) / myReviews).toFixed(1)
+                        : '—';
+                    const statCompleted = document.getElementById('profile-stat-completed');
+                    const statRating    = document.getElementById('profile-stat-rating');
+                    const statWorking   = document.getElementById('profile-stat-working');
+                    const statReviews   = document.getElementById('profile-stat-reviews');
+                    if (statCompleted) statCompleted.textContent = myCompleted;
+                    if (statRating)    statRating.textContent    = myAvgRating;
+                    if (statWorking)   statWorking.textContent   = myWorking;
+                    if (statReviews)   statReviews.textContent   = myReviews;
+                } catch(e) {
+                    console.warn('Profile stats error:', e.message);
+                }
+
+                // My Reviews (from completed projects)
                 const reviewsDiv = document.getElementById('my-reviews');
                 reviewsDiv.innerHTML = '<p class="text-zinc-400">Loading reviews...</p>';
                 try {
