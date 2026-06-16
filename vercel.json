@@ -76,6 +76,10 @@
             "dest": "/api/generate-flowmap.js"
         },
         {
+            "src": "/u/(.*)",
+            "dest": "/index.html"
+        },
+        {
             "src": "/admin.html",
             "dest": "/admin.html"
         },
