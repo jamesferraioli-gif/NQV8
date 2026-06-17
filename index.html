@@ -1152,15 +1152,6 @@
             </div>
         </div>
 
-        <!-- Activity Feed -->
-        <div class="mb-10">
-            <h2 class="text-2xl font-semibold mb-4">📡 Activity Feed</h2>
-            <p class="text-zinc-500 text-sm mb-4">Latest activity from people you follow.</p>
-            <div id="activity-feed" class="space-y-3">
-                <p class="text-zinc-400">Loading...</p>
-            </div>
-        </div>
-
         <!-- My Posted Projects -->
         <div class="mb-10">
             <h2 class="text-2xl font-semibold mb-4">My Postings</h2>
@@ -2078,125 +2069,6 @@ async function toggleBookmark(postingId, btn) {
     }
 }
 
-
-// ====================== ACTIVITY FEED ======================
-async function loadActivityFeed() {
-    if (!currentUser) return;
-    const container = document.getElementById('activity-feed');
-    if (!container) return;
-
-    try {
-        // Get who current user follows
-        const followsSnap = await db.collection('follows')
-            .where('followerUid', '==', currentUser.uid)
-            .get();
-
-        if (followsSnap.empty) {
-            container.innerHTML = '<p class="text-zinc-400">Follow some builders to see their activity here.</p>';
-            return;
-        }
-
-        const followingUids = followsSnap.docs.map(d => d.data().followingUid);
-
-        // Get recent activity from followed users — postings, completions, explore posts
-        const [postingsSnap, completedSnap, exploreSnap] = await Promise.all([
-            // New bounties posted by followed users
-            db.collection('subprojects')
-                .where('ownerUid', 'in', followingUids.slice(0, 10))
-                .where('status', '==', 'open')
-                .orderBy('createdAt', 'desc')
-                .limit(10)
-                .get(),
-            // Bounties completed by followed users
-            db.collection('subprojects')
-                .where('acceptedBidderUid', 'in', followingUids.slice(0, 10))
-                .where('status', '==', 'completed')
-                .orderBy('completedAt', 'desc')
-                .limit(10)
-                .get(),
-            // Explore posts by followed users
-            db.collection('posts')
-                .where('posterUid', 'in', followingUids.slice(0, 10))
-                .orderBy('createdAt', 'desc')
-                .limit(10)
-                .get()
-        ]);
-
-        // Build activity items
-        const items = [];
-
-        postingsSnap.forEach(doc => {
-            const p = doc.data();
-            if (p.planNode) return;
-            items.push({
-                type: 'posted',
-                uid: p.ownerUid,
-                username: p.ownerUsername || p.posterUsername,
-                text: `posted a new bounty`,
-                sub: `${p.title} · ${p.compensation}`,
-                time: p.createdAt?.toDate?.() || new Date(),
-                onclick: `showSubprojectDetail('${doc.id}', ${JSON.stringify(p).replace(/"/g, '&quot;')})`
-            });
-        });
-
-        completedSnap.forEach(doc => {
-            const p = doc.data();
-            if (p.planNode) return;
-            items.push({
-                type: 'completed',
-                uid: p.acceptedBidderUid,
-                username: p.acceptedBidderUsername,
-                text: `completed a bounty`,
-                sub: `${p.title} · ${p.acceptedBid?.amount || p.compensation}`,
-                time: p.completedAt?.toDate?.() || new Date(),
-                onclick: `showSubprojectDetail('${doc.id}', ${JSON.stringify(p).replace(/"/g, '&quot;')})`
-            });
-        });
-
-        exploreSnap.forEach(doc => {
-            const p = doc.data();
-            items.push({
-                type: 'explore',
-                uid: p.posterUid,
-                username: p.username,
-                text: `posted in Explore`,
-                sub: p.title,
-                time: p.createdAt?.toDate?.() || new Date(),
-                onclick: `viewPostDetail('${doc.id}', ${JSON.stringify(p).replace(/"/g, '&quot;')})`
-            });
-        });
-
-        // Sort by time newest first
-        items.sort((a, b) => b.time - a.time);
-
-        if (items.length === 0) {
-            container.innerHTML = '<p class="text-zinc-400">No recent activity from people you follow.</p>';
-            return;
-        }
-
-        const typeIcon = { posted: '📣', completed: '✅', explore: '💡' };
-        const typeColor = { posted: 'text-cyan-400', completed: 'text-emerald-400', explore: 'text-violet-400' };
-
-        container.innerHTML = items.slice(0, 20).map(item => `
-            <div onclick="${item.onclick}" class="bg-zinc-900 rounded-2xl p-4 cursor-pointer hover:bg-zinc-800 transition-colors flex items-start gap-3">
-                <span class="text-xl flex-shrink-0">${typeIcon[item.type]}</span>
-                <div class="flex-1 min-w-0">
-                    <p class="text-sm">
-                        <span onclick="event.stopPropagation(); viewUserProfile('${item.uid}')"
-                              class="font-semibold hover:underline cursor-pointer">@${item.username || 'user'}</span>
-                        <span class="${typeColor[item.type]}"> ${item.text}</span>
-                    </p>
-                    <p class="text-xs text-zinc-400 mt-0.5 truncate">${item.sub}</p>
-                </div>
-                <p class="text-xs text-zinc-600 flex-shrink-0">${timeAgo(item.time)}</p>
-            </div>
-        `).join('');
-
-    } catch(e) {
-        console.error('loadActivityFeed:', e.message);
-        container.innerHTML = '<p class="text-zinc-400">Could not load activity feed.</p>';
-    }
-}
     
 async function loadSavedBounties() {
     if (!currentUser) return;
@@ -7009,9 +6881,6 @@ async function startVideoCall() {
 
                 // Saved bounties
                 loadSavedBounties();
-
-                // Activity feed
-                loadActivityFeed();
 
                 // Own profile stats
                 try {
