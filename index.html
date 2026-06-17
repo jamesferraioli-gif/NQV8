@@ -474,6 +474,34 @@
             <p class="text-sm text-zinc-400 mb-2">Skills Required <span class="text-zinc-500">(optional — helps builders find your posting)</span></p>
             <div id="bounty-tags-picker" class="flex flex-wrap gap-2 mb-6"></div>
 
+            <!-- Preferred Builder -->
+            <div class="mb-4">
+                <p class="text-sm text-zinc-400 mb-2">Preferred Builder <span class="text-zinc-500">(optional — invite a specific builder)</span></p>
+                <div class="relative">
+                    <input id="bounty-preferred-builder" type="text" placeholder="Search by username..."
+                           oninput="searchPreferredBuilder(this.value)"
+                           class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none text-sm">
+                    <div id="preferred-builder-results" class="hidden absolute z-10 w-full bg-zinc-800 border border-zinc-700 rounded-2xl mt-1 max-h-40 overflow-auto"></div>
+                </div>
+                <div id="preferred-builder-selected" class="hidden mt-2 flex items-center gap-2 bg-violet-500/10 border border-violet-500/30 rounded-xl px-4 py-2">
+                    <span class="text-violet-400 text-sm" id="preferred-builder-name"></span>
+                    <button onclick="clearPreferredBuilder()" class="text-zinc-500 hover:text-red-400 text-xs ml-auto">✕ Remove</button>
+                </div>
+            </div>
+
+            <!-- Private Bounty Toggle -->
+            <div class="mb-6 flex items-center justify-between bg-zinc-800 rounded-2xl px-5 py-4">
+                <div>
+                    <p class="text-sm font-medium">Private Bounty</p>
+                    <p class="text-xs text-zinc-400">Only invited builders can see and bid on this posting</p>
+                </div>
+                <button onclick="togglePrivateBounty(this)" id="private-bounty-toggle"
+                        class="w-12 h-6 rounded-full bg-zinc-600 relative transition-colors flex-shrink-0"
+                        data-active="false">
+                    <span class="absolute left-1 top-1 w-4 h-4 rounded-full bg-white transition-all"></span>
+                </button>
+            </div>
+
             <div class="flex gap-3">
                 <button onclick="bountyGoToStep1()" class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">← Back</button>
                 <button onclick="submitBountyPosting()" class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Post ($1.00 in NQV8)</button>
@@ -2069,6 +2097,80 @@ async function toggleBookmark(postingId, btn) {
     }
 }
 
+// ====================== PREFERRED BUILDER + PRIVATE BOUNTY ======================
+let _preferredBuilderUid = null;
+let _preferredBuilderUsername = null;
+let _isPrivateBounty = false;
+
+function togglePrivateBounty(btn) {
+    _isPrivateBounty = !_isPrivateBounty;
+    btn.dataset.active = _isPrivateBounty ? 'true' : 'false';
+    btn.classList.toggle('bg-violet-500', _isPrivateBounty);
+    btn.classList.toggle('bg-zinc-600', !_isPrivateBounty);
+    const knob = btn.querySelector('span');
+    knob.style.transform = _isPrivateBounty ? 'translateX(24px)' : 'translateX(0)';
+}
+
+async function searchPreferredBuilder(query) {
+    const results = document.getElementById('preferred-builder-results');
+    if (!query || query.length < 2) {
+        results.classList.add('hidden');
+        return;
+    }
+
+    try {
+        // Search by username prefix
+        const snap = await db.collection('users')
+            .where('username', '>=', query.toLowerCase())
+            .where('username', '<=', query.toLowerCase() + '\uf8ff')
+            .limit(5).get();
+
+        if (snap.empty) {
+            results.innerHTML = '<p class="text-zinc-500 text-xs px-4 py-3">No users found</p>';
+            results.classList.remove('hidden');
+            return;
+        }
+
+        results.innerHTML = '';
+        snap.forEach(doc => {
+            const u = doc.data();
+            if (doc.id === currentUser?.uid) return; // skip self
+            const item = document.createElement('button');
+            item.className = 'w-full text-left px-4 py-3 hover:bg-zinc-700 text-sm flex items-center gap-3';
+            item.innerHTML = `
+                <div class="w-7 h-7 rounded-full bg-gradient-to-br from-violet-500 to-cyan-500 flex items-center justify-center text-xs font-bold flex-shrink-0">
+                    ${(u.username || '?')[0].toUpperCase()}
+                </div>
+                <div>
+                    <p class="font-medium">@${u.username}</p>
+                    <p class="text-xs text-zinc-400">${u.fullName || ''}</p>
+                </div>`;
+            item.onclick = () => selectPreferredBuilder(doc.id, u.username);
+            results.appendChild(item);
+        });
+        results.classList.remove('hidden');
+    } catch(e) {
+        console.warn('searchPreferredBuilder:', e.message);
+    }
+}
+
+function selectPreferredBuilder(uid, username) {
+    _preferredBuilderUid = uid;
+    _preferredBuilderUsername = username;
+    document.getElementById('bounty-preferred-builder').value = '';
+    document.getElementById('preferred-builder-results').classList.add('hidden');
+    document.getElementById('preferred-builder-name').textContent = `⭐ Preferred: @${username}`;
+    document.getElementById('preferred-builder-selected').classList.remove('hidden');
+    document.getElementById('preferred-builder-selected').classList.add('flex');
+}
+
+function clearPreferredBuilder() {
+    _preferredBuilderUid = null;
+    _preferredBuilderUsername = null;
+    document.getElementById('preferred-builder-selected').classList.add('hidden');
+    document.getElementById('preferred-builder-selected').classList.remove('flex');
+    document.getElementById('bounty-preferred-builder').value = '';
+}
     
 async function loadSavedBounties() {
     if (!currentUser) return;
@@ -4390,6 +4492,12 @@ async function createProfile() {
                     else if (p.status === "completed") completed++;
                     if (p.status === "in-progress" || p.status === "completed") return;
                     if (currentMarketplaceFilter && currentMarketplaceFilter !== 'equity-exchange' && p.type !== currentMarketplaceFilter) return;
+                    // Hide private bounties unless viewer is the poster or is invited
+                    if (p.isPrivate) {
+                        const isOwner   = currentUser && p.ownerUid === currentUser.uid;
+                        const isInvited = currentUser && (p.invitedUids || []).includes(currentUser.uid);
+                        if (!isOwner && !isInvited) return;
+                    }
                     _allMarketplacePostings.push(p);
                     open++;
                 });
@@ -4566,8 +4674,12 @@ async function createProfile() {
                 </span>`;
                 card.innerHTML = `
                     <div class="flex justify-between items-start mb-4">
-                        ${statusHTML}
-                        <span class="text-xs text-zinc-500">${p.bids ? p.bids.length : 0} bids</span>
+                        <div class="flex gap-2 flex-wrap">
+                            ${statusHTML}
+                            ${p.isPrivate ? '<span class="px-3 py-1 text-xs rounded-full bg-zinc-700 text-zinc-400">🔒 Private</span>' : ''}
+                            ${p.preferredBuilderUid ? '<span class="px-3 py-1 text-xs rounded-full bg-violet-500/20 text-violet-400">⭐ Preferred Builder</span>' : ''}
+                        </div>
+                        <span class="text-xs text-zinc-500 flex-shrink-0 ml-2">${p.bids ? p.bids.length : 0} bids</span>
                     </div>
                     <h3 class="text-2xl font-bold mb-2">${p.title}</h3>
                     <p class="text-zinc-400 line-clamp-3 mb-4">${p.description}</p>
@@ -5506,8 +5618,9 @@ function renderReputationBadge(score) {
                         ${bid.bidderName[0]}
                     </div>
                     <div>
-                        <p onclick="viewUserProfile('${bid.bidderUid}')" class="font-semibold text-lg cursor-pointer hover:underline">
-                            @${bid.bidderName}
+                        <p onclick="viewUserProfile('${bid.bidderUid}')" class="font-semibold text-lg cursor-pointer hover:underline flex items-center gap-2">
+                            ${bid.bidderName || 'Unknown'}
+                            ${bid.bidderUid === project.preferredBuilderUid ? '<span class="px-2 py-0.5 text-xs bg-violet-500/20 text-violet-400 rounded-full">⭐ Preferred</span>' : ''}
                         </p>
                         <p class="text-sm text-zinc-400">Bidder • ${bid.rating ? '⭐'.repeat(bid.rating) : 'No rating yet'}</p>
                     </div>
@@ -8619,12 +8732,19 @@ async function showPostBountyModal() {
     selectedBountyProjectId = null;
     selectedBountyCompType = 'cash';
     _bountySelectedTags = [];
-    document.getElementById('post-bounty-modal').classList.remove('hidden');
-    document.getElementById('bounty-step-1').classList.remove('hidden');
-    document.getElementById('bounty-step-2').classList.add('hidden');
-    initTagsPicker('bounty-tags-picker', _bountySelectedTags);
-    await populateBountyProjectList();
-}
+    _preferredBuilderUid = null;
+    _preferredBuilderUsername = null;
+    _isPrivateBounty = false;
+    // Reset toggle
+    const toggle = document.getElementById('private-bounty-toggle');
+    if (toggle) {
+        toggle.dataset.active = 'false';
+        toggle.classList.remove('bg-violet-500');
+        toggle.classList.add('bg-zinc-600');
+        const knob = toggle.querySelector('span');
+        if (knob) knob.style.transform = 'translateX(0)';
+    }
+    clearPreferredBuilder();
 
 function hidePostBountyModal() {
     document.getElementById('post-bounty-modal').classList.add('hidden');
@@ -8765,9 +8885,12 @@ async function submitBountyPosting() {
                         ownerUid: currentUser.uid,
                         ownerUsername: currentUser.username,
                         posterName: currentUser.fullName || currentUser.username,
+                        posterUid: currentUser.uid,
+                        posterUsername: currentUser.username,
                         title,
                         description: finalDesc,
                         category,
+                        tags: _bountySelectedTags,
                         compensation,
                         compensationType: selectedBountyCompType,
                         equityUnits: equityUnits || 0,
@@ -8775,10 +8898,32 @@ async function submitBountyPosting() {
                         bids: [],
                         bidsOpen: true,
                         status: 'open',
+                        isPrivate: _isPrivateBounty,
+                        preferredBuilderUid: _preferredBuilderUid || null,
+                        preferredBuilderUsername: _preferredBuilderUsername || null,
+                        invitedUids: _preferredBuilderUid ? [_preferredBuilderUid] : [],
                         postingCost: '$1.00 USDC',
                         paymentTxHash: txHash,
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
+
+                    // Notify preferred builder
+                    if (_preferredBuilderUid) {
+                        await createNotification(
+                            _preferredBuilderUid,
+                            'preferred_builder',
+                            `@${currentUser.username} has invited you to bid on: ${title}`,
+                            { projectId: 'pending' }
+                        );
+                        const builderEmail = await getUserEmail(_preferredBuilderUid);
+                        sendEmail('bid_received', builderEmail, {
+                            posterName: _preferredBuilderUsername,
+                            bidderUsername: currentUser.username,
+                            postingTitle: title,
+                            bidAmount: `You've been invited as a preferred builder — ${compensation}`,
+                            postingId: 'new'
+                        });
+                    }
                     alert("✅ Build request posted!");
                     notifyMatchingBuilders({ title, compensation }, _bountySelectedTags, category);
                     hidePostBountyModal();
