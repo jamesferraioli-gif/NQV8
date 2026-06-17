@@ -76,6 +76,10 @@
             "dest": "/api/generate-flowmap.js"
         },
         {
+            "src": "/api/send-email",
+            "dest": "/api/send-email.js"
+        },
+        {
             "src": "/u/(.*)",
             "dest": "/index.html"
         },
