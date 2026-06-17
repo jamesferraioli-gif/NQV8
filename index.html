@@ -5288,6 +5288,7 @@ function renderReputationBadge(score) {
                                 { projectId }
                             );
                             alert("✅ Bid placed!");
+                            notifyBidReceived(project, projectId);
                             hideProjectDetailModal();
                             loadMarketplace();
                         } catch(e) {
@@ -5489,6 +5490,7 @@ function renderReputationBadge(score) {
                 if (btn) { btn.textContent = 'Accept Bid'; btn.disabled = false; }
 
                 alert(`✅ Bid accepted!\n\n$${amountNum} ${isNQV8 ? 'NQV8' : 'USDC'} locked in escrow.\nEscrow tx: https://arbiscan.io/tx/${escrowTx.hash}`);
+                notifyBidAccepted(currentProject, bid);
 
                 await createNotification(
                     bid.bidderUid,
@@ -5587,132 +5589,178 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             alert("✅ Boilerplate funding agreement loaded.\n\nReview and edit as needed before submitting.");
         }
 
-        async function submitWork() {
-            if (!currentSubmitProjectId) return;
+    async function submitWork() {
+    if (!currentSubmitProjectId) return;
 
-            const desc = document.getElementById('submit-desc').value.trim();
-            const link = document.getElementById('submit-link').value.trim();
-            const filesInput = document.getElementById('submit-files');
+    const desc = document.getElementById('submit-desc').value.trim();
+    const link = document.getElementById('submit-link').value.trim();
+    const filesInput = document.getElementById('submit-files');
 
-            if (!desc) return alert("Please provide a description or agreement text");
+    if (!desc) return alert("Please provide a description or agreement text");
 
-// Security + scope review — runs for all submission types
-            const reviewBtn = document.querySelector('#submit-work-modal button[onclick="submitWork()"]');
-            if (reviewBtn) { reviewBtn.textContent = '⏳ Scanning files...'; reviewBtn.disabled = true; }
+    const reviewBtn = document.querySelector('#submit-work-modal button[onclick="submitWork()"]');
+    if (reviewBtn) { reviewBtn.textContent = '⏳ Scanning files...'; reviewBtn.disabled = true; }
 
-            try {
-                // ── File type validation ──────────────────────────────────────
-                const BLOCKED_EXTENSIONS = [
-                    'exe','bat','cmd','msi','dmg','app','vbs','ps1',
-                    'jar','apk','ipa','deb','rpm','bin','run',
-                    'php','asp','aspx','jsp','cgi','pl',
-                    'scr','pif','com','reg','inf','lnk'
-                ];
+    try {
+        // ── File type validation ──────────────────────────────────────
+        const BLOCKED_EXTENSIONS = [
+            'exe','bat','cmd','msi','dmg','app','vbs','ps1',
+            'jar','apk','ipa','deb','rpm','bin','run',
+            'php','asp','aspx','jsp','cgi','pl',
+            'scr','pif','com','reg','inf','lnk'
+        ];
 
-                for (const file of Array.from(filesInput.files)) {
-                    const ext = file.name.split('.').pop().toLowerCase();
-                    if (BLOCKED_EXTENSIONS.includes(ext)) {
-                        if (reviewBtn) { reviewBtn.textContent = 'Submit'; reviewBtn.disabled = false; }
-                        return alert(`❌ File type ".${ext}" is not allowed.\n\nBlocked file types: executables, installers, server-side scripts.\n\nAllowed: PDF, images, documents, source code, zip.`);
-                    }
-                    if (file.size > 50 * 1024 * 1024) {
-                        if (reviewBtn) { reviewBtn.textContent = 'Submit'; reviewBtn.disabled = false; }
-                        return alert(`❌ "${file.name}" exceeds the 50MB limit.`);
-                    }
-                }
-
-                // ── Convert files for Claude + VirusTotal ─────────────────────
-                const REVIEWABLE_IMAGE_TYPES = ['image/jpeg','image/png','image/gif','image/webp'];
-                const CODE_EXTENSIONS_SET = new Set([
-                    'js','ts','jsx','tsx','py','sol','rb','go','rs','java','cpp','c',
-                    'swift','kt','html','css','sh','sql','json','yaml','yml','toml','dockerfile'
-                ]);
-
-                const attachments = [];
-                const toBase64 = (file) => new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result.split(',')[1]);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(file);
-                });
-
-                for (const file of Array.from(filesInput.files).slice(0, 5)) { // max 5 files reviewed
-                    const ext = file.name.split('.').pop().toLowerCase();
-                    const isReviewable = REVIEWABLE_IMAGE_TYPES.includes(file.type) ||
-                                        file.type === 'application/pdf' ||
-                                        CODE_EXTENSIONS_SET.has(ext);
-
-                    if (isReviewable && file.size < 10 * 1024 * 1024) { // only files under 10MB
-                        try {
-                            const base64 = await toBase64(file);
-                            attachments.push({ name: file.name, type: file.type, base64 });
-                        } catch(e) {
-                            console.warn('Could not encode file:', file.name);
-                        }
-                    } else {
-                        // Still send metadata for non-reviewable files (VirusTotal can scan by hash)
-                        attachments.push({ name: file.name, type: file.type, base64: null });
-                    }
-                }
-
-                if (reviewBtn) reviewBtn.textContent = '⏳ Running security scan... (15-30s)';
-
-                const reviewResponse = await fetch('/api/review-submission', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        projectTitle: currentProject?.title || '',
-                        projectDescription: currentProject?.description || '',
-                        acceptedBidAmount: currentProject?.acceptedBid?.amount || '',
-                        submissionDescription: desc,
-                        submissionLink: link || '',
-                        attachments
-                    })
-                });
-
+        for (const file of Array.from(filesInput.files)) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            if (BLOCKED_EXTENSIONS.includes(ext)) {
                 if (reviewBtn) { reviewBtn.textContent = 'Submit'; reviewBtn.disabled = false; }
-
-                if (reviewResponse.ok) {
-                    const review = await reviewResponse.json();
-
-                    // ── Hard block on security violations ─────────────────────
-                    if (review.contentFlagged) {
-                        alert(`🚨 Submission Blocked\n\n${review.contentFlagReason}\n\nThis incident has been logged. Repeated violations may result in account suspension.`);
-                        // Log to Firestore for audit trail
-                        try {
-                            await db.collection('securityLogs').add({
-                                type: 'submission_blocked',
-                                uid: currentUser.uid,
-                                username: currentUser.username,
-                                projectId: currentSubmitProjectId,
-                                reason: review.contentFlagReason,
-                                blockedBy: review.blockedBy || 'claude',
-                                submissionLink: link || null,
-                                timestamp: firebase.firestore.FieldValue.serverTimestamp()
-                            });
-                        } catch(logErr) {
-                            console.error('Failed to log security incident:', logErr);
-                        }
-                        return; // Hard stop — no submit
-                    }
-
-                    // ── Soft warning on scope issues (funding exempt) ──────────
-                    if (currentSubmitProjectType !== 'fund') {
-                        const proceed = confirm(
-                            `✨ Claude Review\n\n${review.summary}\n\n` +
-                            `${review.missingItems.length > 0 ? 'Potentially missing:\n• ' + review.missingItems.join('\n• ') + '\n\n' : ''}` +
-                            `Recommendation: ${review.recommendation.replace('_', ' ').toUpperCase()}\n\n` +
-                            `Do you want to submit anyway?`
-                        );
-                        if (!proceed) return;
-                    }
-                }
-            } catch (e) {
-                console.warn('Security review failed:', e.message);
+                return alert(`❌ File type ".${ext}" is not allowed.\n\nBlocked file types: executables, installers, server-side scripts.\n\nAllowed: PDF, images, documents, source code, zip.`);
+            }
+            if (file.size > 50 * 1024 * 1024) {
                 if (reviewBtn) { reviewBtn.textContent = 'Submit'; reviewBtn.disabled = false; }
-                // Fail open — don't block legitimate work on API errors
+                return alert(`❌ "${file.name}" exceeds the 50MB limit.`);
             }
         }
+
+        // ── Convert files for Claude + VirusTotal ─────────────────────
+        const REVIEWABLE_IMAGE_TYPES = ['image/jpeg','image/png','image/gif','image/webp'];
+        const CODE_EXTENSIONS_SET = new Set([
+            'js','ts','jsx','tsx','py','sol','rb','go','rs','java','cpp','c',
+            'swift','kt','html','css','sh','sql','json','yaml','yml','toml','dockerfile'
+        ]);
+
+        const attachments = [];
+        const toBase64 = (file) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result.split(',')[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+
+        for (const file of Array.from(filesInput.files).slice(0, 5)) {
+            const ext = file.name.split('.').pop().toLowerCase();
+            const isReviewable = REVIEWABLE_IMAGE_TYPES.includes(file.type) ||
+                                file.type === 'application/pdf' ||
+                                CODE_EXTENSIONS_SET.has(ext);
+
+            if (isReviewable && file.size < 10 * 1024 * 1024) {
+                try {
+                    const base64 = await toBase64(file);
+                    attachments.push({ name: file.name, type: file.type, base64 });
+                } catch(e) {
+                    console.warn('Could not encode file:', file.name);
+                }
+            } else {
+                attachments.push({ name: file.name, type: file.type, base64: null });
+            }
+        }
+
+        if (reviewBtn) reviewBtn.textContent = '⏳ Running security scan... (15-30s)';
+
+        const reviewResponse = await fetch('/api/review-submission', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                projectTitle: currentProject?.title || '',
+                projectDescription: currentProject?.description || '',
+                acceptedBidAmount: currentProject?.acceptedBid?.amount || '',
+                submissionDescription: desc,
+                submissionLink: link || '',
+                attachments
+            })
+        });
+
+        if (reviewBtn) { reviewBtn.textContent = 'Submit'; reviewBtn.disabled = false; }
+
+        if (reviewResponse.ok) {
+            const review = await reviewResponse.json();
+
+            // ── Hard block on security violations ─────────────────────
+            if (review.contentFlagged) {
+                alert(`🚨 Submission Blocked\n\n${review.contentFlagReason}\n\nThis incident has been logged. Repeated violations may result in account suspension.`);
+                try {
+                    await db.collection('securityLogs').add({
+                        type: 'submission_blocked',
+                        uid: currentUser.uid,
+                        username: currentUser.username,
+                        projectId: currentSubmitProjectId,
+                        reason: review.contentFlagReason,
+                        blockedBy: review.blockedBy || 'claude',
+                        submissionLink: link || null,
+                        timestamp: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } catch(logErr) {
+                    console.error('Failed to log security incident:', logErr);
+                }
+                return;
+            }
+
+            // ── Soft warning on scope issues (funding exempt) ──────────
+            if (currentSubmitProjectType !== 'fund') {
+                const proceed = confirm(
+                    `✨ Claude Review\n\n${review.summary}\n\n` +
+                    `${review.missingItems.length > 0 ? 'Potentially missing:\n• ' + review.missingItems.join('\n• ') + '\n\n' : ''}` +
+                    `Recommendation: ${review.recommendation.replace('_', ' ').toUpperCase()}\n\n` +
+                    `Do you want to submit anyway?`
+                );
+                if (!proceed) return;
+            }
+        }
+
+        // ── Save submission to Firestore ──────────────────────────────
+        const projectRef = db.collection("subprojects").doc(currentSubmitProjectId);
+        const projectSnap = await projectRef.get();
+        const project = projectSnap.data();
+
+        let fileUrls = [];
+        for (const file of Array.from(filesInput.files)) {
+            try {
+                const storageRef = storage.ref(`submissions/${currentSubmitProjectId}/${Date.now()}_${file.name}`);
+                await storageRef.put(file);
+                const url = await storageRef.getDownloadURL();
+                fileUrls.push(url);
+            } catch(e) {
+                console.warn('File upload failed:', file.name, e.message);
+            }
+        }
+
+        const submission = {
+            submitterUid: currentUser.uid,
+            submitterName: currentUser.fullName || currentUser.username,
+            description: desc,
+            link: link || null,
+            files: fileUrls,
+            status: 'pending',
+            type: currentSubmitProjectType === 'fund' ? 'funding-agreement' : 'deliverables',
+            submittedAt: new Date()
+        };
+
+        await projectRef.update({
+            submissions: firebase.firestore.FieldValue.arrayUnion(submission),
+            status: 'in-progress'
+        });
+
+        // ── Notify poster that work was submitted ─────────────────────
+        notifyWorkSubmitted(project);
+
+        await createNotification(
+            project.posterUid || project.ownerUid,
+            'submission',
+            `@${currentUser.username} submitted work on: ${project.title}`,
+            { projectId: currentSubmitProjectId }
+        );
+
+        hideSubmitWorkModal();
+        hideProjectDetailModal();
+        alert("✅ Submission sent! The poster will review your work.");
+        loadMarketplace();
+
+    } catch(e) {
+        console.warn('submitWork error:', e.message);
+        if (reviewBtn) { reviewBtn.textContent = 'Submit'; reviewBtn.disabled = false; }
+        alert('Failed to submit: ' + e.message);
+    }
+}
 
         function renderSubmissions(project) {
             const container = document.getElementById('submissions-list');
@@ -5863,6 +5911,8 @@ if (hasEscrow) {
                     }
                 }
 
+                notifySubmissionApproved(currentProject);
+
                 hideProjectDetailModal();
                 setTimeout(() => showReviewModal(currentProjectId, currentProject.title), 600);
                 loadMarketplace();
@@ -5892,6 +5942,7 @@ if (hasEscrow) {
                 await projectRef.update({ submissions: updatedSubmissions });
 
                 alert("✅ Feedback sent.");
+                notifyChangesRequested(currentProject, feedback.trim());
                 await createNotification(
                     currentProject.acceptedBidderUid,
                     'changes',
@@ -8247,6 +8298,7 @@ async function submitBountyPosting() {
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
                     alert("✅ Build request posted!");
+                    notifyMatchingBuilders({ title, compensation }, _bountySelectedTags, category);
                     hidePostBountyModal();
                     loadMarketplace();
                 } catch (e) {
@@ -10601,7 +10653,132 @@ async function cancelListingOnChain(listingId) {
         else alert("Failed: " + msg);
     }
 }
+// ====================== EMAIL NOTIFICATIONS ======================
+async function sendEmail(type, toEmail, data) {
+    if (!toEmail) return;
+    try {
+        await fetch('/api/send-email', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type, to: toEmail, data })
+        });
+    } catch(e) {
+        console.warn('Email notification failed:', e.message);
+    }
+}
 
+async function getUserEmail(uid) {
+    if (!uid) return null;
+    try {
+        const doc = await db.collection('users').doc(uid).get();
+        return doc.exists ? doc.data().email : null;
+    } catch(e) {
+        return null;
+    }
+}
+
+// ── Trigger: bid placed on a posting ─────────────────────────────────
+// Call this inside placeBid() after saving to Firestore
+async function notifyBidReceived(project, projectId) {
+    const posterEmail = await getUserEmail(project.posterUid || project.ownerUid);
+    if (!posterEmail) return;
+    const posterDoc = await db.collection('users').doc(project.posterUid || project.ownerUid).get();
+    sendEmail('bid_received', posterEmail, {
+        posterName:     posterDoc.data()?.firstName || posterDoc.data()?.username || 'there',
+        bidderUsername: currentUser.username,
+        postingTitle:   project.title,
+        bidAmount:      document.getElementById('bid-amount')?.value || 'an amount',
+        postingId:      projectId
+    });
+}
+
+// ── Trigger: bid accepted ─────────────────────────────────────────────
+// Call this inside acceptBid() after updating Firestore
+async function notifyBidAccepted(project, bid) {
+    const builderEmail = await getUserEmail(bid.bidderUid);
+    if (!builderEmail) return;
+    sendEmail('bid_accepted', builderEmail, {
+        builderName:    bid.bidderName,
+        posterUsername: currentUser.username,
+        postingTitle:   project.title,
+        compensation:   bid.amount || project.compensation,
+        postingId:      currentProjectId
+    });
+}
+
+// ── Trigger: work submitted ───────────────────────────────────────────
+// Call this inside submitWork() after saving submission
+async function notifyWorkSubmitted(project) {
+    const posterEmail = await getUserEmail(project.posterUid || project.ownerUid);
+    if (!posterEmail) return;
+    const posterDoc = await db.collection('users').doc(project.posterUid || project.ownerUid).get();
+    sendEmail('work_submitted', posterEmail, {
+        posterName:      posterDoc.data()?.firstName || posterDoc.data()?.username || 'there',
+        builderUsername: currentUser.username,
+        postingTitle:    project.title
+    });
+}
+
+// ── Trigger: submission approved ─────────────────────────────────────
+// Call this inside acceptSubmission() after releasing escrow
+async function notifySubmissionApproved(project) {
+    const builderEmail = await getUserEmail(project.acceptedBidderUid);
+    if (!builderEmail) return;
+    const builderDoc = await db.collection('users').doc(project.acceptedBidderUid).get();
+    sendEmail('submission_approved', builderEmail, {
+        builderName:  builderDoc.data()?.firstName || builderDoc.data()?.username || 'there',
+        postingTitle: project.title,
+        compensation: project.acceptedBid?.amount || project.compensation
+    });
+}
+
+// ── Trigger: changes requested ───────────────────────────────────────
+// Call this inside requestChanges() after saving feedback
+async function notifyChangesRequested(project, feedback) {
+    const builderEmail = await getUserEmail(project.acceptedBidderUid);
+    if (!builderEmail) return;
+    const builderDoc = await db.collection('users').doc(project.acceptedBidderUid).get();
+    sendEmail('changes_requested', builderEmail, {
+        builderName:    builderDoc.data()?.firstName || builderDoc.data()?.username || 'there',
+        posterUsername: currentUser.username,
+        postingTitle:   project.title,
+        feedback
+    });
+}
+
+// ── Trigger: new bounty matching skills ──────────────────────────────
+// Call this inside submitBountyPosting() after saving to Firestore
+async function notifyMatchingBuilders(posting, tags, category) {
+    if (!tags || tags.length === 0) return;
+    try {
+        // Find users whose skills overlap with the posting's tags
+        const usersSnap = await db.collection('users').get();
+        const matches = [];
+        usersSnap.forEach(doc => {
+            const u = doc.data();
+            if (doc.id === currentUser.uid) return; // skip poster
+            if (!u.email || !u.skills || u.skills.length === 0) return;
+            const overlap = u.skills.filter(s => tags.includes(s));
+            if (overlap.length > 0) {
+                matches.push({ email: u.email, name: u.firstName || u.username || 'there', matchedSkills: overlap });
+            }
+        });
+
+        // Send to up to 50 matching users (avoid spam)
+        for (const match of matches.slice(0, 50)) {
+            sendEmail('new_bounty_match', match.email, {
+                recipientName:  match.name,
+                postingTitle:   posting.title,
+                compensation:   posting.compensation,
+                category:       category || 'General',
+                matchedSkills:  match.matchedSkills,
+                posterUsername: currentUser.username
+            });
+        }
+    } catch(e) {
+        console.warn('Skill match notification failed:', e.message);
+    }
+}
 // ====================== ESCROW ACTIONS ======================
 async function fileProjectDispute(projectId) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
