@@ -232,21 +232,83 @@
                 <select id="filter-tag" onchange="applyMarketplaceFilters()"
                         class="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 outline-none text-sm">
                     <option value="">Any Skill</option>
-                    <option value="Solidity">Solidity</option>
-                    <option value="React">React</option>
-                    <option value="Next.js">Next.js</option>
-                    <option value="Node.js">Node.js</option>
-                    <option value="Python">Python</option>
-                    <option value="TypeScript">TypeScript</option>
-                    <option value="Rust">Rust</option>
-                    <option value="UI/UX Design">UI/UX Design</option>
-                    <option value="Smart Contracts">Smart Contracts</option>
-                    <option value="Machine Learning">Machine Learning</option>
-                    <option value="DevOps">DevOps</option>
-                    <option value="Web3">Web3</option>
-                    <option value="DeFi">DeFi</option>
-                    <option value="Figma">Figma</option>
-                    <option value="Marketing">Marketing</option>
+                    <optgroup label="Engineering">
+                        <option>JavaScript</option>
+                        <option>TypeScript</option>
+                        <option>Python</option>
+                        <option>Rust</option>
+                        <option>Go</option>
+                        <option>React</option>
+                        <option>Next.js</option>
+                        <option>Node.js</option>
+                        <option>Vue.js</option>
+                        <option>Flutter</option>
+                        <option>Swift</option>
+                        <option>PostgreSQL</option>
+                        <option>MongoDB</option>
+                        <option>AWS</option>
+                        <option>Docker</option>
+                        <option>DevOps</option>
+                    </optgroup>
+                    <optgroup label="Web3">
+                        <option>Solidity</option>
+                        <option>Smart Contracts</option>
+                        <option>DeFi</option>
+                        <option>Web3</option>
+                        <option>NFTs</option>
+                        <option>Tokenomics</option>
+                        <option>Auditing</option>
+                    </optgroup>
+                    <optgroup label="Design">
+                        <option>UI/UX Design</option>
+                        <option>Graphic Design</option>
+                        <option>Figma</option>
+                        <option>Brand Identity</option>
+                        <option>Motion Design</option>
+                        <option>Illustration</option>
+                        <option>Video Editing</option>
+                    </optgroup>
+                    <optgroup label="Product">
+                        <option>Product Management</option>
+                        <option>User Research</option>
+                        <option>Wireframing</option>
+                        <option>Analytics</option>
+                    </optgroup>
+                    <optgroup label="Marketing & Growth">
+                        <option>Marketing Strategy</option>
+                        <option>SEO</option>
+                        <option>Content Writing</option>
+                        <option>Copywriting</option>
+                        <option>Social Media</option>
+                        <option>Email Marketing</option>
+                        <option>Paid Ads</option>
+                        <option>Community Management</option>
+                        <option>Growth Hacking</option>
+                    </optgroup>
+                    <optgroup label="Finance & Legal">
+                        <option>Financial Modeling</option>
+                        <option>Accounting</option>
+                        <option>Fundraising</option>
+                        <option>Pitch Decks</option>
+                        <option>Legal</option>
+                        <option>Contracts</option>
+                        <option>Compliance</option>
+                    </optgroup>
+                    <optgroup label="Business">
+                        <option>Business Development</option>
+                        <option>Sales</option>
+                        <option>Partnerships</option>
+                        <option>Project Management</option>
+                        <option>Strategy</option>
+                    </optgroup>
+                    <optgroup label="Data & AI">
+                        <option>Machine Learning</option>
+                        <option>Data Science</option>
+                        <option>LLMs</option>
+                        <option>Prompt Engineering</option>
+                        <option>NLP</option>
+                        <option>Computer Vision</option>
+                    </optgroup>
                 </select>
                 <!-- Clear filters -->
                 <button onclick="clearMarketplaceFilters()"
@@ -1852,10 +1914,30 @@
 
 // ====================== BOUNTY TAGS ======================
 const BOUNTY_TAG_OPTIONS = [
-    'Solidity','React','Next.js','Node.js','Python','TypeScript','JavaScript',
-    'Rust','Go','Swift','Flutter','UI/UX Design','Graphic Design','Smart Contracts',
-    'DeFi','Web3','Machine Learning','DevOps','Firebase','AWS','PostgreSQL',
-    'GraphQL','Docker','Figma','Marketing','Copywriting','Legal'
+    // Engineering
+    'JavaScript','TypeScript','Python','Rust','Go','Java','C++','PHP','Ruby',
+    'React','Next.js','Vue.js','Angular','Node.js','Swift','Kotlin','Flutter',
+    'GraphQL','PostgreSQL','MongoDB','Redis','Firebase','AWS','Docker','DevOps','CI/CD',
+    // Web3
+    'Solidity','Smart Contracts','DeFi','Web3','NFTs','Tokenomics','Auditing',
+    // Design
+    'UI/UX Design','Graphic Design','Figma','Brand Identity','Motion Design',
+    '3D Design','Illustration','Video Editing','Photography',
+    // Product
+    'Product Management','User Research','Wireframing','Roadmapping','A/B Testing','Analytics',
+    // Marketing & Growth
+    'Marketing Strategy','SEO','Content Writing','Copywriting','Social Media',
+    'Email Marketing','Paid Ads','Community Management','PR & Comms','Growth Hacking',
+    'Influencer Marketing',
+    // Finance & Legal
+    'Financial Modeling','Accounting','Fundraising','Pitch Decks','Venture Capital',
+    'M&A','Legal','Contracts','Compliance','Tax',
+    // Business & Operations
+    'Business Development','Sales','Partnerships','Operations','Project Management',
+    'Customer Success','Recruiting','Strategy',
+    // Data & AI
+    'Machine Learning','Data Science','Data Engineering','NLP','Computer Vision',
+    'LLMs','Prompt Engineering'
 ];
 
 let _bountySelectedTags = [];
@@ -4802,12 +4884,30 @@ async function deletePosting(projectId) {
 
 // ====================== EDIT PROFILE BIO & SKILLS ======================
 const SKILL_OPTIONS = [
-    'Solidity', 'React', 'Next.js', 'Node.js', 'Python', 'TypeScript',
-    'JavaScript', 'Rust', 'Go', 'Swift', 'Kotlin', 'Flutter',
-    'UI/UX Design', 'Graphic Design', 'Product Management', 'Marketing',
-    'Copywriting', 'SEO', 'Data Science', 'Machine Learning', 'DevOps',
-    'Smart Contracts', 'DeFi', 'Web3', 'Firebase', 'AWS', 'PostgreSQL',
-    'MongoDB', 'GraphQL', 'Docker', 'Figma', 'Video Editing', 'Legal'
+    // Engineering
+    'JavaScript','TypeScript','Python','Rust','Go','Java','C++','PHP','Ruby',
+    'React','Next.js','Vue.js','Angular','Node.js','Swift','Kotlin','Flutter',
+    'GraphQL','PostgreSQL','MongoDB','Redis','Firebase','AWS','Docker','DevOps','CI/CD',
+    // Web3
+    'Solidity','Smart Contracts','DeFi','Web3','NFTs','Tokenomics','Auditing',
+    // Design
+    'UI/UX Design','Graphic Design','Figma','Brand Identity','Motion Design',
+    '3D Design','Illustration','Video Editing','Photography',
+    // Product
+    'Product Management','User Research','Wireframing','Roadmapping','A/B Testing','Analytics',
+    // Marketing & Growth
+    'Marketing Strategy','SEO','Content Writing','Copywriting','Social Media',
+    'Email Marketing','Paid Ads','Community Management','PR & Comms','Growth Hacking',
+    'Influencer Marketing',
+    // Finance & Legal
+    'Financial Modeling','Accounting','Fundraising','Pitch Decks','Venture Capital',
+    'M&A','Legal','Contracts','Compliance','Tax',
+    // Business
+    'Business Development','Sales','Partnerships','Operations','Project Management',
+    'Customer Success','Recruiting','Strategy',
+    // Data & AI
+    'Machine Learning','Data Science','Data Engineering','NLP','Computer Vision',
+    'LLMs','Prompt Engineering'
 ];
 
 let _selectedSkills = [];
