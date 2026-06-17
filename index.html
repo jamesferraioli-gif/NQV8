@@ -1498,20 +1498,60 @@
 
     </div>
 
-        <!-- ==================== IDEAS PAGE ==================== -->
+<!-- ==================== IDEAS PAGE ==================== -->
     <div id="ideas-page" class="max-w-6xl mx-auto pt-6 px-4 md:px-6 hidden">
-        <div class="mb-10">
-            <h1 class="text-3xl md:text-5xl font-bold tracking-tighter mb-4">Explore</h1>
-            <p class="text-xl text-zinc-400">Share ideas, news stories, or completed projects with the community. Cost: $0.01 per post (paid in NQV8)</p>
+        <div class="flex items-center justify-between mb-6">
+            <div>
+                <h1 class="text-3xl md:text-5xl font-bold tracking-tighter mb-2">Explore</h1>
+                <p class="text-zinc-400 text-sm">Posts cost $0.01 NQV8 to keep the feed high quality.</p>
+            </div>
+            <button onclick="showPostIdeaModal()"
+                    class="bg-white text-black font-semibold px-6 py-3 rounded-2xl flex items-center gap-2 hover:bg-cyan-400 flex-shrink-0">
+                <i class="fa-solid fa-plus"></i>
+                <span class="hidden md:inline">New Post</span>
+            </button>
         </div>
 
-        <button onclick="showPostIdeaModal()" 
-                class="mb-8 bg-white text-black font-semibold px-8 py-4 rounded-3xl flex items-center gap-3 hover:bg-cyan-400">
-            <i class="fa-solid fa-plus"></i> New Post
-        </button>
+        <!-- Sub-tabs -->
+        <div class="flex border-b border-zinc-700 mb-8">
+            <button onclick="switchExploreTab('all')" id="explore-tab-all"
+                    class="px-5 py-3 text-sm font-semibold border-b-2 border-cyan-400 flex items-center gap-2">
+                🌐 <span class="hidden sm:inline">All</span>
+            </button>
+            <button onclick="switchExploreTab('following')" id="explore-tab-following"
+                    class="px-5 py-3 text-sm font-semibold text-zinc-400 flex items-center gap-2">
+                👥 <span class="hidden sm:inline">Following</span>
+            </button>
+            <button onclick="switchExploreTab('trending')" id="explore-tab-trending"
+                    class="px-5 py-3 text-sm font-semibold text-zinc-400 flex items-center gap-2">
+                🔥 <span class="hidden sm:inline">Trending</span>
+            </button>
+            <button onclick="switchExploreTab('foryou')" id="explore-tab-foryou"
+                    class="px-5 py-3 text-sm font-semibold text-zinc-400 flex items-center gap-2">
+                🎯 <span class="hidden sm:inline">For You</span>
+            </button>
+        </div>
 
-        <div id="ideas-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <!-- Populated by JS -->
+        <!-- All tab -->
+        <div id="explore-all" class="explore-tab-content">
+            <div id="ideas-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- Following tab -->
+        <div id="explore-following" class="explore-tab-content hidden">
+            <div id="following-feed" class="space-y-3"></div>
+        </div>
+
+        <!-- Trending tab -->
+        <div id="explore-trending" class="explore-tab-content hidden">
+            <div id="trending-feed" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+        </div>
+
+        <!-- For You tab -->
+        <div id="explore-foryou" class="explore-tab-content hidden">
+            <div id="foryou-feed" class="space-y-3"></div>
         </div>
     </div>
 
@@ -4180,7 +4220,7 @@ function navigateTo(page) {
             if (page === 'profile') loadProfileData();
             if (page === 'chat') loadChatList("");
             if (page === 'leaderboard') loadLeaderboard();
-            if (page === 'ideas') loadIdeas();
+            if (page === 'ideas') switchExploreTab('all');
             if (page === 'tokenomics') { loadTokenomics(); loadRewards(); }
             if (page === 'studio') { switchStudioTab('plan'); loadStudioProjectList(); }
             if (page === 'about') switchAboutTab('overview');
@@ -4197,6 +4237,15 @@ function navigateTo(page) {
             navigateTo('profile');
         }
 
+        // ====================== TIME AGO ======================
+        function timeAgo(date) {
+            if (!date) return '';
+            const seconds = Math.floor((new Date() - date) / 1000);
+            if (seconds < 60)   return 'just now';
+            if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
+            if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
+            return Math.floor(seconds / 86400) + 'd ago';
+        }
 
         function toggleMobileMenu() {
             const menu = document.getElementById('mobile-menu');
@@ -7697,6 +7746,274 @@ async function viewUserProfile(uid) {
                 grid.innerHTML = `<p class="text-red-400">Error loading posts</p>`;
             }
         }
+
+        // ====================== EXPLORE TABS ======================
+let currentExploreTab = 'all';
+
+function switchExploreTab(tab) {
+    currentExploreTab = tab;
+    ['all','following','trending','foryou'].forEach(t => {
+        const btn = document.getElementById(`explore-tab-${t}`);
+        const content = document.getElementById(`explore-${t}`);
+        const isActive = t === tab;
+        if (btn) {
+            btn.classList.toggle('border-b-2', isActive);
+            btn.classList.toggle('border-cyan-400', isActive);
+            btn.classList.toggle('text-zinc-400', !isActive);
+        }
+        if (content) content.classList.toggle('hidden', !isActive);
+    });
+
+    if (tab === 'all')       loadIdeas();
+    if (tab === 'following') loadFollowingFeed();
+    if (tab === 'trending')  loadTrendingFeed();
+    if (tab === 'foryou')    loadForYouFeed();
+}
+
+// ── Following feed ───────────────────────────────────────────────────
+async function loadFollowingFeed() {
+    if (!currentUser) {
+        document.getElementById('following-feed').innerHTML = `
+            <div class="text-center py-12">
+                <p class="text-zinc-400 mb-4">Log in to see activity from people you follow.</p>
+                <button onclick="showAuthModal()" class="px-6 py-3 bg-white text-black font-semibold rounded-2xl">Log In</button>
+            </div>`;
+        return;
+    }
+
+    const container = document.getElementById('following-feed');
+    container.innerHTML = '<p class="text-zinc-400 animate-pulse">Loading...</p>';
+
+    try {
+        const followsSnap = await db.collection('follows')
+            .where('followerUid', '==', currentUser.uid)
+            .get();
+
+        if (followsSnap.empty) {
+            container.innerHTML = `
+                <div class="text-center py-12">
+                    <p class="text-2xl mb-3">👥</p>
+                    <p class="text-zinc-400 mb-2">You're not following anyone yet.</p>
+                    <p class="text-zinc-500 text-sm">Visit a builder's profile and hit Follow to see their activity here.</p>
+                </div>`;
+            return;
+        }
+
+        const followingUids = followsSnap.docs.map(d => d.data().followingUid);
+
+        // Firestore 'in' query max 10 — chunk if needed
+        const chunks = [];
+        for (let i = 0; i < followingUids.length; i += 10) {
+            chunks.push(followingUids.slice(i, i + 10));
+        }
+
+        const items = [];
+
+        for (const chunk of chunks) {
+            const [postingsSnap, completedSnap, exploreSnap] = await Promise.all([
+                db.collection('subprojects')
+                    .where('ownerUid', 'in', chunk)
+                    .where('status', '==', 'open')
+                    .orderBy('createdAt', 'desc')
+                    .limit(10)
+                    .get(),
+                db.collection('subprojects')
+                    .where('acceptedBidderUid', 'in', chunk)
+                    .where('status', '==', 'completed')
+                    .orderBy('completedAt', 'desc')
+                    .limit(10)
+                    .get(),
+                db.collection('posts')
+                    .where('posterUid', 'in', chunk)
+                    .orderBy('createdAt', 'desc')
+                    .limit(10)
+                    .get()
+            ]);
+
+            postingsSnap.forEach(doc => {
+                const p = doc.data();
+                if (p.planNode) return;
+                items.push({
+                    type: 'posted', uid: p.ownerUid,
+                    username: p.ownerUsername || p.posterUsername || 'user',
+                    text: 'posted a new bounty',
+                    sub: `${p.title} · ${p.compensation}`,
+                    time: p.createdAt?.toDate?.() || new Date(0),
+                    onclick: `showSubprojectDetail('${doc.id}', ${JSON.stringify(p).replace(/"/g,'&quot;')})`
+                });
+            });
+
+            completedSnap.forEach(doc => {
+                const p = doc.data();
+                if (p.planNode) return;
+                items.push({
+                    type: 'completed', uid: p.acceptedBidderUid,
+                    username: p.acceptedBidderUsername || 'user',
+                    text: 'completed a bounty',
+                    sub: `${p.title} · ${p.acceptedBid?.amount || p.compensation}`,
+                    time: p.completedAt?.toDate?.() || new Date(0),
+                    onclick: `showSubprojectDetail('${doc.id}', ${JSON.stringify(p).replace(/"/g,'&quot;')})`
+                });
+            });
+
+            exploreSnap.forEach(doc => {
+                const p = doc.data();
+                items.push({
+                    type: 'explore', uid: p.posterUid,
+                    username: p.username || 'user',
+                    text: 'posted in Explore',
+                    sub: p.title,
+                    time: p.createdAt?.toDate?.() || new Date(0),
+                    onclick: `viewPostDetail('${doc.id}', ${JSON.stringify(p).replace(/"/g,'&quot;')})`
+                });
+            });
+        }
+
+        items.sort((a, b) => b.time - a.time);
+
+        if (items.length === 0) {
+            container.innerHTML = '<p class="text-zinc-400 py-8 text-center">No recent activity from people you follow.</p>';
+            return;
+        }
+
+        const typeIcon  = { posted: '📣', completed: '✅', explore: '💡' };
+        const typeColor = { posted: 'text-cyan-400', completed: 'text-emerald-400', explore: 'text-violet-400' };
+
+        container.innerHTML = items.slice(0, 30).map(item => `
+            <div onclick="${item.onclick}"
+                 class="bg-zinc-900 rounded-2xl p-4 cursor-pointer hover:bg-zinc-800 transition-colors flex items-start gap-3">
+                <span class="text-xl flex-shrink-0">${typeIcon[item.type]}</span>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm">
+                        <span onclick="event.stopPropagation(); viewUserProfile('${item.uid}')"
+                              class="font-semibold hover:underline cursor-pointer">@${item.username}</span>
+                        <span class="${typeColor[item.type]}"> ${item.text}</span>
+                    </p>
+                    <p class="text-xs text-zinc-400 mt-0.5 truncate">${item.sub}</p>
+                </div>
+                <p class="text-xs text-zinc-600 flex-shrink-0">${timeAgo(item.time)}</p>
+            </div>`).join('');
+
+    } catch(e) {
+        console.error('loadFollowingFeed:', e.message);
+        container.innerHTML = '<p class="text-red-400">Error loading feed.</p>';
+    }
+}
+
+// ── Trending feed ────────────────────────────────────────────────────
+async function loadTrendingFeed() {
+    const container = document.getElementById('trending-feed');
+    container.innerHTML = '<p class="text-zinc-400 animate-pulse col-span-3">Loading...</p>';
+
+    try {
+        const snap = await db.collection('posts')
+            .orderBy('likes', 'desc')
+            .limit(12)
+            .get();
+
+        if (snap.empty) {
+            container.innerHTML = '<p class="text-zinc-400 col-span-3 text-center py-12">No trending posts yet.</p>';
+            return;
+        }
+
+        container.innerHTML = '';
+        snap.forEach(doc => {
+            const post = doc.data();
+            const typeIcons = { idea:'💡', news:'📰', project:'🚀', like:'👍' };
+            const typeIcon = typeIcons[post.type] || '💡';
+            const card = document.createElement('div');
+            card.className = 'bg-zinc-900 rounded-3xl p-6 cursor-pointer hover:ring-2 hover:ring-cyan-400 transition-all';
+            card.onclick = () => viewPostDetail(doc.id, post);
+            card.innerHTML = `
+                <div class="flex justify-between items-start mb-3">
+                    <span class="text-2xl">${typeIcon}</span>
+                    <span class="text-xs text-amber-400 font-medium">🔥 ${post.likes || 0} likes</span>
+                </div>
+                <h3 class="text-xl font-bold mb-2 line-clamp-2">${post.title}</h3>
+                <p class="text-zinc-400 text-sm line-clamp-2">${post.description}</p>
+                <p class="text-xs text-violet-400 mt-3">@${post.username}</p>
+            `;
+            container.appendChild(card);
+        });
+    } catch(e) {
+        container.innerHTML = '<p class="text-red-400 col-span-3">Error loading trending.</p>';
+    }
+}
+
+// ── For You feed ─────────────────────────────────────────────────────
+async function loadForYouFeed() {
+    const container = document.getElementById('foryou-feed');
+
+    if (!currentUser) {
+        container.innerHTML = `
+            <div class="text-center py-12">
+                <p class="text-zinc-400 mb-4">Log in to see content tailored to your skills.</p>
+                <button onclick="showAuthModal()" class="px-6 py-3 bg-white text-black font-semibold rounded-2xl">Log In</button>
+            </div>`;
+        return;
+    }
+
+    container.innerHTML = '<p class="text-zinc-400 animate-pulse">Loading...</p>';
+
+    try {
+        const userDoc = await db.collection('users').doc(currentUser.uid).get();
+        const skills = userDoc.data()?.skills || [];
+
+        if (skills.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-12">
+                    <p class="text-zinc-400 mb-4">Add skills to your profile to see relevant bounties here.</p>
+                    <button onclick="navigateTo('profile'); setTimeout(showEditProfileModal, 500)"
+                            class="px-6 py-3 border border-cyan-400 text-cyan-400 rounded-2xl text-sm">Add Skills</button>
+                </div>`;
+            return;
+        }
+
+        // Find open bounties with matching tags
+        const snap = await db.collection('subprojects')
+            .where('status', '==', 'open')
+            .where('type', '==', 'build')
+            .orderBy('createdAt', 'desc')
+            .limit(50)
+            .get();
+
+        const matched = [];
+        snap.forEach(doc => {
+            const p = doc.data();
+            if (p.planNode) return;
+            const overlap = (p.tags || []).filter(t => skills.includes(t));
+            if (overlap.length > 0) matched.push({ id: doc.id, ...p, overlap });
+        });
+
+        matched.sort((a, b) => b.overlap.length - a.overlap.length);
+
+        if (matched.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-12">
+                    <p class="text-zinc-400">No bounties match your skills yet.</p>
+                    <p class="text-zinc-500 text-sm mt-2">Your skills: ${skills.join(', ')}</p>
+                </div>`;
+            return;
+        }
+
+        container.innerHTML = matched.slice(0, 20).map(p => `
+            <div onclick="showSubprojectDetail('${p.id}', ${JSON.stringify(p).replace(/"/g,'&quot;')})"
+                 class="bg-zinc-900 rounded-2xl p-5 cursor-pointer hover:bg-zinc-800 transition-colors flex items-start gap-4">
+                <div class="flex-1 min-w-0">
+                    <p class="font-semibold">${p.title}</p>
+                    <p class="text-cyan-400 font-medium text-sm mt-1">${p.compensation}</p>
+                    <p class="text-zinc-400 text-xs mt-1 line-clamp-2">${p.description}</p>
+                    <div class="flex flex-wrap gap-1 mt-2">
+                        ${p.overlap.map(t => `<span class="px-2 py-0.5 bg-cyan-500/20 text-cyan-400 rounded-full text-xs">${t}</span>`).join('')}
+                    </div>
+                </div>
+                <span class="text-xs text-zinc-500 flex-shrink-0">${p.bids?.length || 0} bids</span>
+            </div>`).join('');
+
+    } catch(e) {
+        container.innerHTML = '<p class="text-red-400">Error loading feed.</p>';
+    }
+}
 
         async function loadLinkPreview(postId, url) {
             const container = document.getElementById(`preview-${postId}`);
