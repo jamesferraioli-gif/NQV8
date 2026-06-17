@@ -356,6 +356,30 @@
             </div>
         </div>
 
+        
+
+        <!-- Trending Section -->
+        <div id="trending-section" class="mb-8 hidden">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold flex items-center gap-2">🔥 Trending</h2>
+                <button onclick="document.getElementById('trending-section').classList.add('hidden')"
+                        class="text-xs text-zinc-500 hover:text-zinc-300">Dismiss</button>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <!-- Hot Bounties -->
+                <div class="md:col-span-2">
+                    <p class="text-xs text-zinc-500 uppercase tracking-wider mb-3">Most Active Bounties</p>
+                    <div id="trending-bounties" class="space-y-2"></div>
+                </div>
+                <!-- Top Builders -->
+                <div>
+                    <p class="text-xs text-zinc-500 uppercase tracking-wider mb-3">Top Builders</p>
+                    <div id="trending-builders" class="space-y-2"></div>
+                </div>
+            </div>
+            <div class="border-b border-zinc-800"></div>
+        </div>
+
         <!-- Marketplace Sub-Tabs: Build Requests vs Funding Requests -->
         <div class="flex border-b border-zinc-700 mb-6">
             <button onclick="switchMarketplaceTab(0)" id="tab-build-market" 
@@ -4176,10 +4200,113 @@ async function createProfile() {
                 loadTotalFundingReceivedStat();
 
                 applyMarketplaceFilters();
+                loadTrendingSection();
 
             } catch(e) {
                 console.error(e);
                 document.getElementById('projects-grid').innerHTML = `<p class="text-red-400">Error loading projects</p>`;
+            }
+        }
+
+        async function loadTrendingSection() {
+            try {
+                // Hot bounties — most bids in last 7 days
+                const hotSnap = await db.collection('subprojects')
+                    .where('status', '==', 'open')
+                    .where('type', '==', 'build')
+                    .orderBy('createdAt', 'desc')
+                    .limit(20)
+                    .get();
+
+                const withBids = hotSnap.docs
+                    .map(d => ({ id: d.id, ...d.data() }))
+                    .filter(p => !p.planNode && (p.bids?.length || 0) > 0)
+                    .sort((a, b) => (b.bids?.length || 0) - (a.bids?.length || 0))
+                    .slice(0, 3);
+
+                const trendingBounties = document.getElementById('trending-bounties');
+                if (withBids.length === 0) {
+                    trendingBounties.innerHTML = '<p class="text-zinc-500 text-sm">No active bounties yet.</p>';
+                } else {
+                    trendingBounties.innerHTML = withBids.map(p => `
+                        <div onclick="showSubprojectDetail('${p.id}', ${JSON.stringify(p).replace(/"/g, '&quot;')})"
+                             class="bg-zinc-900 hover:bg-zinc-800 rounded-2xl p-4 cursor-pointer transition-colors flex justify-between items-center">
+                            <div class="min-w-0 flex-1">
+                                <p class="font-semibold text-sm truncate">${p.title}</p>
+                                <p class="text-xs text-zinc-400 mt-0.5">${p.compensation} · ${p.category || ''}</p>
+                            </div>
+                            <div class="flex items-center gap-2 flex-shrink-0 ml-3">
+                                <span class="text-xs text-amber-400 font-medium">${p.bids.length} bids</span>
+                                <span class="text-lg">🔥</span>
+                            </div>
+                        </div>`).join('');
+                }
+
+                // Top builders from leaderboard data
+                const completedSnap = await db.collection('subprojects')
+                    .where('status', '==', 'completed')
+                    .orderBy('createdAt', 'desc')
+                    .limit(50)
+                    .get();
+
+                const builderMap = {};
+                completedSnap.forEach(doc => {
+                    const p = doc.data();
+                    if (!p.acceptedBidderUid || p.planNode) return;
+                    if (!builderMap[p.acceptedBidderUid]) {
+                        builderMap[p.acceptedBidderUid] = {
+                            uid: p.acceptedBidderUid,
+                            username: p.acceptedBidderUsername || 'builder',
+                            count: 0,
+                            value: 0
+                        };
+                    }
+                    builderMap[p.acceptedBidderUid].count++;
+                    builderMap[p.acceptedBidderUid].value += parseFloat((p.acceptedBid?.amount || p.compensation || '0').replace(/[^0-9.]/g, '')) || 0;
+                });
+
+                const topBuilders = Object.values(builderMap)
+                    .sort((a, b) => b.count - a.count)
+                    .slice(0, 4);
+
+                // Hydrate usernames from Firestore
+                for (const builder of topBuilders) {
+                    try {
+                        const userDoc = await db.collection('users').doc(builder.uid).get();
+                        if (userDoc.exists) {
+                            const u = userDoc.data();
+                            builder.username = u.username || builder.username;
+                            builder.photoURL = u.photoURL || null;
+                            builder.skills = u.skills || [];
+                            builder.avgRating = u.avgRating || null;
+                        }
+                    } catch(e) {}
+                }
+
+                const trendingBuilders = document.getElementById('trending-builders');
+                if (topBuilders.length === 0) {
+                    trendingBuilders.innerHTML = '<p class="text-zinc-500 text-sm">No builders yet.</p>';
+                } else {
+                    trendingBuilders.innerHTML = topBuilders.map(b => `
+                        <div onclick="viewUserProfile('${b.uid}')"
+                             class="bg-zinc-900 hover:bg-zinc-800 rounded-2xl p-3 cursor-pointer transition-colors flex items-center gap-3">
+                            <div class="w-8 h-8 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 overflow-hidden">
+                                ${b.photoURL ? `<img src="${b.photoURL}" class="w-full h-full object-cover">` : b.username[0].toUpperCase()}
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="font-semibold text-sm">@${b.username}</p>
+                                <p class="text-xs text-zinc-400">${b.count} completed${b.avgRating ? ` · ⭐ ${b.avgRating.toFixed(1)}` : ''}</p>
+                            </div>
+                        </div>`).join('');
+                }
+
+                // Show section only if there's something to show
+                if (withBids.length > 0 || topBuilders.length > 0) {
+                    document.getElementById('trending-section').classList.remove('hidden');
+                }
+
+            } catch(e) {
+                console.warn('Trending section failed:', e.message);
             }
         }
 
