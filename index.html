@@ -4493,11 +4493,11 @@ async function createProfile() {
                     if (p.status === "in-progress" || p.status === "completed") return;
                     if (currentMarketplaceFilter && currentMarketplaceFilter !== 'equity-exchange' && p.type !== currentMarketplaceFilter) return;
                     // Hide private bounties unless viewer is the poster or is invited
-                    // if (p.isPrivate) {
-                    //     const isOwner   = currentUser && p.ownerUid === currentUser.uid;
-                    //     const isInvited = currentUser && (p.invitedUids || []).includes(currentUser.uid);
-                    //     if (!isOwner && !isInvited) return;
-                    // }
+                    if (p.isPrivate) {
+                        const isOwner   = currentUser && p.ownerUid === currentUser.uid;
+                        const isInvited = currentUser && (p.invitedUids || []).includes(currentUser.uid);
+                        if (!isOwner && !isInvited) return;
+                    }
                     _allMarketplacePostings.push(p);
                     open++;
                 });
@@ -8745,6 +8745,7 @@ async function showPostBountyModal() {
         if (knob) knob.style.transform = 'translateX(0)';
     }
     clearPreferredBuilder();
+    }
 
 function hidePostBountyModal() {
     document.getElementById('post-bounty-modal').classList.add('hidden');
