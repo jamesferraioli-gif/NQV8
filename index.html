@@ -385,8 +385,8 @@
 
 
     <!-- POST BOUNTY MODAL -->
-<div id="post-bounty-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999] overflow-auto">
-    <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8 my-8">
+<div id="post-bounty-modal" class="hidden fixed inset-0 bg-black/95 flex items-start justify-center z-[99999] overflow-y-auto py-6">
+    <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8 my-auto">
         <div class="flex justify-between items-center mb-6">
             <h2 class="text-3xl font-bold">Post a Build Request</h2>
             <button onclick="hidePostBountyModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
@@ -8005,6 +8005,14 @@ async function bountyGoToStep2() {
 function bountyGoToStep1() {
     document.getElementById('bounty-step-2').classList.add('hidden');
     document.getElementById('bounty-step-1').classList.remove('hidden');
+    // Reset compensation type and fields
+    selectBountyCompType('cash');
+    document.getElementById('bounty-title').value = '';
+    document.getElementById('bounty-desc').value = '';
+    document.getElementById('bounty-compensation').value = '';
+    document.getElementById('bounty-category').value = '';
+    _bountySelectedTags = [];
+    initTagsPicker('bounty-tags-picker', _bountySelectedTags);
 }
 
 function selectBountyCompType(type) {
