@@ -1990,18 +1990,6 @@ function toggleBountyTag(containerId, tag) {
 // ====================== EARNINGS FROM CHAIN ======================
 async function getTotalEarningsUSD(walletAddress) {
     try {
-        const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
-        const escrowReadOnly = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, arbProvider);
-
-        const releaseFilter = escrowReadOnly.filters.EscrowReleased();
-        const latestBlock = await arbProvider.getBlockNumber();
-        const fromBlock = Math.max(0, latestBlock - 2000000);
-        const events = await escrowReadOnly.queryFilter(releaseFilter, fromBlock, latestBlock);
-
-        const workerEvents = events.filter(e =>
-            e.args.worker.toLowerCase() === walletAddress.toLowerCase()
-        );
-
         let totalUSD = 0;
 
         // Get NQV8 price once
@@ -2012,20 +2000,59 @@ async function getTotalEarningsUSD(walletAddress) {
             nqv8Price = parseFloat(data.pairs?.[0]?.priceUsd || '0.01');
         } catch(e) {}
 
-        for (const event of workerEvents) {
-            const snap = await db.collection('subprojects')
-                .where('escrowReleaseTxHash', '==', event.transactionHash)
-                .limit(1).get();
+        // Method 1 — on-chain escrow release events
+        try {
+            const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+            const escrowReadOnly = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, arbProvider);
+            const releaseFilter = escrowReadOnly.filters.EscrowReleased();
+            const latestBlock = await arbProvider.getBlockNumber();
+            const fromBlock = Math.max(0, latestBlock - 2000000);
+            const events = await escrowReadOnly.queryFilter(releaseFilter, fromBlock, latestBlock);
+            const workerEvents = events.filter(e =>
+                e.args.worker.toLowerCase() === walletAddress.toLowerCase()
+            );
 
-            if (!snap.empty) {
-                const proj = snap.docs[0].data();
-                const amountStr = proj.acceptedBid?.amount || proj.compensation || '0';
-                const isNQV8 = String(amountStr).toUpperCase().includes('NQV8');
-                const humanAmount = isNQV8
-                    ? parseFloat(ethers.utils.formatUnits(event.args.workerAmount, 18))
-                    : parseFloat(ethers.utils.formatUnits(event.args.workerAmount, 6));
-                totalUSD += isNQV8 ? humanAmount * nqv8Price : humanAmount;
+            for (const event of workerEvents) {
+                const snap = await db.collection('subprojects')
+                    .where('escrowReleaseTxHash', '==', event.transactionHash)
+                    .limit(1).get();
+                if (!snap.empty) {
+                    const proj = snap.docs[0].data();
+                    const amountStr = proj.acceptedBid?.amount || proj.compensation || '0';
+                    const isNQV8 = String(amountStr).toUpperCase().includes('NQV8');
+                    const humanAmount = isNQV8
+                        ? parseFloat(ethers.utils.formatUnits(event.args.workerAmount, 18))
+                        : parseFloat(ethers.utils.formatUnits(event.args.workerAmount, 6));
+                    totalUSD += isNQV8 ? humanAmount * nqv8Price : humanAmount;
+                }
             }
+        } catch(e) {
+            console.warn('On-chain earnings query failed:', e.message);
+        }
+
+        // Method 2 — Firestore fallback for pre-escrow or manually completed bounties
+        // Find the user by wallet address
+        const userSnap = await db.collection('users')
+            .where('walletAddress', '==', walletAddress.toLowerCase())
+            .limit(1).get();
+
+        if (!userSnap.empty) {
+            const uid = userSnap.docs[0].id;
+            const completedSnap = await db.collection('subprojects')
+                .where('acceptedBidderUid', '==', uid)
+                .where('status', '==', 'completed')
+                .get();
+
+            completedSnap.forEach(doc => {
+                const p = doc.data();
+                if (p.planNode) return;
+                // Only count if no escrow release (avoid double counting)
+                if (p.escrowReleased) return;
+                const amountStr = p.acceptedBid?.amount || p.compensation || '0';
+                const amount = parseFloat(amountStr.replace(/[^0-9.]/g, '')) || 0;
+                const isNQV8 = amountStr.toUpperCase().includes('NQV8');
+                totalUSD += isNQV8 ? amount * nqv8Price : amount;
+            });
         }
 
         return totalUSD;
