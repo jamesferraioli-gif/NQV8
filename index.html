@@ -1039,6 +1039,18 @@
                         </div>
                     </div>
 
+<!-- Follow stats -->
+                    <div class="mt-4 flex gap-6">
+                        <div class="text-center">
+                            <p id="profile-followers-count" class="text-xl font-bold">—</p>
+                            <p class="text-xs text-zinc-400">Followers</p>
+                        </div>
+                        <div class="text-center">
+                            <p id="profile-following-count" class="text-xl font-bold">—</p>
+                            <p class="text-xs text-zinc-400">Following</p>
+                        </div>
+                    </div>
+
 <!-- Wallet Balances -->
                     <div class="mt-4 bg-black/50 rounded-2xl p-4 md:p-6">
                         <div class="grid grid-cols-2 gap-4 mb-4">
@@ -1140,7 +1152,14 @@
             </div>
         </div>
 
-        <!-- My Posted Projects -->
+        <!-- Activity Feed -->
+        <div class="mb-10">
+            <h2 class="text-2xl font-semibold mb-4">📡 Activity Feed</h2>
+            <p class="text-zinc-500 text-sm mb-4">Latest activity from people you follow.</p>
+            <div id="activity-feed" class="space-y-3">
+                <p class="text-zinc-400">Loading...</p>
+            </div>
+        </div>
 
         <!-- My Posted Projects -->
         <div class="mb-10">
@@ -1173,6 +1192,14 @@
                 </label>
             </div>
             <div id="completed-projects" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- Saved Bounties -->
+        <div class="mb-10">
+            <h2 class="text-2xl font-semibold mb-4">🔖 Saved Bounties</h2>
+            <div id="saved-bounties" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <!-- Populated by JS -->
             </div>
         </div>
@@ -1270,6 +1297,16 @@
 
         <!-- Stats -->
         <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-10 text-center">
+            <div class="bg-zinc-900 rounded-2xl p-3 md:p-5 col-span-2 md:col-span-4 flex justify-center gap-8 py-3">
+                <div class="text-center">
+                    <p id="user-followers-count" class="text-xl font-bold">—</p>
+                    <p class="text-xs text-zinc-400">Followers</p>
+                </div>
+                <div class="text-center">
+                    <p id="user-following-count" class="text-xl font-bold">—</p>
+                    <p class="text-xs text-zinc-400">Following</p>
+                </div>
+            </div>
             <div class="bg-zinc-900 rounded-2xl p-3 md:p-5">
                 <p id="user-working-on" class="text-2xl md:text-3xl font-bold text-cyan-400">0</p>
                 <p class="text-xs text-zinc-400">Working On</p>
@@ -1977,6 +2014,256 @@ function initTagsPicker(containerId, selectedArr) {
                             selected ? 'bg-cyan-500 text-black' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
                         }">${tag}</button>`;
     }).join('');
+}
+
+
+// ====================== BOOKMARKS ======================
+async function toggleBookmark(postingId, btn) {
+    if (!currentUser) return alert('Please log in to bookmark.');
+
+    const bookmarkRef = db.collection('bookmarks')
+        .doc(`${currentUser.uid}_${postingId}`);
+
+    const snap = await bookmarkRef.get();
+    if (snap.exists) {
+        await bookmarkRef.delete();
+        if (btn) btn.style.filter = '';
+    } else {
+        await bookmarkRef.set({
+            uid:       currentUser.uid,
+            postingId,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        if (btn) btn.style.filter = 'sepia(1) saturate(5) hue-rotate(10deg)';
+    }
+}
+
+
+// ====================== ACTIVITY FEED ======================
+async function loadActivityFeed() {
+    if (!currentUser) return;
+    const container = document.getElementById('activity-feed');
+    if (!container) return;
+
+    try {
+        // Get who current user follows
+        const followsSnap = await db.collection('follows')
+            .where('followerUid', '==', currentUser.uid)
+            .get();
+
+        if (followsSnap.empty) {
+            container.innerHTML = '<p class="text-zinc-400">Follow some builders to see their activity here.</p>';
+            return;
+        }
+
+        const followingUids = followsSnap.docs.map(d => d.data().followingUid);
+
+        // Get recent activity from followed users — postings, completions, explore posts
+        const [postingsSnap, completedSnap, exploreSnap] = await Promise.all([
+            // New bounties posted by followed users
+            db.collection('subprojects')
+                .where('ownerUid', 'in', followingUids.slice(0, 10))
+                .where('status', '==', 'open')
+                .orderBy('createdAt', 'desc')
+                .limit(10)
+                .get(),
+            // Bounties completed by followed users
+            db.collection('subprojects')
+                .where('acceptedBidderUid', 'in', followingUids.slice(0, 10))
+                .where('status', '==', 'completed')
+                .orderBy('completedAt', 'desc')
+                .limit(10)
+                .get(),
+            // Explore posts by followed users
+            db.collection('posts')
+                .where('posterUid', 'in', followingUids.slice(0, 10))
+                .orderBy('createdAt', 'desc')
+                .limit(10)
+                .get()
+        ]);
+
+        // Build activity items
+        const items = [];
+
+        postingsSnap.forEach(doc => {
+            const p = doc.data();
+            if (p.planNode) return;
+            items.push({
+                type: 'posted',
+                uid: p.ownerUid,
+                username: p.ownerUsername || p.posterUsername,
+                text: `posted a new bounty`,
+                sub: `${p.title} · ${p.compensation}`,
+                time: p.createdAt?.toDate?.() || new Date(),
+                onclick: `showSubprojectDetail('${doc.id}', ${JSON.stringify(p).replace(/"/g, '&quot;')})`
+            });
+        });
+
+        completedSnap.forEach(doc => {
+            const p = doc.data();
+            if (p.planNode) return;
+            items.push({
+                type: 'completed',
+                uid: p.acceptedBidderUid,
+                username: p.acceptedBidderUsername,
+                text: `completed a bounty`,
+                sub: `${p.title} · ${p.acceptedBid?.amount || p.compensation}`,
+                time: p.completedAt?.toDate?.() || new Date(),
+                onclick: `showSubprojectDetail('${doc.id}', ${JSON.stringify(p).replace(/"/g, '&quot;')})`
+            });
+        });
+
+        exploreSnap.forEach(doc => {
+            const p = doc.data();
+            items.push({
+                type: 'explore',
+                uid: p.posterUid,
+                username: p.username,
+                text: `posted in Explore`,
+                sub: p.title,
+                time: p.createdAt?.toDate?.() || new Date(),
+                onclick: `viewPostDetail('${doc.id}', ${JSON.stringify(p).replace(/"/g, '&quot;')})`
+            });
+        });
+
+        // Sort by time newest first
+        items.sort((a, b) => b.time - a.time);
+
+        if (items.length === 0) {
+            container.innerHTML = '<p class="text-zinc-400">No recent activity from people you follow.</p>';
+            return;
+        }
+
+        const typeIcon = { posted: '📣', completed: '✅', explore: '💡' };
+        const typeColor = { posted: 'text-cyan-400', completed: 'text-emerald-400', explore: 'text-violet-400' };
+
+        container.innerHTML = items.slice(0, 20).map(item => `
+            <div onclick="${item.onclick}" class="bg-zinc-900 rounded-2xl p-4 cursor-pointer hover:bg-zinc-800 transition-colors flex items-start gap-3">
+                <span class="text-xl flex-shrink-0">${typeIcon[item.type]}</span>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm">
+                        <span onclick="event.stopPropagation(); viewUserProfile('${item.uid}')"
+                              class="font-semibold hover:underline cursor-pointer">@${item.username || 'user'}</span>
+                        <span class="${typeColor[item.type]}"> ${item.text}</span>
+                    </p>
+                    <p class="text-xs text-zinc-400 mt-0.5 truncate">${item.sub}</p>
+                </div>
+                <p class="text-xs text-zinc-600 flex-shrink-0">${timeAgo(item.time)}</p>
+            </div>
+        `).join('');
+
+    } catch(e) {
+        console.error('loadActivityFeed:', e.message);
+        container.innerHTML = '<p class="text-zinc-400">Could not load activity feed.</p>';
+    }
+}
+    
+async function loadSavedBounties() {
+    if (!currentUser) return;
+    const container = document.getElementById('saved-bounties');
+    if (!container) return;
+    container.innerHTML = '<p class="text-zinc-400 animate-pulse">Loading...</p>';
+
+    try {
+        const snap = await db.collection('bookmarks')
+            .where('uid', '==', currentUser.uid)
+            .orderBy('createdAt', 'desc')
+            .get();
+
+        if (snap.empty) {
+            container.innerHTML = '<p class="text-zinc-400">No saved bounties yet. Click 🔖 on any marketplace posting to save it.</p>';
+            return;
+        }
+
+        container.innerHTML = '';
+        for (const doc of snap.docs) {
+            const { postingId } = doc.data();
+            const postingSnap = await db.collection('subprojects').doc(postingId).get();
+            if (!postingSnap.exists) continue;
+            const p = postingSnap.data();
+            if (p.status !== 'open') continue;
+
+            const card = document.createElement('div');
+            card.className = 'bg-zinc-800 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-cyan-400 flex justify-between items-start';
+            card.innerHTML = `
+                <div class="flex-1 min-w-0" onclick="showSubprojectDetail('${postingId}', ${JSON.stringify(p).replace(/"/g, '&quot;')})">
+                    <p class="font-semibold truncate">${p.title}</p>
+                    <p class="text-xs text-zinc-400 mt-1">${p.compensation} · ${p.category || ''}</p>
+                    <p class="text-xs text-zinc-500 mt-1">${p.bids?.length || 0} bids</p>
+                </div>
+                <button onclick="toggleBookmark('${postingId}', this); this.closest('.bg-zinc-800').remove()"
+                        class="text-amber-400 ml-3 flex-shrink-0">🔖</button>
+            `;
+            container.appendChild(card);
+        }
+    } catch(e) {
+        container.innerHTML = '<p class="text-red-400">Error loading saved bounties.</p>';
+    }
+}
+// ====================== FOLLOW SYSTEM ======================
+function renderFollowBtn(btn, targetUid, isFollowing) {
+    if (isFollowing) {
+        btn.textContent = '✓ Following';
+        btn.className = 'mt-2 px-4 py-2 rounded-xl text-xs font-medium transition-colors border border-zinc-600 text-zinc-400 hover:border-red-500 hover:text-red-400';
+        btn.onclick = () => toggleFollow(btn, targetUid, true);
+    } else {
+        btn.textContent = '+ Follow';
+        btn.className = 'mt-2 px-4 py-2 rounded-xl text-xs font-medium transition-colors border border-cyan-400 text-cyan-400 hover:bg-cyan-400/10';
+        btn.onclick = () => toggleFollow(btn, targetUid, false);
+    }
+}
+
+async function toggleFollow(btn, targetUid, isFollowing) {
+    if (!currentUser) return alert('Please log in to follow users.');
+    if (targetUid === currentUser.uid) return;
+
+    btn.disabled = true;
+    try {
+        if (isFollowing) {
+            // Unfollow
+            const snap = await db.collection('follows')
+                .where('followerUid', '==', currentUser.uid)
+                .where('followingUid', '==', targetUid)
+                .limit(1).get();
+            if (!snap.empty) await snap.docs[0].ref.delete();
+            renderFollowBtn(btn, targetUid, false);
+        } else {
+            // Follow
+            await db.collection('follows').add({
+                followerUid:  currentUser.uid,
+                followingUid: targetUid,
+                createdAt:    firebase.firestore.FieldValue.serverTimestamp()
+            });
+            renderFollowBtn(btn, targetUid, true);
+
+            // Notify the person being followed
+            await createNotification(targetUid, 'follow',
+                `@${currentUser.username} started following you.`
+            );
+        }
+
+        // Refresh counts
+        loadFollowCounts(targetUid, 'user-followers-count', 'user-following-count');
+    } catch(e) {
+        alert('Failed: ' + e.message);
+    } finally {
+        btn.disabled = false;
+    }
+}
+
+async function loadFollowCounts(uid, followersElId, followingElId) {
+    try {
+        const [followersSnap, followingSnap] = await Promise.all([
+            db.collection('follows').where('followingUid', '==', uid).get(),
+            db.collection('follows').where('followerUid', '==', uid).get()
+        ]);
+        const fEl = document.getElementById(followersElId);
+        const gEl = document.getElementById(followingElId);
+        if (fEl) fEl.textContent = followersSnap.size;
+        if (gEl) gEl.textContent = followingSnap.size;
+    } catch(e) {
+        console.warn('loadFollowCounts:', e.message);
+    }
 }
 
 function toggleBountyTag(containerId, tag) {
@@ -4368,10 +4655,18 @@ async function createProfile() {
                         ${p.category ? `<span class="px-2 py-0.5 bg-violet-500/20 text-violet-400 rounded-full text-xs">${p.category}</span>` : ''}
                         ${(p.tags || []).map(t => `<span class="px-2 py-0.5 bg-zinc-700 text-zinc-300 rounded-full text-xs">${t}</span>`).join('')}
                     </div>
-                    <p onclick="event.stopPropagation(); viewUserProfile('${p.posterUid}')"
-                       class="text-cyan-400 hover:underline cursor-pointer text-xs mt-3">
-                        Posted by @${p.posterUsername || p.posterName || 'anonymous'}
-                    </p>
+                    <div class="flex items-center justify-between mt-3">
+                        <p onclick="event.stopPropagation(); viewUserProfile('${p.posterUid}')"
+                           class="text-cyan-400 hover:underline cursor-pointer text-xs">
+                            Posted by @${p.posterUsername || p.posterName || 'anonymous'}
+                        </p>
+                        ${currentUser ? `
+                        <button onclick="event.stopPropagation(); toggleBookmark('${p.id}', this)"
+                                class="text-zinc-500 hover:text-amber-400 transition-colors text-sm bookmark-btn"
+                                data-id="${p.id}">
+                            🔖
+                        </button>` : ''}
+                    </div>
                 `;
                 card.onclick = () => showSubprojectDetail(p.id, p);
                 grid.appendChild(card);
@@ -6660,6 +6955,15 @@ async function startVideoCall() {
                     completedGrid.innerHTML = `<p class="text-red-400">Error loading completed projects</p>`;
                 }
 
+                // Own follow counts
+                loadFollowCounts(currentUser.uid, 'profile-followers-count', 'profile-following-count');
+
+                // Saved bounties
+                loadSavedBounties();
+
+                // Activity feed
+                loadActivityFeed();
+
                 // Own profile stats
                 try {
                     const [myCompletedSnap, myWorkingSnap, myReviewsSnap] = await Promise.all([
@@ -6962,6 +7266,23 @@ async function viewUserProfile(uid) {
                         copyBtn.innerHTML = '<i class="fa-solid fa-link"></i> Copy Profile Link';
                     }, 2000);
                 };
+
+                // Follow button
+                const followBtn = document.createElement('button');
+                followBtn.id = 'follow-btn';
+                followBtn.className = 'mt-2 px-4 py-2 rounded-xl text-xs font-medium transition-colors border';
+
+                if (currentUser && uid !== currentUser.uid) {
+                    const followSnap = await db.collection('follows')
+                        .where('followerUid', '==', currentUser.uid)
+                        .where('followingUid', '==', uid)
+                        .limit(1).get();
+
+                    const isFollowing = !followSnap.empty;
+                    renderFollowBtn(followBtn, uid, isFollowing);
+                    document.getElementById('user-profile-bio').after(followBtn);
+                }
+
                 document.getElementById('user-profile-bio').after(copyBtn);
 
                 // Live stats from Firestore
@@ -6981,6 +7302,9 @@ async function viewUserProfile(uid) {
                 document.getElementById('user-working-on').textContent = workingCount;
                 document.getElementById('user-completed').textContent = completedCount;
                 document.getElementById('user-avg-rating').textContent = user.avgRating ? user.avgRating.toFixed(1) : '—';
+
+                // Follow counts
+                loadFollowCounts(uid, 'user-followers-count', 'user-following-count');
 
                 // Total earned from chain
                 const totalEarnedEl = document.getElementById('user-total-earned');
@@ -8719,19 +9043,92 @@ function openGroupChat(chatId, chatData) {
     });
 }
 
-    function renderComments(post) {
+function renderComments(post) {
             const container = document.getElementById('comments-list');
             if (!container) return;
             if (!post.comments || post.comments.length === 0) {
                 container.innerHTML = '<p class="text-zinc-400">No comments yet. Be the first!</p>';
                 return;
             }
-            container.innerHTML = post.comments.map(c => `
+
+            // Separate top-level comments and replies
+            const topLevel = post.comments.filter(c => !c.replyTo);
+            const replies  = post.comments.filter(c => c.replyTo);
+
+            container.innerHTML = topLevel.map((c, i) => {
+                const commentReplies = replies.filter(r => r.replyTo === i);
+                const date = c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '';
+                return `
                 <div class="bg-zinc-800 rounded-2xl p-4">
-                    <p class="text-sm font-medium text-cyan-400">@${c.username}</p>
-                    <p class="text-zinc-300 mt-1">${c.text}</p>
-                </div>
-            `).join('');
+                    <div class="flex justify-between items-start mb-1">
+                        <p class="text-sm font-medium text-cyan-400">@${c.username}</p>
+                        <span class="text-xs text-zinc-600">${date}</span>
+                    </div>
+                    <p class="text-zinc-300 text-sm">${c.text}</p>
+                    ${commentReplies.length > 0 ? `
+                    <div class="mt-3 ml-4 space-y-2 border-l-2 border-zinc-700 pl-3">
+                        ${commentReplies.map(r => `
+                        <div>
+                            <p class="text-xs font-medium text-cyan-400">@${r.username}</p>
+                            <p class="text-zinc-400 text-sm">${r.text}</p>
+                        </div>`).join('')}
+                    </div>` : ''}
+                    ${currentUser ? `
+                    <button onclick="showReplyInput(${i})"
+                            class="mt-2 text-xs text-zinc-500 hover:text-cyan-400 transition-colors">
+                        ↩ Reply
+                    </button>
+                    <div id="reply-input-${i}" class="hidden mt-2 flex gap-2">
+                        <input type="text" placeholder="Write a reply..."
+                               id="reply-text-${i}"
+                               class="flex-1 bg-zinc-700 rounded-xl px-3 py-2 outline-none text-sm">
+                        <button onclick="submitReply(${i})"
+                                class="px-3 py-2 bg-cyan-500 text-black text-xs font-semibold rounded-xl">
+                            Reply
+                        </button>
+                    </div>` : ''}
+                </div>`;
+            }).join('');
+        }
+
+        function showReplyInput(idx) {
+            const div = document.getElementById(`reply-input-${idx}`);
+            if (div) {
+                div.classList.toggle('hidden');
+                div.classList.toggle('flex');
+                document.getElementById(`reply-text-${idx}`)?.focus();
+            }
+        }
+
+        async function submitReply(commentIdx) {
+            if (!currentUser) return;
+            const input = document.getElementById(`reply-text-${commentIdx}`);
+            const text = input?.value.trim();
+            if (!text) return;
+
+            const modResult = await moderateContent(text, 'comment');
+            if (!modResult.approved) return alert(`❌ ${modResult.reason}`);
+
+            showPaymentPicker('Reply to comment — $0.01 fee', 0.01, 1, async () => {
+                try {
+                    const reply = {
+                        uid:       currentUser.uid,
+                        username:  currentUser.username,
+                        text,
+                        replyTo:   commentIdx,
+                        createdAt: new Date().toISOString()
+                    };
+                    await db.collection('posts').doc(currentPostId).update({
+                        comments: firebase.firestore.FieldValue.arrayUnion(reply)
+                    });
+                    input.value = '';
+                    // Reload post detail
+                    const snap = await db.collection('posts').doc(currentPostId).get();
+                    renderComments(snap.data());
+                } catch(e) {
+                    alert('Failed: ' + e.message);
+                }
+            });
         }
 
         async function postComment() {
