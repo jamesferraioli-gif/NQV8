@@ -4,7 +4,9 @@
 // This is the only way to transfer equity automatically — the contract requires onlyOwner.
 
 import { ethers } from 'ethers';
-import admin from 'firebase-admin';
+import { initializeApp, getApps } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { credential } from 'firebase-admin';
 
 const EQUITY_REGISTRY_ADDRESS = '0xb4085b1eDd626cc401FB87784b73E23D5c4eb909';
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
@@ -15,17 +17,12 @@ const EQUITY_REGISTRY_ABI = [
     "function projects(string projectId) external view returns (tuple(string projectId, string name, address founder, bool exists, uint256 createdAt, uint256 lastSalePricePerUnit, uint256 lastSaleAt, uint256 totalTradeVolume, bytes32 metricsHash, uint256 metricsUpdatedAt))"
 ];
 
-// Initialize Firebase Admin once
-if (!admin.apps.length) {
-    admin.initializeApp({
-        credential: admin.credential.cert({
-            projectId:   process.env.FIREBASE_PROJECT_ID,
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            privateKey:  process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
-        })
+if (!getApps().length) {
+    initializeApp({
+        credential: credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
     });
 }
-const db = admin.firestore();
+const db = getFirestore();
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
@@ -109,7 +106,7 @@ export default async function handler(req, res) {
                 reason,
                 bountyTitle: bountyTitle || null,
                 txHash: tx.hash,
-                createdAt: admin.firestore.FieldValue.serverTimestamp()
+                createdAt: FieldValue.serverTimestamp()
             });
 
             // Upsert a holder record keyed by projectId_wallet for fast cap table reads
@@ -117,18 +114,18 @@ export default async function handler(req, res) {
             await holderRef.set({
                 projectId,
                 wallet: workerWallet.toLowerCase(),
-                units: admin.firestore.FieldValue.increment(unitsNum),
+                units: FieldValue.increment(unitsNum),
                 lastTxHash: tx.hash,
-                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                updatedAt: FieldValue.serverTimestamp()
             }, { merge: true });
 
             const founderRef = db.collection('equityHolders').doc(`${projectId}_${founderWallet.toLowerCase()}`);
             await founderRef.set({
                 projectId,
                 wallet: founderWallet.toLowerCase(),
-                units: admin.firestore.FieldValue.increment(-unitsNum),
+                units: FieldValue.increment(-unitsNum),
                 lastTxHash: tx.hash,
-                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                updatedAt: FieldValue.serverTimestamp()
             }, { merge: true });
         } catch(indexErr) {
             console.warn('Cap table indexing failed (non-fatal):', indexErr.message);
