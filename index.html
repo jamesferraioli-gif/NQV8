@@ -6959,9 +6959,9 @@ async function startVideoCall() {
                                 : 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30';
                             toggleBtn.className = `flex-1 py-2 text-xs rounded-xl font-medium transition-colors ${_statusCls}`;
                             toggleBtn.textContent = c.projectStatus === 'live' ? '🟢 Live' : c.projectStatus === 'inactive' ? '⚫ Inactive' : '🔨 In Development';
-                            toggleBtn.onclick = async (e) => {
+                            toggleBtn.onclick = (e) => {
                                 e.stopPropagation();
-                                await toggleCompanyActive(c.id, c.projectStatus || 'in-development', card, toggleBtn);
+                                showEditCompanyStats(c.id, c);
                             };
                             actionsRow.appendChild(toggleBtn);
 
