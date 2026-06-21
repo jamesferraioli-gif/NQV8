@@ -10582,6 +10582,10 @@ async function loadProfileEquityStakes() {
                     const project = await equityReadOnly.projects(projectId);
                     if (!project.exists) return null;
 
+                    // Skip founder's own equity in their own company — that's ownership,
+                    // not an investment "stake," and is shown in the company detail view instead
+                    if (project.founder.toLowerCase() === connectedAddress.toLowerCase()) return null;
+
                     return {
                         projectId,
                         name:       project.name,
