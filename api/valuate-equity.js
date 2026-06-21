@@ -1,6 +1,6 @@
 export const config = { runtime: 'edge' };
 
-const EQUITY_REGISTRY_ADDRESS = '0xb4085b1eDd626cc401FB87784b73E23D5c4eb909';
+const EQUITY_REGISTRY_ADDRESS = '0x74aA0020E84d485AeE9eEAE9bd584A8A12276a9D';
 const ARBITRUM_RPC = 'https://arb1.arbitrum.io/rpc';
 const TOTAL_UNITS = 10_000;
 
