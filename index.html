@@ -10565,7 +10565,7 @@ async function loadProfileEquityStakes() {
         const results = await Promise.all(
             allProjectIds.map(async (projectId) => {
                 try {
-                    const [units] = await equityReadOnly.balances(projectId, connectedAddress);
+                    const units = await equityReadOnly.balances(projectId, connectedAddress);
                     if (units.toNumber() === 0) return null;
 
                     const project = await equityReadOnly.projects(projectId);
