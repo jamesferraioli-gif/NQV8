@@ -11215,13 +11215,14 @@ async function loadAndShowDeck(companyId) {
         alert("Failed to load deck: " + e.message);
     }
 }
+
 async function buyNowOnChain(listingId, totalUSDC) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
     if (!confirm(`Buy this stake for $${totalUSDC.toFixed(2)} USDC?\n\n3.5% platform fee applies. 96.5% goes to seller.`)) return;
 
     try {
         const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
-        const listing = await equityContract.getListing(listingId);
+        const listing = await equityContract.listings(listingId);
         const totalRaw = listing.units.mul(listing.askPricePerUnit);
 
         // Approve USDC
@@ -11237,8 +11238,8 @@ async function buyNowOnChain(listingId, totalUSDC) {
         alert(`✅ Purchase complete!\nTx: https://arbiscan.io/tx/${tx.hash}`);
         hideProjectDetailModal();
         loadEquityListings();
-        // Trigger revaluation since a trade just happened
         triggerEquityRevaluation(listing.projectId);
+        indexEquityTrade(listing.projectId, listing.seller, connectedAddress, listing.units.toNumber(), tx.hash);
     } catch(e) {
         const msg = e.message || '';
         if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
@@ -11293,18 +11294,140 @@ async function acceptOfferOnChain(offerId) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
     if (!confirm("Accept this offer? Trade will execute immediately.")) return;
     try {
+        const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
+        const offer = await equityReadOnly.offers(offerId);
+
         const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
         const tx = await equityContract.acceptOffer(offerId);
         await tx.wait();
         alert(`✅ Counter accepted! Trade complete.\nTx: https://arbiscan.io/tx/${tx.hash}`);
         hideProjectDetailModal();
         loadEquityListings();
-        triggerEquityRevaluation(window._currentEquityProjectId || '');
+        triggerEquityRevaluation(offer.projectId);
+        indexEquityTrade(offer.projectId, offer.seller, offer.buyer, offer.units.toNumber(), tx.hash);
     } catch(e) {
         const msg = e.message || '';
-        if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
+        if (msg.includes('user rejected') || e.code === 4001) alert("Failed: " + msg);
         else alert("Failed: " + msg);
     }
+}
+
+// ====================== CAP TABLE ======================
+async function indexEquityTrade(projectId, sellerAddr, buyerAddr, units, txHash) {
+    try {
+        const sellerLower = sellerAddr.toLowerCase();
+        const buyerLower  = buyerAddr.toLowerCase();
+
+        await db.collection('equityHolders').doc(`${projectId}_${sellerLower}`).set({
+            projectId, wallet: sellerLower,
+            units: firebase.firestore.FieldValue.increment(-units),
+            lastTxHash: txHash,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+
+        await db.collection('equityHolders').doc(`${projectId}_${buyerLower}`).set({
+            projectId, wallet: buyerLower,
+            units: firebase.firestore.FieldValue.increment(units),
+            lastTxHash: txHash,
+            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+        }, { merge: true });
+    } catch(e) {
+        console.warn('indexEquityTrade failed:', e.message);
+    }
+}
+
+async function showCapTable(projectId, companyName) {
+    if (!currentUser) return alert('Please log in to view the cap table.');
+
+    document.getElementById('cap-table-modal').classList.remove('hidden');
+    document.getElementById('cap-table-company-name').textContent = companyName || 'Cap Table';
+    const tbody = document.getElementById('cap-table-rows');
+    tbody.innerHTML = '<tr><td colspan="4" class="text-center text-zinc-400 py-8">Loading on-chain data...</td></tr>';
+
+    try {
+        const holdersSnap = await db.collection('equityHolders')
+            .where('projectId', '==', projectId)
+            .get();
+
+        if (holdersSnap.empty) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-zinc-400 py-8">No equity holders found.</td></tr>';
+            return;
+        }
+
+        const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
+
+        const holders = [];
+        for (const doc of holdersSnap.docs) {
+            const h = doc.data();
+            let onChainUnits;
+            try {
+                const raw = await equityReadOnly.balances(projectId, h.wallet);
+                onChainUnits = raw.toNumber();
+            } catch(e) {
+                onChainUnits = h.units || 0;
+            }
+            if (onChainUnits <= 0) continue;
+
+            let username = null, profileUid = null;
+            try {
+                const userSnap = await db.collection('users')
+                    .where('walletAddress', '==', h.wallet)
+                    .limit(1).get();
+                if (!userSnap.empty) {
+                    username = userSnap.docs[0].data().username;
+                    profileUid = userSnap.docs[0].id;
+                }
+            } catch(e) {}
+
+            holders.push({
+                wallet: h.wallet,
+                units: onChainUnits,
+                pct: (onChainUnits / 10000 * 100),
+                username,
+                profileUid,
+                isFounder: h.isFounder || false
+            });
+        }
+
+        holders.sort((a, b) => b.units - a.units);
+
+        if (holders.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="4" class="text-center text-zinc-400 py-8">No active equity holders.</td></tr>';
+            return;
+        }
+
+        tbody.innerHTML = holders.map(h => `
+            <tr class="border-b border-zinc-800">
+                <td class="py-3 px-2">
+                    ${h.username
+                        ? `<span onclick="viewUserProfile('${h.profileUid}')" class="text-cyan-400 hover:underline cursor-pointer font-medium">@${h.username}</span>`
+                        : `<span class="text-zinc-400 font-mono text-xs">${h.wallet.slice(0,6)}...${h.wallet.slice(-4)}</span>`
+                    }
+                    ${h.isFounder ? '<span class="ml-2 px-2 py-0.5 text-xs bg-violet-500/20 text-violet-400 rounded-full">Founder</span>' : ''}
+                </td>
+                <td class="py-3 px-2 text-right font-mono text-sm">${h.units.toLocaleString()}</td>
+                <td class="py-3 px-2 text-right font-semibold">${h.pct.toFixed(2)}%</td>
+                <td class="py-3 px-2 text-right">
+                    <a href="https://arbiscan.io/address/${h.wallet}" target="_blank" class="text-zinc-500 hover:text-cyan-400 text-xs">
+                        View <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+                    </a>
+                </td>
+            </tr>`).join('');
+
+        const totalUnits = holders.reduce((s, h) => s + h.units, 0);
+        document.getElementById('cap-table-total-units').textContent = totalUnits.toLocaleString();
+        document.getElementById('cap-table-holder-count').textContent = holders.length;
+
+    } catch(e) {
+        console.error('showCapTable error:', e.message);
+        tbody.innerHTML = `<tr><td colspan="4" class="text-center text-red-400 py-8">Error loading cap table: ${e.message}</td></tr>`;
+    }
+}
+
+function hideCapTable() {
+    document.getElementById('cap-table-modal').classList.add('hidden');
 }
 
 async function rejectOfferOnChain(offerId) {
@@ -12575,6 +12698,10 @@ async function loadGrowTab() {
                     <button onclick="navigateTo('marketplace'); setTimeout(()=>switchMarketplaceTab(2),300)"
                             class="w-full py-3 border border-zinc-600 text-zinc-300 text-sm rounded-xl hover:bg-zinc-800">
                         📈 Equity Exchange
+                    </button>
+                    <button onclick="showCapTable('${c.id}', '${(c.name||'').replace(/'/g,"\\'")}')"
+                            class="w-full py-3 border border-zinc-600 text-zinc-300 text-sm rounded-xl hover:bg-zinc-800">
+                        📊 View Cap Table
                     </button>` : `
                     <button onclick="showVerificationModal('${c.id}')"
                             class="w-full py-3 border border-violet-500/50 text-violet-400 text-sm rounded-xl hover:bg-violet-500/10">
@@ -13691,5 +13818,46 @@ async function loadGrowTab() {
         </div>
     </div>
 </div>
+
+<!-- CAP TABLE MODAL -->
+<div id="cap-table-modal" class="hidden fixed inset-0 bg-black/95 flex items-start justify-center z-[99999] overflow-y-auto py-6">
+    <div class="bg-zinc-900 w-full max-w-2xl mx-4 rounded-3xl p-6 md:p-8 my-auto">
+        <div class="flex justify-between items-center mb-2">
+            <h2 class="text-2xl font-bold">📊 Cap Table</h2>
+            <button onclick="hideCapTable()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
+        </div>
+        <p id="cap-table-company-name" class="text-zinc-400 mb-6"></p>
+
+        <div class="grid grid-cols-2 gap-3 mb-6">
+            <div class="bg-zinc-800 rounded-2xl p-4 text-center">
+                <p id="cap-table-holder-count" class="text-2xl font-bold text-cyan-400">—</p>
+                <p class="text-xs text-zinc-400">Holders</p>
+            </div>
+            <div class="bg-zinc-800 rounded-2xl p-4 text-center">
+                <p id="cap-table-total-units" class="text-2xl font-bold text-violet-400">—</p>
+                <p class="text-xs text-zinc-400">Total Units (of 10,000)</p>
+            </div>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-zinc-700 text-zinc-500 text-xs uppercase">
+                        <th class="text-left py-2 px-2">Holder</th>
+                        <th class="text-right py-2 px-2">Units</th>
+                        <th class="text-right py-2 px-2">Ownership %</th>
+                        <th class="text-right py-2 px-2">Verify</th>
+                    </tr>
+                </thead>
+                <tbody id="cap-table-rows"></tbody>
+            </table>
+        </div>
+
+        <p class="text-xs text-zinc-600 mt-6 text-center">
+            All balances verified live against the NQVateEquityRegistry contract on Arbitrum One.
+        </p>
+    </div>
+</div>
+    
 </body>
 </html>
