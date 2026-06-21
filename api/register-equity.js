@@ -1,4 +1,5 @@
 const { ethers } = require('ethers');
+const admin = require('firebase-admin');
 
 const ARBITRUM_RPC = 'https://arb1.arbitrum.io/rpc';
 const EQUITY_REGISTRY_ADDRESS = '0xb4085b1eDd626cc401FB87784b73E23D5c4eb909';
@@ -6,6 +7,17 @@ const EQUITY_REGISTRY_ADDRESS = '0xb4085b1eDd626cc401FB87784b73E23D5c4eb909';
 const EQUITY_REGISTRY_ABI = [
     "function registerProject(string projectId, string name, address founder) external"
 ];
+
+if (!admin.apps.length) {
+    admin.initializeApp({
+        credential: admin.credential.cert({
+            projectId:   process.env.FIREBASE_PROJECT_ID,
+            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+            privateKey:  process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
+        })
+    });
+}
+const db = admin.firestore();
 
 module.exports = async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -17,7 +29,7 @@ module.exports = async function handler(req, res) {
     }
 
     if (!process.env.OPERATIONS_PRIVATE_KEY) {
-        return res.status(500).json({ error: 'Operations key not configured', allKeys: Object.keys(process.env).filter(k => k.includes('OPERATIONS')) });
+        return res.status(500).json({ error: 'Operations key not configured' });
     }
 
     try {
@@ -29,6 +41,20 @@ module.exports = async function handler(req, res) {
         const receipt = await tx.wait();
 
         console.log(`✅ Equity registered: ${projectId} → ${founderWallet} | tx: ${receipt.transactionHash}`);
+
+        // Index founder as initial 100% (10000 bps units) holder for cap table
+        try {
+            await db.collection('equityHolders').doc(`${projectId}_${founderWallet.toLowerCase()}`).set({
+                projectId,
+                wallet: founderWallet.toLowerCase(),
+                units: 10000,
+                isFounder: true,
+                lastTxHash: receipt.transactionHash,
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            }, { merge: true });
+        } catch(indexErr) {
+            console.warn('Cap table founder indexing failed (non-fatal):', indexErr.message);
+        }
 
         return res.status(200).json({
             success: true,
