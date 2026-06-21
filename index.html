@@ -2715,7 +2715,7 @@ const FOUNDER_ADDRESS = '0x0A6090b655A9eB73f85449609eB2336e76d64c47';
 const ESCROW_CONTRACT_ADDRESS = '0x413EF7256f8099ea202d8C0fe3e620F5259c7a83';
 
 // NQVate Equity Registry — deployed on Arbitrum One
-const EQUITY_REGISTRY_ADDRESS = '0xb4085b1eDd626cc401FB87784b73E23D5c4eb909';
+const EQUITY_REGISTRY_ADDRESS = '0x74aA0020E84d485AeE9eEAE9bd584A8A12276a9D';
 
 const EQUITY_REGISTRY_ABI = [
     "function registerProject(string projectId, string name, address founder) external",
@@ -2728,6 +2728,11 @@ const EQUITY_REGISTRY_ABI = [
     "function makeOffer(bytes32 listingId, uint256 offerPricePerUnit) external returns (bytes32)",
     "function acceptOffer(bytes32 offerId) external",
     "function rejectOffer(bytes32 offerId) external",
+    "function counterOffer(bytes32 offerId, uint256 counterPricePerUnit) external",
+    "function acceptCounter(bytes32 offerId) external",
+    "function rejectCounter(bytes32 offerId) external",
+    "function withdrawOffer(bytes32 offerId) external",
+    "function expireOffer(bytes32 offerId) external",
     "function balances(string projectId, address wallet) external view returns (uint256)",
     "function projects(string projectId) external view returns (tuple(string projectId, string name, address founder, bool exists, uint256 createdAt, uint256 lastSalePricePerUnit, uint256 lastSaleAt, uint256 totalTradeVolume, bytes32 metricsHash, uint256 metricsUpdatedAt))",
     "function listings(bytes32 listingId) external view returns (bytes32 listingId, string projectId, address seller, uint256 units, uint256 askPricePerUnit, uint8 status, uint256 createdAt)",
@@ -2741,8 +2746,15 @@ const EQUITY_REGISTRY_ABI = [
     "event ProjectRegistered(string indexed projectId, string name, address indexed founder)",
     "event ListingCreated(bytes32 indexed listingId, string projectId, address seller, uint256 units, uint256 askPricePerUnit)",
     "event BoughtNow(bytes32 indexed listingId, address buyer, uint256 units, uint256 totalPrice, uint256 platformFee)",
-    "event OfferSubmitted(bytes32 indexed offerId, bytes32 indexed listingId, address buyer, uint256 offerPricePerUnit, uint256 lockedUSDC)",
-    "event OfferAccepted(bytes32 indexed offerId, uint256 totalPrice, uint256 platformFee)"
+    "event OfferSubmitted(bytes32 indexed offerId, bytes32 indexed listingId, address buyer, uint256 offerPricePerUnit, uint256 lockedUSDC)",    
+    "event OfferAccepted(bytes32 indexed offerId, uint256 totalPrice, uint256 platformFee)",
+    "event OfferRejected(bytes32 indexed offerId)",
+    "event OfferCountered(bytes32 indexed offerId, uint256 counterPricePerUnit)",
+    "event CounterAccepted(bytes32 indexed offerId, uint256 totalPrice, uint256 platformFee)",
+    "event CounterRejected(bytes32 indexed offerId)",
+    "event OfferWithdrawn(bytes32 indexed offerId)",
+    "event OfferExpired(bytes32 indexed offerId)"
+];
 ];
 const ESCROW_ABI = [
     "function createEscrow(string projectId, address worker, uint256 amount, uint8 currency, uint256 deadline) external returns (bytes32)",
