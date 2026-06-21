@@ -1,5 +1,7 @@
-const { ethers } = require('ethers');
-const admin = require('firebase-admin');
+import { ethers } from 'ethers';
+import { initializeApp, getApps } from 'firebase-admin/app';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { credential } from 'firebase-admin';
 
 const ARBITRUM_RPC = 'https://arb1.arbitrum.io/rpc';
 const EQUITY_REGISTRY_ADDRESS = '0xb4085b1eDd626cc401FB87784b73E23D5c4eb909';
@@ -8,18 +10,14 @@ const EQUITY_REGISTRY_ABI = [
     "function registerProject(string projectId, string name, address founder) external"
 ];
 
-if (!admin.apps.length) {
-    admin.initializeApp({
-        credential: admin.credential.cert({
-            projectId:   process.env.FIREBASE_PROJECT_ID,
-            clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-            privateKey:  process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n')
-        })
+if (!getApps().length) {
+    initializeApp({
+        credential: credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
     });
 }
-const db = admin.firestore();
+const db = getFirestore();
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     const { projectId, companyName, founderWallet, callerUid } = req.body;
@@ -50,7 +48,7 @@ module.exports = async function handler(req, res) {
                 units: 10000,
                 isFounder: true,
                 lastTxHash: receipt.transactionHash,
-                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                updatedAt: FieldValue.serverTimestamp()
             }, { merge: true });
         } catch(indexErr) {
             console.warn('Cap table founder indexing failed (non-fatal):', indexErr.message);
