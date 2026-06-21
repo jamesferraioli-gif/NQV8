@@ -1027,6 +1027,7 @@
                     <div id="profile-reputation" class="mt-4 hidden"></div>
                     <p id="profile-bio" class="mt-3 text-zinc-300 leading-relaxed"></p>
                     <div id="profile-skills" class="flex flex-wrap gap-2 mt-3"></div>
+                    <div id="profile-portfolio" class="mt-3"></div>
                     <button onclick="showEditProfileModal()"
                             class="mt-4 px-4 py-2 border border-zinc-600 text-zinc-400 rounded-xl text-xs hover:bg-zinc-800 flex items-center gap-2 w-fit">
                         <i class="fa-solid fa-pen"></i> Edit Bio & Skills
@@ -1310,6 +1311,7 @@
                     <div id="user-profile-reputation" class="mt-3 flex justify-center md:justify-start"></div>
                     <p id="user-profile-bio" class="mt-3 text-zinc-300 leading-relaxed text-sm"></p>
                     <div id="user-profile-skills" class="flex flex-wrap gap-2 mt-3 justify-center md:justify-start"></div>
+                    <div id="user-profile-portfolio" class="mt-3"></div>
                 </div>
             </div>
         </div>
@@ -2075,7 +2077,57 @@ function initTagsPicker(containerId, selectedArr) {
     }).join('');
 }
 
+// ====================== PORTFOLIO IMPORT ======================
+async function loadGithubPortfolio(uid, githubUsername, gitlabUsername, dribbbleUrl, behanceUrl, containerId) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
 
+    if (!githubUsername && !gitlabUsername && !dribbbleUrl && !behanceUrl) {
+        container.innerHTML = '';
+        return;
+    }
+
+    container.innerHTML = '<p class="text-zinc-500 text-xs">Loading portfolio...</p>';
+
+    let badgesHTML = '<div class="flex flex-wrap gap-2 mb-3">';
+    if (githubUsername) badgesHTML += `<a href="https://github.com/${githubUsername}" target="_blank" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-full text-xs flex items-center gap-1.5"><i class="fa-brands fa-github"></i> ${githubUsername}</a>`;
+    if (gitlabUsername) badgesHTML += `<a href="https://gitlab.com/${gitlabUsername}" target="_blank" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-full text-xs flex items-center gap-1.5"><i class="fa-brands fa-gitlab"></i> ${gitlabUsername}</a>`;
+    if (dribbbleUrl) badgesHTML += `<a href="${dribbbleUrl}" target="_blank" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-full text-xs flex items-center gap-1.5"><i class="fa-brands fa-dribbble"></i> Dribbble</a>`;
+    if (behanceUrl) badgesHTML += `<a href="${behanceUrl}" target="_blank" class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-full text-xs flex items-center gap-1.5"><i class="fa-brands fa-behance"></i> Behance</a>`;
+    badgesHTML += '</div>';
+
+    let reposHTML = '';
+
+    // Fetch GitHub repos (public API, no auth needed, 60 req/hr per IP)
+    if (githubUsername) {
+        try {
+            const res = await fetch(`https://api.github.com/users/${githubUsername}/repos?sort=stars&direction=desc&per_page=6`);
+            if (res.ok) {
+                const repos = await res.json();
+                if (Array.isArray(repos) && repos.length > 0) {
+                    reposHTML += `<div class="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">`;
+                    repos.slice(0, 4).forEach(repo => {
+                        reposHTML += `
+                            <a href="${repo.html_url}" target="_blank"
+                               class="bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-xl p-3 transition-colors">
+                                <div class="flex items-center justify-between mb-1">
+                                    <p class="text-sm font-medium truncate">${repo.name}</p>
+                                    <span class="text-xs text-amber-400 flex items-center gap-1 flex-shrink-0">⭐ ${repo.stargazers_count}</span>
+                                </div>
+                                <p class="text-xs text-zinc-500 line-clamp-2">${repo.description || 'No description'}</p>
+                                ${repo.language ? `<span class="text-xs text-cyan-400 mt-1 inline-block">${repo.language}</span>` : ''}
+                            </a>`;
+                    });
+                    reposHTML += `</div>`;
+                }
+            }
+        } catch(e) {
+            console.warn('GitHub fetch failed:', e.message);
+        }
+    }
+
+    container.innerHTML = badgesHTML + reposHTML;
+}
 // ====================== BOOKMARKS ======================
 async function toggleBookmark(postingId, btn) {
     if (!currentUser) return alert('Please log in to bookmark.');
@@ -4270,6 +4322,16 @@ function navigateTo(page) {
                 ).join('');
             }
 
+            // Portfolio
+            loadGithubPortfolio(
+                currentUser.uid,
+                currentUser.githubUsername,
+                currentUser.gitlabUsername,
+                currentUser.dribbbleUrl,
+                currentUser.behanceUrl,
+                'profile-portfolio'
+            );
+
             loadProfileData();
         }
 
@@ -5368,6 +5430,10 @@ function showEditProfileModal() {
 
     document.getElementById('edit-bio-input').value = currentUser.bio || '';
     document.getElementById('custom-skill-input').value = '';
+    document.getElementById('edit-github-input').value = currentUser.githubUsername || '';
+    document.getElementById('edit-gitlab-input').value = currentUser.gitlabUsername || '';
+    document.getElementById('edit-dribbble-input').value = currentUser.dribbbleUrl || '';
+    document.getElementById('edit-behance-input').value = currentUser.behanceUrl || '';
     renderSkillsPicker();
     document.getElementById('edit-profile-modal').classList.remove('hidden');
 }
@@ -5425,33 +5491,30 @@ function addCustomSkill() {
 async function saveProfileBioSkills() {
     if (!currentUser) return;
     const bio = document.getElementById('edit-bio-input').value.trim();
+    const githubUsername  = document.getElementById('edit-github-input').value.trim().replace('@','');
+    const gitlabUsername  = document.getElementById('edit-gitlab-input').value.trim().replace('@','');
+    const dribbbleUrl     = document.getElementById('edit-dribbble-input').value.trim();
+    const behanceUrl      = document.getElementById('edit-behance-input').value.trim();
 
     try {
         await db.collection('users').doc(currentUser.uid).update({
             bio,
-            skills: _selectedSkills
+            skills: _selectedSkills,
+            githubUsername: githubUsername || null,
+            gitlabUsername: gitlabUsername || null,
+            dribbbleUrl: dribbbleUrl || null,
+            behanceUrl: behanceUrl || null
         });
 
         currentUser.bio    = bio;
         currentUser.skills = _selectedSkills;
+        currentUser.githubUsername = githubUsername;
+        currentUser.gitlabUsername = gitlabUsername;
+        currentUser.dribbbleUrl    = dribbbleUrl;
+        currentUser.behanceUrl     = behanceUrl;
 
-        // Update display immediately
-        const bioEl = document.getElementById('profile-bio');
-        if (bioEl) bioEl.textContent = bio || 'No bio yet.';
-
-        const skillsEl = document.getElementById('profile-skills');
-        if (skillsEl) {
-            skillsEl.innerHTML = _selectedSkills.map(s =>
-                `<span class="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-xs font-medium">${s}</span>`
-            ).join('');
-        }
-
-        hideEditProfileModal();
-        alert('✅ Profile updated!');
-    } catch(e) {
-        alert('Failed to save: ' + e.message);
-    }
-}
+        // Reload portfolio display
+        loadGithubPortfolio(currentUser.uid, githubUsername, gitlabUsername, dribbbleUrl, behanceUrl, 'profile-portfolio');
 
  // ====================== REPUTATION SCORE ======================
 function calculateReputationScore({ avgRating, bountiesCompleted, bountyValue, nqv8Earned }) {
@@ -7276,6 +7339,16 @@ async function viewUserProfile(uid) {
                         ? skills.map(s => `<span class="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-xs font-medium">${s}</span>`).join('')
                         : '';
                 }
+
+                // Portfolio
+                loadGithubPortfolio(
+                    uid,
+                    user.githubUsername,
+                    user.gitlabUsername,
+                    user.dribbbleUrl,
+                    user.behanceUrl,
+                    'user-profile-portfolio'
+                );
 
                 // Avatar
                 const avatarEl = document.getElementById('user-profile-avatar');
@@ -13576,7 +13649,7 @@ async function loadGrowTab() {
             <!-- Populated by JS -->
         </div>
 
-        <label class="block text-sm text-zinc-400 mb-2">Custom skill <span class="text-zinc-500">(optional)</span></label>
+<label class="block text-sm text-zinc-400 mb-2">Custom skill <span class="text-zinc-500">(optional)</span></label>
         <div class="flex gap-2 mb-6">
             <input id="custom-skill-input" type="text" placeholder="e.g. Rust, Product Design..."
                    class="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none text-sm">
@@ -13587,6 +13660,30 @@ async function loadGrowTab() {
         </div>
 
         <div id="selected-skills-preview" class="flex flex-wrap gap-2 mb-6 min-h-8"></div>
+
+        <label class="block text-sm text-zinc-400 mb-2">Portfolio Links <span class="text-zinc-500">(optional)</span></label>
+        <div class="space-y-3 mb-6">
+            <div class="flex items-center gap-2">
+                <span class="text-zinc-500 w-6 text-center"><i class="fa-brands fa-github"></i></span>
+                <input id="edit-github-input" type="text" placeholder="GitHub username"
+                       class="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 outline-none text-sm">
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-zinc-500 w-6 text-center"><i class="fa-brands fa-gitlab"></i></span>
+                <input id="edit-gitlab-input" type="text" placeholder="GitLab username"
+                       class="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 outline-none text-sm">
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-zinc-500 w-6 text-center"><i class="fa-brands fa-dribbble"></i></span>
+                <input id="edit-dribbble-input" type="text" placeholder="Dribbble profile URL"
+                       class="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 outline-none text-sm">
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="text-zinc-500 w-6 text-center"><i class="fa-brands fa-behance"></i></span>
+                <input id="edit-behance-input" type="text" placeholder="Behance profile URL"
+                       class="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 outline-none text-sm">
+            </div>
+        </div>
 
         <div class="flex gap-3">
             <button onclick="hideEditProfileModal()" class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
