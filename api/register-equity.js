@@ -4,7 +4,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { credential } from 'firebase-admin';
 
 const ARBITRUM_RPC = 'https://arb1.arbitrum.io/rpc';
-const EQUITY_REGISTRY_ADDRESS = '0xb4085b1eDd626cc401FB87784b73E23D5c4eb909';
+const EQUITY_REGISTRY_ADDRESS = '0x74aA0020E84d485AeE9eEAE9bd584A8A12276a9D';
 
 const EQUITY_REGISTRY_ABI = [
     "function registerProject(string projectId, string name, address founder) external"
