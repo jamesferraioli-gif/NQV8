@@ -5516,7 +5516,14 @@ async function saveProfileBioSkills() {
         // Reload portfolio display
         loadGithubPortfolio(currentUser.uid, githubUsername, gitlabUsername, dribbbleUrl, behanceUrl, 'profile-portfolio');
 
- // ====================== REPUTATION SCORE ======================
+        hideEditProfileModal();
+        alert('✅ Profile updated!');
+    } catch(e) {
+        alert('Failed to save: ' + e.message);
+    }
+}
+
+// ====================== REPUTATION SCORE ======================
 function calculateReputationScore({ avgRating, bountiesCompleted, bountyValue, nqv8Earned }) {
     // Rating component (0-40 points): avg rating out of 5 → scaled to 40
     const ratingScore = Math.min((avgRating / 5) * 40, 40);
@@ -5557,9 +5564,9 @@ function renderReputationBadge(score) {
                 </div>
             </div>
         </div>`;
-}   
-    
-        function hideEditPostingModal() {
+}
+
+function hideEditPostingModal() {            
             document.getElementById('edit-posting-modal').classList.add('hidden');
             editingPostingId = null;
             window._editingHasBids = false;
