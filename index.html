@@ -8779,6 +8779,16 @@ async function showCompanyDetail(companyId, company) {
         <h3 class="text-xl font-semibold mb-4">📋 Tasks / Subprojects</h3>
         <div class="space-y-3">${subHTML}</div>
 
+        <div class="mt-8">
+            <h3 class="font-semibold text-lg mb-3 flex items-center gap-2">
+                🔒 Data Room
+                ${isOwner ? `<button onclick="showDataRoomManageModal('${companyId}')" class="ml-auto text-xs px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 rounded-xl">Manage Access</button>` : ''}
+            </h3>
+            <div id="data-room-container">
+                <p class="text-zinc-400 text-sm">Loading...</p>
+            </div>
+        </div>
+
         ${isOwner ? `
         <div class="mt-8 pt-6 border-t border-zinc-700">
             <button onclick="hideProjectDetailModal()" class="w-full py-4 border border-zinc-700 rounded-3xl">Close</button>
@@ -8786,8 +8796,216 @@ async function showCompanyDetail(companyId, company) {
     `;
 
     modal.classList.remove('hidden');
+    loadDataRoom(companyId, isOwner);
 }
-    
+
+// ====================== DATA ROOM ======================
+async function loadDataRoom(companyId, isOwner) {
+    const container = document.getElementById('data-room-container');
+    if (!container) return;
+
+    try {
+        const roomDoc = await db.collection('dataRooms').doc(companyId).get();
+        const room = roomDoc.exists ? roomDoc.data() : { files: [], approvedViewers: [] };
+
+        const hasAccess = isOwner ||
+            (currentUser && (room.approvedViewers || []).includes(currentUser.uid));
+
+        if (!hasAccess) {
+            container.innerHTML = `
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6 text-center">
+                    <p class="text-zinc-400 text-sm">🔒 This data room is private. Only approved investors can view its contents.</p>
+                    ${currentUser ? `<p class="text-zinc-500 text-xs mt-2">If you've invested in this project, ask the founder to grant you access.</p>` : ''}
+                </div>`;
+            return;
+        }
+
+        if (isOwner) {
+            container.innerHTML = `
+                <button onclick="showUploadToDataRoomModal('${companyId}')"
+                        class="mb-3 px-4 py-2 bg-cyan-500/20 text-cyan-400 rounded-xl text-sm font-medium hover:bg-cyan-500/30">
+                    + Upload Document
+                </button>
+                <div id="data-room-files"></div>`;
+        } else {
+            container.innerHTML = `<div id="data-room-files"></div>`;
+        }
+
+        const filesContainer = document.getElementById('data-room-files');
+        const files = room.files || [];
+
+        if (files.length === 0) {
+            filesContainer.innerHTML = '<p class="text-zinc-500 text-sm">No documents uploaded yet.</p>';
+            return;
+        }
+
+        const typeIcons = { pdf: '📄', doc: '📝', docx: '📝', xls: '📊', xlsx: '📊', ppt: '📑', pptx: '📑', png: '🖼️', jpg: '🖼️', jpeg: '🖼️' };
+
+        filesContainer.innerHTML = files.map((f, i) => {
+            const ext = f.name.split('.').pop().toLowerCase();
+            const icon = typeIcons[ext] || '📁';
+            return `
+                <div class="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-xl p-3 mb-2">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <span class="text-xl flex-shrink-0">${icon}</span>
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium truncate">${f.name}</p>
+                            <p class="text-xs text-zinc-500">${f.sizeLabel || ''} · ${f.uploadedAt ? new Date(f.uploadedAt).toLocaleDateString() : ''}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2 flex-shrink-0">
+                        <a href="${f.url}" target="_blank"
+                           class="px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-xs">Download</a>
+                        ${isOwner ? `<button onclick="removeDataRoomFile('${companyId}', ${i})" class="text-zinc-500 hover:text-red-400 text-xs">✕</button>` : ''}
+                    </div>
+                </div>`;
+        }).join('');
+
+    } catch(e) {
+        console.error('loadDataRoom error:', e.message);
+        container.innerHTML = '<p class="text-red-400 text-sm">Error loading data room.</p>';
+    }
+}
+
+function showUploadToDataRoomModal(companyId) {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.png,.jpg,.jpeg';
+    input.onchange = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 25 * 1024 * 1024) return alert('File too large — 25MB max.');
+
+        try {
+            const storageRef = storage.ref(`dataRooms/${companyId}/${Date.now()}_${file.name}`);
+            await storageRef.put(file);
+            const url = await storageRef.getDownloadURL();
+
+            const sizeLabel = file.size > 1024 * 1024
+                ? (file.size / (1024 * 1024)).toFixed(1) + ' MB'
+                : (file.size / 1024).toFixed(0) + ' KB';
+
+            await db.collection('dataRooms').doc(companyId).set({
+                files: firebase.firestore.FieldValue.arrayUnion({
+                    name: file.name,
+                    url,
+                    sizeLabel,
+                    uploadedAt: Date.now()
+                })
+            }, { merge: true });
+
+            alert('✅ Document uploaded.');
+            loadDataRoom(companyId, true);
+        } catch(err) {
+            alert('Upload failed: ' + err.message);
+        }
+    };
+    input.click();
+}
+
+async function removeDataRoomFile(companyId, index) {
+    if (!confirm('Remove this document from the data room?')) return;
+    try {
+        const roomDoc = await db.collection('dataRooms').doc(companyId).get();
+        const files = roomDoc.data().files || [];
+        files.splice(index, 1);
+        await db.collection('dataRooms').doc(companyId).update({ files });
+        loadDataRoom(companyId, true);
+    } catch(e) {
+        alert('Failed to remove: ' + e.message);
+    }
+}
+
+async function showDataRoomManageModal(companyId) {
+    const roomDoc = await db.collection('dataRooms').doc(companyId).get();
+    const approvedViewers = roomDoc.exists ? (roomDoc.data().approvedViewers || []) : [];
+
+    const viewerNames = [];
+    for (const uid of approvedViewers) {
+        try {
+            const u = await db.collection('users').doc(uid).get();
+            viewerNames.push({ uid, username: u.data()?.username || 'unknown' });
+        } catch(e) {}
+    }
+
+    document.getElementById('data-room-manage-modal')?.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'data-room-manage-modal';
+    modal.className = 'fixed inset-0 bg-black/95 flex items-start justify-center z-[99999] overflow-y-auto py-6';
+    modal.innerHTML = `
+        <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-6 my-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold">Manage Data Room Access</h2>
+                <button onclick="document.getElementById('data-room-manage-modal').remove()" class="text-2xl text-zinc-400 hover:text-white">×</button>
+            </div>
+
+            <p class="text-sm text-zinc-400 mb-4">Approved viewers can see and download all documents in this data room.</p>
+
+            <div id="dr-viewer-list" class="space-y-2 mb-4">
+                ${viewerNames.length === 0
+                    ? '<p class="text-zinc-500 text-sm">No approved viewers yet.</p>'
+                    : viewerNames.map(v => `
+                        <div class="flex items-center justify-between bg-zinc-800 rounded-xl px-4 py-2">
+                            <span class="text-sm">@${v.username}</span>
+                            <button onclick="revokeDataRoomAccess('${companyId}', '${v.uid}')" class="text-xs text-red-400 hover:text-red-300">Revoke</button>
+                        </div>`).join('')
+                }
+            </div>
+
+            <div class="relative">
+                <input id="dr-add-viewer-input" type="text" placeholder="Search by username to grant access..."
+                       oninput="searchDataRoomViewer(this.value, '${companyId}')"
+                       class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none text-sm">
+                <div id="dr-viewer-results" class="hidden absolute z-10 w-full bg-zinc-800 border border-zinc-700 rounded-xl mt-1 max-h-40 overflow-auto"></div>
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+}
+
+async function searchDataRoomViewer(query, companyId) {
+    const results = document.getElementById('dr-viewer-results');
+    if (!query || query.length < 2) { results.classList.add('hidden'); return; }
+
+    const snap = await db.collection('users')
+        .where('username', '>=', query.toLowerCase())
+        .where('username', '<=', query.toLowerCase() + '\uf8ff')
+        .limit(5).get();
+
+    if (snap.empty) {
+        results.innerHTML = '<p class="text-zinc-500 text-xs px-4 py-3">No users found</p>';
+        results.classList.remove('hidden');
+        return;
+    }
+
+    results.innerHTML = '';
+    snap.forEach(doc => {
+        const u = doc.data();
+        const item = document.createElement('button');
+        item.className = 'w-full text-left px-4 py-3 hover:bg-zinc-700 text-sm';
+        item.textContent = '@' + u.username;
+        item.onclick = () => grantDataRoomAccess(companyId, doc.id);
+        results.appendChild(item);
+    });
+    results.classList.remove('hidden');
+}
+
+async function grantDataRoomAccess(companyId, uid) {
+    await db.collection('dataRooms').doc(companyId).set({
+        approvedViewers: firebase.firestore.FieldValue.arrayUnion(uid)
+    }, { merge: true });
+    document.getElementById('data-room-manage-modal')?.remove();
+    showDataRoomManageModal(companyId);
+}
+
+async function revokeDataRoomAccess(companyId, uid) {
+    await db.collection('dataRooms').doc(companyId).update({
+        approvedViewers: firebase.firestore.FieldValue.arrayRemove(uid)
+    });
+    document.getElementById('data-room-manage-modal')?.remove();
+    showDataRoomManageModal(companyId);
+}
+
 function showEditCompanyStats(companyId, company) {
     const website = prompt("Website URL:", company.website || '');
     if (website === null) return;
