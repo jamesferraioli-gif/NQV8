@@ -171,6 +171,11 @@
     <a onclick="logout()" class="block py-2 text-red-400 cursor-pointer">Logout</a>
 </div>
 
+    <!-- UNIVERSAL AD BANNER — shown on every page -->
+    <div class="max-w-6xl mx-auto pt-4 px-4 md:px-6">
+        <div id="ad-banner-global"></div>
+    </div>
+
     <!-- MARKETPLACE PAGE -->
     <div id="marketplace-page" class="max-w-6xl mx-auto pt-6 px-4 md:px-6">
 
@@ -178,6 +183,8 @@
             <h1 class="text-3xl md:text-5xl font-bold tracking-tighter mb-4">Marketplace</h1>
             <p class="text-xl text-zinc-400 max-w-3xl">Get building!</p>
         </div>
+
+        <div id="ad-banner-marketplace" class="mb-8"></div>
 
         <!-- Controls + Live Stats -->
         <div class="flex flex-col gap-3 mb-8">
@@ -2111,6 +2118,112 @@ function selectPromoteTier(days, price) {
     confirmBtn.disabled = false;
     confirmBtn.textContent = `Promote for $${price} (${days} days)`;
     confirmBtn.className = 'w-full py-4 bg-amber-500 text-black font-semibold rounded-3xl hover:bg-amber-400 transition-colors';
+}
+
+// ====================== BANNER ADS ======================
+const HOUSE_ADS = [
+    {
+        headline: "🎁 Get 1,000 NQV8 Free",
+        body: "New here? Create an account and claim your signup bonus instantly.",
+        targetUrl: null,
+        action: () => showAuthModal(),
+        bg: "from-cyan-500/20 to-violet-500/20",
+        border: "border-cyan-500/30"
+    },
+    {
+        headline: "🚀 Promote Your Posting",
+        body: "Get your bounty or funding request seen first. Featured listings start at $25.",
+        targetUrl: null,
+        action: () => navigateTo('marketplace'),
+        bg: "from-amber-500/20 to-orange-500/20",
+        border: "border-amber-500/30"
+    },
+    {
+        headline: "👥 Refer Friends, Earn NQV8",
+        body: "Get 1,000 NQV8 for every 5 verified referrals. Share your link from Profile.",
+        targetUrl: null,
+        action: () => navigateTo('profile'),
+        bg: "from-emerald-500/20 to-cyan-500/20",
+        border: "border-emerald-500/30"
+    },
+    {
+        headline: "🗺️ Plan Your Project with AI",
+        body: "Studio's AI flow map breaks your idea into a step-by-step build plan.",
+        targetUrl: null,
+        action: () => navigateTo('studio'),
+        bg: "from-violet-500/20 to-pink-500/20",
+        border: "border-violet-500/30"
+    }
+];
+
+async function loadAdBanner() {
+    const container = document.getElementById('ad-banner-global');
+    if (!container) return;
+
+    try {
+        const now = Date.now();
+        const snap = await db.collection('adCampaigns')
+            .where('placementType', '==', 'banner')
+            .where('status', '==', 'active')
+            .get();
+
+        const activeCampaigns = snap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter(c => c.endDate > now && c.startDate <= now);
+
+        if (activeCampaigns.length > 0) {
+            // Show a real paid ad — rotate randomly if multiple are active
+            const campaign = activeCampaigns[Math.floor(Math.random() * activeCampaigns.length)];
+            renderBanner(container, {
+                headline: campaign.creative?.headline || campaign.advertiserCompanyName,
+                body: campaign.creative?.body || '',
+                imageUrl: campaign.creative?.imageUrl || null,
+                isPaid: true,
+                campaignId: campaign.id,
+                targetUrl: campaign.targetUrl
+            });
+            // Track impression
+            db.collection('adCampaigns').doc(campaign.id).update({
+                impressions: firebase.firestore.FieldValue.increment(1)
+            });
+        } else {
+            // No paid ads — rotate through house ads
+            const houseAd = HOUSE_ADS[Math.floor(Math.random() * HOUSE_ADS.length)];
+            renderBanner(container, { ...houseAd, isPaid: false });
+        }
+    } catch(e) {
+        console.warn('loadAdBanner failed:', e.message);
+        container.innerHTML = '';
+    }
+}
+
+function renderBanner(container, ad) {
+    const clickHandler = ad.isPaid
+        ? `onclick="handleAdClick('${ad.campaignId}', '${ad.targetUrl}')"`
+        : '';
+
+    container.innerHTML = `
+        <div ${clickHandler} class="relative bg-gradient-to-r ${ad.bg || 'from-zinc-800 to-zinc-900'} border ${ad.border || 'border-zinc-700'} rounded-3xl p-5 flex items-center gap-4 cursor-pointer hover:opacity-90 transition-opacity">
+            ${ad.imageUrl ? `<img src="${ad.imageUrl}" class="w-16 h-16 rounded-2xl object-cover flex-shrink-0">` : ''}
+            <div class="flex-1 min-w-0">
+                <p class="font-bold text-base">${ad.headline}</p>
+                <p class="text-zinc-400 text-sm mt-0.5">${ad.body}</p>
+            </div>
+            <span class="text-xs text-zinc-600 flex-shrink-0 ${ad.isPaid ? '' : 'hidden'}">Sponsored</span>
+            <i class="fa-solid fa-chevron-right text-zinc-500 flex-shrink-0"></i>
+        </div>
+    `;
+
+    if (!ad.isPaid && ad.action) {
+        container.firstElementChild.onclick = ad.action;
+    }
+}
+
+function handleAdClick(campaignId, targetUrl) {
+    db.collection('adCampaigns').doc(campaignId).update({
+        clicks: firebase.firestore.FieldValue.increment(1)
+    });
+    if (targetUrl) window.open(targetUrl, '_blank');
 }
 
 async function confirmPromoteListing() {
@@ -4409,6 +4522,8 @@ function navigateTo(page) {
             if (page === 'tokenomics') { loadTokenomics(); loadRewards(); }
             if (page === 'studio') { switchStudioTab('plan'); loadStudioProjectList(); }
             if (page === 'about') switchAboutTab('overview');
+
+            loadAdBanner(); // banner shown on every page
         }
 
         // ====================== NAVBAR & PROFILE ======================
@@ -7689,6 +7804,7 @@ async function viewUserProfile(uid) {
 
         // ====================== INITIAL LOAD ======================
         window.onload = () => {
+        loadAdBanner();
         // Capture referral code from URL
         const urlParams = new URLSearchParams(window.location.search);
         const refCode   = urlParams.get('ref');
