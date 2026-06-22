@@ -9545,6 +9545,14 @@ async function submitFundingPosting() {
                     alert("✅ Funding request posted!");
                     hidePostFundingModal();
                     loadMarketplace();
+                } catch(e) {
+                    console.error(e);
+                    alert("Payment succeeded but failed to post: " + e.message);
+                }
+            }
+        );
+    });
+}
 
 async function togglePostLike(postId, hasLiked) {
     if (!currentUser) return alert("Please log in to upvote.");
