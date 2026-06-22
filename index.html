@@ -50,7 +50,7 @@
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@web3modal/standalone@2.4.1/dist/index.umd.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js"></script>
-    <script src="https://unpkg.com/@coinbase/wallet-sdk@4.3.7/dist/index.js"></script>
+    <script src="https://unpkg.com/@coinbase/wallet-sdk@3.6.6/dist/browser/index.js"></script>
 
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -2986,22 +2986,19 @@ function connectWithMetaMaskMobile() {
 }
 
 async function connectWithCoinbase() {
-
-async function connectWithCoinbase() {
     document.getElementById('wallet-picker-modal')?.remove();
     try {
-        // v4 SDK — exposes window.CoinbaseWalletSDK.CoinbaseWalletSDK as the named export
-        const SDK = window.CoinbaseWalletSDK?.CoinbaseWalletSDK || window.CoinbaseWalletSDK;
+        const SDK = window.CoinbaseWalletSDK;
         if (!SDK) throw new Error('Coinbase SDK not loaded');
 
         const cbWallet = new SDK({
             appName: 'NQVate',
             appLogoUrl: 'https://www.nqvate.com/public/logo.png',
-            appChainIds: [ARBITRUM_CHAIN_ID]
+            darkMode: true,
+            reloadOnDisconnect: false
         });
 
-        // v4 — makeWeb3Provider takes a preference object, no RPC/chainId args
-        const cbProvider = cbWallet.makeWeb3Provider({ options: 'all' });
+        const cbProvider = cbWallet.makeWeb3Provider(ARBITRUM_RPC, ARBITRUM_CHAIN_ID);
         const accounts = await cbProvider.request({ method: 'eth_requestAccounts' });
 
         provider = new ethers.providers.Web3Provider(cbProvider);
