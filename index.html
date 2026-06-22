@@ -652,6 +652,14 @@
         <input id="funding-ask" type="text" placeholder="Funding Amount (e.g. $50,000 USDC)"
                class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
 
+        <div class="relative mb-4">
+            <input id="funding-equity-pct" type="number" min="0.01" max="100" step="0.01" placeholder="Equity offered (e.g. 10)"
+                   oninput="updateFundingUnitsPreview(this.value)"
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none pr-12">
+            <span class="absolute right-6 top-1/2 -translate-y-1/2 text-zinc-500 text-lg">%</span>
+        </div>
+        <p id="funding-units-preview" class="text-xs text-zinc-500 mb-4 -mt-2"></p>
+
         <textarea id="funding-desc" placeholder="Describe the funding round, what it's for, and what you're offering investors..." rows="4"
                   class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-4"></textarea>
 
@@ -9373,6 +9381,8 @@ async function showPostFundingModal() {
     document.getElementById('post-funding-modal').classList.remove('hidden');
     document.getElementById('funding-verif-notice').classList.add('hidden');
     document.getElementById('funding-ask').value = '';
+    document.getElementById('funding-equity-pct').value = '';
+    document.getElementById('funding-units-preview').textContent = '';
     document.getElementById('funding-desc').value = '';
     document.getElementById('funding-project-picker-section').classList.remove('hidden');
     initTagsPicker('funding-tags-picker', _fundingSelectedTags);
@@ -9459,13 +9469,30 @@ function startFundingVerification() {
     }
 }
 
+function updateFundingUnitsPreview(value) {
+    const pct = parseFloat(value);
+    const preview = document.getElementById('funding-units-preview');
+    if (preview) {
+        preview.textContent = !isNaN(pct) && pct > 0
+            ? `= ${Math.round(pct * 100)} units of 10,000 total`
+            : '';
+    }
+}
+
 async function submitFundingPosting() {
     if (!selectedFundingProjectId) return alert("Please select a project first");
 
     const ask = document.getElementById('funding-ask').value.trim();
+    const equityPctStr = document.getElementById('funding-equity-pct').value.trim();
     const desc = document.getElementById('funding-desc').value.trim();
 
-    if (!ask || !desc) return alert("Please fill in funding amount and description");
+    if (!ask || !equityPctStr || !desc) return alert("Please fill in funding amount, equity offered, and description");
+
+    const equityPct = parseFloat(equityPctStr);
+    if (isNaN(equityPct) || equityPct <= 0 || equityPct > 100) {
+        return alert("Equity offered must be between 0.01% and 100%.");
+    }
+    const equityUnits = Math.round(equityPct * 100); // 1% = 100 units (10,000 = 100%)
 
     // Check for existing active funding request for this project
     const existing = await db.collection("subprojects")
@@ -9473,37 +9500,40 @@ async function submitFundingPosting() {
         .where("type", "==", "fund")
         .where("status", "==", "open")
         .get();
-    
+
     if (!existing.empty) {
         return alert("❌ You already have an active funding request for this project. Close or complete it before posting a new one.");
     }
 
-await checkAndImprovePosting('Funding Request', desc, 'Funding', 'fund', 'fund', async (finalDesc) => {
-    const modResult = await moderateContent(`${ask} ${finalDesc}`, 'marketplace posting');
-    if (!modResult.approved) return alert(`❌ Post rejected: ${modResult.reason}`);
+    await checkAndImprovePosting('Funding Request', desc, 'Funding', 'fund', 'fund', async (finalDesc) => {
+        const modResult = await moderateContent(`${ask} ${equityPct}% ${finalDesc}`, 'marketplace posting');
+        if (!modResult.approved) return alert(`❌ Post rejected: ${modResult.reason}`);
 
         showPaymentPicker(
             'Post a Funding Request — $1.00 fee',
             1.00, 100,
-        async (txHash) => {
-            try {
-                const projectSnap = await db.collection("companies").doc(selectedFundingProjectId).get();
-                const project = projectSnap.data();
+            async (txHash) => {
+                try {
+                    const projectSnap = await db.collection("companies").doc(selectedFundingProjectId).get();
+                    const project = projectSnap.data();
 
-                await db.collection("subprojects").add({
-                        projectId: selectedBountyProjectId,
-                        companyId: selectedBountyProjectId,
+                    await db.collection("subprojects").add({
+                        projectId: selectedFundingProjectId,
+                        companyId: selectedFundingProjectId,
                         ownerUid: currentUser.uid,
                         ownerUsername: currentUser.username,
+                        posterUid: currentUser.uid,
+                        posterUsername: currentUser.username,
                         posterName: currentUser.fullName || currentUser.username,
-                        title,
+                        title: `Funding Request: ${project.name}`,
                         description: finalDesc,
-                        category,
-                        tags: _bountySelectedTags,
-                        compensation,
-                        compensationType: selectedBountyCompType,
-                        equityUnits: equityUnits || 0,
-                        type: 'build',
+                        category: project.category || 'Other',
+                        tags: _fundingSelectedTags,
+                        compensation: ask,
+                        equityPct,
+                        equityUnits,
+                        compensationType: 'fund',
+                        type: 'fund',
                         bids: [],
                         bidsOpen: true,
                         status: 'open',
@@ -9512,16 +9542,9 @@ await checkAndImprovePosting('Funding Request', desc, 'Funding', 'fund', 'fund',
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
 
-                alert("✅ Funding request posted!");
-                hidePostFundingModal();
-                loadMarketplace();
-            } catch (e) {
-                alert("Failed to post: " + e.message);
-            }
-        }
-    );
-}); // ← close checkAndImprovePosting callback
-}
+                    alert("✅ Funding request posted!");
+                    hidePostFundingModal();
+                    loadMarketplace();
 
 async function togglePostLike(postId, hasLiked) {
     if (!currentUser) return alert("Please log in to upvote.");
