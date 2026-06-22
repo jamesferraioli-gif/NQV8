@@ -2990,8 +2990,8 @@ async function connectWithCoinbase() {
     const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
 
     try {
-        // Desktop — check for Coinbase Wallet's injected provider (extension)
-        // Coinbase Wallet extension sets window.ethereum.isCoinbaseWallet,
+        // Desktop / Coinbase Wallet in-app browser — check for injected provider
+        // Coinbase Wallet sets window.ethereum.isCoinbaseWallet,
         // or exposes itself inside window.ethereum.providers[] if multiple wallets are installed
         let coinbaseProvider = null;
 
@@ -3014,9 +3014,9 @@ async function connectWithCoinbase() {
         }
 
         if (isMobileDevice) {
-            // Mobile — deep link directly into the Coinbase Wallet app's dapp browser
-            const currentUrl = encodeURIComponent(window.location.href);
-            window.location.href = `https://go.cb-w.com/dapp?cb_url=${currentUrl}`;
+            // No reliable external deep link into Coinbase Wallet's dapp browser —
+            // guide the user to open the site from inside the app instead
+            showCoinbaseMobileInstructions();
             return;
         }
 
@@ -3026,6 +3026,17 @@ async function connectWithCoinbase() {
     } catch (e) {
         alert('❌ Coinbase Wallet connection failed: ' + e.message);
     }
+}
+
+function showCoinbaseMobileInstructions() {
+    alert(
+        "To connect Coinbase Wallet:\n\n" +
+        "1. Open the Coinbase Wallet app\n" +
+        "2. Tap the browser icon (🌐) at the bottom\n" +
+        "3. Go to nqvate.com\n" +
+        "4. Tap Connect Wallet — it will connect automatically\n\n" +
+        "This connects through Coinbase Wallet's built-in browser."
+    );
 }
 
 async function connectWithWalletConnect() {
