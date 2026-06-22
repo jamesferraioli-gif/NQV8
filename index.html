@@ -918,27 +918,20 @@
                 </div>
             </div>
 
-            <div class="text-left text-zinc-300 leading-relaxed text-sm space-y-4">
-
-                <p>Imagine a place where ideas meet execution, bounties fuel progress, and equity flows freely on-chain. NQVate connects builders with opportunities in one seamless Web3 ecosystem: post build requests or bounties to get tasks done (paying in USDC or equity), seek funding for your projects, earn stakes by delivering work, then trade those stakes on the integrated equity exchange. It's part freelance marketplace, part decentralized VC, and part community hub—with chat, leaderboards, idea sharing, and reviews tying it all together.</p>
-
-                <div>
-                    <p class="text-white font-semibold mb-2">Key features include:</p>
-                    <ul class="space-y-2 text-zinc-300">
-                        <li><span class="text-cyan-400 font-medium">Build Requests/Bounties:</span> Hire talent or complete paid tasks for cash, equity, or both.</li>
-                        <li><span class="text-violet-400 font-medium">Funding Requests:</span> Raise capital for verified projects.</li>
-                        <li><span class="text-pink-400 font-medium">Equity Exchange:</span> Buy/sell ownership stakes you've earned.</li>
-                        <li><span class="text-emerald-400 font-medium">Explore & Chat:</span> Share ideas, news, and projects; connect with the community.</li>
-                        <li><span class="text-amber-400 font-medium">NQV8 Token:</span> Native utility token for low-cost actions, with holders earning 20% of the protocol's monthly revenue as rewards.</li>
-                    </ul>
-                </div>
-
-                <div>
-                    <p class="text-white font-semibold mb-2">Why join?</p>
-                    <p>NQVate lowers barriers for early-stage innovation. Builders can monetize skills immediately through bounties and equity without traditional gatekeepers. Founders access talent, funding, and a built-in network affordably (many actions cost just $1 or less in NQV8). Everything runs transparently on Arbitrum, with verification for serious equity plays. Whether you're a solo dev, startup founder, investor, or contributor, it's a merit-based arena to innovate, incubate, and "incuvate"—turning ideas into funded, built realities while earning real value along the way.</p>
-                    <p class="mt-3 text-zinc-400 italic">It's early-stage but purpose-built for the builder economy—connect your wallet and start participating today.</p>
-                </div>
+<!-- Sub-tabs (same as About page) -->
+            <div class="flex border-b border-zinc-700 mb-6">
+                <button onclick="switchWelcomeTab('overview')" id="welcome-tab-overview"
+                        class="flex-1 pb-3 text-sm font-semibold border-b-2 border-cyan-400 flex items-center justify-center gap-2">
+                    🌐 Overview
+                </button>
+                <button onclick="switchWelcomeTab('started')" id="welcome-tab-started"
+                        class="flex-1 pb-3 text-sm font-semibold text-zinc-400 flex items-center justify-center gap-2">
+                    🚀 Getting Started
+                </button>
             </div>
+
+            <!-- Content area — populated by cloning the About page sections -->
+            <div id="welcome-modal-content" class="max-h-[50vh] overflow-y-auto pr-2 text-left text-zinc-300 leading-relaxed text-sm"></div>
 
             <button onclick="closeWelcomeModal()"
                     class="mt-8 w-full py-5 bg-white text-black font-semibold rounded-3xl text-lg hover:bg-cyan-400 transition-colors">
@@ -2127,6 +2120,33 @@ async function loadGithubPortfolio(uid, githubUsername, gitlabUsername, dribbble
     }
 
     container.innerHTML = badgesHTML + reposHTML;
+}
+
+// ====================== WELCOME MODAL TABS (mirrors About page) ======================
+let _welcomeTab = 'overview';
+
+function switchWelcomeTab(tab) {
+    _welcomeTab = tab;
+    ['overview', 'started'].forEach(t => {
+        const btn = document.getElementById(`welcome-tab-${t}`);
+        const isActive = t === tab;
+        if (btn) {
+            btn.classList.toggle('border-b-2', isActive);
+            btn.classList.toggle('border-cyan-400', isActive);
+            btn.classList.toggle('text-zinc-400', !isActive);
+        }
+    });
+    renderWelcomeModalContent();
+}
+
+function renderWelcomeModalContent() {
+    const sourceId = _welcomeTab === 'overview' ? 'about-overview' : 'about-started';
+    const source = document.getElementById(sourceId);
+    const target = document.getElementById('welcome-modal-content');
+    if (source && target) {
+        // Clone the real About page content so it's always identical, never duplicated by hand
+        target.innerHTML = source.innerHTML;
+    }
 }
 // ====================== BOOKMARKS ======================
 async function toggleBookmark(postingId, btn) {
@@ -7583,9 +7603,11 @@ async function viewUserProfile(uid) {
                 }
             });
         };
+
         function showWelcomeModal() {
             const modal = document.getElementById('welcome-modal');
             if (modal) modal.classList.remove('hidden');
+            switchWelcomeTab('overview');
         }
 
         function closeWelcomeModal() {
