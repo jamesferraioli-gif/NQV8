@@ -50,7 +50,6 @@
     <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@web3modal/standalone@2.4.1/dist/index.umd.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@walletconnect/ethereum-provider@2.13.0/dist/index.umd.js"></script>
-    <script src="https://unpkg.com/@coinbase/wallet-sdk@3.6.6/dist/browser/index.js"></script>
 
     
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -2987,25 +2986,43 @@ function connectWithMetaMaskMobile() {
 
 async function connectWithCoinbase() {
     document.getElementById('wallet-picker-modal')?.remove();
+
+    const isMobileDevice = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
     try {
-        const SDK = window.CoinbaseWalletSDK;
-        if (!SDK) throw new Error('Coinbase SDK not loaded');
+        // Desktop — check for Coinbase Wallet's injected provider (extension)
+        // Coinbase Wallet extension sets window.ethereum.isCoinbaseWallet,
+        // or exposes itself inside window.ethereum.providers[] if multiple wallets are installed
+        let coinbaseProvider = null;
 
-        const cbWallet = new SDK({
-            appName: 'NQVate',
-            appLogoUrl: 'https://www.nqvate.com/public/logo.png',
-            darkMode: true,
-            reloadOnDisconnect: false
-        });
+        if (window.ethereum?.isCoinbaseWallet) {
+            coinbaseProvider = window.ethereum;
+        } else if (window.ethereum?.providers) {
+            coinbaseProvider = window.ethereum.providers.find(p => p.isCoinbaseWallet);
+        } else if (window.coinbaseWalletExtension) {
+            coinbaseProvider = window.coinbaseWalletExtension;
+        }
 
-        const cbProvider = cbWallet.makeWeb3Provider(ARBITRUM_RPC, ARBITRUM_CHAIN_ID);
-        const accounts = await cbProvider.request({ method: 'eth_requestAccounts' });
+        if (coinbaseProvider) {
+            const accounts = await coinbaseProvider.request({ method: 'eth_requestAccounts' });
+            provider = new ethers.providers.Web3Provider(coinbaseProvider, 'any');
+            signer = provider.getSigner();
+            connectedAddress = accounts[0];
+            await ensureArbitrum();
+            await onWalletConnected();
+            return;
+        }
 
-        provider = new ethers.providers.Web3Provider(cbProvider);
-        signer = provider.getSigner();
-        connectedAddress = accounts[0];
+        if (isMobileDevice) {
+            // Mobile — deep link directly into the Coinbase Wallet app's dapp browser
+            const currentUrl = encodeURIComponent(window.location.href);
+            window.location.href = `https://go.cb-w.com/dapp?cb_url=${currentUrl}`;
+            return;
+        }
 
-        await onWalletConnected();
+        // Desktop without the extension installed — send them to install it
+        window.open('https://www.coinbase.com/wallet/downloads', '_blank');
+
     } catch (e) {
         alert('❌ Coinbase Wallet connection failed: ' + e.message);
     }
