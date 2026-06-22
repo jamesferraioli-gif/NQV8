@@ -2079,6 +2079,81 @@ function initTagsPicker(containerId, selectedArr) {
     }).join('');
 }
 
+
+// ====================== FEATURED LISTINGS (ADS PHASE 1) ======================
+let _promoteListingId = null;
+let _promoteDays = null;
+let _promotePrice = null;
+
+function showPromoteListingModal(postingId) {
+    _promoteListingId = postingId;
+    _promoteDays = null;
+    _promotePrice = null;
+    document.querySelectorAll('[id^="promote-tier-"]').forEach(b => b.classList.remove('border-amber-400', 'bg-amber-500/10'));
+    const confirmBtn = document.getElementById('promote-confirm-btn');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Select a duration above';
+    confirmBtn.className = 'w-full py-4 bg-zinc-700 text-zinc-500 font-semibold rounded-3xl cursor-not-allowed';
+    document.getElementById('promote-listing-modal').classList.remove('hidden');
+}
+
+function hidePromoteListingModal() {
+    document.getElementById('promote-listing-modal').classList.add('hidden');
+    _promoteListingId = null;
+}
+
+function selectPromoteTier(days, price) {
+    _promoteDays = days;
+    _promotePrice = price;
+    document.querySelectorAll('[id^="promote-tier-"]').forEach(b => b.classList.remove('border-amber-400', 'bg-amber-500/10'));
+    document.getElementById(`promote-tier-${days}`).classList.add('border-amber-400', 'bg-amber-500/10');
+    const confirmBtn = document.getElementById('promote-confirm-btn');
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = `Promote for $${price} (${days} days)`;
+    confirmBtn.className = 'w-full py-4 bg-amber-500 text-black font-semibold rounded-3xl hover:bg-amber-400 transition-colors';
+}
+
+async function confirmPromoteListing() {
+    if (!_promoteListingId || !_promoteDays || !_promotePrice) return;
+
+    showPaymentPicker(
+        `Promote listing for ${_promoteDays} days`,
+        _promotePrice, 100,
+        async (txHash) => {
+            try {
+                const featuredUntil = Date.now() + (_promoteDays * 24 * 60 * 60 * 1000);
+
+                await db.collection('subprojects').doc(_promoteListingId).update({
+                    isFeatured: true,
+                    featuredUntil,
+                    lastPromotedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                await db.collection('adCampaigns').add({
+                    advertiserUid: currentUser.uid,
+                    placementType: 'featured_listing',
+                    linkedSubprojectId: _promoteListingId,
+                    days: _promoteDays,
+                    pricePaidUSDC: _promotePrice,
+                    paymentTxHash: txHash,
+                    startDate: Date.now(),
+                    endDate: featuredUntil,
+                    status: 'active',
+                    impressions: 0,
+                    clicks: 0,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                hidePromoteListingModal();
+                alert(`✅ Listing promoted for ${_promoteDays} days!`);
+                hideProjectDetailModal();
+                loadMarketplace();
+            } catch(e) {
+                alert('Failed to promote: ' + e.message);
+            }
+        }
+    );
+}
 // ====================== PORTFOLIO IMPORT ======================
 async function loadGithubPortfolio(uid, githubUsername, gitlabUsername, dribbbleUrl, behanceUrl, containerId) {
     const container = document.getElementById(containerId);
@@ -4779,7 +4854,7 @@ async function createProfile() {
             const hasFilters = search || category || compType || compRange || tag;
             if (clearBtn) clearBtn.classList.toggle('hidden', !hasFilters);
 
-            const filtered = _allMarketplacePostings.filter(p => {
+            let filtered = _allMarketplacePostings.filter(p => {
                 // Search — also searches tags
                 if (search) {
                     const tagStr = (p.tags || []).join(' ').toLowerCase();
@@ -4803,6 +4878,16 @@ async function createProfile() {
                 return true;
             });
 
+            // Featured listings always sort first, then by recency within each group
+            const now = Date.now();
+            filtered = filtered.sort((a, b) => {
+                const aFeatured = a.isFeatured && a.featuredUntil > now;
+                const bFeatured = b.isFeatured && b.featuredUntil > now;
+                if (aFeatured && !bFeatured) return -1;
+                if (!aFeatured && bFeatured) return 1;
+                return 0; // preserve existing order otherwise
+            });
+
             grid.innerHTML = '';
 
             if (filtered.length === 0) {
@@ -4814,13 +4899,15 @@ async function createProfile() {
 
             filtered.forEach(p => {
                 const card = document.createElement('div');
-                card.className = "bg-zinc-900 rounded-3xl p-6 hover:ring-2 hover:ring-cyan-400 cursor-pointer transition-all";
+                const isFeaturedNow = p.isFeatured && p.featuredUntil > Date.now();
+                card.className = `bg-zinc-900 rounded-3xl p-6 hover:ring-2 hover:ring-cyan-400 cursor-pointer transition-all ${isFeaturedNow ? 'ring-1 ring-amber-500/40' : ''}`;
                 const statusHTML = `<span class="px-4 py-1 text-xs rounded-full ${p.type === 'build' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-violet-500/20 text-violet-400'}">
                     ${p.type === 'build' ? 'Build Request' : 'Funding Request'}
                 </span>`;
                 card.innerHTML = `
                     <div class="flex justify-between items-start mb-4">
                         <div class="flex gap-2 flex-wrap">
+                            ${p.isFeatured && p.featuredUntil > Date.now() ? '<span class="px-3 py-1 text-xs rounded-full bg-amber-500/20 text-amber-400 font-semibold">✨ Featured</span>' : ''}
                             ${statusHTML}
                             ${p.isPrivate ? '<span class="px-3 py-1 text-xs rounded-full bg-zinc-700 text-zinc-400">🔒 Private</span>' : ''}
                             ${p.preferredBuilderUid ? '<span class="px-3 py-1 text-xs rounded-full bg-violet-500/20 text-violet-400">⭐ Preferred Builder</span>' : ''}
@@ -5339,6 +5426,15 @@ async function loadTotalFundingReceivedStat() {
         ${isPoster ? `
             <p class="text-amber-400 text-center mt-4">👆 Click any bid above to review it and accept.</p>
             <div class="border-t border-zinc-700 mt-8 pt-6 space-y-3">
+                ${!(project.isFeatured && project.featuredUntil > Date.now()) ? `
+                <button onclick="showPromoteListingModal('${projectId}')"
+                        class="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-400 text-black font-semibold rounded-3xl flex items-center justify-center gap-2 hover:opacity-90 transition-opacity">
+                    🚀 Promote This Posting
+                </button>` : `
+                <div class="bg-amber-500/10 border border-amber-500/30 rounded-3xl p-4 text-center">
+                    <p class="text-amber-400 text-sm font-semibold">✨ Currently Featured</p>
+                    <p class="text-zinc-400 text-xs mt-1">Expires ${new Date(project.featuredUntil).toLocaleDateString()}</p>
+                </div>`}
                 <button onclick="showEditPostingModal('${projectId}')"
                         class="w-full py-4 border border-zinc-600 text-zinc-300 hover:bg-zinc-800 font-medium rounded-3xl flex items-center justify-center gap-2 transition-colors">
                     <i class="fa-solid fa-pen"></i> Edit Posting
@@ -14305,6 +14401,52 @@ async function loadGrowTab() {
         </p>
     </div>
 </div>
-    
+
+<!-- PROMOTE LISTING MODAL -->
+<div id="promote-listing-modal" class="hidden fixed inset-0 bg-black/95 flex items-start justify-center z-[99999] overflow-y-auto py-6">
+    <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-6 md:p-8 my-auto">
+        <div class="flex justify-between items-center mb-2">
+            <h2 class="text-2xl font-bold">🚀 Promote This Posting</h2>
+            <button onclick="hidePromoteListingModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
+        </div>
+        <p class="text-zinc-400 text-sm mb-6">Featured postings appear at the top of the marketplace with a highlighted badge, increasing visibility to builders and investors.</p>
+
+        <div class="space-y-3 mb-6">
+            <button onclick="selectPromoteTier(3, 25)" id="promote-tier-3" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="font-semibold">3 Days</p>
+                        <p class="text-xs text-zinc-500">Quick visibility boost</p>
+                    </div>
+                    <p class="text-xl font-bold text-amber-400">$25</p>
+                </div>
+            </button>
+            <button onclick="selectPromoteTier(7, 50)" id="promote-tier-7" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="font-semibold">7 Days</p>
+                        <p class="text-xs text-zinc-500">Most popular</p>
+                    </div>
+                    <p class="text-xl font-bold text-amber-400">$50</p>
+                </div>
+            </button>
+            <button onclick="selectPromoteTier(30, 150)" id="promote-tier-30" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="font-semibold">30 Days</p>
+                        <p class="text-xs text-zinc-500">Maximum exposure</p>
+                    </div>
+                    <p class="text-xl font-bold text-amber-400">$150</p>
+                </div>
+            </button>
+        </div>
+
+        <button onclick="confirmPromoteListing()" id="promote-confirm-btn" disabled
+                class="w-full py-4 bg-zinc-700 text-zinc-500 font-semibold rounded-3xl cursor-not-allowed">
+            Select a duration above
+        </button>
+    </div>
+</div>
+
 </body>
 </html>
