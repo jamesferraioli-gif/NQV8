@@ -663,8 +663,6 @@
         <textarea id="funding-desc" placeholder="Describe the funding round, what it's for, and what you're offering investors..." rows="4"
                   class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-4"></textarea>
 
-        <p class="text-sm text-zinc-400 mb-2">Tags <span class="text-zinc-500">(optional)</span></p>
-        <div id="funding-tags-picker" class="flex flex-wrap gap-2 mb-6"></div>
 
         <div class="flex gap-3">
             <button onclick="hidePostFundingModal()"
@@ -9377,7 +9375,6 @@ let selectedFundingProjectId = null;
 async function showPostFundingModal() {
     if (!currentUser) return alert("Please log in first");
     selectedFundingProjectId = null;
-    _fundingSelectedTags = [];
     document.getElementById('post-funding-modal').classList.remove('hidden');
     document.getElementById('funding-verif-notice').classList.add('hidden');
     document.getElementById('funding-ask').value = '';
@@ -9385,7 +9382,6 @@ async function showPostFundingModal() {
     document.getElementById('funding-units-preview').textContent = '';
     document.getElementById('funding-desc').value = '';
     document.getElementById('funding-project-picker-section').classList.remove('hidden');
-    initTagsPicker('funding-tags-picker', _fundingSelectedTags);
     await populateFundingProjectList();
 }
 
@@ -9528,7 +9524,6 @@ async function submitFundingPosting() {
                         title: `Funding Request: ${project.name}`,
                         description: finalDesc,
                         category: project.category || 'Other',
-                        tags: _fundingSelectedTags,
                         compensation: ask,
                         equityPct,
                         equityUnits,
