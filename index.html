@@ -8740,8 +8740,7 @@ async function showCompanyDetail(companyId, company) {
                     <div class="bg-violet-500/10 border border-violet-500/20 rounded-2xl p-5 mb-6">
                         <div class="flex justify-between items-center mb-2">
                             <p class="text-violet-400 font-semibold">📊 On-Chain Equity</p>
-                            ${isOwner ? `<button onclick="hideProjectDetailModal(); navigateTo('marketplace'); setTimeout(()=>switchMarketplaceTab(2), 300)" class="px-4 py-2 bg-violet-600 text-white text-xs rounded-xl">💰 Raise Funding</button>` : ''}
-                        </div>
+                            ${isOwner ? `<button onclick="hideProjectDetailModal(); showPostFundingModalForProject('${companyId}', '${company.name.replace(/'/g,"\\'")}', ${company.verificationStatus === 'verified'})" class="px-4 py-2 bg-violet-600 text-white text-xs rounded-xl">💰 Raise Funding</button>` : ''}                        </div>
                         <p class="text-white text-2xl font-bold">${pct}% <span class="text-sm text-zinc-400">(${unitsNum} units)</span></p>
                         <p class="text-xs text-zinc-400 mt-1">Last sale price: No trades yet</p>
                     </div>
