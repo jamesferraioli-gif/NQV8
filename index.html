@@ -8876,7 +8876,52 @@ function showUploadToDataRoomModal(companyId) {
         if (!file) return;
         if (file.size > 25 * 1024 * 1024) return alert('File too large — 25MB max.');
 
+        const BLOCKED_EXTENSIONS = ['exe','bat','cmd','msi','dmg','app','vbs','ps1','jar','apk','ipa','deb','rpm','bin','run','php','asp','aspx','jsp','cgi','pl','scr','pif','com','reg','inf','lnk'];
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (BLOCKED_EXTENSIONS.includes(ext)) {
+            return alert(`❌ File type ".${ext}" is not allowed in the data room.`);
+        }
+
         try {
+            // ── Daily upload rate limit (20/day per company) ──────────────
+            const todayStart = new Date();
+            todayStart.setHours(0, 0, 0, 0);
+
+            const roomSnap = await db.collection('dataRooms').doc(companyId).get();
+            const existingFiles = roomSnap.exists ? (roomSnap.data().files || []) : [];
+            const uploadsToday = existingFiles.filter(f => f.uploadedAt >= todayStart.getTime()).length;
+
+            if (uploadsToday >= 20) {
+                return alert('❌ Daily upload limit reached (20 documents/day). Please try again tomorrow.');
+            }
+            // ── Security scan before upload — all files go to VirusTotal,
+            // images/PDFs also get Claude's visual content review ──────────
+            const base64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+
+            const reviewResponse = await fetch('/api/review-submission', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectTitle: 'Data Room Upload',
+                    projectDescription: 'Private investor document upload',
+                    submissionDescription: `Founder uploading "${file.name}" to the data room.`,
+                    attachments: [{ name: file.name, type: file.type, base64 }]
+                })
+            });
+
+            if (reviewResponse.ok) {
+                const review = await reviewResponse.json();
+                if (review.contentFlagged) {
+                    return alert(`🚨 Upload Blocked\n\n${review.contentFlagReason}`);
+                }
+            }
+
+            // ── Upload after passing scan ────────────────────────────────
             const storageRef = storage.ref(`dataRooms/${companyId}/${Date.now()}_${file.name}`);
             await storageRef.put(file);
             const url = await storageRef.getDownloadURL();
