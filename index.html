@@ -630,14 +630,18 @@
             <p class="text-amber-400 text-xs">💰 Cost: $1.00 (paid in NQV8) · Only list stakes you legitimately own</p>
         </div>
 
-        <p class="text-sm text-zinc-400 mb-2">Which project are you seeking funding for?</p>
-        <div id="funding-project-list" class="space-y-3 mb-4 max-h-48 overflow-auto">
-            <!-- Populated by JS -->
+        <p id="funding-project-label" class="hidden text-sm font-semibold text-violet-400 mb-4"></p>
+
+        <div id="funding-project-picker-section">
+            <p class="text-sm text-zinc-400 mb-2">Which project are you seeking funding for?</p>
+            <div id="funding-project-list" class="space-y-3 mb-4 max-h-48 overflow-auto">
+                <!-- Populated by JS -->
+            </div>
+            <button onclick="showCreateProjectModal(); hidePostFundingModal()"
+                    class="w-full py-3 border border-dashed border-zinc-600 rounded-2xl text-zinc-400 hover:border-violet-400 hover:text-violet-400 text-sm mb-6">
+                + Create a new project first
+            </button>
         </div>
-        <button onclick="showCreateProjectModal(); hidePostFundingModal()"
-                class="w-full py-3 border border-dashed border-zinc-600 rounded-2xl text-zinc-400 hover:border-violet-400 hover:text-violet-400 text-sm mb-6">
-            + Create a new project first
-        </button>
 
         <div id="funding-verif-notice" class="hidden bg-violet-500/10 border border-violet-500/30 rounded-2xl p-4 mb-4">
             <p class="text-violet-400 text-sm font-medium">🔐 Verification Required for Equity Terms</p>
@@ -8754,6 +8758,9 @@ async function showCompanyDetail(companyId, company) {
                             </button>
                         </div>` : `
                         <p class="text-zinc-500 text-xs mt-3">Upload revenue and user proof documents to get Claude-verified metrics and an auto-generated investor deck.</p>`}
+                        <p class="text-zinc-600 text-xs mt-3 pt-3 border-t border-zinc-700">
+                            💡 Already have your own pitch deck or financials? You don't need this — just upload them directly to the <span class="text-zinc-400">Data Room</span> below and control who gets access.
+                        </p>
                     </div>` : ''}
                 `;
             }
@@ -9367,8 +9374,31 @@ async function showPostFundingModal() {
     document.getElementById('funding-verif-notice').classList.add('hidden');
     document.getElementById('funding-ask').value = '';
     document.getElementById('funding-desc').value = '';
+    document.getElementById('funding-project-picker-section').classList.remove('hidden');
     initTagsPicker('funding-tags-picker', _fundingSelectedTags);
     await populateFundingProjectList();
+}
+
+// Called when a specific project is already known (from Studio/Profile) —
+// skips the project picker and goes straight to the form
+async function showPostFundingModalForProject(companyId, companyName, isVerified) {
+    if (!currentUser) return alert("Please log in first");
+    selectedFundingProjectId = companyId;
+    _fundingSelectedTags = [];
+
+    document.getElementById('post-funding-modal').classList.remove('hidden');
+    document.getElementById('funding-project-picker-section').classList.add('hidden');
+    document.getElementById('funding-verif-notice').classList.toggle('hidden', isVerified);
+    document.getElementById('funding-ask').value = '';
+    document.getElementById('funding-desc').value = '';
+    initTagsPicker('funding-tags-picker', _fundingSelectedTags);
+
+    // Show which project this is for, since the picker is hidden
+    const label = document.getElementById('funding-project-label');
+    if (label) {
+        label.textContent = `Project: ${companyName}`;
+        label.classList.remove('hidden');
+    }
 }
 
 function hidePostFundingModal() {
@@ -13041,7 +13071,7 @@ async function loadGrowTab() {
                         📄 View Investor Deck
                     </button>`}
                     ${isVerified ? `
-                    <button onclick="navigateTo('marketplace'); setTimeout(()=>switchMarketplaceTab(1),300)"
+                    <button onclick="showPostFundingModalForProject('${c.id}', '${(c.name||'').replace(/'/g,"\\'")}', true)"
                             class="w-full py-3 border border-zinc-600 text-zinc-300 text-sm rounded-xl hover:bg-zinc-800">
                         💰 Post Funding Request
                     </button>
