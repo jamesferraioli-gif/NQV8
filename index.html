@@ -2121,19 +2121,20 @@ function selectPromoteTier(days, price) {
 }
 
 // ====================== BANNER ADS ======================
-const HOUSE_ADS = [
+const HOUSE_ADS_LOGGED_OUT = [
     {
         headline: "🎁 Get 1,000 NQV8 Free",
         body: "New here? Create an account and claim your signup bonus instantly.",
-        targetUrl: null,
         action: () => showAuthModal(),
         bg: "from-cyan-500/20 to-violet-500/20",
         border: "border-cyan-500/30"
-    },
+    }
+];
+
+const HOUSE_ADS_LOGGED_IN = [
     {
         headline: "🚀 Promote Your Posting",
         body: "Get your bounty or funding request seen first. Featured listings start at $25.",
-        targetUrl: null,
         action: () => navigateTo('marketplace'),
         bg: "from-amber-500/20 to-orange-500/20",
         border: "border-amber-500/30"
@@ -2141,7 +2142,6 @@ const HOUSE_ADS = [
     {
         headline: "👥 Refer Friends, Earn NQV8",
         body: "Get 1,000 NQV8 for every 5 verified referrals. Share your link from Profile.",
-        targetUrl: null,
         action: () => navigateTo('profile'),
         bg: "from-emerald-500/20 to-cyan-500/20",
         border: "border-emerald-500/30"
@@ -2187,8 +2187,9 @@ async function loadAdBanner() {
                 impressions: firebase.firestore.FieldValue.increment(1)
             });
         } else {
-            // No paid ads — rotate through house ads
-            const houseAd = HOUSE_ADS[Math.floor(Math.random() * HOUSE_ADS.length)];
+            // No paid ads — rotate through house ads appropriate to login state
+            const pool = currentUser ? HOUSE_ADS_LOGGED_IN : HOUSE_ADS_LOGGED_OUT;
+            const houseAd = pool[Math.floor(Math.random() * pool.length)];
             renderBanner(container, { ...houseAd, isPaid: false });
         }
     } catch(e) {
