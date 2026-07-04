@@ -92,6 +92,9 @@
                     <a onclick="navigateTo('about')" class="hover:text-cyan-400 cursor-pointer whitespace-nowrap flex items-center gap-1">
                         <i class="fa-solid fa-circle-info"></i> About
                     </a>
+                    <a onclick="navigateTo('advertise')" class="hover:text-cyan-400 cursor-pointer whitespace-nowrap flex items-center gap-1">
+                        <i class="fa-solid fa-bullhorn"></i> Advertise
+                    </a>
                 </div>
                 <div id="nav-loggedin" class="hidden"></div>
 
@@ -162,6 +165,7 @@
 <div id="mobile-menu" class="hidden md:hidden bg-zinc-900 border-b border-zinc-800 px-6 py-4 space-y-4 sticky top-[72px] z-40">    
     <a onclick="navigateTo('marketplace'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏪 Marketplace</a>
     <a onclick="navigateTo('ideas'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🔎 Explore</a>
+    <a onclick="navigateTo('advertise'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">📢 Advertise</a>
     <a onclick="navigateToChat(); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">💬 Chat</a>
     <a onclick="navigateTo('leaderboard'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏆 Leaderboard</a>
     <a onclick="navigateTo('tokenomics'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🪙 NQV8 Tokenomics</a>
@@ -1585,6 +1589,38 @@
         </div>
     </div>
 
+<!-- ADVERTISE DASHBOARD PAGE (ADS PHASE 4) -->
+<div id="advertise-page" class="hidden max-w-5xl mx-auto pt-8 px-6 pb-16">
+    <div class="mb-10 flex items-center justify-between flex-wrap gap-4">
+        <div>
+            <h1 class="text-4xl font-bold tracking-tighter mb-3 flex items-center gap-3">
+                <i class="fa-solid fa-bullhorn text-amber-400"></i> Advertise on NQVate
+            </h1>
+            <p class="text-zinc-400">Create a campaign, pay in NQV8, track impressions and clicks in real time.</p>
+        </div>
+        <button onclick="showCreateCampaignModal()" class="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-black font-semibold rounded-2xl transition-colors whitespace-nowrap">
+            + New Campaign
+        </button>
+    </div>
+
+    <!-- Placement type explainer -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
+        <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800">
+            <p class="text-lg font-semibold mb-1">🖼️ Banner Ad</p>
+            <p class="text-zinc-400 text-sm">Shown on every page, rotating with house ads. Priced per day.</p>
+        </div>
+        <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800">
+            <p class="text-lg font-semibold mb-1">📢 Sponsored Explore Post</p>
+            <p class="text-zinc-400 text-sm">Native card interleaved in the Explore feed. Use your own creative, or boost an existing Explore post from its detail view.</p>
+        </div>
+    </div>
+
+    <h2 class="text-2xl font-bold mb-4">Your Campaigns</h2>
+    <div id="my-campaigns-list" class="space-y-4">
+        <p class="text-zinc-500 text-center py-12">Loading your campaigns...</p>
+    </div>
+</div>
+
 <!-- NQV8 TOKENOMICS PAGE -->
 <div id="tokenomics-page" class="hidden max-w-5xl mx-auto pt-8 px-6 pb-16">
     <div class="mb-10">
@@ -2118,6 +2154,318 @@ function selectPromoteTier(days, price) {
     confirmBtn.disabled = false;
     confirmBtn.textContent = `Promote for $${price} (${days} days)`;
     confirmBtn.className = 'w-full py-4 bg-amber-500 text-black font-semibold rounded-3xl hover:bg-amber-400 transition-colors';
+}
+
+// ====================== BOOST EXPLORE POST (ADS PHASE 3) ======================
+let _boostPostId = null;
+let _boostDays = null;
+let _boostPrice = null;
+
+function showBoostExplorePostModal(postId) {
+    _boostPostId = postId;
+    _boostDays = null;
+    _boostPrice = null;
+    document.querySelectorAll('[id^="boost-tier-"]').forEach(b => b.classList.remove('border-amber-400', 'bg-amber-500/10'));
+    const confirmBtn = document.getElementById('boost-confirm-btn');
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Select a duration above';
+    confirmBtn.className = 'w-full py-4 bg-zinc-700 text-zinc-500 font-semibold rounded-3xl cursor-not-allowed';
+    document.getElementById('boost-explore-modal').classList.remove('hidden');
+}
+
+function hideBoostExploreModal() {
+    document.getElementById('boost-explore-modal').classList.add('hidden');
+    _boostPostId = null;
+}
+
+function selectBoostTier(days, price) {
+    _boostDays = days;
+    _boostPrice = price;
+    document.querySelectorAll('[id^="boost-tier-"]').forEach(b => b.classList.remove('border-amber-400', 'bg-amber-500/10'));
+    document.getElementById(`boost-tier-${days}`).classList.add('border-amber-400', 'bg-amber-500/10');
+    const confirmBtn = document.getElementById('boost-confirm-btn');
+    confirmBtn.disabled = false;
+    confirmBtn.textContent = `Boost for $${price} (${days} days)`;
+    confirmBtn.className = 'w-full py-4 bg-amber-500 text-black font-semibold rounded-3xl hover:bg-amber-400 transition-colors';
+}
+
+async function confirmBoostExplorePost() {
+    if (!_boostPostId || !_boostDays || !_boostPrice) return;
+
+    showPaymentPicker(
+        `Boost Explore post for ${_boostDays} days`,
+        _boostPrice, 100,
+        async (txHash) => {
+            try {
+                const boostUntil = Date.now() + (_boostDays * 24 * 60 * 60 * 1000);
+
+                await db.collection('posts').doc(_boostPostId).update({
+                    isSponsoredBoost: true,
+                    sponsoredBoostUntil: boostUntil,
+                    lastBoostedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                await db.collection('adCampaigns').add({
+                    advertiserUid: currentUser.uid,
+                    advertiserUsername: currentUser.username,
+                    placementType: 'sponsored_explore',
+                    linkedPostId: _boostPostId,
+                    days: _boostDays,
+                    pricePaidUSDC: _boostPrice,
+                    paymentTxHash: txHash,
+                    startDate: Date.now(),
+                    endDate: boostUntil,
+                    status: 'active',
+                    impressions: 0,
+                    clicks: 0,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                hideBoostExploreModal();
+                alert(`✅ Post boosted for ${_boostDays} days!`);
+                hidePostDetailModal();
+                loadIdeas();
+            } catch(e) {
+                alert('Failed to boost: ' + e.message);
+            }
+        }
+    );
+}
+
+// ====================== SELF-SERVE ADVERTISE DASHBOARD (ADS PHASE 4) ======================
+let _campaignPlacement = null;
+let _campaignDays = null;
+let _campaignPrice = null;
+
+function showCreateCampaignModal() {
+    _campaignPlacement = null;
+    _campaignDays = null;
+    _campaignPrice = null;
+    document.getElementById('campaign-headline').value = '';
+    document.getElementById('campaign-body').value = '';
+    document.getElementById('campaign-target-url').value = '';
+    document.getElementById('campaign-image-file').value = '';
+    document.querySelectorAll('[id^="placement-"]').forEach(b => b.classList.remove('border-amber-400', 'bg-amber-500/10'));
+    document.querySelectorAll('[id^="camp-dur-"]').forEach(b => b.classList.remove('border-amber-400', 'bg-amber-500/10'));
+    const submitBtn = document.getElementById('campaign-submit-btn');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Select duration';
+    submitBtn.className = 'flex-1 py-3 bg-zinc-700 text-zinc-500 font-semibold rounded-2xl cursor-not-allowed';
+    showCampaignStep('placement');
+    document.getElementById('create-campaign-modal').classList.remove('hidden');
+}
+
+function hideCreateCampaignModal() {
+    document.getElementById('create-campaign-modal').classList.add('hidden');
+}
+
+function showCampaignStep(step) {
+    ['placement', 'creative', 'duration'].forEach(s => {
+        document.getElementById(`campaign-step-${s}`).classList.toggle('hidden', s !== step);
+    });
+}
+
+function selectCampaignPlacement(type) {
+    _campaignPlacement = type;
+    document.querySelectorAll('[id^="placement-"]').forEach(b => b.classList.remove('border-amber-400', 'bg-amber-500/10'));
+    document.getElementById(`placement-${type}`).classList.add('border-amber-400', 'bg-amber-500/10');
+    showCampaignStep('creative');
+}
+
+function selectCampaignDuration(days, price) {
+    _campaignDays = days;
+    _campaignPrice = price;
+    document.querySelectorAll('[id^="camp-dur-"]').forEach(b => b.classList.remove('border-amber-400', 'bg-amber-500/10'));
+    document.getElementById(`camp-dur-${days}`).classList.add('border-amber-400', 'bg-amber-500/10');
+    const submitBtn = document.getElementById('campaign-submit-btn');
+    submitBtn.disabled = false;
+    submitBtn.textContent = `Pay $${price} & Launch`;
+    submitBtn.className = 'flex-1 py-3 bg-amber-500 text-black font-semibold rounded-2xl hover:bg-amber-400 transition-colors';
+}
+
+async function submitNewCampaign() {
+    if (!_campaignPlacement || !_campaignDays || !_campaignPrice) return;
+    if (!currentUser) return showAuthModal();
+
+    const headline = document.getElementById('campaign-headline').value.trim();
+    const body = document.getElementById('campaign-body').value.trim();
+    const targetUrl = document.getElementById('campaign-target-url').value.trim();
+    const imageFile = document.getElementById('campaign-image-file').files[0];
+
+    if (!headline) return alert('Please add a headline');
+    if (!body) return alert('Please add body text');
+    if (targetUrl && !/^https?:\/\//i.test(targetUrl)) return alert('Link must start with http:// or https://');
+
+    // Moderate creative text before anything else
+    const modResult = await moderateContent(`${headline} ${body}`, 'ad campaign creative');
+    if (!modResult.approved) {
+        return alert(`❌ Campaign rejected: ${modResult.reason}`);
+    }
+
+    const submitBtn = document.getElementById('campaign-submit-btn');
+    const originalText = submitBtn.textContent;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Uploading...';
+
+    try {
+        let imageUrl = null;
+        if (imageFile) {
+            if (imageFile.size > 5 * 1024 * 1024) throw new Error('Image must be under 5MB');
+
+            const BLOCKED_EXTENSIONS = ['exe','bat','cmd','msi','dmg','app','vbs','ps1','jar','apk','ipa','deb','rpm','bin','run','php','asp','aspx','jsp','cgi','pl','scr','pif','com','reg','inf','lnk'];
+            const ext = imageFile.name.split('.').pop().toLowerCase();
+            if (BLOCKED_EXTENSIONS.includes(ext)) {
+                throw new Error(`File type ".${ext}" is not allowed.`);
+            }
+
+            // ── Security scan before upload — all files go to VirusTotal,
+            // images/PDFs also get Claude's visual content review ──────────
+            submitBtn.textContent = 'Scanning file...';
+            const base64 = await new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve(reader.result.split(',')[1]);
+                reader.onerror = reject;
+                reader.readAsDataURL(imageFile);
+            });
+
+            const reviewResponse = await fetch('/api/review-submission', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectTitle: 'Ad Campaign Creative',
+                    projectDescription: 'Advertiser uploading creative image for an ad campaign.',
+                    submissionDescription: `Advertiser uploading "${imageFile.name}" as ad creative.`,
+                    attachments: [{ name: imageFile.name, type: imageFile.type, base64 }]
+                })
+            });
+
+            if (reviewResponse.ok) {
+                const review = await reviewResponse.json();
+                if (review.contentFlagged) {
+                    throw new Error(`Upload blocked: ${review.contentFlagReason}`);
+                }
+            } else {
+                throw new Error('Content review service unavailable — please try again.');
+            }
+
+            submitBtn.textContent = 'Uploading...';
+            const storageRef = storage.ref(`adCreatives/${currentUser.uid}/${Date.now()}_${imageFile.name}`);
+            await storageRef.put(imageFile);
+            imageUrl = await storageRef.getDownloadURL();
+        }
+
+        submitBtn.textContent = originalText;
+
+        showPaymentPicker(
+            `${_campaignPlacement === 'banner' ? 'Banner' : 'Sponsored Explore'} campaign — ${_campaignDays} days`,
+            _campaignPrice, 100,
+            async (txHash) => {
+                try {
+                    const startDate = Date.now();
+                    const endDate = startDate + (_campaignDays * 24 * 60 * 60 * 1000);
+
+                    await db.collection('adCampaigns').add({
+                        advertiserUid: currentUser.uid,
+                        advertiserUsername: currentUser.username,
+                        advertiserCompanyName: currentUser.username,
+                        placementType: _campaignPlacement,
+                        creative: { headline, body, imageUrl },
+                        targetUrl: targetUrl || null,
+                        days: _campaignDays,
+                        pricePaidUSDC: _campaignPrice,
+                        paymentTxHash: txHash,
+                        startDate,
+                        endDate,
+                        status: 'active',
+                        impressions: 0,
+                        clicks: 0,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+
+                    hideCreateCampaignModal();
+                    alert('✅ Campaign launched!');
+                    loadAdvertiseDashboard();
+                } catch (e) {
+                    alert('Failed to launch campaign: ' + e.message);
+                }
+            }
+        );
+    } catch (e) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = originalText;
+        alert('Failed to prepare campaign: ' + e.message);
+    }
+}
+
+async function loadAdvertiseDashboard() {
+    const list = document.getElementById('my-campaigns-list');
+    if (!list) return;
+
+    if (!currentUser) {
+        list.innerHTML = `<p class="text-zinc-500 text-center py-12">Log in to create and manage campaigns.</p>`;
+        return;
+    }
+
+    list.innerHTML = `<p class="text-zinc-500 text-center py-12">Loading your campaigns...</p>`;
+
+    try {
+        const snap = await db.collection('adCampaigns')
+            .where('advertiserUid', '==', currentUser.uid)
+            .orderBy('createdAt', 'desc')
+            .get();
+
+        if (snap.empty) {
+            list.innerHTML = `
+                <div class="text-center py-12">
+                    <p class="text-2xl mb-3">📢</p>
+                    <p class="text-zinc-400">You haven't launched any campaigns yet.</p>
+                </div>`;
+            return;
+        }
+
+        const now = Date.now();
+        list.innerHTML = snap.docs.map(doc => {
+            const c = doc.data();
+            const isActive = c.status === 'active' && c.endDate > now;
+            const placementLabel = c.placementType === 'banner' ? '🖼️ Banner'
+                : c.linkedPostId ? '📢 Boosted Post' : '📢 Sponsored Explore';
+            const ctr = c.impressions > 0 ? ((c.clicks / c.impressions) * 100).toFixed(1) : '0.0';
+
+            return `
+                <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800">
+                    <div class="flex justify-between items-start mb-3">
+                        <div>
+                            <p class="font-semibold">${placementLabel}</p>
+                            <p class="text-zinc-400 text-sm mt-1">${c.creative?.headline || '(boosted existing post)'}</p>
+                        </div>
+                        <span class="px-3 py-1 text-xs rounded-full ${isActive ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-700 text-zinc-400'} font-semibold whitespace-nowrap">
+                            ${isActive ? 'Active' : 'Ended'}
+                        </span>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4 mt-4">
+                        <div>
+                            <p class="text-2xl font-bold">${c.impressions || 0}</p>
+                            <p class="text-xs text-zinc-500">Impressions</p>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold">${c.clicks || 0}</p>
+                            <p class="text-xs text-zinc-500">Clicks</p>
+                        </div>
+                        <div>
+                            <p class="text-2xl font-bold">${ctr}%</p>
+                            <p class="text-xs text-zinc-500">CTR</p>
+                        </div>
+                    </div>
+                    <p class="text-xs text-zinc-600 mt-4">
+                        ${isActive ? `Ends ${new Date(c.endDate).toLocaleDateString()}` : `Ended ${new Date(c.endDate).toLocaleDateString()}`}
+                        · Paid $${c.pricePaidUSDC}
+                    </p>
+                </div>`;
+        }).join('');
+    } catch (e) {
+        console.error(e);
+        list.innerHTML = `<p class="text-red-400 text-center py-12">Error loading campaigns: ${e.message}</p>`;
+    }
 }
 
 // ====================== BANNER ADS ======================
@@ -4383,6 +4731,34 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                 }
 
                 // Upload docs to Firebase Storage
+                // ── Security scan first — VirusTotal malware check via review-submission.
+                // (Claude has already reviewed these for identity/entity legitimacy above via
+                // /api/verify-docs; this pass adds the malware/file-safety layer used elsewhere.) ──
+                const scanFile = async (file, base64) => {
+                    const reviewResponse = await fetch('/api/review-submission', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            projectTitle: 'Company Verification Document',
+                            projectDescription: 'Founder uploading a company verification document.',
+                            submissionDescription: `Uploading "${file.name}" for company verification.`,
+                            attachments: [{ name: file.name, type: file.type, base64 }]
+                        })
+                    });
+                    if (reviewResponse.ok) {
+                        const review = await reviewResponse.json();
+                        if (review.contentFlagged) {
+                            throw new Error(`"${file.name}" was blocked: ${review.contentFlagReason}`);
+                        }
+                    }
+                };
+
+                await Promise.all([
+                    scanFile(docIncorporation, incorporationBase64),
+                    scanFile(docEin, einBase64),
+                    scanFile(docId, idBase64)
+                ]);
+
                 const uploadFile = async (file, name) => {
                     const ref = storage.ref(`verification/${verificationCompanyId}/${name}-${Date.now()}`);
                     await ref.put(file);
@@ -4505,7 +4881,7 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
 
 function navigateTo(page) {
             // Pages that require login
-            const protectedPages = ['profile', 'chat', 'studio'];
+            const protectedPages = ['profile', 'chat', 'studio', 'advertise'];
             if (protectedPages.includes(page) && !currentUser) {
                 showAuthModal();
                 return;
@@ -4523,6 +4899,7 @@ function navigateTo(page) {
             if (page === 'tokenomics') { loadTokenomics(); loadRewards(); }
             if (page === 'studio') { switchStudioTab('plan'); loadStudioProjectList(); }
             if (page === 'about') switchAboutTab('overview');
+            if (page === 'advertise') loadAdvertiseDashboard();
 
             loadAdBanner(); // banner shown on every page
         }
@@ -7120,7 +7497,43 @@ async function startVideoCall() {
             const file = document.getElementById('profile-upload').files[0];
             if (!file || !currentUser) return alert("Please select an image");
 
+            const ALLOWED_IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+            if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+                return alert('Please choose a JPG, PNG, GIF, or WEBP image.');
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                return alert('Image must be under 5MB.');
+            }
+
             try {
+                // ── Security scan before upload — VirusTotal + Claude visual review ──
+                const base64 = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result.split(',')[1]);
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+
+                const reviewResponse = await fetch('/api/review-submission', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        projectTitle: 'Profile Picture Upload',
+                        projectDescription: 'User uploading a profile picture.',
+                        submissionDescription: `User uploading "${file.name}" as their profile picture.`,
+                        attachments: [{ name: file.name, type: file.type, base64 }]
+                    })
+                });
+
+                if (reviewResponse.ok) {
+                    const review = await reviewResponse.json();
+                    if (review.contentFlagged) {
+                        return alert(`🚨 Upload Blocked\n\n${review.contentFlagReason}`);
+                    }
+                } else {
+                    return alert('Content review service unavailable — please try again.');
+                }
+
                 const storageRef = storage.ref('profile-pictures/' + currentUser.uid);
                 await storageRef.put(file);
                 const photoURL = await storageRef.getDownloadURL();
@@ -8065,8 +8478,38 @@ async function viewUserProfile(uid) {
                     return;
                 }
 
+                // Fetch active sponsored explore campaigns (standalone creatives + boosted posts)
+                const sponsoredCampaigns = await loadSponsoredExploreCampaigns();
+
+                const items = [];
                 snapshot.forEach(doc => {
-                    const post = doc.data();
+                    items.push({ docId: doc.id, post: doc.data() });
+                });
+
+                // Interleave sponsored posts every ~5 organic posts
+                const SPONSORED_INTERVAL = 5;
+                const merged = [];
+                let sponsoredIdx = 0;
+                items.forEach((item, i) => {
+                    merged.push(item);
+                    if (sponsoredCampaigns.length > 0 && (i + 1) % SPONSORED_INTERVAL === 0) {
+                        merged.push({ isSponsored: true, campaign: sponsoredCampaigns[sponsoredIdx % sponsoredCampaigns.length] });
+                        sponsoredIdx++;
+                    }
+                });
+                // If there weren't enough organic posts to trigger a sponsored slot, still show one at the top
+                if (sponsoredCampaigns.length > 0 && sponsoredIdx === 0) {
+                    merged.unshift({ isSponsored: true, campaign: sponsoredCampaigns[0] });
+                }
+
+                merged.forEach(entry => {
+                    if (entry.isSponsored) {
+                        grid.appendChild(renderSponsoredExploreCard(entry.campaign));
+                        return;
+                    }
+
+                    const docId = entry.docId;
+                    const post = entry.post;
                     const card = document.createElement('div');
                     card.className = "bg-zinc-900 rounded-3xl p-6 hover:ring-2 hover:ring-cyan-400 cursor-pointer transition-all";
 
@@ -8075,17 +8518,19 @@ async function viewUserProfile(uid) {
                     if (post.type === 'project') typeIcon = '🚀';
 
                     const hasLiked = currentUser && (post.likedBy || []).includes(currentUser.uid);
+                    const isBoosted = post.isSponsoredBoost && post.sponsoredBoostUntil > Date.now();
 
                     card.innerHTML = `
                         <div class="flex justify-between">
                             <span class="text-2xl">${typeIcon}</span>
                             <span class="text-xs text-zinc-500">${post.comments ? post.comments.length : 0} comments</span>
                         </div>
+                        ${isBoosted ? '<span class="inline-block mt-2 px-2.5 py-1 text-[10px] rounded-full bg-amber-500/20 text-amber-400 font-semibold">✨ Sponsored</span>' : ''}
                         <h3 class="text-2xl font-bold mt-3 break-all line-clamp-3">${post.title}</h3>
                         <p class="text-zinc-400 line-clamp-3 mt-2">${post.description}</p>
                         
                         ${post.link ? `
-                        <div id="preview-${doc.id}" class="mt-4 bg-black/50 border border-zinc-700 rounded-2xl p-3 flex items-center gap-3 overflow-hidden">
+                        <div id="preview-${docId}" class="mt-4 bg-black/50 border border-zinc-700 rounded-2xl p-3 flex items-center gap-3 overflow-hidden">
                             <span class="text-cyan-400">🔗</span>
                             <div class="flex-1">
                                 <p class="text-cyan-400 text-sm truncate">${post.link}</p>
@@ -8094,22 +8539,108 @@ async function viewUserProfile(uid) {
                         
                         <div class="flex items-center justify-between mt-4">
                             <p class="text-xs text-violet-400">Posted by @${post.username}</p>
-                            <button onclick="event.stopPropagation(); togglePostLike('${doc.id}', ${hasLiked})"
+                            <button onclick="event.stopPropagation(); togglePostLike('${docId}', ${hasLiked})"
                                     class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${hasLiked ? 'bg-cyan-500/20 text-cyan-400' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}">
-                                👍 <span id="likes-${doc.id}">${post.likes || 0}</span>
+                                👍 <span id="likes-${docId}">${post.likes || 0}</span>
                             </button>
                         </div>
                     `;
-                    card.onclick = () => viewPostDetail(doc.id, post);
+                    card.onclick = () => viewPostDetail(docId, post);
                     grid.appendChild(card);
 
-                    // Load real preview if link exists
-                    if (post.link) loadLinkPreview(doc.id, post.link);
+                    if (post.link) loadLinkPreview(docId, post.link);
                 });
             } catch (e) {
                 console.error(e);
                 grid.innerHTML = `<p class="text-red-400">Error loading posts</p>`;
             }
+        }
+
+        // ====================== SPONSORED EXPLORE POSTS (ADS PHASE 3) ======================
+        // Two mechanisms feed the Explore sponsored slot:
+        //  1. Standalone sponsored creative — adCampaigns doc, placementType 'sponsored_explore',
+        //     no linkedPostId, just headline/body/image/link like a native ad unit.
+        //  2. Boosted post — advertiser pays to promote an existing Explore post they authored;
+        //     the post doc gets isSponsoredBoost + sponsoredBoostUntil, and a matching
+        //     adCampaigns doc (placementType 'sponsored_explore', linkedPostId set) drives impressions/clicks.
+        async function loadSponsoredExploreCampaigns() {
+            try {
+                const now = Date.now();
+                const snap = await db.collection('adCampaigns')
+                    .where('placementType', '==', 'sponsored_explore')
+                    .where('status', '==', 'active')
+                    .get();
+
+                const active = snap.docs
+                    .map(d => ({ id: d.id, ...d.data() }))
+                    .filter(c => c.endDate > now && c.startDate <= now);
+
+                const resolved = await Promise.all(active.map(async (c) => {
+                    if (c.linkedPostId) {
+                        try {
+                            const postDoc = await db.collection('posts').doc(c.linkedPostId).get();
+                            if (postDoc.exists) return { ...c, boostedPost: { id: postDoc.id, ...postDoc.data() } };
+                        } catch (e) { /* skip if post was deleted */ }
+                        return null;
+                    }
+                    return c;
+                }));
+
+                return resolved.filter(Boolean);
+            } catch (e) {
+                console.warn('loadSponsoredExploreCampaigns failed:', e.message);
+                return [];
+            }
+        }
+
+        function renderSponsoredExploreCard(campaign) {
+            const card = document.createElement('div');
+            card.className = "bg-zinc-900 rounded-3xl p-6 ring-1 ring-amber-500/30 hover:ring-2 hover:ring-amber-400 cursor-pointer transition-all";
+
+            if (campaign.boostedPost) {
+                const post = campaign.boostedPost;
+                let typeIcon = '💡';
+                if (post.type === 'news') typeIcon = '📰';
+                if (post.type === 'project') typeIcon = '🚀';
+
+                card.innerHTML = `
+                    <div class="flex justify-between">
+                        <span class="text-2xl">${typeIcon}</span>
+                        <span class="px-2.5 py-1 text-[10px] rounded-full bg-amber-500/20 text-amber-400 font-semibold">✨ Sponsored</span>
+                    </div>
+                    <h3 class="text-2xl font-bold mt-3 break-all line-clamp-3">${post.title}</h3>
+                    <p class="text-zinc-400 line-clamp-3 mt-2">${post.description}</p>
+                    <p class="text-xs text-violet-400 mt-4">Posted by @${post.username}</p>
+                `;
+                card.onclick = () => {
+                    trackSponsoredExploreEvent(campaign.id, 'clicks');
+                    viewPostDetail(post.id, post);
+                };
+            } else {
+                card.innerHTML = `
+                    <div class="flex justify-between">
+                        <span class="text-2xl">📢</span>
+                        <span class="px-2.5 py-1 text-[10px] rounded-full bg-amber-500/20 text-amber-400 font-semibold">✨ Sponsored</span>
+                    </div>
+                    ${campaign.creative?.imageUrl ? `<img src="${campaign.creative.imageUrl}" class="w-full h-40 object-cover rounded-2xl mt-3">` : ''}
+                    <h3 class="text-2xl font-bold mt-3 break-all line-clamp-3">${campaign.creative?.headline || ''}</h3>
+                    <p class="text-zinc-400 line-clamp-3 mt-2">${campaign.creative?.body || ''}</p>
+                    <p class="text-xs text-zinc-500 mt-4">Sponsored by @${campaign.advertiserUsername || 'advertiser'}</p>
+                `;
+                card.onclick = () => {
+                    trackSponsoredExploreEvent(campaign.id, 'clicks');
+                    if (campaign.targetUrl) window.open(campaign.targetUrl, '_blank');
+                };
+            }
+
+            trackSponsoredExploreEvent(campaign.id, 'impressions');
+            return card;
+        }
+
+        function trackSponsoredExploreEvent(campaignId, field) {
+            db.collection('adCampaigns').doc(campaignId).update({
+                [field]: firebase.firestore.FieldValue.increment(1)
+            }).catch(() => {});
         }
 
         // ====================== EXPLORE TABS ======================
@@ -8459,7 +8990,16 @@ async function loadForYouFeed() {
                     <div class="animate-pulse">Loading preview...</div>
                 </div>` : ''}
                 
-                <p class="text-xs text-violet-400 mt-8">Posted by @${post.username}</p>
+                <div class="flex items-center justify-between mt-8">
+                    <p class="text-xs text-violet-400">Posted by @${post.username}</p>
+                    ${currentUser && currentUser.uid === post.posterUid && !(post.isSponsoredBoost && post.sponsoredBoostUntil > Date.now()) ? `
+                    <button onclick="showBoostExplorePostModal('${postId}')"
+                            class="px-4 py-2 bg-amber-500/20 text-amber-400 text-xs font-semibold rounded-xl hover:bg-amber-500/30 transition-colors">
+                        📢 Boost This Post
+                    </button>` : ''}
+                    ${post.isSponsoredBoost && post.sponsoredBoostUntil > Date.now() ? `
+                    <span class="text-xs text-amber-400">✨ Boosted until ${new Date(post.sponsoredBoostUntil).toLocaleDateString()}</span>` : ''}
+                </div>
 
                 <h3 class="text-2xl font-semibold mb-4 mt-10">Comments</h3>
                 <div id="comments-list" class="space-y-4 mb-8"></div>
@@ -14562,6 +15102,112 @@ async function loadGrowTab() {
                 class="w-full py-4 bg-zinc-700 text-zinc-500 font-semibold rounded-3xl cursor-not-allowed">
             Select a duration above
         </button>
+    </div>
+</div>
+
+<!-- BOOST EXPLORE POST MODAL (ADS PHASE 3) -->
+<div id="boost-explore-modal" class="hidden fixed inset-0 bg-black/95 flex items-start justify-center z-[99999] overflow-y-auto py-6">
+    <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-6 md:p-8 my-auto">
+        <div class="flex justify-between items-center mb-2">
+            <h2 class="text-2xl font-bold">📢 Boost This Post</h2>
+            <button onclick="hideBoostExploreModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
+        </div>
+        <p class="text-zinc-400 text-sm mb-6">Boosted posts appear as sponsored cards throughout the Explore feed with a highlighted badge.</p>
+
+        <div class="space-y-3 mb-6">
+            <button onclick="selectBoostTier(3, 10)" id="boost-tier-3" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="font-semibold">3 Days</p>
+                        <p class="text-xs text-zinc-500">Quick visibility boost</p>
+                    </div>
+                    <p class="text-xl font-bold text-amber-400">$10</p>
+                </div>
+            </button>
+            <button onclick="selectBoostTier(7, 20)" id="boost-tier-7" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="font-semibold">7 Days</p>
+                        <p class="text-xs text-zinc-500">Most popular</p>
+                    </div>
+                    <p class="text-xl font-bold text-amber-400">$20</p>
+                </div>
+            </button>
+            <button onclick="selectBoostTier(30, 60)" id="boost-tier-30" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <p class="font-semibold">30 Days</p>
+                        <p class="text-xs text-zinc-500">Maximum exposure</p>
+                    </div>
+                    <p class="text-xl font-bold text-amber-400">$60</p>
+                </div>
+            </button>
+        </div>
+
+        <button onclick="confirmBoostExplorePost()" id="boost-confirm-btn" disabled
+                class="w-full py-4 bg-zinc-700 text-zinc-500 font-semibold rounded-3xl cursor-not-allowed">
+            Select a duration above
+        </button>
+    </div>
+</div>
+
+<!-- CREATE CAMPAIGN MODAL (ADS PHASE 4) -->
+<div id="create-campaign-modal" class="hidden fixed inset-0 bg-black/95 flex items-start justify-center z-[99999] overflow-y-auto py-6">
+    <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-6 md:p-8 my-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold">📢 New Ad Campaign</h2>
+            <button onclick="hideCreateCampaignModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
+        </div>
+
+        <!-- Step 1: placement -->
+        <div id="campaign-step-placement">
+            <p class="text-sm font-semibold text-zinc-400 mb-3">1. Choose placement</p>
+            <div class="grid grid-cols-2 gap-3 mb-6">
+                <button onclick="selectCampaignPlacement('banner')" id="placement-banner" class="p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
+                    <p class="font-semibold">🖼️ Banner</p>
+                    <p class="text-xs text-zinc-500 mt-1">Every page, rotating slot</p>
+                </button>
+                <button onclick="selectCampaignPlacement('sponsored_explore')" id="placement-sponsored_explore" class="p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
+                    <p class="font-semibold">📢 Sponsored Explore</p>
+                    <p class="text-xs text-zinc-500 mt-1">Native card in Explore feed</p>
+                </button>
+            </div>
+        </div>
+
+        <!-- Step 2: creative -->
+        <div id="campaign-step-creative" class="hidden">
+            <p class="text-sm font-semibold text-zinc-400 mb-3">2. Your creative</p>
+            <input id="campaign-headline" maxlength="80" placeholder="Headline" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none mb-3">
+            <textarea id="campaign-body" maxlength="200" rows="3" placeholder="Body text" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none mb-3"></textarea>
+            <input id="campaign-target-url" placeholder="Link when clicked (https://...)" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none mb-3">
+            <label class="block text-xs text-zinc-500 mb-2">Image (optional, shown in Explore cards)</label>
+            <input id="campaign-image-file" type="file" accept="image/*" class="w-full text-sm text-zinc-400 mb-4">
+            <div class="flex gap-3">
+                <button onclick="showCampaignStep('placement')" class="flex-1 py-3 bg-zinc-800 text-zinc-300 font-semibold rounded-2xl">Back</button>
+                <button onclick="showCampaignStep('duration')" class="flex-1 py-3 bg-white text-black font-semibold rounded-2xl">Next</button>
+            </div>
+        </div>
+
+        <!-- Step 3: duration/budget -->
+        <div id="campaign-step-duration" class="hidden">
+            <p class="text-sm font-semibold text-zinc-400 mb-3">3. Duration</p>
+            <div class="space-y-3 mb-6">
+                <button onclick="selectCampaignDuration(3, 25)" id="camp-dur-3" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
+                    <div class="flex justify-between items-center"><p class="font-semibold">3 Days</p><p class="text-xl font-bold text-amber-400">$25</p></div>
+                </button>
+                <button onclick="selectCampaignDuration(7, 50)" id="camp-dur-7" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
+                    <div class="flex justify-between items-center"><p class="font-semibold">7 Days</p><p class="text-xl font-bold text-amber-400">$50</p></div>
+                </button>
+                <button onclick="selectCampaignDuration(30, 150)" id="camp-dur-30" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
+                    <div class="flex justify-between items-center"><p class="font-semibold">30 Days</p><p class="text-xl font-bold text-amber-400">$150</p></div>
+                </button>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="showCampaignStep('creative')" class="flex-1 py-3 bg-zinc-800 text-zinc-300 font-semibold rounded-2xl">Back</button>
+                <button onclick="submitNewCampaign()" id="campaign-submit-btn" disabled
+                        class="flex-1 py-3 bg-zinc-700 text-zinc-500 font-semibold rounded-2xl cursor-not-allowed">Select duration</button>
+            </div>
+        </div>
     </div>
 </div>
 
