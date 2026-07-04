@@ -1587,31 +1587,240 @@
         </div>
     </div>
 
-<!-- ADVERTISE DASHBOARD PAGE (ADS PHASE 4) -->
-<div id="advertise-page" class="hidden max-w-5xl mx-auto pt-8 px-6 pb-16">
-    <div class="mb-10 flex items-center justify-between flex-wrap gap-4">
-        <div>
-            <h1 class="text-4xl font-bold tracking-tighter mb-3 flex items-center gap-3">
-                <i class="fa-solid fa-bullhorn text-amber-400"></i> Advertise on NQVate
-            </h1>
-            <p class="text-zinc-400">Create a campaign, pay in NQV8, track impressions and clicks in real time.</p>
-        </div>
-        <button onclick="showCreateCampaignModal()" class="px-6 py-3 bg-amber-500 hover:bg-amber-400 text-black font-semibold rounded-2xl transition-colors whitespace-nowrap">
-            + New Campaign
-        </button>
+<!-- ADVERTISE PAGE -->
+<div id="advertise-page" class="max-w-6xl mx-auto pt-6 px-4 md:px-6 hidden">
+
+    <div class="mb-8">
+        <h1 class="text-3xl md:text-5xl font-bold tracking-tighter mb-2">Advertise on NQVate</h1>
+        <p class="text-zinc-400">Reach builders, founders, and investors actively working in Web3.</p>
     </div>
 
-    <!-- Placement type explainer -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
-        <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800">
-            <p class="text-lg font-semibold mb-1">🖼️ Banner Ad</p>
-            <p class="text-zinc-400 text-sm">Shown on every page, rotating with house ads. Priced per day.</p>
-        </div>
-        <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800">
-            <p class="text-lg font-semibold mb-1">📢 Sponsored Explore Post</p>
-            <p class="text-zinc-400 text-sm">Native card interleaved in the Explore feed. Use your own creative, or boost an existing Explore post from its detail view.</p>
+    <!-- Tab navigation -->
+    <div class="flex border-b border-zinc-700 mb-8">
+        <button onclick="switchAdvertiseTab('campaigns')" id="ad-tab-campaigns"
+                class="px-6 py-3 text-sm font-semibold border-b-2 border-cyan-400">
+            📊 My Campaigns
+        </button>
+        <button onclick="switchAdvertiseTab('create')" id="ad-tab-create"
+                class="px-6 py-3 text-sm font-semibold text-zinc-400">
+            ➕ New Campaign
+        </button>
+        <button onclick="switchAdvertiseTab('pricing')" id="ad-tab-pricing"
+                class="px-6 py-3 text-sm font-semibold text-zinc-400">
+            💰 Pricing
+        </button>
+        <div id="ad-tab-admin-wrapper" class="hidden">
+            <button onclick="switchAdvertiseTab('admin')" id="ad-tab-admin"
+                    class="px-6 py-3 text-sm font-semibold text-zinc-400">
+                ⚙️ Admin
+            </button>
         </div>
     </div>
+
+    <!-- MY CAMPAIGNS TAB -->
+    <div id="advertise-campaigns" class="advertise-tab-content">
+        <div id="my-campaigns-list">
+            <p class="text-zinc-400 animate-pulse">Loading...</p>
+        </div>
+    </div>
+
+    <!-- NEW CAMPAIGN TAB -->
+    <div id="advertise-create" class="advertise-tab-content hidden">
+        <p class="text-zinc-400 mb-6">Choose what you want to promote:</p>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <!-- Banner Ad -->
+            <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800 flex flex-col">
+                <div class="flex items-center gap-3 mb-3">
+                    <span class="text-3xl">📢</span>
+                    <h3 class="text-lg font-bold">Banner Ad</h3>
+                </div>
+                <p class="text-zinc-400 text-sm mb-4 flex-1">Your brand at the top of every page — Marketplace, Explore, Studio, and more. Maximum platform-wide visibility.</p>
+                <div class="mb-4">
+                    <p class="text-2xl font-bold text-violet-400">From $50 <span class="text-sm text-zinc-500 font-normal">/ 3 days</span></p>
+                </div>
+                <ul class="space-y-1 text-xs text-zinc-500 mb-6">
+                    <li>✓ Shown on every page</li>
+                    <li>✓ Custom headline, body, image</li>
+                    <li>✓ Impression + click tracking</li>
+                    <li>✓ Reviewed within 24hrs</li>
+                </ul>
+                <button onclick="showCreateBannerCampaign()"
+                        class="w-full py-3 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-2xl transition-colors">
+                    Create Banner Ad
+                </button>
+            </div>
+
+            <!-- Sponsored Explore Post -->
+            <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800 flex flex-col">
+                <div class="flex items-center gap-3 mb-3">
+                    <span class="text-3xl">💡</span>
+                    <h3 class="text-lg font-bold">Sponsor an Explore Post</h3>
+                </div>
+                <p class="text-zinc-400 text-sm mb-4 flex-1">Boost one of your existing Explore posts into a sponsored placement, shown every 8 posts in the feed with a highlighted badge.</p>
+                <div class="mb-4">
+                    <p class="text-2xl font-bold text-cyan-400">From $30 <span class="text-sm text-zinc-500 font-normal">/ 3 days</span></p>
+                </div>
+                <ul class="space-y-1 text-xs text-zinc-500 mb-6">
+                    <li>✓ Native feed placement</li>
+                    <li>✓ "Sponsored" label (FTC compliant)</li>
+                    <li>✓ Impression + click tracking</li>
+                    <li>✓ Goes live immediately</li>
+                </ul>
+                <button onclick="switchAdvertiseTab('campaigns'); loadMyPostsForSponsoring()"
+                        class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded-2xl transition-colors">
+                    Sponsor a Post
+                </button>
+            </div>
+
+            <!-- Featured Listing -->
+            <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800 flex flex-col">
+                <div class="flex items-center gap-3 mb-3">
+                    <span class="text-3xl">✨</span>
+                    <h3 class="text-lg font-bold">Feature a Listing</h3>
+                </div>
+                <p class="text-zinc-400 text-sm mb-4 flex-1">Pin your bounty or funding request to the top of the marketplace above all organic listings, with an amber Featured badge.</p>
+                <div class="mb-4">
+                    <p class="text-2xl font-bold text-amber-400">From $25 <span class="text-sm text-zinc-500 font-normal">/ 3 days</span></p>
+                </div>
+                <ul class="space-y-1 text-xs text-zinc-500 mb-6">
+                    <li>✓ Always sorts first in marketplace</li>
+                    <li>✓ ✨ Featured badge on card</li>
+                    <li>✓ Auto-expires cleanly</li>
+                    <li>✓ Goes live immediately</li>
+                </ul>
+                <button onclick="loadMyListingsForPromotion()"
+                        class="w-full py-3 bg-amber-500 hover:bg-amber-400 text-black font-semibold rounded-2xl transition-colors">
+                    Feature a Listing
+                </button>
+            </div>
+        </div>
+
+        <!-- My posts to sponsor -->
+        <div id="my-posts-for-sponsoring" class="hidden">
+            <h3 class="text-lg font-semibold mb-4">Your Explore Posts</h3>
+            <div id="my-posts-sponsor-list" class="space-y-3"></div>
+        </div>
+
+        <!-- My listings to promote -->
+        <div id="my-listings-for-promotion" class="hidden">
+            <h3 class="text-lg font-semibold mb-4">Your Active Listings</h3>
+            <div id="my-listings-promote-list" class="space-y-3"></div>
+        </div>
+    </div>
+
+    <!-- PRICING TAB -->
+    <div id="advertise-pricing" class="advertise-tab-content hidden">
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm">
+                <thead>
+                    <tr class="border-b border-zinc-700 text-zinc-500 text-xs uppercase">
+                        <th class="text-left py-3 px-4">Placement</th>
+                        <th class="text-right py-3 px-4">3 Days</th>
+                        <th class="text-right py-3 px-4">7 Days</th>
+                        <th class="text-right py-3 px-4">30 Days</th>
+                        <th class="text-right py-3 px-4">Review</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr class="border-b border-zinc-800">
+                        <td class="py-4 px-4">
+                            <p class="font-medium">📢 Banner Ad</p>
+                            <p class="text-xs text-zinc-500">Every page, top placement</p>
+                        </td>
+                        <td class="py-4 px-4 text-right font-semibold text-violet-400">$50</td>
+                        <td class="py-4 px-4 text-right font-semibold text-violet-400">$120</td>
+                        <td class="py-4 px-4 text-right font-semibold text-violet-400">$400</td>
+                        <td class="py-4 px-4 text-right text-zinc-500 text-xs">Within 24hrs</td>
+                    </tr>
+                    <tr class="border-b border-zinc-800">
+                        <td class="py-4 px-4">
+                            <p class="font-medium">💡 Sponsored Explore Post</p>
+                            <p class="text-xs text-zinc-500">Native feed placement every 8 posts</p>
+                        </td>
+                        <td class="py-4 px-4 text-right font-semibold text-cyan-400">$30</td>
+                        <td class="py-4 px-4 text-right font-semibold text-cyan-400">$70</td>
+                        <td class="py-4 px-4 text-right font-semibold text-cyan-400">$250</td>
+                        <td class="py-4 px-4 text-right text-zinc-500 text-xs">Immediate</td>
+                    </tr>
+                    <tr class="border-b border-zinc-800">
+                        <td class="py-4 px-4">
+                            <p class="font-medium">✨ Featured Listing</p>
+                            <p class="text-xs text-zinc-500">Top of marketplace, amber badge</p>
+                        </td>
+                        <td class="py-4 px-4 text-right font-semibold text-amber-400">$25</td>
+                        <td class="py-4 px-4 text-right font-semibold text-amber-400">$50</td>
+                        <td class="py-4 px-4 text-right font-semibold text-amber-400">$150</td>
+                        <td class="py-4 px-4 text-right text-zinc-500 text-xs">Immediate</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        <p class="text-zinc-500 text-xs mt-6">All payments are made in NQV8. Banner ads are reviewed by our team before going live — rejected campaigns are fully refunded.</p>
+    </div>
+
+    <!-- ADMIN TAB -->
+    <div id="advertise-admin" class="advertise-tab-content hidden">
+        <h2 class="text-xl font-semibold mb-2">Moderation Queue</h2>
+        <p class="text-zinc-500 text-sm mb-6">Banner ad campaigns pending review.</p>
+        <div id="admin-moderation-list">
+            <p class="text-zinc-400 animate-pulse">Loading...</p>
+        </div>
+    </div>
+</div>
+
+<!-- BANNER CAMPAIGN CREATION MODAL -->
+<div id="banner-campaign-modal" class="hidden fixed inset-0 bg-black/95 flex items-start justify-center z-[99999] overflow-y-auto py-6">
+    <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-6 md:p-8 my-auto">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-2xl font-bold">📢 Create Banner Ad</h2>
+            <button onclick="document.getElementById('banner-campaign-modal').classList.add('hidden')" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
+        </div>
+
+        <div class="space-y-4 mb-6">
+            <div>
+                <label class="text-sm text-zinc-400 block mb-1">Company / Brand Name</label>
+                <input id="banner-company" type="text" placeholder="Your company name"
+                       class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm">
+            </div>
+            <div>
+                <label class="text-sm text-zinc-400 block mb-1">Headline</label>
+                <input id="banner-headline" type="text" placeholder="Short, punchy headline (max 60 chars)" maxlength="60"
+                       class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm">
+            </div>
+            <div>
+                <label class="text-sm text-zinc-400 block mb-1">Body Copy</label>
+                <textarea id="banner-body" rows="2" placeholder="Brief description of your product or offer (max 120 chars)" maxlength="120"
+                          class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm"></textarea>
+            </div>
+            <div>
+                <label class="text-sm text-zinc-400 block mb-1">Destination URL</label>
+                <input id="banner-url" type="url" placeholder="https://yoursite.com"
+                       class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm">
+            </div>
+            <div>
+                <label class="text-sm text-zinc-400 block mb-2">Duration</label>
+                <div class="grid grid-cols-3 gap-2">
+                    ${[{d:3,p:50},{d:7,p:120},{d:30,p:400}].map(t => `
+                    <button onclick="selectBannerDuration(${t.d}, ${t.p})" id="banner-dur-${t.d}"
+                            class="py-3 rounded-2xl border border-zinc-700 hover:border-violet-400 text-sm text-center transition-colors">
+                        <p class="font-semibold">${t.d} days</p>
+                        <p class="text-zinc-400 text-xs">$${t.p}</p>
+                    </button>`).join('')}
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6 text-xs text-amber-400">
+            ⚠️ Banner ads are reviewed by our team within 24 hours. You'll pay now and your campaign goes live upon approval. Rejected campaigns are fully refunded.
+        </div>
+
+        <button onclick="submitBannerCampaign()" id="banner-submit-btn"
+                class="w-full py-4 bg-white text-black font-semibold rounded-3xl hover:bg-cyan-400 transition-colors">
+            Submit for Review
+        </button>
+    </div>
+</div>
 
     <h2 class="text-2xl font-bold mb-4">Your Campaigns</h2>
     <div id="my-campaigns-list" class="space-y-4">
@@ -2076,6 +2285,435 @@
 
     
 <script>
+
+// ====================== ADVERTISE PAGE ======================
+const ADMIN_UIDS = ['5t0gD2wVnqXXPAQEzfoahx3EIPp2'];
+let _bannerDays = null;
+let _bannerPrice = null;
+
+function switchAdvertiseTab(tab) {
+    ['campaigns','create','pricing','admin'].forEach(t => {
+        const btn = document.getElementById(`ad-tab-${t}`);
+        const content = document.getElementById(`advertise-${t}`);
+        const isActive = t === tab;
+        if (btn) {
+            btn.classList.toggle('border-b-2', isActive);
+            btn.classList.toggle('border-cyan-400', isActive);
+            btn.classList.toggle('text-zinc-400', !isActive);
+        }
+        if (content) content.classList.toggle('hidden', !isActive);
+    });
+
+    if (tab === 'campaigns') loadMyCampaigns();
+    if (tab === 'admin') loadAdminModerationQueue();
+}
+
+async function loadAdvertisePage() {
+    if (!currentUser) {
+        document.getElementById('my-campaigns-list').innerHTML = `
+            <div class="text-center py-12">
+                <p class="text-zinc-400 mb-4">Please log in to manage your campaigns.</p>
+                <button onclick="showAuthModal()" class="px-6 py-3 bg-white text-black font-semibold rounded-2xl">Log In</button>
+            </div>`;
+        return;
+    }
+
+    const isAdmin = ADMIN_UIDS.includes(currentUser.uid);
+    document.getElementById('ad-tab-admin-wrapper').classList.toggle('hidden', !isAdmin);
+
+    switchAdvertiseTab('campaigns');
+}
+
+async function loadMyCampaigns() {
+    if (!currentUser) return;
+    const container = document.getElementById('my-campaigns-list');
+    container.innerHTML = '<p class="text-zinc-400 animate-pulse">Loading...</p>';
+
+    try {
+        const snap = await db.collection('adCampaigns')
+            .where('advertiserUid', '==', currentUser.uid)
+            .get();
+
+        const campaigns = snap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+
+        if (campaigns.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-12 bg-zinc-900 rounded-3xl border border-zinc-800">
+                    <p class="text-4xl mb-4">📢</p>
+                    <p class="text-zinc-300 font-semibold mb-2">No campaigns yet</p>
+                    <p class="text-zinc-500 text-sm mb-6">Promote your content to reach more builders, founders, and investors.</p>
+                    <button onclick="switchAdvertiseTab('create')" class="px-6 py-3 bg-white text-black font-semibold rounded-2xl hover:bg-cyan-400 transition-colors">
+                        Create Your First Campaign
+                    </button>
+                </div>`;
+            return;
+        }
+
+        const statusColors = {
+            pending_review: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
+            active: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30',
+            expired: 'text-zinc-500 bg-zinc-800 border-zinc-700',
+            rejected: 'text-red-400 bg-red-500/10 border-red-500/30'
+        };
+        const statusLabels = {
+            pending_review: '⏳ Pending Review',
+            active: '✅ Active',
+            expired: '⌛ Expired',
+            rejected: '❌ Rejected'
+        };
+        const typeLabels = {
+            banner: '📢 Banner Ad',
+            sponsored_post: '💡 Sponsored Post',
+            featured_listing: '✨ Featured Listing'
+        };
+
+        container.innerHTML = campaigns.map(c => {
+            const ctr = c.impressions > 0 ? ((c.clicks / c.impressions) * 100).toFixed(2) : '0.00';
+            const statusClass = statusColors[c.status] || 'text-zinc-400 bg-zinc-800 border-zinc-700';
+            const now = Date.now();
+            const isLive = c.status === 'active' && c.endDate > now;
+            const daysLeft = isLive ? Math.ceil((c.endDate - now) / (1000 * 60 * 60 * 24)) : 0;
+
+            return `
+                <div class="bg-zinc-900 border border-zinc-800 rounded-3xl p-6 mb-4">
+                    <div class="flex items-start justify-between mb-4 flex-wrap gap-2">
+                        <div class="min-w-0">
+                            <p class="font-semibold text-lg truncate">${c.creative?.headline || c.advertiserCompanyName || 'Campaign'}</p>
+                            <p class="text-zinc-500 text-sm">${typeLabels[c.placementType] || c.placementType} · ${c.days} days · $${c.pricePaidUSDC} in NQV8</p>
+                        </div>
+                        <div class="flex flex-col items-end gap-1">
+                            <span class="px-3 py-1 rounded-full text-xs font-medium border ${statusClass}">${statusLabels[c.status] || c.status}</span>
+                            ${isLive ? `<span class="text-xs text-zinc-500">${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining</span>` : ''}
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-3 gap-3 mb-4">
+                        <div class="bg-zinc-800 rounded-2xl p-3 text-center">
+                            <p class="text-xl font-bold">${(c.impressions || 0).toLocaleString()}</p>
+                            <p class="text-xs text-zinc-500 mt-0.5">Impressions</p>
+                        </div>
+                        <div class="bg-zinc-800 rounded-2xl p-3 text-center">
+                            <p class="text-xl font-bold">${(c.clicks || 0).toLocaleString()}</p>
+                            <p class="text-xs text-zinc-500 mt-0.5">Clicks</p>
+                        </div>
+                        <div class="bg-zinc-800 rounded-2xl p-3 text-center">
+                            <p class="text-xl font-bold">${ctr}%</p>
+                            <p class="text-xs text-zinc-500 mt-0.5">CTR</p>
+                        </div>
+                    </div>
+
+                    ${c.status === 'rejected' && c.rejectionReason ? `
+                    <div class="bg-red-500/10 border border-red-500/20 rounded-2xl p-3 mb-3">
+                        <p class="text-red-400 text-xs">Rejection reason: ${c.rejectionReason}</p>
+                    </div>` : ''}
+
+                    <p class="text-xs text-zinc-600">
+                        ${c.startDate ? new Date(c.startDate).toLocaleDateString() : 'Pending'} → ${c.endDate ? new Date(c.endDate).toLocaleDateString() : '—'}
+                    </p>
+                </div>`;
+        }).join('');
+
+    } catch(e) {
+        container.innerHTML = '<p class="text-red-400">Error loading campaigns: ' + e.message + '</p>';
+    }
+}
+
+async function loadMyPostsForSponsoring() {
+    if (!currentUser) return;
+    const section = document.getElementById('my-posts-for-sponsoring');
+    const list = document.getElementById('my-posts-sponsor-list');
+    section.classList.remove('hidden');
+    document.getElementById('my-listings-for-promotion').classList.add('hidden');
+    list.innerHTML = '<p class="text-zinc-400 animate-pulse">Loading your posts...</p>';
+
+    try {
+        const snap = await db.collection('posts')
+            .where('posterUid', '==', currentUser.uid)
+            .orderBy('createdAt', 'desc')
+            .get();
+
+        if (snap.empty) {
+            list.innerHTML = '<p class="text-zinc-400">You haven\'t posted anything in Explore yet. <span onclick="navigateTo(\'ideas\')" class="text-cyan-400 cursor-pointer hover:underline">Create a post first.</span></p>';
+            return;
+        }
+
+        list.innerHTML = snap.docs.map(doc => {
+            const p = doc.data();
+            return `
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center justify-between gap-4">
+                    <div class="min-w-0 flex-1">
+                        <p class="font-medium truncate">${p.title || 'Untitled'}</p>
+                        <p class="text-xs text-zinc-500 mt-0.5 truncate">${p.description || ''}</p>
+                    </div>
+                    <button onclick="showSponsorPostModal('${doc.id}', '${(p.title||'').replace(/'/g,"\\'")}')"
+                            class="flex-shrink-0 px-4 py-2 bg-amber-500 text-black text-xs font-semibold rounded-xl hover:bg-amber-400 transition-colors">
+                        🚀 Sponsor
+                    </button>
+                </div>`;
+        }).join('');
+    } catch(e) {
+        list.innerHTML = '<p class="text-red-400">Error loading posts.</p>';
+    }
+}
+
+async function loadMyListingsForPromotion() {
+    if (!currentUser) return;
+    const section = document.getElementById('my-listings-for-promotion');
+    const list = document.getElementById('my-listings-promote-list');
+    section.classList.remove('hidden');
+    document.getElementById('my-posts-for-sponsoring').classList.add('hidden');
+    list.innerHTML = '<p class="text-zinc-400 animate-pulse">Loading your listings...</p>';
+
+    try {
+        const snap = await db.collection('subprojects')
+            .where('ownerUid', '==', currentUser.uid)
+            .where('status', '==', 'open')
+            .orderBy('createdAt', 'desc')
+            .get();
+
+        const listings = snap.docs.filter(d => !d.data().planNode);
+
+        if (listings.length === 0) {
+            list.innerHTML = '<p class="text-zinc-400">No active listings found. <span onclick="navigateTo(\'marketplace\')" class="text-cyan-400 cursor-pointer hover:underline">Post a bounty or funding request first.</span></p>';
+            return;
+        }
+
+        const now = Date.now();
+        list.innerHTML = listings.map(doc => {
+            const p = doc.data();
+            const isFeatured = p.isFeatured && p.featuredUntil > now;
+            return `
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center justify-between gap-4">
+                    <div class="min-w-0 flex-1">
+                        <p class="font-medium truncate">${p.title}</p>
+                        <p class="text-xs text-zinc-500 mt-0.5">${p.compensation} · ${p.bids?.length || 0} bids</p>
+                        ${isFeatured ? `<p class="text-xs text-amber-400 mt-1">✨ Featured until ${new Date(p.featuredUntil).toLocaleDateString()}</p>` : ''}
+                    </div>
+                    ${isFeatured ? `
+                    <span class="flex-shrink-0 px-4 py-2 bg-amber-500/20 text-amber-400 text-xs font-semibold rounded-xl">✨ Active</span>
+                    ` : `
+                    <button onclick="showPromoteListingModal('${doc.id}')"
+                            class="flex-shrink-0 px-4 py-2 bg-amber-500 text-black text-xs font-semibold rounded-xl hover:bg-amber-400 transition-colors">
+                        ✨ Feature
+                    </button>`}
+                </div>`;
+        }).join('');
+    } catch(e) {
+        list.innerHTML = '<p class="text-red-400">Error loading listings.</p>';
+    }
+}
+
+async function loadAdminModerationQueue() {
+    const container = document.getElementById('admin-moderation-list');
+    if (!container) return;
+    container.innerHTML = '<p class="text-zinc-400 animate-pulse">Loading...</p>';
+
+    try {
+        const snap = await db.collection('adCampaigns')
+            .where('status', '==', 'pending_review')
+            .get();
+
+        if (snap.empty) {
+            container.innerHTML = '<p class="text-zinc-400">No campaigns pending review. ✅</p>';
+            return;
+        }
+
+        container.innerHTML = snap.docs.map(doc => {
+            const c = doc.data();
+            return `
+                <div class="bg-zinc-900 border border-amber-500/30 rounded-3xl p-6 mb-4">
+                    <div class="flex items-start justify-between mb-3">
+                        <div>
+                            <p class="font-semibold">${c.creative?.headline || 'No headline'}</p>
+                            <p class="text-zinc-500 text-sm">${c.advertiserCompanyName || 'Unknown'} · ${c.placementType} · ${c.days} days · $${c.pricePaidUSDC}</p>
+                        </div>
+                    </div>
+                    <p class="text-zinc-400 text-sm mb-2">${c.creative?.body || ''}</p>
+                    ${c.targetUrl ? `<p class="text-cyan-400 text-xs mb-4">${c.targetUrl}</p>` : ''}
+                    <div class="flex gap-3">
+                        <button onclick="approveCampaign('${doc.id}')"
+                                class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-2xl text-sm transition-colors">
+                            ✅ Approve
+                        </button>
+                        <button onclick="rejectCampaign('${doc.id}')"
+                                class="flex-1 py-3 bg-red-600/80 hover:bg-red-500 text-white font-semibold rounded-2xl text-sm transition-colors">
+                            ❌ Reject
+                        </button>
+                    </div>
+                </div>`;
+        }).join('');
+    } catch(e) {
+        container.innerHTML = '<p class="text-red-400">Error loading queue.</p>';
+    }
+}
+
+async function approveCampaign(campaignId) {
+    const doc = await db.collection('adCampaigns').doc(campaignId).get();
+    const c = doc.data();
+    const startDate = Date.now();
+    const endDate = startDate + (c.days * 24 * 60 * 60 * 1000);
+    await db.collection('adCampaigns').doc(campaignId).update({ status: 'active', startDate, endDate });
+    alert('✅ Campaign approved and now live.');
+    loadAdminModerationQueue();
+}
+
+async function rejectCampaign(campaignId) {
+    const reason = prompt('Reason for rejection (shown to advertiser):');
+    if (!reason) return;
+    await db.collection('adCampaigns').doc(campaignId).update({ status: 'rejected', rejectionReason: reason });
+    alert('Campaign rejected.');
+    loadAdminModerationQueue();
+}
+
+function showCreateBannerCampaign() {
+    _bannerDays = null;
+    _bannerPrice = null;
+    ['banner-company','banner-headline','banner-body','banner-url'].forEach(id => {
+        document.getElementById(id).value = '';
+    });
+    document.querySelectorAll('[id^="banner-dur-"]').forEach(b => b.classList.remove('border-violet-400','bg-violet-500/10'));
+    document.getElementById('banner-campaign-modal').classList.remove('hidden');
+}
+
+function selectBannerDuration(days, price) {
+    _bannerDays = days;
+    _bannerPrice = price;
+    document.querySelectorAll('[id^="banner-dur-"]').forEach(b => b.classList.remove('border-violet-400','bg-violet-500/10'));
+    document.getElementById(`banner-dur-${days}`)?.classList.add('border-violet-400','bg-violet-500/10');
+}
+
+async function submitBannerCampaign() {
+    if (!currentUser) return alert('Please log in.');
+    if (!_bannerDays || !_bannerPrice) return alert('Please select a duration.');
+    const company  = document.getElementById('banner-company').value.trim();
+    const headline = document.getElementById('banner-headline').value.trim();
+    const body     = document.getElementById('banner-body').value.trim();
+    const url      = document.getElementById('banner-url').value.trim();
+    if (!company || !headline || !body || !url) return alert('Please fill in all fields.');
+    if (!url.startsWith('http')) return alert('Please enter a valid URL starting with http:// or https://');
+
+    showPaymentPicker(
+        `Banner Ad — ${_bannerDays} days`,
+        _bannerPrice, 100,
+        async (txHash) => {
+            try {
+                await db.collection('adCampaigns').add({
+                    advertiserUid: currentUser.uid,
+                    advertiserCompanyName: company,
+                    placementType: 'banner',
+                    days: _bannerDays,
+                    pricePaidUSDC: _bannerPrice,
+                    paymentTxHash: txHash,
+                    creative: { headline, body },
+                    targetUrl: url,
+                    status: 'pending_review',
+                    impressions: 0,
+                    clicks: 0,
+                    startDate: null,
+                    endDate: null,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                document.getElementById('banner-campaign-modal').classList.add('hidden');
+                alert('✅ Banner campaign submitted for review. Our team will approve it within 24 hours.');
+                switchAdvertiseTab('campaigns');
+            } catch(e) {
+                alert('Failed: ' + e.message);
+            }
+        }
+    );
+}
+
+// ====================== SPONSOR EXPLORE POST ======================
+function showSponsorPostModal(postId, postTitle) {
+    document.getElementById('sponsor-post-modal')?.remove();
+    let selectedDays = null;
+    let selectedPrice = null;
+
+    const modal = document.createElement('div');
+    modal.id = 'sponsor-post-modal';
+    modal.className = 'fixed inset-0 bg-black/95 flex items-start justify-center z-[99999] overflow-y-auto py-6';
+    modal.innerHTML = `
+        <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-6 md:p-8 my-auto">
+            <div class="flex justify-between items-center mb-2">
+                <h2 class="text-2xl font-bold">🚀 Sponsor This Post</h2>
+                <button onclick="document.getElementById('sponsor-post-modal').remove()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
+            </div>
+            <p class="text-zinc-400 text-sm mb-6 line-clamp-2">"${postTitle}"</p>
+
+            <p class="text-sm text-zinc-400 mb-3">Your post will appear highlighted in the Explore feed every 8 posts, clearly labeled "Sponsored."</p>
+
+            <div class="space-y-3 mb-6">
+                ${[{days:3,price:30},{days:7,price:70},{days:30,price:250}].map(t => `
+                <button onclick="this.closest('.space-y-3').querySelectorAll('button').forEach(b=>b.classList.remove('border-amber-400','bg-amber-500/10')); this.classList.add('border-amber-400','bg-amber-500/10'); document.getElementById('sponsor-confirm-btn').disabled=false; document.getElementById('sponsor-confirm-btn').textContent='Sponsor for $${t.price} (${t.days} days)'; document.getElementById('sponsor-confirm-btn').dataset.days='${t.days}'; document.getElementById('sponsor-confirm-btn').dataset.price='${t.price}';"
+                        class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors flex justify-between items-center">
+                    <div>
+                        <p class="font-semibold">${t.days} Days</p>
+                        <p class="text-xs text-zinc-500">${t.days === 3 ? 'Quick boost' : t.days === 7 ? 'Most popular' : 'Maximum exposure'}</p>
+                    </div>
+                    <p class="text-xl font-bold text-amber-400">$${t.price}</p>
+                </button>`).join('')}
+            </div>
+
+            <button id="sponsor-confirm-btn" disabled
+                    data-postid="${postId}"
+                    onclick="confirmSponsorPost(this)"
+                    class="w-full py-4 bg-zinc-700 text-zinc-500 font-semibold rounded-3xl cursor-not-allowed">
+                Select a duration above
+            </button>
+        </div>`;
+    document.body.appendChild(modal);
+}
+
+async function confirmSponsorPost(btn) {
+    const postId = btn.dataset.postid;
+    const days = parseInt(btn.dataset.days);
+    const price = parseInt(btn.dataset.price);
+    if (!postId || !days || !price) return;
+
+    showPaymentPicker(
+        `Sponsor Explore post for ${days} days`,
+        price, 100,
+        async (txHash) => {
+            try {
+                const now = Date.now();
+                const endDate = now + (days * 24 * 60 * 60 * 1000);
+
+                // Get post details for the campaign record
+                const postSnap = await db.collection('posts').doc(postId).get();
+                const post = postSnap.data();
+
+                await db.collection('adCampaigns').add({
+                    advertiserUid: currentUser.uid,
+                    advertiserCompanyName: currentUser.username,
+                    placementType: 'sponsored_post',
+                    linkedPostId: postId,
+                    days,
+                    pricePaidUSDC: price,
+                    paymentTxHash: txHash,
+                    creative: {
+                        headline: post?.title || '',
+                        body: post?.description || ''
+                    },
+                    targetUrl: null,
+                    status: 'active', // Explore post sponsorships go live immediately
+                    impressions: 0,
+                    clicks: 0,
+                    startDate: now,
+                    endDate,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+
+                document.getElementById('sponsor-post-modal')?.remove();
+                alert(`✅ Post sponsored for ${days} days! It will now appear highlighted in the Explore feed.`);
+                loadIdeas();
+            } catch(e) {
+                alert('Failed to sponsor post: ' + e.message);
+            }
+        }
+    );
+}
 
 // ====================== BOUNTY TAGS ======================
 const BOUNTY_TAG_OPTIONS = [
@@ -8441,7 +9079,7 @@ async function viewUserProfile(uid) {
                 0.01, 1,
                 async (txHash) => {
                     try {
-                        await db.collection("posts").add({
+                        const docRef = await db.collection("posts").add({
                             type,
                             title: storedTitle,
                             description: desc,
@@ -8454,12 +9092,15 @@ async function viewUserProfile(uid) {
                             likedBy: [],
                             paymentTxHash: txHash
                         });
-                        alert("✅ Post published!");
                         hidePostIdeaModal();
                         loadIdeas();
+                        if (confirm("✅ Post published!\n\nWant more visibility? Sponsor this post in the Explore feed for as little as $30 — it'll appear highlighted every 8 posts.")) {
+                            showSponsorPostModal(docRef.id, storedTitle);
+                        }
                     } catch (e) {
                         alert("Failed to post: " + e.message);
                     }
+                    
                 }
             );
         }
@@ -8537,10 +9178,17 @@ async function viewUserProfile(uid) {
                         
                         <div class="flex items-center justify-between mt-4">
                             <p class="text-xs text-violet-400">Posted by @${post.username}</p>
-                            <button onclick="event.stopPropagation(); togglePostLike('${docId}', ${hasLiked})"
-                                    class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${hasLiked ? 'bg-cyan-500/20 text-cyan-400' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}">
-                                👍 <span id="likes-${docId}">${post.likes || 0}</span>
-                            </button>
+                            <div class="flex items-center gap-2">
+                                ${currentUser && post.posterUid === currentUser.uid ? `
+                                <button onclick="event.stopPropagation(); showSponsorPostModal('${doc.id}', '${(post.title||'').replace(/'/g,"\\'")}')"
+                                        class="px-3 py-1.5 rounded-xl text-xs font-medium bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-colors">
+                                    🚀 Promote
+                                </button>` : ''}
+                                <button onclick="event.stopPropagation(); togglePostLike('${doc.id}', ${hasLiked})"
+                                        class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${hasLiked ? 'bg-cyan-500/20 text-cyan-400' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}">
+                                    👍 <span id="likes-${doc.id}">${post.likes || 0}</span>
+                                </button>
+                            </div>
                         </div>
                     `;
                     card.onclick = () => viewPostDetail(docId, post);
