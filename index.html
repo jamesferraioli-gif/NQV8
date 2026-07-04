@@ -1645,7 +1645,7 @@
                     <li>✓ Impression + click tracking</li>
                     <li>✓ Reviewed within 24hrs</li>
                 </ul>
-                <button onclick="showCreateBannerCampaign()"
+                <button onclick="showCreateCampaignModal()"
                         class="w-full py-3 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-2xl transition-colors">
                     Create Banner Ad
                 </button>
@@ -1667,7 +1667,7 @@
                     <li>✓ Impression + click tracking</li>
                     <li>✓ Goes live immediately</li>
                 </ul>
-                <button onclick="switchAdvertiseTab('campaigns'); loadMyPostsForSponsoring()"
+                <button onclick="loadMyPostsForSponsoring()"
                         class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded-2xl transition-colors">
                     Sponsor a Post
                 </button>
@@ -2801,6 +2801,10 @@ function showBoostExplorePostModal(postId) {
     confirmBtn.textContent = 'Select a duration above';
     confirmBtn.className = 'w-full py-4 bg-zinc-700 text-zinc-500 font-semibold rounded-3xl cursor-not-allowed';
     document.getElementById('boost-explore-modal').classList.remove('hidden');
+}
+
+function showSponsorPostModal(postId, title) {
+    showBoostExplorePostModal(postId);
 }
 
 function hideBoostExploreModal() {
@@ -5529,7 +5533,7 @@ function navigateTo(page) {
             if (page === 'tokenomics') { loadTokenomics(); loadRewards(); }
             if (page === 'studio') { switchStudioTab('plan'); loadStudioProjectList(); }
             if (page === 'about') switchAboutTab('overview');
-            if (page === 'advertise') loadAdvertiseDashboard();
+            if (page === 'advertise') loadAdvertisePage();
 
             loadAdBanner(); // banner shown on every page
         }
