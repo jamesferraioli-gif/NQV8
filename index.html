@@ -14704,7 +14704,7 @@ async function loadSupportQueue(status = 'open') {
                                 class="flex-1 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-semibold rounded-xl transition-colors">
                             Send Response
                         </button>
-                        <button onclick="closeTicket('${doc.id}', '${status}')"
+                        <button onclick="closeTicket('${doc.id}')"
                                 class="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 text-sm rounded-xl transition-colors">
                             Close
                         </button>
@@ -14732,11 +14732,11 @@ async function respondToTicket(ticketId, currentStatus) {
     }
 }
 
-async function closeTicket(ticketId, currentStatus) {
+async function closeTicket(ticketId) {
     if (!confirm('Close this ticket?')) return;
     try {
         await db.collection('supportTickets').doc(ticketId).update({ status: 'closed' });
-        loadSupportQueue(currentStatus);
+        loadSupportQueue('open');
     } catch(e) {
         alert('Failed: ' + e.message);
     }
