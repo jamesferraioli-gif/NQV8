@@ -14586,19 +14586,37 @@ async function submitSupportTicket() {
     }
 }
 
+function toggleClosedTickets() {
+    const btn = document.getElementById('closed-tickets-toggle');
+    const isActive = btn.dataset.active === 'true';
+    btn.dataset.active = isActive ? 'false' : 'true';
+    btn.textContent = isActive ? 'Show Closed' : 'Hide Closed';
+    btn.classList.toggle('text-cyan-400', !isActive);
+    btn.classList.toggle('text-zinc-400', isActive);
+    loadMySupportTickets();
+}
+
 async function loadMySupportTickets() {
     if (!currentUser) return;
     const container = document.getElementById('my-support-tickets');
     if (!container) return;
 
     try {
+        const showClosed = document.getElementById('closed-tickets-toggle')?.dataset.active === 'true';
+
         const snap = await db.collection('supportTickets')
             .where('uid', '==', currentUser.uid)
             .orderBy('createdAt', 'desc')
             .get();
 
-        if (snap.empty) {
-            container.innerHTML = '<p class="text-zinc-500 text-sm">No support tickets yet.</p>';
+        const tickets = snap.docs
+            .map(d => ({ id: d.id, ...d.data() }))
+            .filter(t => showClosed || t.status !== 'closed');
+
+        if (tickets.length === 0) {
+            container.innerHTML = showClosed
+                ? '<p class="text-zinc-500 text-sm">No support tickets yet.</p>'
+                : '<p class="text-zinc-500 text-sm">No open tickets. <span class="text-zinc-600">Use "Show Closed" to see resolved tickets.</span></p>';
             return;
         }
 
@@ -14613,8 +14631,7 @@ async function loadMySupportTickets() {
             dispute: '⚖️ Dispute', feature: '💡 Feature', other: '❓ Other'
         };
 
-        container.innerHTML = snap.docs.map(doc => {
-            const t = doc.data();
+        container.innerHTML = tickets.map(t => {
             const statusClass = statusColors[t.status] || statusColors.open;
             return `
                 <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
