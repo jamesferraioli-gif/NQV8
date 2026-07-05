@@ -11492,16 +11492,20 @@ async function loadTokenomics() {
         const treasuryReadOnly = new ethers.Contract(TREASURY_CONTRACT_ADDRESS, TREASURY_ABI, arbProvider);
         const nqv8ReadOnly = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, arbProvider);
 
-        const [totalSoldRaw, totalBonusRaw, pegEndedBool, treasuryBalRaw] = await Promise.all([
+        const rewardsReadOnly = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, arbProvider);
+
+        const [totalSoldRaw, totalBonusRaw, pegEndedBool, treasuryBalRaw, rewardsStats] = await Promise.all([
             treasuryReadOnly.totalNQV8Sold(),
             treasuryReadOnly.totalBonusClaimed(),
             treasuryReadOnly.pegEnded(),
-            nqv8ReadOnly.balanceOf(TREASURY_CONTRACT_ADDRESS)
+            nqv8ReadOnly.balanceOf(TREASURY_CONTRACT_ADDRESS),
+            rewardsReadOnly.getStats()
         ]);
         
         const totalSold = parseFloat(ethers.utils.formatUnits(totalSoldRaw, NQV8_DECIMALS));
         const totalBonus = parseFloat(ethers.utils.formatUnits(totalBonusRaw, NQV8_DECIMALS));
-        const totalCirculating = totalSold + totalBonus;
+        const totalRewards = parseFloat(ethers.utils.formatUnits(rewardsStats[0], NQV8_DECIMALS));
+        const totalCirculating = totalSold + totalBonus + totalRewards;
         const treasuryBal = parseFloat(ethers.utils.formatUnits(treasuryBalRaw, NQV8_DECIMALS));
 
         if (circulatingEl) circulatingEl.textContent = Math.round(totalCirculating).toLocaleString();
@@ -14704,7 +14708,7 @@ async function loadSupportQueue(status = 'open') {
                                 class="flex-1 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-semibold rounded-xl transition-colors">
                             Send Response
                         </button>
-                        <button onclick="closeTicket('${doc.id}')"
+                        <button onclick="closeTicket('${doc.id}', '${t.status}')"
                                 class="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 text-sm rounded-xl transition-colors">
                             Close
                         </button>
@@ -14732,11 +14736,11 @@ async function respondToTicket(ticketId, currentStatus) {
     }
 }
 
-async function closeTicket(ticketId) {
+async function closeTicket(ticketId, ticketCurrentStatus) {
     if (!confirm('Close this ticket?')) return;
     try {
         await db.collection('supportTickets').doc(ticketId).update({ status: 'closed' });
-        loadSupportQueue('open');
+        loadSupportQueue(ticketCurrentStatus);
     } catch(e) {
         alert('Failed: ' + e.message);
     }
