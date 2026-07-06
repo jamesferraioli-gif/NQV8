@@ -1747,7 +1747,7 @@
                         <td class="py-4 px-4 text-right font-semibold text-violet-400">$50</td>
                         <td class="py-4 px-4 text-right font-semibold text-violet-400">$120</td>
                         <td class="py-4 px-4 text-right font-semibold text-violet-400">$400</td>
-                        <td class="py-4 px-4 text-right text-zinc-500 text-xs">Within 24hrs</td>
+                        <td class="py-4 px-4 text-right text-zinc-500 text-xs">Instant</td>
                     </tr>
                     <tr class="border-b border-zinc-800">
                         <td class="py-4 px-4">
@@ -1827,8 +1827,8 @@
             </div>
         </div>
 
-        <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-6 text-xs text-amber-400">
-            ⚠️ Banner ads are reviewed by our team within 24 hours. You'll pay now and your campaign goes live upon approval. Rejected campaigns are fully refunded.
+       <div class="bg-zinc-800 rounded-2xl p-4 mb-6 text-xs text-zinc-400">
+            ✨ Campaigns are reviewed instantly by AI and go live immediately upon approval.
         </div>
 
         <button onclick="submitBannerCampaign()" id="banner-submit-btn"
@@ -2609,6 +2609,26 @@ async function submitBannerCampaign() {
         _bannerPrice, 100,
         async (txHash) => {
             try {
+                // Auto-moderate via Claude before going live
+                let adStatus = 'active';
+                let rejectionReason = null;
+
+                try {
+                    const modResult = await moderateContent(
+                        `Ad headline: ${headline}\nAd body: ${body}\nDestination URL: ${url}\nAdvertiser: ${company}`,
+                        'advertisement'
+                    );
+                    if (!modResult.approved) {
+                        adStatus = 'rejected';
+                        rejectionReason = modResult.reason;
+                    }
+                } catch(modErr) {
+                    console.warn('Ad moderation failed, defaulting to active:', modErr.message);
+                }
+
+                const now = Date.now();
+                const endDate = adStatus === 'active' ? now + (_bannerDays * 24 * 60 * 60 * 1000) : null;
+
                 await db.collection('adCampaigns').add({
                     advertiserUid: currentUser.uid,
                     advertiserCompanyName: company,
@@ -2618,15 +2638,23 @@ async function submitBannerCampaign() {
                     paymentTxHash: txHash,
                     creative: { headline, body },
                     targetUrl: url,
-                    status: 'pending_review',
+                    status: adStatus,
+                    rejectionReason,
                     impressions: 0,
                     clicks: 0,
-                    startDate: null,
-                    endDate: null,
+                    startDate: adStatus === 'active' ? now : null,
+                    endDate,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
+
                 document.getElementById('banner-campaign-modal').classList.add('hidden');
-                alert('✅ Banner campaign submitted for review. Our team will approve it within 24 hours.');
+
+                if (adStatus === 'rejected') {
+                    alert(`❌ Ad rejected by automated review.\n\nReason: ${rejectionReason}\n\nYour NQV8 payment has been processed but the ad will not run. Please revise and resubmit.`);
+                } else {
+                    alert('✅ Banner campaign is now live! It will appear across the platform immediately.');
+                    loadAdBanner();
+                }
                 switchAdvertiseTab('campaigns');
             } catch(e) {
                 alert('Failed: ' + e.message);
