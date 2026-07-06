@@ -8352,7 +8352,22 @@ async function startVideoCall() {
                                 🔐 Submit for Verification
                             </button>` : ''}
                         `;
-                        card.onclick = () => showCompanyDetail(c.id, c);
+                        card.onclick = () => {
+                            if (c.role !== 'owner') {
+                                // Non-owner — just show the detail view
+                                showCompanyDetail(c.id, c);
+                                return;
+                            }
+                            // Owner — navigate to Studio and open the correct tab
+                            navigateTo('studio');
+                            setTimeout(() => {
+                                const isGrow = c.projectStatus === 'live' || c.verificationStatus === 'verified' || c.equityRegistered;
+                                switchStudioTab(isGrow ? 'grow' : 'build');
+                                // Open the company detail modal from within Studio
+                                setTimeout(() => showCompanyDetail(c.id, c), 300);
+                            }, 300);
+                        };
+                        
 
                         // Active/Inactive toggle (owner only)
                         if (c.role === 'owner') {
