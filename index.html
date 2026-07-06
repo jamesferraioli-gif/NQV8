@@ -6078,7 +6078,7 @@ async function createProfile() {
                     </div>
                 `;
                 card.addEventListener('click', (e) => {
-                    if (e.target.closest('.bookmark-btn') || e.target.closest('[onclick]')) return;
+                    if (e.target.closest('button') || e.target.closest('[onclick]')) return;
                     showSubprojectDetail(p.id, p);
                 });
                 grid.appendChild(card);
@@ -9200,18 +9200,21 @@ async function viewUserProfile(uid) {
                             <p class="text-xs text-violet-400">Posted by @${post.username}</p>
                             <div class="flex items-center gap-2">
                                 ${currentUser && post.posterUid === currentUser.uid ? `
-                                <button onclick="event.stopPropagation(); showSponsorPostModal('${doc.id}', '${(post.title||'').replace(/'/g,"\\'")}')"
+                                <button onclick="event.stopPropagation(); showSponsorPostModal('${docId}', '${(post.title||'').replace(/'/g,"\\'")}')"
                                         class="px-3 py-1.5 rounded-xl text-xs font-medium bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 transition-colors">
                                     🚀 Promote
                                 </button>` : ''}
-                                <button onclick="event.stopPropagation(); togglePostLike('${doc.id}', ${hasLiked})"
+                                <button onclick="event.stopPropagation(); togglePostLike('${docId}', ${hasLiked})"
                                         class="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium transition-colors ${hasLiked ? 'bg-cyan-500/20 text-cyan-400' : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'}">
                                     👍 <span id="likes-${doc.id}">${post.likes || 0}</span>
                                 </button>
                             </div>
                         </div>
                     `;
-                    card.onclick = () => viewPostDetail(docId, post);
+                    card.addEventListener('click', (e) => {
+                        if (e.target.closest('button') || e.target.closest('[onclick]')) return;
+                        viewPostDetail(docId, post);
+                    });
                     grid.appendChild(card);
 
                     if (post.link) loadLinkPreview(docId, post.link);
