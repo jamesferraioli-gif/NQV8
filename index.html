@@ -7522,10 +7522,21 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                 const hasEscrow = escrowId !== '0x0000000000000000000000000000000000000000000000000000000000000000';
 
 if (hasEscrow) {
-                    const releaseTx = await escrowContract.releaseEscrow(escrowId);
-                    await releaseTx.wait();
-
-                    const projectRef = db.collection("subprojects").doc(currentProjectId);
+                    // Record USDC platform fee for monthly rewards distribution
+                    try {
+                        const isUSDC = currentProject.compensationType === 'usdc' || 
+                                       currentProject.compensationType === 'cash' ||
+                                       (currentProject.compensation || '').toLowerCase().includes('usdc');
+                        if (isUSDC) {
+                            const compensationNum = parseFloat((currentProject.compensation || '0').replace(/[^0-9.]/g, '')) || 0;
+                            if (compensationNum > 0) {
+                                const platformFeeUSDC = compensationNum * 0.035;
+                                await recordProtocolFee(platformFeeUSDC, 'escrow-release', releaseTx.hash);
+                            }
+                        }
+                    } catch(feeErr) {
+                        console.warn('Failed to record protocol fee:', feeErr.message);
+                    }
                     const updatedSubmissions = [...currentProject.submissions];
                     updatedSubmissions[submissionIndex].status = 'accepted';
 
