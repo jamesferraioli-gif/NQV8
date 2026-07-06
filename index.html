@@ -9004,6 +9004,7 @@ async function viewUserProfile(uid) {
         };
 
         function showWelcomeModal() {
+            if (localStorage.getItem('nqvate_welcomed')) return;
             const modal = document.getElementById('welcome-modal');
             if (modal) modal.classList.remove('hidden');
             switchWelcomeTab('overview');
@@ -9012,6 +9013,7 @@ async function viewUserProfile(uid) {
         function closeWelcomeModal() {
             const modal = document.getElementById('welcome-modal');
             if (modal) modal.classList.add('hidden');
+            localStorage.setItem('nqvate_welcomed', '1');
         }
 
         function showPostIdeaModal() {
