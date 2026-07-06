@@ -1777,8 +1777,8 @@
 
     <!-- ADMIN TAB -->
     <div id="advertise-admin" class="advertise-tab-content hidden">
-        <h2 class="text-xl font-semibold mb-2">Moderation Queue</h2>
-        <p class="text-zinc-500 text-sm mb-6">Banner ad campaigns pending review.</p>
+        <h2 class="text-xl font-semibold mb-2">⚙️ All Campaigns</h2>
+        <p class="text-zinc-500 text-sm mb-6">Platform-wide ad campaign overview — all advertisers, all placements.</p>
         <div id="admin-moderation-list">
             <p class="text-zinc-400 animate-pulse">Loading...</p>
         </div>
@@ -2522,11 +2522,11 @@ async function loadAdminModerationQueue() {
 
     try {
         const snap = await db.collection('adCampaigns')
-            .where('status', '==', 'pending_review')
+            .orderBy('createdAt', 'desc')
             .get();
 
         if (snap.empty) {
-            container.innerHTML = '<p class="text-zinc-400">No campaigns pending review. ✅</p>';
+            container.innerHTML = '<p class="text-zinc-400">No campaigns yet.</p>';
             return;
         }
 
@@ -2542,15 +2542,9 @@ async function loadAdminModerationQueue() {
                     </div>
                     <p class="text-zinc-400 text-sm mb-2">${c.creative?.body || ''}</p>
                     ${c.targetUrl ? `<p class="text-cyan-400 text-xs mb-4">${c.targetUrl}</p>` : ''}
-                    <div class="flex gap-3">
-                        <button onclick="approveCampaign('${doc.id}')"
-                                class="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-2xl text-sm transition-colors">
-                            ✅ Approve
-                        </button>
-                        <button onclick="rejectCampaign('${doc.id}')"
-                                class="flex-1 py-3 bg-red-600/80 hover:bg-red-500 text-white font-semibold rounded-2xl text-sm transition-colors">
-                            ❌ Reject
-                        </button>
+                    <div class="flex justify-between text-xs text-zinc-500 mt-2">
+                        <span>@${c.advertiserCompanyName || 'Unknown'}</span>
+                        <span>${c.startDate ? new Date(c.startDate).toLocaleDateString() : 'Pending'} → ${c.endDate ? new Date(c.endDate).toLocaleDateString() : '—'}</span>
                     </div>
                 </div>`;
         }).join('');
