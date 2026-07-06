@@ -8353,21 +8353,12 @@ async function startVideoCall() {
                             </button>` : ''}
                         `;
                         card.onclick = () => {
-                            if (c.role !== 'owner') {
-                                // Non-owner — just show the detail view
+                            if (c.role === 'owner') {
+                                showCompanyManageModal(c.id, c);
+                            } else {
                                 showCompanyDetail(c.id, c);
-                                return;
                             }
-                            // Owner — navigate to Studio and open the correct tab
-                            navigateTo('studio');
-                            setTimeout(() => {
-                                const isGrow = c.projectStatus === 'live' || c.verificationStatus === 'verified' || c.equityRegistered;
-                                switchStudioTab(isGrow ? 'grow' : 'build');
-                                // Open the company detail modal from within Studio
-                                setTimeout(() => showCompanyDetail(c.id, c), 300);
-                            }, 300);
                         };
-                        
 
                         // Active/Inactive toggle (owner only)
                         if (c.role === 'owner') {
@@ -14637,6 +14628,73 @@ async function loadGrowTab() {
     }
 }
 
+// ====================== COMPANY MANAGE MODAL (Profile Tab) ======================
+function showCompanyManageModal(companyId, company) {
+    document.getElementById('company-manage-modal')?.remove();
+
+    const isVerified = company.verificationStatus === 'verified';
+    const isFounder = currentUser && currentUser.uid === '5t0gD2wVnqXXPAQEzfoahx3EIPp2'
+                   && companyId === 'pWNOaKZoEPE733XSXuYm';
+
+    const modal = document.createElement('div');
+    modal.id = 'company-manage-modal';
+    modal.className = 'fixed inset-0 bg-black/80 flex items-center justify-center z-[99999] overflow-y-auto py-6';
+    modal.innerHTML = `
+        <div class="bg-zinc-900 w-full max-w-sm mx-4 rounded-3xl p-6 my-auto">
+            <div class="flex justify-between items-center mb-1">
+                <h2 class="text-xl font-bold">${company.name}</h2>
+                <button onclick="document.getElementById('company-manage-modal').remove()" class="text-2xl leading-none text-zinc-400 hover:text-white">×</button>
+            </div>
+            <div class="flex items-center gap-2 mb-6">
+                <span class="text-xs px-2 py-1 rounded-full ${isVerified ? 'bg-emerald-400/20 text-emerald-400' : 'bg-zinc-700 text-zinc-400'}">
+                    ${isVerified ? '✅ Verified' : '⚪ Unverified'}
+                </span>
+                <span class="text-xs px-2 py-1 rounded-full ${company.projectStatus === 'live' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}">
+                    ${company.projectStatus === 'live' ? '🟢 Live' : '🔨 In Development'}
+                </span>
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <div class="bg-zinc-800 rounded-2xl p-3 text-center">
+                    <p class="text-xs text-zinc-500 mb-1">Revenue</p>
+                    <p class="font-semibold text-sm">${company.revenueBucket || '—'}</p>
+                </div>
+                <div class="bg-zinc-800 rounded-2xl p-3 text-center">
+                    <p class="text-xs text-zinc-500 mb-1">Users</p>
+                    <p class="font-semibold text-sm">${company.usersBucket || '—'}</p>
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <button onclick="document.getElementById('company-manage-modal').remove(); showVerifyMetricsModal('${companyId}', ${JSON.stringify(company).replace(/"/g, '&quot;')})"
+                        class="w-full py-3 bg-gradient-to-r from-cyan-400 to-violet-500 text-black text-sm font-semibold rounded-xl">
+                    ${company.metricsVerified ? '🔄 Re-verify & Regenerate Deck ($5 NQV8)' : '✨ Verify Metrics & Generate Deck ($5 NQV8)'}
+                </button>
+                <button onclick="document.getElementById('company-manage-modal').remove(); showPostFundingModalForProject('${companyId}', '${(company.name||'').replace(/'/g,"\\'")}', ${isVerified})"
+                        class="w-full py-3 border border-zinc-600 text-zinc-300 text-sm rounded-xl hover:bg-zinc-800">
+                    💰 Post Funding Request
+                </button>
+                <button onclick="document.getElementById('company-manage-modal').remove(); showCapTable('${companyId}', '${(company.name||'').replace(/'/g,"\\'")}' )"
+                        class="w-full py-3 border border-zinc-600 text-zinc-300 text-sm rounded-xl hover:bg-zinc-800">
+                    📊 View Cap Table
+                </button>
+                <button onclick="document.getElementById('company-manage-modal').remove(); showCompanyDetail('${companyId}', ${JSON.stringify(company).replace(/"/g, '&quot;')})"
+                        class="w-full py-3 border border-zinc-600 text-zinc-300 text-sm rounded-xl hover:bg-zinc-800">
+                    ⚙️ Manage
+                </button>
+                ${isFounder ? `
+                <button onclick="document.getElementById('company-manage-modal').remove(); showFounderControls()"
+                        class="w-full py-3 bg-gradient-to-r from-violet-600 to-violet-500 text-white text-sm font-semibold rounded-xl">
+                    🔐 Founder Controls
+                </button>
+                <button onclick="document.getElementById('company-manage-modal').remove(); showAdminSupportQueue()"
+                        class="w-full py-3 bg-zinc-700 hover:bg-zinc-600 text-white text-sm rounded-xl">
+                    🎫 User Support Queue
+                </button>` : ''}
+            </div>
+        </div>`;
+    document.body.appendChild(modal);
+}
 // ====================== SUPPORT SYSTEM ======================
 function showSupportModal() {
     if (!currentUser) return alert('Please log in to submit a support ticket.');
