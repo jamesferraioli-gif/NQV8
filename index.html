@@ -6077,7 +6077,10 @@ async function createProfile() {
                         </button>` : ''}
                     </div>
                 `;
-                card.onclick = () => showSubprojectDetail(p.id, p);
+                card.addEventListener('click', (e) => {
+                    if (e.target.closest('.bookmark-btn') || e.target.closest('[onclick]')) return;
+                    showSubprojectDetail(p.id, p);
+                });
                 grid.appendChild(card);
             });
         }
