@@ -7522,16 +7522,38 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                 const hasEscrow = escrowId !== '0x0000000000000000000000000000000000000000000000000000000000000000';
 
 if (hasEscrow) {
-                    // Record USDC platform fee for monthly rewards distribution
+                    // Deposit USDC platform fee into Rewards contract + record in Firestore
                     try {
-                        const isUSDC = currentProject.compensationType === 'usdc' || 
+                        const isUSDC = currentProject.compensationType === 'usdc' ||
                                        currentProject.compensationType === 'cash' ||
                                        (currentProject.compensation || '').toLowerCase().includes('usdc');
                         if (isUSDC) {
                             const compensationNum = parseFloat((currentProject.compensation || '0').replace(/[^0-9.]/g, '')) || 0;
                             if (compensationNum > 0) {
                                 const platformFeeUSDC = compensationNum * 0.035;
+
+                                // 1. Record in Firestore for distribution tracking
                                 await recordProtocolFee(platformFeeUSDC, 'escrow-release', releaseTx.hash);
+
+                                // 2. Deposit into on-chain Rewards contract pool
+                                fetch('/api/deposit-escrow-fee', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${window.__CRON_SECRET__ || ''}`
+                                    },
+                                    body: JSON.stringify({
+                                        bountyAmountUSDC: compensationNum,
+                                        escrowTxHash: releaseTx.hash,
+                                        subprojectId: currentProjectId
+                                    })
+                                }).then(r => r.json()).then(result => {
+                                    if (result.success) {
+                                        console.log(`✅ $${platformFeeUSDC.toFixed(4)} USDC deposited into rewards pool`);
+                                    } else {
+                                        console.warn('deposit-escrow-fee failed:', result.error);
+                                    }
+                                }).catch(e => console.warn('deposit-escrow-fee error:', e.message));
                             }
                         }
                     } catch(feeErr) {
