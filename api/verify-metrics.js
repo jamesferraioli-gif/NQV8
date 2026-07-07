@@ -76,24 +76,43 @@ Respond ONLY with valid JSON:
 Respond with JSON only, no other text.`
         });
 
-        const response = await fetch("https://api.anthropic.com/v1/messages", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-                "x-api-key": process.env.ANTHROPIC_API_KEY,
-                "anthropic-version": "2023-06-01"
-            },
-            body: JSON.stringify({
-                model: "claude-sonnet-4-6",
-                max_tokens: 2000,
-                messages: [{ role: "user", content: contentBlocks }]
-            })
-        });
+        // ── Call Claude API with auto-retry on overload ───────────────────
+        let data;
+        const MAX_RETRIES = 3;
 
-        const data = await response.json();
+        for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+            const response = await fetch("https://api.anthropic.com/v1/messages", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "x-api-key": process.env.ANTHROPIC_API_KEY,
+                    "anthropic-version": "2023-06-01"
+                },
+                body: JSON.stringify({
+                    model: "claude-sonnet-4-6",
+                    max_tokens: 2000,
+                    messages: [{ role: "user", content: contentBlocks }]
+                })
+            });
+
+            data = await response.json();
+
+            // Retry on overload
+            if (data.error?.type === 'overloaded_error' && attempt < MAX_RETRIES) {
+                const delay = 3000 * attempt; // 3s, 6s
+                await new Promise(r => setTimeout(r, delay));
+                continue;
+            }
+
+            // Success or non-retryable error — stop retrying
+            break;
+        }
 
         if (!data.content) {
-            return new Response(JSON.stringify({ metricsVerified: false, summary: "API error: " + JSON.stringify(data) }), {
+            return new Response(JSON.stringify({ 
+                metricsVerified: false, 
+                summary: "API error: " + JSON.stringify(data) 
+            }), {
                 status: 200, headers: { 'Content-Type': 'application/json' }
             });
         }
@@ -104,8 +123,7 @@ Respond with JSON only, no other text.`
         try {
             const parsed = JSON.parse(resultText);
 
-            // Safety net: if no docs were provided and claimed pre-revenue/pre-launch,
-            // always treat as verified regardless of what Claude returned
+            // Safety net: if no docs provided, always treat as verified
             if (!hasDocuments) {
                 parsed.metricsVerified = true;
                 parsed.issues = [];
@@ -118,13 +136,19 @@ Respond with JSON only, no other text.`
                 status: 200, headers: { 'Content-Type': 'application/json' }
             });
         } catch {
-            return new Response(JSON.stringify({ metricsVerified: false, summary: "Could not parse response" }), {
+            return new Response(JSON.stringify({ 
+                metricsVerified: false, 
+                summary: "Could not parse response" 
+            }), {
                 status: 200, headers: { 'Content-Type': 'application/json' }
             });
         }
 
     } catch(e) {
-        return new Response(JSON.stringify({ metricsVerified: false, summary: "Service error: " + e.message }), {
+        return new Response(JSON.stringify({ 
+            metricsVerified: false, 
+            summary: "Service error: " + e.message 
+        }), {
             status: 200, headers: { 'Content-Type': 'application/json' }
         });
     }
