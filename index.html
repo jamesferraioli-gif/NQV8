@@ -3755,7 +3755,12 @@ async function submitMetricsVerification() {
 
         const result = await response.json();
 
-        if (result.metricsVerified && result.confidence !== 'low') {
+        // Route technical API errors to catch block so refund triggers
+            if (result.summary?.includes('API error') || result.summary?.includes('overloaded') || result.summary?.includes('Service error')) {
+                throw new Error(result.summary);
+            }
+
+            if (result.metricsVerified && result.confidence !== 'low') {
             // Store verified metrics + deck in Firestore
             await db.collection('companies').doc(verifyMetricsCompanyId).update({
                 metricsVerified: true,
@@ -3805,7 +3810,33 @@ async function submitMetricsVerification() {
     } catch(e) {
         btn.disabled = false;
         btn.textContent = 'Pay $5.00 in NQV8 & Verify';
-        alert('❌ Error: ' + e.message);
+
+        // Auto-refund on technical errors
+        try {
+            const metricsNQV8Amount = await usdToNQV8(5.00);
+            fetch('/api/refund-nqv8', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer nqvate-internal-2026`
+                },
+                body: JSON.stringify({
+                    recipientAddress: connectedAddress,
+                    nqv8Amount: metricsNQV8Amount,
+                    reason: 'verify-metrics technical error: ' + e.message
+                })
+            }).then(r => r.json()).then(refund => {
+                if (refund.success) {
+                    alert(`❌ Verification failed due to a technical error — your ${metricsNQV8Amount.toFixed(2)} NQV8 has been refunded automatically.\n\nPlease try again in a few minutes.\n\nError: ${e.message}`);
+                } else {
+                    alert(`❌ Verification failed due to a technical error. Refund could not be processed automatically — please contact support.\n\nError: ${e.message}`);
+                }
+            }).catch(() => {
+                alert(`❌ Verification failed due to a technical error. Please contact support for a refund.\n\nError: ${e.message}`);
+            });
+        } catch(refundErr) {
+            alert(`❌ Verification failed due to a technical error. Please contact support for a refund.\n\nError: ${e.message}`);
+        }
     }
 }
 
@@ -15174,7 +15205,7 @@ async function founderRelease() {
         <p class="text-zinc-400 text-sm mb-6">Upload proof of your revenue and user metrics. Documents are reviewed by Claude AI and immediately deleted — only the verified ranges are stored.</p>
 
         <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 mb-6">
-            <p class="text-amber-400 text-xs">💰 Cost: $5.00 in NQV8 (non-refundable) · Includes metric verification + investor deck generation</p>
+            <p class="text-amber-400 text-xs">💰 Cost: $5.00 in NQV8 · Includes metric verification + investor deck generation · Automatically refunded on technical errors</p>
         </div>
 
         <div class="space-y-4 mb-6">
