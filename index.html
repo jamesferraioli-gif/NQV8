@@ -3848,6 +3848,15 @@ function showInvestorDeck(companyId, company) {
 
     document.getElementById('deck-company-name').textContent = company.name;
 
+    // Store for save function
+    document.getElementById('investor-deck-modal').dataset.companyId = companyId;
+    document.getElementById('investor-deck-modal').dataset.editing = 'false';
+
+    // Show edit button only to owner
+    const isOwner = currentUser && company.ownerUid === currentUser.uid;
+    document.getElementById('deck-edit-btn').classList.toggle('hidden', !isOwner);
+    document.getElementById('deck-save-btn').classList.add('hidden');
+
     const revBadge = company.revenueBucket ? `<span class="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-sm">💰 ${company.revenueBucket}</span>` : '';
     const userBadge = company.usersBucket ? `<span class="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-sm">👥 ${company.usersBucket}</span>` : '';
     const verifiedDate = company.metricsVerifiedAt?.toDate ? new Date(company.metricsVerifiedAt.toDate()).toLocaleDateString() : '';
@@ -3859,7 +3868,7 @@ function showInvestorDeck(companyId, company) {
                 ${company.name[0]}
             </div>
             <h1 class="text-5xl font-bold mb-4">${company.name}</h1>
-            <p class="text-xl text-zinc-300 max-w-2xl mx-auto mb-6">${deck.tagline}</p>
+            <p id="deck-field-tagline" class="text-xl text-zinc-300 max-w-2xl mx-auto mb-6">${deck.tagline}</p>
             <div class="flex gap-3 justify-center flex-wrap">
                 ${revBadge}
                 ${userBadge}
@@ -3871,7 +3880,7 @@ function showInvestorDeck(companyId, company) {
         <!-- Highlights -->
         <div class="bg-gradient-to-br from-cyan-500/10 to-violet-500/10 border border-cyan-500/20 rounded-3xl p-8">
             <h2 class="text-2xl font-bold mb-6">✨ Highlights</h2>
-            <div class="space-y-3">
+            <div id="deck-field-highlights" class="space-y-3">
                 ${(deck.highlights || []).map(h => `
                     <div class="flex items-start gap-3">
                         <span class="text-cyan-400 mt-0.5 flex-shrink-0">→</span>
@@ -3884,13 +3893,13 @@ function showInvestorDeck(companyId, company) {
         <!-- Problem -->
         <div class="bg-zinc-900 rounded-3xl p-8">
             <h2 class="text-2xl font-bold mb-4 text-red-400">🎯 The Problem</h2>
-            <p class="text-zinc-300 leading-relaxed text-lg">${deck.problem}</p>
+            <p id="deck-field-problem" class="text-zinc-300 leading-relaxed text-lg">${deck.problem}</p>
         </div>
 
         <!-- Solution -->
         <div class="bg-zinc-900 rounded-3xl p-8">
             <h2 class="text-2xl font-bold mb-4 text-emerald-400">💡 The Solution</h2>
-            <p class="text-zinc-300 leading-relaxed text-lg">${deck.solution}</p>
+            <p id="deck-field-solution" class="text-zinc-300 leading-relaxed text-lg">${deck.solution}</p>
         </div>
 
         <!-- Traction -->
@@ -3910,31 +3919,31 @@ function showInvestorDeck(companyId, company) {
                     <p class="text-xs text-cyan-600 mt-1">Claude-verified</p>
                 </div>` : ''}
             </div>
-            <p class="text-zinc-300 leading-relaxed">${deck.traction}</p>
+            <p id="deck-field-traction" class="text-zinc-300 leading-relaxed">${deck.traction}</p>
         </div>
 
         <!-- Market Opportunity -->
         <div class="bg-zinc-900 rounded-3xl p-8">
             <h2 class="text-2xl font-bold mb-4 text-violet-400">🌐 Market Opportunity</h2>
-            <p class="text-zinc-300 leading-relaxed text-lg">${deck.marketOpportunity}</p>
+            <p id="deck-field-marketOpportunity" class="text-zinc-300 leading-relaxed text-lg">${deck.marketOpportunity}</p>
         </div>
 
         <!-- Business Model -->
         <div class="bg-zinc-900 rounded-3xl p-8">
             <h2 class="text-2xl font-bold mb-4 text-amber-400">💼 Business Model</h2>
-            <p class="text-zinc-300 leading-relaxed text-lg">${deck.businessModel}</p>
+            <p id="deck-field-businessModel" class="text-zinc-300 leading-relaxed text-lg">${deck.businessModel}</p>
         </div>
 
         <!-- Why Now -->
         <div class="bg-zinc-900 rounded-3xl p-8">
             <h2 class="text-2xl font-bold mb-4 text-pink-400">⚡ Why Now</h2>
-            <p class="text-zinc-300 leading-relaxed text-lg">${deck.whyNow}</p>
+            <p id="deck-field-whyNow" class="text-zinc-300 leading-relaxed text-lg">${deck.whyNow}</p>
         </div>
 
         <!-- Use of Funds -->
         <div class="bg-zinc-900 rounded-3xl p-8">
             <h2 class="text-2xl font-bold mb-4 text-cyan-400">🎯 Use of Funds</h2>
-            <p class="text-zinc-300 leading-relaxed text-lg">${deck.useOfFunds}</p>
+            <p id="deck-field-useOfFunds" class="text-zinc-300 leading-relaxed text-lg">${deck.useOfFunds}</p>
         </div>
 
         <!-- Disclaimer -->
@@ -3942,7 +3951,6 @@ function showInvestorDeck(companyId, company) {
             <p class="text-xs text-zinc-500">This investor deck was generated by Claude AI based on founder-submitted information and Claude-verified metrics. NQVate is not a broker, advisor, or party to any investment. Always do your own due diligence.</p>
         </div>
     `;
-
     document.getElementById('investor-deck-modal').classList.remove('hidden');
 }
         console.log("✅ SCRIPT LOADED SUCCESSFULLY");
@@ -3964,6 +3972,84 @@ function showInvestorDeck(companyId, company) {
         let currentUser = null;
         let currentMarketplaceFilter = 'build'; // default to Build Requests
 
+    // ====================== INVESTOR DECK EDITING ======================
+function toggleDeckEdit() {
+    const modal = document.getElementById('investor-deck-modal');
+    const isEditing = modal.dataset.editing === 'true';
+
+    if (isEditing) {
+        // Cancel — re-render original
+        const companyId = modal.dataset.companyId;
+        modal.dataset.editing = 'false';
+        document.getElementById('deck-edit-btn').textContent = '✏️ Edit';
+        document.getElementById('deck-save-btn').classList.add('hidden');
+        // Reload from Firestore to restore original
+        db.collection('companies').doc(companyId).get().then(doc => {
+            if (doc.exists) showInvestorDeck(companyId, { id: doc.id, ...doc.data() });
+        });
+    } else {
+        // Enter edit mode — replace text with textareas
+        modal.dataset.editing = 'true';
+        document.getElementById('deck-edit-btn').textContent = '✕ Cancel';
+        document.getElementById('deck-save-btn').classList.remove('hidden');
+
+        const fields = ['tagline','problem','solution','traction','marketOpportunity','businessModel','whyNow','useOfFunds'];
+        fields.forEach(field => {
+            const el = document.getElementById(`deck-field-${field}`);
+            if (el) {
+                const current = el.textContent;
+                el.innerHTML = `<textarea
+                    class="w-full bg-zinc-800 border border-zinc-600 rounded-xl px-4 py-3 outline-none text-sm text-zinc-200 leading-relaxed resize-none"
+                    rows="4"
+                    data-field="${field}">${current}</textarea>`;
+            }
+        });
+
+        // Edit highlights as a list
+        const highlightsEl = document.getElementById('deck-field-highlights');
+        if (highlightsEl) {
+            const items = [...highlightsEl.querySelectorAll('p')].map(p => p.textContent).join('\n');
+            highlightsEl.innerHTML = `<textarea
+                class="w-full bg-zinc-800 border border-zinc-600 rounded-xl px-4 py-3 outline-none text-sm text-zinc-200 leading-relaxed resize-none"
+                rows="6"
+                data-field="highlights"
+                placeholder="One highlight per line">${items}</textarea>`;
+        }
+    }
+}
+
+async function saveDeckEdits() {
+    const modal = document.getElementById('investor-deck-modal');
+    const companyId = modal.dataset.companyId;
+    if (!companyId || !currentUser) return;
+
+    const updated = {};
+    document.querySelectorAll('#deck-content textarea[data-field]').forEach(ta => {
+        const field = ta.dataset.field;
+        if (field === 'highlights') {
+            updated[field] = ta.value.split('\n').map(l => l.trim()).filter(Boolean);
+        } else {
+            updated[field] = ta.value.trim();
+        }
+    });
+
+    try {
+        await db.collection('companies').doc(companyId).update({
+            investorDeck: updated
+        });
+
+        modal.dataset.editing = 'false';
+        document.getElementById('deck-edit-btn').textContent = '✏️ Edit';
+        document.getElementById('deck-save-btn').classList.add('hidden');
+
+        // Reload the deck with updated content
+        const doc = await db.collection('companies').doc(companyId).get();
+        showInvestorDeck(companyId, { id: doc.id, ...doc.data() });
+        alert('✅ Deck saved successfully.');
+    } catch(e) {
+        alert('Failed to save: ' + e.message);
+    }
+}
 
 // ============================================================
 // BLOCKCHAIN CONFIG — Arbitrum One
@@ -15191,10 +15277,18 @@ async function founderRelease() {
                 <p class="text-xs text-zinc-400">Investor Deck · Confidential · NQVate</p>
             </div>
         </div>
-        <button onclick="document.getElementById('investor-deck-modal').classList.add('hidden')" 
-                class="text-zinc-400 hover:text-white px-4 py-2 border border-zinc-700 rounded-xl text-sm">
-            Close
-        </button>
+        <div class="flex items-center gap-2">
+            <button id="deck-edit-btn" onclick="toggleDeckEdit()" class="hidden text-zinc-400 hover:text-white px-4 py-2 border border-zinc-700 rounded-xl text-sm">
+                ✏️ Edit
+            </button>
+            <button id="deck-save-btn" onclick="saveDeckEdits()" class="hidden px-4 py-2 bg-cyan-500 text-black font-semibold rounded-xl text-sm">
+                💾 Save
+            </button>
+            <button onclick="document.getElementById('investor-deck-modal').classList.add('hidden')" 
+                    class="text-zinc-400 hover:text-white px-4 py-2 border border-zinc-700 rounded-xl text-sm">
+                Close
+            </button>
+        </div>
     </div>
     <div id="deck-content" class="flex-1 max-w-4xl mx-auto w-full px-6 py-10 space-y-10">
         <!-- Populated by JS -->
