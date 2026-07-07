@@ -2306,6 +2306,22 @@
     
 <script>
 
+function shareDeckLink() {
+    const modal = document.getElementById('investor-deck-modal');
+    const companyId = modal.dataset.companyId;
+    if (!companyId) return;
+
+    const shareUrl = `${window.location.origin}?deck=${companyId}`;
+    
+    if (navigator.clipboard) {
+        navigator.clipboard.writeText(shareUrl).then(() => {
+            alert('✅ Deck link copied to clipboard!\n\n' + shareUrl);
+        });
+    } else {
+        prompt('Copy this link to share the deck:', shareUrl);
+    }
+}
+
 // ====================== ADVERTISE PAGE ======================
 const ADMIN_UIDS = ['5t0gD2wVnqXXPAQEzfoahx3EIPp2'];
 let _bannerDays = null;
@@ -9061,8 +9077,19 @@ async function viewUserProfile(uid) {
         }
 
         // ====================== INITIAL LOAD ======================
-        window.onload = () => {
+       window.onload = () => {
         loadAdBanner();
+
+        // Auto-open deck if ?deck= param in URL
+        const deckParam = new URLSearchParams(window.location.search).get('deck');
+        if (deckParam) {
+            db.collection('companies').doc(deckParam).get().then(doc => {
+                if (doc.exists && doc.data().investorDeck && doc.data().metricsVerified) {
+                    setTimeout(() => showInvestorDeck(doc.id, { id: doc.id, ...doc.data() }), 1000);
+                }
+            });
+        }
+
         // Capture referral code from URL
         const urlParams = new URLSearchParams(window.location.search);
         const refCode   = urlParams.get('ref');
@@ -15284,6 +15311,10 @@ async function founderRelease() {
             </button>
             <button id="deck-save-btn" onclick="saveDeckEdits()" class="hidden px-4 py-2 bg-cyan-500 text-black font-semibold rounded-xl text-sm">
                 💾 Save
+            </button>
+            <button onclick="shareDeckLink()" 
+                    class="text-zinc-400 hover:text-white px-4 py-2 border border-zinc-700 rounded-xl text-sm">
+                🔗 Share
             </button>
             <button onclick="document.getElementById('investor-deck-modal').classList.add('hidden')" 
                     class="text-zinc-400 hover:text-white px-4 py-2 border border-zinc-700 rounded-xl text-sm">
