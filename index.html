@@ -14660,8 +14660,14 @@ async function loadGrowTab() {
 }
 
 // ====================== COMPANY MANAGE MODAL (Profile Tab) ======================
+// Store company data globally so modal buttons can reference it safely
+window._manageModalCompany = null;
+window._manageModalCompanyId = null;
+
 function showCompanyManageModal(companyId, company) {
     document.getElementById('company-manage-modal')?.remove();
+    window._manageModalCompany = company;
+    window._manageModalCompanyId = companyId;
 
     const isVerified = company.verificationStatus === 'verified';
     const isFounder = currentUser && currentUser.uid === '5t0gD2wVnqXXPAQEzfoahx3EIPp2'
@@ -14697,19 +14703,19 @@ function showCompanyManageModal(companyId, company) {
             </div>
 
             <div class="space-y-2">
-                <button onclick="document.getElementById('company-manage-modal').remove(); showVerifyMetricsModal('${companyId}', ${JSON.stringify(company).replace(/"/g, '&quot;')})"
+                <button onclick="document.getElementById('company-manage-modal').remove(); showVerifyMetricsModal(window._manageModalCompanyId, window._manageModalCompany)"
                         class="w-full py-3 bg-gradient-to-r from-cyan-400 to-violet-500 text-black text-sm font-semibold rounded-xl">
                     ${company.metricsVerified ? '🔄 Re-verify & Regenerate Deck ($5 NQV8)' : '✨ Verify Metrics & Generate Deck ($5 NQV8)'}
                 </button>
-                <button onclick="document.getElementById('company-manage-modal').remove(); showPostFundingModalForProject('${companyId}', '${(company.name||'').replace(/'/g,"\\'")}', ${isVerified})"
+                <button onclick="document.getElementById('company-manage-modal').remove(); showPostFundingModalForProject(window._manageModalCompanyId, window._manageModalCompany.name, ${isVerified})"
                         class="w-full py-3 border border-zinc-600 text-zinc-300 text-sm rounded-xl hover:bg-zinc-800">
                     💰 Post Funding Request
                 </button>
-                <button onclick="document.getElementById('company-manage-modal').remove(); showCapTable('${companyId}', '${(company.name||'').replace(/'/g,"\\'")}' )"
+                <button onclick="document.getElementById('company-manage-modal').remove(); showCapTable(window._manageModalCompanyId, window._manageModalCompany.name)"
                         class="w-full py-3 border border-zinc-600 text-zinc-300 text-sm rounded-xl hover:bg-zinc-800">
                     📊 View Cap Table
                 </button>
-                <button onclick="document.getElementById('company-manage-modal').remove(); showCompanyDetail('${companyId}', ${JSON.stringify(company).replace(/"/g, '&quot;')})"
+                <button onclick="document.getElementById('company-manage-modal').remove(); showCompanyDetail(window._manageModalCompanyId, window._manageModalCompany)"
                         class="w-full py-3 border border-zinc-600 text-zinc-300 text-sm rounded-xl hover:bg-zinc-800">
                     ⚙️ Manage
                 </button>
