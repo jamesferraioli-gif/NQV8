@@ -3678,7 +3678,7 @@ async function submitMetricsVerification() {
     const revenueDoc = document.getElementById('metric-revenue-doc').files[0];
     const usersDoc = document.getElementById('metric-users-doc').files[0];
 
-    if (!revenueDoc || !usersDoc) return alert("Please upload at least revenue and user proof documents.");
+    // Docs are optional for pre-revenue/pre-launch companies
 
     const claimedRevenue = document.getElementById('metric-claimed-revenue').value;
     const claimedUsers = document.getElementById('metric-claimed-users').value;
@@ -3728,8 +3728,8 @@ async function submitMetricsVerification() {
             reader.readAsDataURL(file);
         });
 
-        const revenueBase64 = await toBase64(revenueDoc);
-        const usersBase64 = await toBase64(usersDoc);
+        const revenueBase64 = revenueDoc ? await toBase64(revenueDoc) : null;
+        const usersBase64 = usersDoc ? await toBase64(usersDoc) : null;
         const optionalDoc = document.getElementById('metric-optional-doc').files[0];
         const optionalBase64 = optionalDoc ? await toBase64(optionalDoc) : null;
 
@@ -3739,9 +3739,9 @@ async function submitMetricsVerification() {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 revenueBase64,
-                revenueMediaType: revenueDoc.type || 'image/jpeg',
+                revenueMediaType: revenueDoc?.type || null,
                 usersBase64,
-                usersMediaType: usersDoc.type || 'image/jpeg',
+                usersMediaType: usersDoc?.type || null,
                 optionalBase64: optionalBase64 || null,
                 optionalMediaType: optionalDoc?.type || null,
                 companyName: verifyMetricsCompany.name,
@@ -15179,11 +15179,11 @@ async function founderRelease() {
 
         <div class="space-y-4 mb-6">
             <div>
-                <p class="text-sm text-zinc-400 mb-2">Revenue Proof <span class="text-zinc-500">(Stripe, PayPal, bank statement, etc.)</span></p>
+                <p class="text-sm text-zinc-400 mb-2">Revenue Proof <span class="text-zinc-500">(Stripe, PayPal, bank statement, etc.)</span> <span class="text-zinc-600 text-xs">— optional for pre-revenue</span></p>
                 <input type="file" id="metric-revenue-doc" accept=".pdf,.jpg,.png" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
             </div>
             <div>
-                <p class="text-sm text-zinc-400 mb-2">User/Customer Proof <span class="text-zinc-500">(Google Analytics, App Store, CRM, etc.)</span></p>
+                <p class="text-sm text-zinc-400 mb-2">User/Customer Proof <span class="text-zinc-500">(Google Analytics, App Store, CRM, etc.)</span> <span class="text-zinc-600 text-xs">— optional for pre-launch</span></p>
                 <input type="file" id="metric-users-doc" accept=".pdf,.jpg,.png" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
             </div>
             <div>
