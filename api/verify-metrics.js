@@ -37,7 +37,7 @@ Website: "${website || 'Not provided'}"
 Founder claims revenue: "${claimedRevenue}"
 Founder claims users: "${claimedUsers}"
 
-The documents provided are proof of revenue and/or user metrics (e.g. Stripe dashboard, Google Analytics, App Store Connect, bank statements).
+${contentBlocks.length > 1 ? 'The documents provided are proof of revenue and/or user metrics (e.g. Stripe dashboard, Google Analytics, App Store Connect, bank statements).' : 'No proof documents were provided — this is a pre-revenue or pre-launch company. Generate the deck based on the company description and claimed metrics alone.'}
 
 PART 1 - VERIFY METRICS:
 Review the documents and assign the company to the correct buckets.
