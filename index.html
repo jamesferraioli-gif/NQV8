@@ -2305,7 +2305,65 @@
 
     
 <script>
+async function showDeckHistory() {
+    const modal = document.getElementById('investor-deck-modal');
+    const companyId = modal.dataset.companyId;
+    if (!companyId) return;
 
+    const doc = await db.collection('companies').doc(companyId).get();
+    const history = doc.data()?.deckHistory || [];
+
+    if (history.length === 0) {
+        alert('No previous decks — this is your first verified deck.');
+        return;
+    }
+
+    document.getElementById('deck-history-modal')?.remove();
+    const histModal = document.createElement('div');
+    histModal.id = 'deck-history-modal';
+    histModal.className = 'fixed inset-0 bg-black/90 flex items-start justify-center z-[9999999] overflow-y-auto py-6';
+    histModal.innerHTML = `
+        <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-6 my-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold">📚 Previous Decks</h2>
+                <button onclick="document.getElementById('deck-history-modal').remove()" class="text-2xl text-zinc-400 hover:text-white">×</button>
+            </div>
+            <div class="space-y-3">
+                ${history.slice().reverse().map((entry, i) => `
+                    <div class="bg-zinc-800 rounded-2xl p-4 flex items-center justify-between">
+                        <div>
+                            <p class="font-medium text-sm">${entry.revenueBucket || 'Unknown'} · ${entry.usersBucket || 'Unknown'}</p>
+                            <p class="text-xs text-zinc-500">${entry.archivedAt?.toDate?.()?.toLocaleDateString() || 'Unknown date'}</p>
+                        </div>
+                        <button onclick="document.getElementById('deck-history-modal').remove(); showArchivedDeck(${JSON.stringify(entry.deck).replace(/"/g,'&quot;')}, '${entry.revenueBucket}', '${entry.usersBucket}')"
+                                class="px-3 py-1.5 bg-zinc-700 hover:bg-zinc-600 text-xs rounded-xl">
+                            View
+                        </button>
+                    </div>
+                `).join('')}
+            </div>
+        </div>`;
+    document.body.appendChild(histModal);
+}
+
+function showArchivedDeck(deck, revenueBucket, usersBucket) {
+    // Reuse showInvestorDeck with archived data
+    const fakeCompany = {
+        name: document.getElementById('deck-company-name').textContent,
+        investorDeck: deck,
+        revenueBucket,
+        usersBucket,
+        metricsVerifiedAt: null,
+        website: null,
+        ownerUid: null // hides edit button on archived decks
+    };
+    const companyId = document.getElementById('investor-deck-modal').dataset.companyId;
+    showInvestorDeck(companyId, fakeCompany);
+    // Mark as archived so edit button is hidden
+    document.getElementById('deck-edit-btn')?.classList.add('hidden');
+    document.getElementById('deck-save-btn')?.classList.add('hidden');
+}
+    
 function shareDeckLink() {
     const modal = document.getElementById('investor-deck-modal');
     const companyId = modal.dataset.companyId;
@@ -3779,6 +3837,19 @@ async function submitMetricsVerification() {
 
             if (result.metricsVerified && result.confidence !== 'low') {
             // Store verified metrics + deck in Firestore
+            // Archive the current deck before overwriting (if one exists)
+            const existingDoc = await db.collection('companies').doc(verifyMetricsCompanyId).get();
+            const existingDeck = existingDoc.data()?.investorDeck;
+            const existingVerifiedAt = existingDoc.data()?.metricsVerifiedAt;
+
+            const deckArchiveEntry = existingDeck ? {
+                deck: existingDeck,
+                revenueBucket: existingDoc.data()?.revenueBucket,
+                usersBucket: existingDoc.data()?.usersBucket,
+                archivedAt: existingVerifiedAt || null,
+                txHash: existingDoc.data()?.metricsVerificationTxHash || null
+            } : null;
+
             await db.collection('companies').doc(verifyMetricsCompanyId).update({
                 metricsVerified: true,
                 metricsVerifiedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -3787,6 +3858,10 @@ async function submitMetricsVerification() {
                 revenueBucket: result.revenueBucket,
                 usersBucket: result.usersBucket,
                 investorDeck: result.deck,
+                // Keep history of all previous decks
+                deckHistory: deckArchiveEntry
+                    ? firebase.firestore.FieldValue.arrayUnion(deckArchiveEntry)
+                    : firebase.firestore.FieldValue.arrayUnion(),
                 metricsVerificationResult: {
                     revenueBucket: result.revenueBucket,
                     usersBucket: result.usersBucket,
@@ -15311,6 +15386,10 @@ async function founderRelease() {
             </button>
             <button id="deck-save-btn" onclick="saveDeckEdits()" class="hidden px-4 py-2 bg-cyan-500 text-black font-semibold rounded-xl text-sm">
                 💾 Save
+            </button>
+            <button onclick="showDeckHistory()" 
+                    class="text-zinc-400 hover:text-white px-4 py-2 border border-zinc-700 rounded-xl text-sm">
+                📚 History
             </button>
             <button onclick="shareDeckLink()" 
                     class="text-zinc-400 hover:text-white px-4 py-2 border border-zinc-700 rounded-xl text-sm">
