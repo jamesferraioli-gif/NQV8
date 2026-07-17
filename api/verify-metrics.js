@@ -4,15 +4,15 @@ export default async function handler(req) {
     if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
 
     try {
-        const body = await req.json();
-        const { 
+        const {
             revenueBase64, revenueMediaType,
             usersBase64, usersMediaType,
             optionalBase64, optionalMediaType,
             companyName, entityType, description, website,
             claimedRevenue, claimedUsers
-        } = body;
+        } = await req.json();
 
+        const apiKey = process.env.ANTHROPIC_API_KEY;
         const hasDocuments = !!(revenueBase64 || usersBase64);
 
         const makeBlock = (base64, mediaType) => {
@@ -29,49 +29,86 @@ export default async function handler(req) {
             optionalBase64 ? makeBlock(optionalBase64, optionalMediaType) : null,
         ].filter(Boolean);
 
+        // ── Step 1: Fetch website HTML directly ───────────────────────────
+        let websiteContent = '';
+        if (website) {
+            try {
+                const url = website.startsWith('http') ? website : `https://${website}`;
+                const siteResp = await fetch(url, {
+                    headers: { 'User-Agent': 'Mozilla/5.0 (compatible; NQVate/1.0)' },
+                    signal: AbortSignal.timeout(8000)
+                });
+                const html = await siteResp.text();
+
+                // Strip HTML tags and extract readable text
+                websiteContent = html
+                    .replace(/<script[\s\S]*?<\/script>/gi, '')
+                    .replace(/<style[\s\S]*?<\/style>/gi, '')
+                    .replace(/<[^>]+>/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim()
+                    .substring(0, 3000); // First 3000 chars of readable text
+
+            } catch(e) {
+                console.warn('Website fetch failed:', e.message);
+                websiteContent = '';
+            }
+        }
+
+        // ── Step 2: Generate deck ─────────────────────────────────────────
+        const contextSection = websiteContent
+            ? `WEBSITE CONTENT (fetched directly from ${website}):\n${websiteContent}\n\nUse this website content as the primary source for the deck. It reflects what the company actually is.`
+            : `No website content available. Use the founder description below as the primary source.`;
+
         const textBlock = {
             type: "text",
-            text: `You are a startup analyst. Return ONLY a JSON object, no other text.
+            text: `You are a startup analyst writing an investor deck. Return ONLY valid JSON — no preamble, no explanation, no markdown.
 
-Company: "${companyName}", Type: "${entityType}", Website: "${website || 'N/A'}"
-Description: "${description}"
-Revenue claim: "${claimedRevenue}", Users claim: "${claimedUsers}"
-Has documents: ${hasDocuments}
+COMPANY: "${companyName}" (${entityType})
+Founder description: "${description}"
 
-${!hasDocuments ? 'No docs provided - this is valid for pre-launch. metricsVerified must be true.' : 'Review documents and verify claims.'}
+${contextSection}
 
-Return this JSON (fill in the deck fields):
-{"metricsVerified":true,"confidence":"high","revenueBucket":"${claimedRevenue}","usersBucket":"${claimedUsers}","revenueMatch":true,"usersMatch":true,"issues":[],"summary":"Verified","deck":{"tagline":"FILL","problem":"FILL","solution":"FILL","traction":"FILL","marketOpportunity":"FILL","businessModel":"FILL","whyNow":"FILL","useOfFunds":"FILL","highlights":["FILL","FILL","FILL"]}}`
+Claimed revenue: "${claimedRevenue}"
+Claimed users: "${claimedUsers}"
+Has proof documents: ${hasDocuments}
+
+${!hasDocuments ? 'No documents provided — valid for pre-launch. Set metricsVerified=true, issues=[], revenueMatch=true, usersMatch=true, confidence="high".' : 'Review the attached documents and verify the claimed metrics.'}
+
+Write a compelling, accurate investor deck based on what the company actually does. Do not invent features, revenue streams, or statistics not found in the website content or description.
+
+Revenue buckets: "Pre-revenue","$1-$500/mo","$500-$2,000/mo","$2,000-$5,000/mo","$5,000-$10,000/mo","$10,000-$25,000/mo","$25,000+/mo"
+User buckets: "Pre-launch","1-50 users","50-250 users","250-1,000 users","1,000-5,000 users","5,000-25,000 users","25,000+ users"
+
+Return ONLY this JSON structure with all fields filled in:
+{"metricsVerified":true,"confidence":"high","revenueBucket":"Pre-revenue","usersBucket":"Pre-launch","revenueMatch":true,"usersMatch":true,"issues":[],"summary":"Metrics accepted","deck":{"tagline":"","problem":"","solution":"","traction":"","marketOpportunity":"","businessModel":"","whyNow":"","useOfFunds":"","highlights":["","","","",""]}}`
         };
 
-        const messages = [{ role: "user", content: [...docBlocks, textBlock] }];
-
-        let rawResponse = '';
+        // ── Step 3: Call Claude for deck (no tools) ───────────────────────
         let data;
-
         for (let attempt = 1; attempt <= 3; attempt++) {
-            const response = await fetch("https://api.anthropic.com/v1/messages", {
+            const deckResp = await fetch("https://api.anthropic.com/v1/messages", {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "x-api-key": process.env.ANTHROPIC_API_KEY,
+                    "x-api-key": apiKey,
                     "anthropic-version": "2023-06-01"
                 },
                 body: JSON.stringify({
                     model: "claude-sonnet-4-6",
                     max_tokens: 2000,
-                    messages
+                    messages: [{ role: "user", content: [...docBlocks, textBlock] }]
                 })
             });
 
-            rawResponse = await response.text();
-            
+            const rawDeck = await deckResp.text();
+
             try {
-                data = JSON.parse(rawResponse);
+                data = JSON.parse(rawDeck);
             } catch(e) {
                 return new Response(JSON.stringify({
                     metricsVerified: false,
-                    summary: "API returned non-JSON: " + rawResponse.substring(0, 200)
+                    summary: "API returned non-JSON: " + rawDeck.substring(0, 200)
                 }), { status: 200, headers: { 'Content-Type': 'application/json' } });
             }
 
@@ -82,40 +119,31 @@ Return this JSON (fill in the deck fields):
             break;
         }
 
-        // Log what we got for debugging
-        console.log('Claude response type:', data.type, 'stop_reason:', data.stop_reason);
-        console.log('Content blocks:', JSON.stringify(data.content?.map(b => ({ type: b.type, textLen: b.text?.length }))));
-
         if (data.error) {
             return new Response(JSON.stringify({
                 metricsVerified: false,
-                summary: "API error: " + data.error.type + ' - ' + data.error.message
+                summary: "API error: " + data.error.type + ' — ' + data.error.message
             }), { status: 200, headers: { 'Content-Type': 'application/json' } });
         }
 
-        if (!data.content || !data.content.length) {
-            return new Response(JSON.stringify({
-                metricsVerified: false,
-                summary: "Empty response from API"
-            }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-        }
-
-        const textContent = data.content.find(b => b.type === 'text');
+        const textContent = (data.content || []).find(b => b.type === 'text');
         if (!textContent) {
             return new Response(JSON.stringify({
                 metricsVerified: false,
-                summary: "No text block in response. Content types: " + data.content.map(b => b.type).join(', ')
+                summary: "No text in response. Types: " + (data.content || []).map(b => b.type).join(', ')
             }), { status: 200, headers: { 'Content-Type': 'application/json' } });
         }
 
-        let resultText = textContent.text.trim();
-        resultText = resultText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        let resultText = textContent.text.trim()
+            .replace(/```json\n?/g, '')
+            .replace(/```\n?/g, '')
+            .trim();
 
         const jsonMatch = resultText.match(/\{[\s\S]*\}/);
         if (!jsonMatch) {
             return new Response(JSON.stringify({
                 metricsVerified: false,
-                summary: "Claude response was not JSON: " + resultText.substring(0, 200)
+                summary: "Response not JSON: " + resultText.substring(0, 200)
             }), { status: 200, headers: { 'Content-Type': 'application/json' } });
         }
 
