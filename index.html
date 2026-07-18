@@ -411,7 +411,7 @@
         </div>
 
         <!-- Projects Grid -->
-        <div id="projects-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div id="projects-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             <!-- Populated by JS -->
         </div>
             <!-- Equity Exchange Grid -->
@@ -1593,7 +1593,7 @@
 
         <!-- All tab -->
         <div id="explore-all" class="explore-tab-content">
-            <div id="ideas-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div id="ideas-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 <!-- Populated by JS -->
             </div>
         </div>
@@ -6290,7 +6290,7 @@ async function createProfile() {
             filtered.forEach(p => {
                 const card = document.createElement('div');
                 const isFeaturedNow = p.isFeatured && p.featuredUntil > Date.now();
-                card.className = `bg-zinc-900 rounded-3xl p-6 hover:ring-2 hover:ring-cyan-400 cursor-pointer transition-all ${isFeaturedNow ? 'ring-1 ring-amber-500/40' : ''}`;
+                card.className = `bg-zinc-900 rounded-2xl p-4 hover:ring-2 hover:ring-cyan-400 cursor-pointer transition-all ${isFeaturedNow ? 'ring-1 ring-amber-500/40' : ''}`;
                 const statusHTML = `<span class="px-4 py-1 text-xs rounded-full ${p.type === 'build' ? 'bg-cyan-500/20 text-cyan-400' : 'bg-violet-500/20 text-violet-400'}">
                     ${p.type === 'build' ? 'Build Request' : 'Funding Request'}
                 </span>`;
@@ -6304,8 +6304,8 @@ async function createProfile() {
                         </div>
                         <span class="text-xs text-zinc-500 flex-shrink-0 ml-2">${p.bids ? p.bids.length : 0} bids</span>
                     </div>
-                    <h3 class="text-2xl font-bold mb-2">${p.title}</h3>
-                    <p class="text-zinc-400 line-clamp-3 mb-4">${p.description}</p>
+                    <h3 class="text-lg font-bold mb-1">${p.title}</h3>
+                    <p class="text-zinc-400 text-sm line-clamp-2 mb-3">${p.description}</p>
                     <div class="text-cyan-400 font-medium">${p.compensation}</div>
                     <div class="flex flex-wrap gap-1 mt-2">
                         ${p.category ? `<span class="px-2 py-0.5 bg-violet-500/20 text-violet-400 rounded-full text-xs">${p.category}</span>` : ''}
@@ -9469,7 +9469,7 @@ async function viewUserProfile(uid) {
                     const docId = entry.docId;
                     const post = entry.post;
                     const card = document.createElement('div');
-                    card.className = "bg-zinc-900 rounded-3xl p-6 hover:ring-2 hover:ring-cyan-400 cursor-pointer transition-all";
+                    card.className = "bg-zinc-900 rounded-2xl p-4 hover:ring-2 hover:ring-cyan-400 cursor-pointer transition-all";
 
                     let typeIcon = '💡';
                     if (post.type === 'news') typeIcon = '📰';
@@ -9563,7 +9563,7 @@ async function viewUserProfile(uid) {
 
         function renderSponsoredExploreCard(campaign) {
             const card = document.createElement('div');
-            card.className = "bg-zinc-900 rounded-3xl p-6 ring-1 ring-amber-500/30 hover:ring-2 hover:ring-amber-400 cursor-pointer transition-all";
+            card.className = "bg-zinc-900 rounded-2xl p-4 ring-1 ring-amber-500/30 hover:ring-2 hover:ring-amber-400 cursor-pointer transition-all";
 
             if (campaign.boostedPost) {
                 const post = campaign.boostedPost;
