@@ -9783,16 +9783,17 @@ async function loadTrendingFeed() {
             const typeIcons = { idea:'💡', news:'📰', project:'🚀', like:'👍' };
             const typeIcon = typeIcons[post.type] || '💡';
             const card = document.createElement('div');
-            card.className = 'bg-zinc-900 rounded-3xl p-6 cursor-pointer hover:ring-2 hover:ring-cyan-400 transition-all';
+            card.className = 'bg-zinc-900 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-cyan-400 transition-all';
             card.onclick = () => viewPostDetail(doc.id, post);
             card.innerHTML = `
-                <div class="flex justify-between items-start mb-3">
-                    <span class="text-2xl">${typeIcon}</span>
+                <div class="flex justify-between items-start mb-2">
+                    <span class="text-xl">${typeIcon}</span>
                     <span class="text-xs text-amber-400 font-medium">🔥 ${post.likes || 0} likes</span>
                 </div>
-                <h3 class="text-xl font-bold mb-2 line-clamp-2">${post.title}</h3>
-                <p class="text-zinc-400 text-sm line-clamp-2">${post.description}</p>
-                <p class="text-xs text-violet-400 mt-3">@${post.username}</p>
+                <h3 class="text-base font-bold mb-1 line-clamp-2">${post.title}</h3>
+                <p class="text-zinc-400 text-sm line-clamp-2">${post.description || ''}</p>
+                ${post.link ? `<p class="text-zinc-500 text-xs mt-2 truncate">${(() => { try { return new URL(post.link).hostname.replace('www.',''); } catch(e) { return ''; } })()}</p>` : ''}
+                <p class="text-xs text-violet-400 mt-2">@${post.username}</p>
             `;
             container.appendChild(card);
         });
