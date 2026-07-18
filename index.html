@@ -3771,14 +3771,14 @@ async function submitMetricsVerification() {
 
     try {
         // Pay $5 in NQV8
-        const metricsNQV8Amount = await usdToNQV8(5.00);
+        const metricsNQV8Amount = await usdToNQV8(1.00);
         const nqv8Raw = await nqv8Contract.balanceOf(connectedAddress);
         const nqv8Bal = parseFloat(ethers.utils.formatUnits(nqv8Raw, 18));
 
         if (nqv8Bal < metricsNQV8Amount) {
             btn.disabled = false;
             btn.textContent = 'Pay $5.00 in NQV8 & Verify';
-            return alert(`❌ Insufficient NQV8. You need ${metricsNQV8Amount} NQV8 (≈ $5.00).`);
+            return alert(`❌ Insufficient NQV8. You need ${metricsNQV8Amount} NQV8 (≈ $1.00).`);
         }
 
         const rewardsContract = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
@@ -3884,18 +3884,24 @@ async function submitMetricsVerification() {
             }
 
             btn.disabled = false;
-            btn.textContent = 'Pay $5.00 in NQV8 & Verify';
+            btn.textContent = 'Pay $1.00 in NQV8 & Verify';
             hideVerifyMetricsModal();
-            alert(`✅ Metrics verified!\n\nRevenue: ${result.revenueBucket}\nUsers: ${result.usersBucket}\n\nInvestor deck has been generated.`);
+
+            // Fetch fresh company doc and auto-open the new deck
+            const freshDoc = await db.collection('companies').doc(verifyMetricsCompanyId).get();
+            const freshCompany = { id: freshDoc.id, ...freshDoc.data() };
+
+            alert(`✅ Metrics verified!\n\nRevenue: ${result.revenueBucket}\nUsers: ${result.usersBucket}\n\nYour investor deck is ready.`);
             loadProfileData();
+            showInvestorDeck(verifyMetricsCompanyId, freshCompany);
 
         } else if (result.metricsVerified && result.confidence === 'low') {
             btn.disabled = false;
-            btn.textContent = 'Pay $5.00 in NQV8 & Verify';
+            btn.textContent = 'Pay $1.00 in NQV8 & Verify';
             setBanner(`⚠️ Low confidence: ${result.summary}`, 'bg-amber-500/10 border border-amber-500/30 text-amber-400');
         } else {
             btn.disabled = false;
-            btn.textContent = 'Pay $5.00 in NQV8 & Verify';
+            btn.textContent = 'Pay $1.00 in NQV8 & Verify';
             setBanner(`❌ Verification failed: ${result.summary}${result.issues?.length ? '\n\nIssues: ' + result.issues.join(', ') : ''}`, 'bg-red-500/10 border border-red-500/30 text-red-400');
         }
 
@@ -3905,7 +3911,7 @@ async function submitMetricsVerification() {
 
         // Auto-refund on technical errors
         try {
-            const metricsNQV8Amount = await usdToNQV8(5.00);
+            const metricsNQV8Amount = await usdToNQV8(1.00);
             fetch('/api/refund-nqv8', {
                 method: 'POST',
                 headers: {
