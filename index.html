@@ -9901,26 +9901,26 @@ async function loadForYouFeed() {
             try {
                 const res = await fetch(`https://api.microlink.io/?url=${encodeURIComponent(url)}`);
                 const data = await res.json();
-                
+                const hostname = (() => { try { return new URL(url).hostname.replace('www.',''); } catch(e) { return url; } })();
+
                 if (data.data && data.data.title && data.data.title !== 'Untitled') {
                     container.innerHTML = `
                         <div class="flex gap-3">
-                            ${data.data.image ? `<img src="${data.data.image.url}" class="w-12 h-12 object-cover rounded-xl flex-shrink-0">` : ''}
+                            ${data.data.image ? `<img src="${data.data.image.url}" class="w-16 h-16 object-cover rounded-xl flex-shrink-0">` : ''}
                             <div class="flex-1 min-w-0">
-                                <p class="font-medium text-sm line-clamp-1">${data.data.title}</p>
-                                <p class="text-xs text-zinc-400 line-clamp-2">${data.data.description || ''}</p>
-                                <p class="text-cyan-400 text-xs mt-1 truncate">${url}</p>
+                                <p class="text-zinc-500 text-xs mb-1">${hostname}</p>
+                                <p class="font-medium text-sm line-clamp-2">${data.data.title}</p>
+                                <p class="text-xs text-zinc-400 line-clamp-3 mt-1">${data.data.description || ''}</p>
                             </div>
                         </div>
                     `;
                 } else {
-                    // Generic clean fallback for any other site
                     container.innerHTML = `
                         <div class="flex gap-3">
-                            <span class="text-cyan-400 text-2xl">🔗</span>
+                            <span class="text-cyan-400 text-2xl flex-shrink-0">🔗</span>
                             <div class="flex-1 min-w-0">
-                                <p class="font-medium text-sm line-clamp-1">External Link</p>
-                                <p class="text-xs text-zinc-400 line-clamp-2">${url}</p>
+                                <p class="text-zinc-500 text-xs mb-1">${hostname}</p>
+                                <p class="font-medium text-sm line-clamp-2">${url}</p>
                             </div>
                         </div>
                     `;
