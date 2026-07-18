@@ -8033,7 +8033,7 @@ if (hasEscrow) {
 
         function navigateToChat() {
             navigateTo('chat');
-            loadChatList("");        // Load previous chats by default
+            // loadChatList is called by navigateTo('chat') already
         }
 
 async function loadChatList(searchTerm = "") {
