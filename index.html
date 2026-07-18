@@ -9484,15 +9484,12 @@ async function viewUserProfile(uid) {
                             <span class="text-xs text-zinc-500">${post.comments ? post.comments.length : 0} comments</span>
                         </div>
                         ${isBoosted ? '<span class="inline-block mt-2 px-2.5 py-1 text-[10px] rounded-full bg-amber-500/20 text-amber-400 font-semibold">✨ Sponsored</span>' : ''}
-                        <h3 class="text-2xl font-bold mt-3 break-all line-clamp-3">${post.title}</h3>
-                        <p class="text-zinc-400 line-clamp-3 mt-2">${post.description}</p>
+                        <h3 class="text-base font-bold mt-3 break-words line-clamp-2">${post.title}</h3>
+                        <p class="text-zinc-400 text-sm line-clamp-2 mt-1">${post.description}</p>
                         
                         ${post.link ? `
-                        <div id="preview-${docId}" class="mt-4 bg-black/50 border border-zinc-700 rounded-2xl p-3 flex items-center gap-3 overflow-hidden">
-                            <span class="text-cyan-400">🔗</span>
-                            <div class="flex-1">
-                                <p class="text-zinc-500 text-xs truncate">${(() => { try { return new URL(post.link).hostname.replace('www.',''); } catch(e) { return post.link; } })()}</p>
-                            </div>
+                        <div id="preview-${docId}" class="mt-3 bg-black/50 border border-zinc-700 rounded-2xl p-3 overflow-hidden">
+                            <p class="text-zinc-500 text-xs truncate mb-1">${(() => { try { return new URL(post.link).hostname.replace('www.',''); } catch(e) { return ''; } })()}</p>
                         </div>` : ''}
                         
                         <div class="flex items-center justify-between mt-4">
