@@ -3,8 +3,19 @@
 // 1. Calculates last month's escrow fees from on-chain events
 // 2. Deposits 20% into the rewards contract
 // 3. Calls distribute() to pay out NQV8 + USDC rewards to fee payers
+// 4. Reads RewardPaid events and writes per-wallet records to Firestore
 
 import { ethers } from 'ethers';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+
+function getAdminDb() {
+    if (!getApps().length) {
+        const sa = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+        initializeApp({ credential: cert(sa) });
+    }
+    return getFirestore();
+}
 
 const REWARDS_CONTRACT_ADDRESS = '0x045aD6C2889ABCe6Bd8ef52D621706c44e4f1266';
 const ESCROW_CONTRACT_ADDRESS  = '0x413EF7256f8099ea202d8C0fe3e620F5259c7a83';
@@ -19,7 +30,9 @@ const REWARDS_ABI = [
     "function getCurrentMonthStats() external view returns (uint256 feePayerCount, uint256 nqv8FeesCollected, uint256 usdcFeesCollected, uint256 nqv8Pool, uint256 usdcPool, uint256 lastDistribution)",
     "function getDistributionHistory(string month) external view returns (tuple(string month, uint256 nqv8Distributed, uint256 usdcDistributed, uint256 recipientCount, uint256 timestamp, uint256 totalNQV8Fees, uint256 totalUSDCFees))",
     "function getAllDistributionMonths() external view returns (string[])",
-    "function getStats() external view returns (uint256 totalNQV8Distributed, uint256 totalUSDCDistributed, uint256 totalRounds, uint256 lastDistribution, uint256 currentNQV8Pool, uint256 currentUSDCPool)"
+    "function getStats() external view returns (uint256 totalNQV8Distributed, uint256 totalUSDCDistributed, uint256 totalRounds, uint256 lastDistribution, uint256 currentNQV8Pool, uint256 currentUSDCPool)",
+    "event RewardsDistributed(string month, uint256 nqv8Amount, uint256 usdcAmount, uint256 recipients)",
+    "event RewardPaid(address indexed recipient, uint256 nqv8Amount, uint256 usdcAmount, uint256 sharePercent)"
 ];
 
 const ESCROW_ABI = [
@@ -40,6 +53,7 @@ export default async function handler(req, res) {
     try {
         const provider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
         const wallet   = new ethers.Wallet(process.env.OPERATIONS_PRIVATE_KEY, provider);
+        const db       = getAdminDb();
 
         const rewardsContract = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, wallet);
         const usdcContract    = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, wallet);
@@ -89,9 +103,6 @@ export default async function handler(req, res) {
 
         let totalEscrowFeesUSDC = ethers.BigNumber.from(0);
         for (const event of events) {
-            // platformFee is in USDC (6 decimals) for USDC escrows
-            // For NQV8 escrows the fee is in NQV8 — we only count USDC fees here
-            // NQV8 fees are already handled by payNQV8Fee() on the rewards contract
             totalEscrowFeesUSDC = totalEscrowFeesUSDC.add(event.args.platformFee);
         }
 
@@ -102,7 +113,6 @@ export default async function handler(req, res) {
 
         let depositTxHash = null;
         if (usdcDeposit.gt(0)) {
-            // Check ops wallet has enough USDC
             const usdcBal = await usdcContract.balanceOf(wallet.address);
             if (usdcBal.gte(usdcDeposit)) {
                 const approveTx = await usdcContract.approve(REWARDS_CONTRACT_ADDRESS, usdcDeposit);
@@ -117,10 +127,10 @@ export default async function handler(req, res) {
         }
 
         // ── 5. Check if there are fee payers to distribute to ────────────
-        const stats        = await rewardsContract.getCurrentMonthStats();
+        const stats         = await rewardsContract.getCurrentMonthStats();
         const feePayerCount = stats[0].toNumber();
-        const nqv8Pool     = stats[3];
-        const usdcPool     = stats[4];
+        const nqv8Pool      = stats[3];
+        const usdcPool      = stats[4];
 
         console.log(`Fee payers this month: ${feePayerCount}`);
         console.log(`NQV8 reward pool: ${ethers.utils.formatUnits(nqv8Pool, 18)} NQV8`);
@@ -133,7 +143,7 @@ export default async function handler(req, res) {
                 skipped: true,
                 reason:  'no fee payers',
                 month:   monthStr,
-                escrowFeesUSDC:   ethers.utils.formatUnits(totalEscrowFeesUSDC, 6),
+                escrowFeesUSDC:    ethers.utils.formatUnits(totalEscrowFeesUSDC, 6),
                 usdcDepositTxHash: depositTxHash
             });
         }
@@ -148,22 +158,81 @@ export default async function handler(req, res) {
             });
         }
 
-        // ── 6. Run distribution ────────────────────────────────────────────
+        // ── 6. Run distribution ───────────────────────────────────────────
         const distributeTx = await rewardsContract.distribute(monthStr);
-        await distributeTx.wait();
+        const receipt      = await distributeTx.wait();
 
         console.log(`✅ Distribution complete for ${monthStr}. Tx: ${distributeTx.hash}`);
 
+        // ── 7. Read RewardPaid events and write per-wallet Firestore records
+        const rewardsIface   = new ethers.utils.Interface(REWARDS_ABI);
+        const rewardPaidLogs = receipt.logs.filter(log => {
+            try {
+                const parsed = rewardsIface.parseLog(log);
+                return parsed.name === 'RewardPaid';
+            } catch { return false; }
+        });
+
+        console.log(`Writing ${rewardPaidLogs.length} per-wallet reward records to Firestore...`);
+
+        if (rewardPaidLogs.length > 0) {
+            // Look up UIDs by wallet address
+            const walletAddresses = rewardPaidLogs.map(log => {
+                const parsed = rewardsIface.parseLog(log);
+                return parsed.args.recipient.toLowerCase();
+            });
+
+            const userSnaps = await Promise.all(
+                walletAddresses.map(addr =>
+                    db.collection('users').where('walletAddress', '==', addr).limit(1).get()
+                )
+            );
+
+            const walletToUid = {};
+            userSnaps.forEach((snap, i) => {
+                if (!snap.empty) walletToUid[walletAddresses[i]] = snap.docs[0].id;
+            });
+
+            const batch = db.batch();
+
+            for (const log of rewardPaidLogs) {
+                const parsed     = rewardsIface.parseLog(log);
+                const recipient  = parsed.args.recipient.toLowerCase();
+                const nqv8Amount = parseFloat(ethers.utils.formatUnits(parsed.args.nqv8Amount, 18));
+                const usdcAmount = parseFloat(ethers.utils.formatUnits(parsed.args.usdcAmount, 6));
+                const sharePct   = parsed.args.sharePercent.toNumber() / 100;
+                const uid        = walletToUid[recipient] || null;
+
+                const docRef = db.collection('rewardDistributions').doc(`${monthStr}-${recipient}`);
+                batch.set(docRef, {
+                    month: monthStr,
+                    walletAddress: recipient,
+                    uid,
+                    nqv8Amount,
+                    usdcAmount,
+                    sharePercent: sharePct,
+                    txHash: distributeTx.hash,
+                    distributedAt: new Date()
+                });
+
+                console.log(`  ${recipient}: ${nqv8Amount} NQV8 + $${usdcAmount} USDC (${sharePct}% share)`);
+            }
+
+            await batch.commit();
+            console.log(`✅ Wrote ${rewardPaidLogs.length} reward records to Firestore`);
+        }
+
         return res.json({
-            success:           true,
-            month:             monthStr,
+            success:             true,
+            month:               monthStr,
             feePayerCount,
-            escrowFeesUSDC:    ethers.utils.formatUnits(totalEscrowFeesUSDC, 6),
-            usdcDeposited:     ethers.utils.formatUnits(usdcDeposit, 6),
+            escrowFeesUSDC:      ethers.utils.formatUnits(totalEscrowFeesUSDC, 6),
+            usdcDeposited:       ethers.utils.formatUnits(usdcDeposit, 6),
             nqv8PoolDistributed: ethers.utils.formatUnits(nqv8Pool, 18),
             usdcPoolDistributed: ethers.utils.formatUnits(usdcPool, 6),
+            recipientsRecorded:  rewardPaidLogs.length,
             depositTxHash,
-            distributeTxHash:  distributeTx.hash
+            distributeTxHash:    distributeTx.hash
         });
 
     } catch(e) {
