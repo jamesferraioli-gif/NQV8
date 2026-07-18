@@ -10464,7 +10464,7 @@ async function showCompanyDetail(companyId, company) {
                             <p class="font-semibold">📈 Metrics</p>
                             <button onclick="hideProjectDetailModal(); showVerifyMetricsModal('${companyId}', ${JSON.stringify(company).replace(/"/g, '&quot;')})" 
                                     class="px-4 py-2 bg-gradient-to-r from-cyan-400 to-violet-500 text-black text-xs font-semibold rounded-xl">
-                                ${company.metricsVerified ? '🔄 Re-verify & Regenerate Deck ($5 NQV8)' : '✨ Verify Metrics & Generate Deck ($5 NQV8)'}
+                                ${company.metricsVerified ? '🔄 Re-verify & Regenerate Deck ($1 NQV8)' : '✨ Verify Metrics & Generate Deck ($1 NQV8)'}
                             </button>
                         </div>
                         ${company.metricsVerified ? `
@@ -14894,7 +14894,7 @@ function showCompanyManageModal(companyId, company) {
             <div class="space-y-2">
                 <button onclick="document.getElementById('company-manage-modal').remove(); showVerifyMetricsModal(window._manageModalCompanyId, window._manageModalCompany)"
                         class="w-full py-3 bg-gradient-to-r from-cyan-400 to-violet-500 text-black text-sm font-semibold rounded-xl">
-                    ${company.metricsVerified ? '🔄 Re-verify & Regenerate Deck ($5 NQV8)' : '✨ Verify Metrics & Generate Deck ($5 NQV8)'}
+                    ${company.metricsVerified ? '🔄 Re-verify & Regenerate Deck ($1 NQV8)' : '✨ Verify Metrics & Generate Deck ($1 NQV8)'}
                 </button>
                 <button onclick="document.getElementById('company-manage-modal').remove(); showPostFundingModalForProject(window._manageModalCompanyId, window._manageModalCompany.name, ${isVerified})"
                         class="w-full py-3 border border-zinc-600 text-zinc-300 text-sm rounded-xl hover:bg-zinc-800">
@@ -15416,7 +15416,7 @@ async function founderRelease() {
         <p class="text-zinc-400 text-sm mb-6">Upload proof of your revenue and user metrics. Documents are reviewed by Claude AI and immediately deleted — only the verified ranges are stored.</p>
 
         <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 mb-6">
-            <p class="text-amber-400 text-xs">💰 Cost: $5.00 in NQV8 · Includes metric verification + investor deck generation · Automatically refunded on technical errors</p>
+            <p class="text-amber-400 text-xs">💰 Cost: $1.00 in NQV8 · Includes metric verification + investor deck generation · Automatically refunded on technical errors</p>
         </div>
 
         <div class="space-y-4 mb-6">
@@ -15467,7 +15467,7 @@ async function founderRelease() {
             <button onclick="hideVerifyMetricsModal()" class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
             <button onclick="submitMetricsVerification()" id="verify-metrics-btn"
                     class="flex-1 py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-3xl">
-                Pay $5.00 in NQV8 & Verify
+                Pay $1.00 in NQV8 & Verify
             </button>
         </div>
     </div>
