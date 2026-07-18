@@ -213,6 +213,21 @@
             <!-- Filters -->
             <div class="flex flex-wrap gap-2 items-center">
                 <span class="text-xs text-zinc-500 mr-1">Filter:</span>
+                <!-- Sort -->
+                <select id="filter-sort" onchange="applyMarketplaceFilters()"
+                        class="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 outline-none text-sm">
+                    <option value="newest">⬆️ Newest First</option>
+                    <option value="oldest">⬇️ Oldest First</option>
+                </select>
+                <!-- Age filter -->
+                <select id="filter-age" onchange="applyMarketplaceFilters()"
+                        class="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 outline-none text-sm">
+                    <option value="">Any Age</option>
+                    <option value="1">Last 24 hours</option>
+                    <option value="7">Last 7 days</option>
+                    <option value="30">Last 30 days</option>
+                    <option value="90">Last 90 days</option>
+                </select>
                 <!-- Category -->
                 <select id="filter-category" onchange="applyMarketplaceFilters()"
                         class="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 outline-none text-sm">
@@ -6239,9 +6254,11 @@ async function createProfile() {
             const compType  = document.getElementById('filter-comp-type')?.value || '';
             const compRange = document.getElementById('filter-comp-range')?.value || '';
             const tag       = document.getElementById('filter-tag')?.value || '';
+            const sort      = document.getElementById('filter-sort')?.value || 'newest';
+            const age       = parseInt(document.getElementById('filter-age')?.value || '0');
             const clearBtn  = document.getElementById('clear-filters-btn');
 
-            const hasFilters = search || category || compType || compRange || tag;
+            const hasFilters = search || category || compType || compRange || tag || age;
             if (clearBtn) clearBtn.classList.toggle('hidden', !hasFilters);
 
             let filtered = _allMarketplacePostings.filter(p => {
@@ -6265,17 +6282,28 @@ async function createProfile() {
                 }
                 // Tag filter
                 if (tag && !(p.tags || []).includes(tag)) return false;
+                // Age filter — hide postings older than X days
+                if (age > 0) {
+                    const postedAt = p.createdAt?.toDate?.() || p.createdAt?._seconds ? new Date(p.createdAt._seconds * 1000) : null;
+                    if (postedAt) {
+                        const daysAgo = (Date.now() - postedAt.getTime()) / (1000 * 60 * 60 * 24);
+                        if (daysAgo > age) return false;
+                    }
+                }
                 return true;
             });
 
-            // Featured listings always sort first, then by recency within each group
+            // Sort by date, then featured always on top
             const now = Date.now();
             filtered = filtered.sort((a, b) => {
                 const aFeatured = a.isFeatured && a.featuredUntil > now;
                 const bFeatured = b.isFeatured && b.featuredUntil > now;
                 if (aFeatured && !bFeatured) return -1;
                 if (!aFeatured && bFeatured) return 1;
-                return 0; // preserve existing order otherwise
+                // Within same featured group, sort by date
+                const aTime = a.createdAt?.toDate?.()?.getTime() || a.createdAt?._seconds * 1000 || 0;
+                const bTime = b.createdAt?.toDate?.()?.getTime() || b.createdAt?._seconds * 1000 || 0;
+                return sort === 'oldest' ? aTime - bTime : bTime - aTime;
             });
 
             grid.innerHTML = '';
@@ -6333,7 +6361,7 @@ async function createProfile() {
         }
 
         function clearMarketplaceFilters() {
-            ['search-input','filter-category','filter-comp-type','filter-comp-range','filter-tag'].forEach(id => {
+            ['search-input','filter-category','filter-comp-type','filter-comp-range','filter-tag','filter-age'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.value = '';
             });
