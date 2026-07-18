@@ -1278,6 +1278,14 @@
             </div>
         </div>
 
+        <!-- My Rewards -->
+        <div class="mb-8">
+            <h2 class="text-2xl font-semibold mb-4">🎁 Reward History</h2>
+            <div id="my-reward-history" class="space-y-3">
+                <p class="text-zinc-500 text-sm">Loading...</p>
+            </div>
+        </div>
+
         <!-- Equity Stakes -->
         <div class="mb-10">
             <h2 class="text-2xl font-semibold mb-4">Equity Stakes</h2>
@@ -2322,6 +2330,42 @@
 
     
 <script>
+
+async function loadMyRewardHistory() {
+    if (!currentUser) return;
+    const container = document.getElementById('my-reward-history');
+    if (!container) return;
+
+    try {
+        const snap = await db.collection('rewardDistributions')
+            .where('uid', '==', currentUser.uid)
+            .orderBy('distributedAt', 'desc')
+            .get();
+
+        if (snap.empty) {
+            container.innerHTML = '<p class="text-zinc-500 text-sm">No rewards received yet. Pay NQV8 platform fees this month to earn a share of the monthly reward pool.</p>';
+            return;
+        }
+
+        container.innerHTML = snap.docs.map(doc => {
+            const r = doc.data();
+            return `
+                <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-4 flex items-center justify-between">
+                    <div>
+                        <p class="font-medium text-sm">${r.month}</p>
+                        <p class="text-xs text-zinc-500 mt-0.5">${r.sharePercent?.toFixed(2) || '—'}% of pool · ${new Date(r.distributedAt?.toDate?.() || r.distributedAt).toLocaleDateString()}</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-semibold text-emerald-400">${r.nqv8Amount?.toLocaleString(undefined, { maximumFractionDigits: 2 })} NQV8</p>
+                        ${r.usdcAmount > 0 ? `<p class="text-xs text-zinc-400">+ $${r.usdcAmount.toFixed(4)} USDC</p>` : ''}
+                    </div>
+                </div>`;
+        }).join('');
+    } catch(e) {
+        container.innerHTML = '<p class="text-zinc-500 text-sm">Could not load reward history.</p>';
+    }
+}
+
 async function showDeckHistory() {
     const modal = document.getElementById('investor-deck-modal');
     const companyId = modal.dataset.companyId;
@@ -8744,6 +8788,9 @@ async function startVideoCall() {
 
                 // Support tickets
                 loadMySupportTickets();
+
+                // Reward history
+                loadMyRewardHistory();
 
                 // Own profile stats
                 try {
