@@ -9491,7 +9491,7 @@ async function viewUserProfile(uid) {
                         <div id="preview-${docId}" class="mt-4 bg-black/50 border border-zinc-700 rounded-2xl p-3 flex items-center gap-3 overflow-hidden">
                             <span class="text-cyan-400">🔗</span>
                             <div class="flex-1">
-                                <p class="text-cyan-400 text-sm truncate">${post.link}</p>
+                                <p class="text-zinc-500 text-xs truncate">${(() => { try { return new URL(post.link).hostname.replace('www.',''); } catch(e) { return post.link; } })()}</p>
                             </div>
                         </div>` : ''}
                         
