@@ -6284,11 +6284,11 @@ async function createProfile() {
                 if (tag && !(p.tags || []).includes(tag)) return false;
                 // Age filter — hide postings older than X days
                 if (age > 0) {
-                    const postedAt = p.createdAt?.toDate?.() || p.createdAt?._seconds ? new Date(p.createdAt._seconds * 1000) : null;
-                    if (postedAt) {
-                        const daysAgo = (Date.now() - postedAt.getTime()) / (1000 * 60 * 60 * 24);
-                        if (daysAgo > age) return false;
-                    }
+                    let postedMs = null;
+                    if (p.createdAt?.toDate) postedMs = p.createdAt.toDate().getTime();
+                    else if (p.createdAt?.seconds) postedMs = p.createdAt.seconds * 1000;
+                    else if (p.createdAt?._seconds) postedMs = p.createdAt._seconds * 1000;
+                    if (postedMs && (Date.now() - postedMs) / (1000 * 60 * 60 * 24) > age) return false;
                 }
                 return true;
             });
