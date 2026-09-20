@@ -6911,11 +6911,49 @@ async function loadTotalFundingReceivedStat() {
 
         ${!isPoster && !alreadyBid ? `
         <div class="border-t border-zinc-700 pt-6">
-            <p class="text-sm text-zinc-400 mb-3">Place Your Bid</p>
-            <input id="bid-amount" type="text" 
-                   placeholder="${project.type === 'build' ? 'e.g. $2,000 USDC' : 'e.g. $10,000 for 2% equity'}" 
-                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
-            <button onclick="placeBid('${projectId}')" 
+            <p class="text-sm font-semibold mb-1">Place Your Bid</p>
+            <p class="text-xs text-zinc-500 mb-4">Posted compensation: <span class="text-zinc-300">${project.compensation || 'Not specified'}</span></p>
+
+            ${project.compensationType === 'cash' || !project.compensationType ? `
+            <p class="text-xs text-zinc-400 mb-2">Your bid amount</p>
+            <input id="bid-amount-cash" type="text"
+                   placeholder="e.g. $2,000 USDC"
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4 text-sm">
+            ` : ''}
+
+            ${project.compensationType === 'equity' ? `
+            <p class="text-xs text-zinc-400 mb-2">Equity percentage you're requesting</p>
+            <div class="flex gap-3 items-center mb-2">
+                <input id="bid-amount-equity" type="number"
+                       placeholder="e.g. 1.5" min="0.001" max="100" step="0.001"
+                       class="flex-1 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none text-sm">
+                <span class="text-zinc-400 font-semibold text-lg pr-2">%</span>
+            </div>
+            <p class="text-xs text-zinc-500 mb-4">Must be between 0.001% and 100%. Poster offered: ${project.compensation || '—'}</p>
+            ` : ''}
+
+            ${project.compensationType === 'mixed' ? `
+            <div class="space-y-3 mb-4">
+                <div>
+                    <p class="text-xs text-zinc-400 mb-1">Cash amount you're requesting</p>
+                    <input id="bid-amount-mixed-cash" type="text"
+                           placeholder="e.g. $1,000 USDC"
+                           class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
+                </div>
+                <div>
+                    <p class="text-xs text-zinc-400 mb-1">Equity percentage you're requesting</p>
+                    <div class="flex gap-3 items-center">
+                        <input id="bid-amount-mixed-equity" type="number"
+                               placeholder="e.g. 1.5" min="0.001" max="100" step="0.001"
+                               class="flex-1 bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
+                        <span class="text-zinc-400 font-semibold pr-2">%</span>
+                    </div>
+                </div>
+            </div>
+            <p class="text-xs text-zinc-500 mb-4">Poster offered: ${project.compensation || '—'}</p>
+            ` : ''}
+
+            <button onclick="placeBid('${projectId}', '${project.compensationType || 'cash'}')"
                     class="w-full py-5 bg-white text-black font-semibold rounded-3xl">
                 Place Bid ($0.01 NQV8)
             </button>
@@ -7288,9 +7326,25 @@ function hideEditPostingModal() {
             }
         }
 
-        async function placeBid(projectId) {
-            const amount = document.getElementById('bid-amount').value.trim();
-            if (!amount) return alert("Enter your bid amount");
+        async function placeBid(projectId, compensationType = 'cash') {
+            let amount = '';
+
+            if (compensationType === 'cash') {
+                amount = document.getElementById('bid-amount-cash')?.value.trim() || '';
+                if (!amount) return alert('Please enter your bid amount.');
+            } else if (compensationType === 'equity') {
+                const pct = parseFloat(document.getElementById('bid-amount-equity')?.value || '');
+                if (!pct || pct < 0.001 || pct > 100) return alert('Please enter a valid equity percentage between 0.001% and 100%.');
+                amount = `${pct}% equity`;
+            } else if (compensationType === 'mixed') {
+                const cash = document.getElementById('bid-amount-mixed-cash')?.value.trim() || '';
+                const pct  = parseFloat(document.getElementById('bid-amount-mixed-equity')?.value || '');
+                if (!cash && !pct) return alert('Please enter at least a cash amount or equity percentage.');
+                if (pct && (pct < 0.001 || pct > 100)) return alert('Equity percentage must be between 0.001% and 100%.');
+                amount = [cash, pct ? `${pct}% equity` : ''].filter(Boolean).join(' + ');
+            }
+
+            if (!amount) return alert('Please enter your bid.');
 
             try {
                 const projectRef = db.collection("subprojects").doc(projectId);
