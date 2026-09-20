@@ -13894,7 +13894,10 @@ async function notifyBidReceived(project, projectId) {
         posterName:     posterDoc.data()?.firstName || posterDoc.data()?.username || 'there',
         bidderUsername: currentUser.username,
         postingTitle:   project.title,
-        bidAmount:      document.getElementById('bid-amount')?.value || 'an amount',
+        bidAmount:      document.getElementById('bid-amount-cash')?.value ||
+                        (document.getElementById('bid-amount-equity')?.value ? document.getElementById('bid-amount-equity').value + '% equity' : '') ||
+                        (() => { const c = document.getElementById('bid-amount-mixed-cash')?.value; const p = document.getElementById('bid-amount-mixed-equity')?.value; return [c, p ? p + '% equity' : ''].filter(Boolean).join(' + '); })() ||
+                        'an amount',
         postingId:      projectId
     });
 }
