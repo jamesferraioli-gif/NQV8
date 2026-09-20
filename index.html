@@ -825,13 +825,17 @@
 
             <div class="flex gap-3 mt-8">
                 <button onclick="messageBidder()" 
-                        class="flex-1 py-5 border border-cyan-400 text-cyan-400 font-semibold rounded-3xl">
-                    💬 Message User (Free)
+                        class="py-5 px-4 border border-cyan-400 text-cyan-400 font-semibold rounded-3xl">
+                    💬
+                </button>
+                <button onclick="showCounterBidModal()" 
+                        class="flex-1 py-5 border border-violet-500 text-violet-400 font-semibold rounded-3xl hover:bg-violet-500/10">
+                    ↩️ Counter
                 </button>
                 <button onclick="acceptBid()" 
                         id="accept-bid-btn"
                         class="flex-1 py-5 bg-green-500 hover:bg-green-600 text-black font-semibold rounded-3xl">
-                    Accept Bid
+                    Accept
                 </button>
             </div>
             <!-- Deadline Selection -->
@@ -6904,11 +6908,17 @@ async function loadTotalFundingReceivedStat() {
                 ? project.bids.map((bid, i) => `
                     <div class="bg-zinc-800 rounded-2xl p-4 flex justify-between items-center ${isPoster ? 'cursor-pointer hover:ring-2 hover:ring-cyan-400' : ''}"
                          ${isPoster ? `onclick="showBidDetail('${projectId}', ${i})"` : ''}>
-                        <div>
+                        <div class="flex-1 min-w-0">
                             <p class="font-medium">@${bid.bidderName}</p>
                             <p class="text-cyan-400 text-sm">${bid.amount}</p>
+                            ${bid.status === 'countered' && bid.counterOffer ? `
+                            <p class="text-violet-400 text-xs mt-1">↩️ Counter sent: ${bid.counterOffer.amount} · ${bid.counterOffer.status}</p>` : ''}
                         </div>
-                        ${isPoster ? `<span class="text-xs text-zinc-400">Click to review →</span>` : ''}
+                        ${isPoster ? `
+                        <div class="flex items-center gap-2 ml-3">
+                            ${bid.status === 'countered' ? `<span class="text-xs px-2 py-1 bg-violet-500/20 text-violet-400 rounded-lg">Countered</span>` : ''}
+                            <span class="text-xs text-zinc-400">Review →</span>
+                        </div>` : ''}
                     </div>`).join('')
                 : `<p class="text-zinc-400">No bids yet. Be the first!</p>`
             }
@@ -6964,8 +6974,30 @@ async function loadTotalFundingReceivedStat() {
             </button>
         </div>` : ''}
 
-        ${alreadyBid ? `<p class="text-emerald-400 text-center mt-4">✅ You have already placed a bid on this project.</p>` : ''}
-        ${isPoster ? `
+        ${alreadyBid ? (() => {
+            const myBid = project.bids.find(b => b.bidderUid === currentUser?.uid);
+            if (myBid?.status === 'countered' && myBid?.counterOffer?.status === 'pending') {
+                return `
+                <div class="border-t border-zinc-700 pt-6 mt-4">
+                    <p class="text-violet-400 font-semibold mb-2">↩️ Counter Offer Received</p>
+                    <div class="bg-violet-500/10 border border-violet-500/30 rounded-2xl p-4 mb-4">
+                        <p class="text-sm text-zinc-300 mb-1">Your bid: <span class="text-zinc-400">${myBid.amount}</span></p>
+                        <p class="text-sm text-zinc-300">Counter offer: <span class="text-violet-400 font-semibold">${myBid.counterOffer.amount}</span></p>
+                    </div>
+                    <div class="flex gap-3">
+                        <button onclick="respondToCounterBid('${projectId}', '${myBid.bidderUid}', 'accepted')"
+                                class="flex-1 py-3 bg-emerald-500 text-black font-semibold rounded-2xl text-sm">
+                            ✅ Accept Counter
+                        </button>
+                        <button onclick="respondToCounterBid('${projectId}', '${myBid.bidderUid}', 'rejected')"
+                                class="flex-1 py-3 border border-zinc-600 text-zinc-400 rounded-2xl text-sm hover:bg-zinc-800">
+                            ❌ Reject
+                        </button>
+                    </div>
+                </div>`;
+            }
+            return `<p class="text-emerald-400 text-center mt-4">✅ You have already placed a bid on this project.${myBid?.status === 'countered' ? ' Counter offer sent.' : ''}</p>`;
+        })() : ''}        ${isPoster ? `
             <p class="text-amber-400 text-center mt-4">👆 Click any bid above to review it and accept.</p>
             <div class="border-t border-zinc-700 mt-8 pt-6 space-y-3">
                 ${!(project.isFeatured && project.featuredUntil > Date.now()) ? `
@@ -7444,7 +7476,120 @@ function hideEditPostingModal() {
 
             modal.classList.remove('hidden');
         }
-
+        // ====================== COUNTER BID SYSTEM ======================
+        function showCounterBidModal() {
+            if (!currentProject || currentBidIndex === null) return;
+            const bid = currentProject.bids[currentBidIndex];
+        
+            document.getElementById('counter-bid-context').textContent =
+                `@${bid.bidderName} bid: ${bid.amount} — enter your counter terms below.`;
+        
+            const cashMatch = bid.amount?.match(/\$[\d,]+(?:\.\d+)?/);
+            const equityMatch = bid.amount?.match(/([\d.]+)%/);
+            document.getElementById('counter-cash-input').value = cashMatch ? cashMatch[0].replace('$','').replace(',','') : '';
+            document.getElementById('counter-equity-input').value = equityMatch ? equityMatch[1] : '';
+        
+            const compType = currentProject.compensationType || 'cash';
+            document.getElementById('counter-cash-field').classList.toggle('hidden', compType === 'equity');
+            document.getElementById('counter-equity-field').classList.toggle('hidden', compType === 'cash');
+        
+            document.getElementById('counter-bid-modal').classList.remove('hidden');
+        }
+        
+        async function submitCounterBid() {
+            if (!currentProject || currentBidIndex === null) return;
+        
+            const cashVal   = document.getElementById('counter-cash-input').value.trim();
+            const equityVal = document.getElementById('counter-equity-input').value.trim();
+            const compType  = currentProject.compensationType || 'cash';
+        
+            let counterAmount = '';
+            if (compType === 'cash' || compType === 'mixed') {
+                if (cashVal) counterAmount = `$${cashVal} USDC`;
+            }
+            if (compType === 'equity' || compType === 'mixed') {
+                if (equityVal) {
+                    const pct = parseFloat(equityVal);
+                    if (pct < 0.001 || pct > 100) return alert('Equity must be between 0.001% and 100%.');
+                    counterAmount = counterAmount ? counterAmount + ` + ${pct}% equity` : `${pct}% equity`;
+                }
+            }
+            if (!counterAmount) return alert('Please enter at least one counter term.');
+        
+            try {
+                const projectRef = db.collection('subprojects').doc(currentProjectId);
+                const updatedBids = [...currentProject.bids];
+                updatedBids[currentBidIndex] = {
+                    ...updatedBids[currentBidIndex],
+                    status: 'countered',
+                    counterOffer: {
+                        amount: counterAmount,
+                        sentAt: new Date().toISOString(),
+                        sentByUid: currentUser.uid,
+                        status: 'pending'
+                    }
+                };
+        
+                await projectRef.update({ bids: updatedBids });
+        
+                const bid = currentProject.bids[currentBidIndex];
+                await db.collection('notifications').add({
+                    recipientUid: bid.bidderUid,
+                    type: 'counter_offer',
+                    message: `${currentUser.username} sent a counter offer of ${counterAmount} on "${currentProject.title}". Check the posting to respond.`,
+                    projectId: currentProjectId,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    read: false
+                });
+        
+                document.getElementById('counter-bid-modal').classList.add('hidden');
+                document.getElementById('bid-detail-modal').classList.add('hidden');
+                alert(`✅ Counter offer sent to @${bid.bidderName}: ${counterAmount}`);
+                loadMarketplace();
+            } catch(e) {
+                alert('Failed to send counter: ' + e.message);
+            }
+        }
+        
+        async function respondToCounterBid(projectId, bidderUid, response) {
+            try {
+                const projectRef = db.collection('subprojects').doc(projectId);
+                const snap = await projectRef.get();
+                const project = snap.data();
+        
+                const updatedBids = project.bids.map(bid => {
+                    if (bid.bidderUid === bidderUid && bid.counterOffer) {
+                        return {
+                            ...bid,
+                            amount: response === 'accepted' ? bid.counterOffer.amount : bid.amount,
+                            status: response === 'accepted' ? 'open' : 'rejected',
+                            counterOffer: { ...bid.counterOffer, status: response }
+                        };
+                    }
+                    return bid;
+                });
+        
+                await projectRef.update({ bids: updatedBids });
+        
+                await db.collection('notifications').add({
+                    recipientUid: project.ownerUid,
+                    type: 'counter_response',
+                    message: `@${currentUser.username} ${response} your counter offer on "${project.title}".`,
+                    projectId,
+                    createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    read: false
+                });
+        
+                alert(response === 'accepted'
+                    ? '✅ Counter accepted! The poster will be notified.'
+                    : '❌ Counter rejected. The poster has been notified.');
+        
+                loadMarketplace();
+                hideProjectDetailModal();
+            } catch(e) {
+                alert('Failed: ' + e.message);
+            }
+        }
         function hideBidDetailModal() {
             document.getElementById('bid-detail-modal').classList.add('hidden');
         }
@@ -7503,6 +7648,88 @@ function hideEditPostingModal() {
 
                 // Parse compensation amount
                 const compensationStr = bid.amount || project.compensation || '';
+                const isEquity = compensationStr.toLowerCase().includes('equity') ||
+                                 project.compensationType === 'equity';
+
+                // ── Equity component — reserve on V2 contract ─────────
+                if (isEquity) {
+                    const btn = document.getElementById('accept-bid-btn');
+                    if (btn) { btn.textContent = '⏳ Reserving equity...'; btn.disabled = true; }
+
+                    try {
+                        const equityMatch = compensationStr.match(/([\d.]+)%/);
+                        if (!equityMatch) throw new Error('Could not parse equity percentage from bid.');
+                        const equityPct = parseFloat(equityMatch[1]);
+                        const equityUnits = Math.round(equityPct * 100);
+
+                        const workerSnap = await db.collection('users').doc(bid.bidderUid).get();
+                        const workerWallet = workerSnap.data()?.walletAddress;
+                        if (!workerWallet) throw new Error('Builder has not connected a wallet yet.');
+
+                        const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
+
+                        const available = await equityContract.availableBalance(project.companyId, connectedAddress);
+                        if (available.lt(ethers.BigNumber.from(equityUnits))) {
+                            throw new Error(`Insufficient available equity. You have ${available.toNumber() / 100}% available.`);
+                        }
+
+                        if (btn) btn.textContent = '⏳ Confirming reservation...';
+                        const reserveTx = await equityContract.reserveEquity(
+                            project.companyId,
+                            currentProjectId,
+                            workerWallet,
+                            equityUnits
+                        );
+                        await reserveTx.wait();
+
+                        const cashMatch = compensationStr.match(/\$([\d,]+(?:\.\d+)?)\s*usdc/i);
+                        let escrowTxHash = null;
+                        if (cashMatch) {
+                            const cashAmount = parseFloat(cashMatch[1].replace(',', ''));
+                            const cashRaw = ethers.utils.parseUnits(cashAmount.toFixed(6), 6);
+                            const deadlineTs = deadlineToTimestamp(deadline);
+                            if (btn) btn.textContent = '⏳ Locking USDC...';
+                            const allowance = await usdcContract.allowance(connectedAddress, ESCROW_CONTRACT_ADDRESS);
+                            if (allowance.lt(cashRaw)) {
+                                const approveTx = await usdcContract.approve(ESCROW_CONTRACT_ADDRESS, cashRaw);
+                                await approveTx.wait();
+                            }
+                            const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
+                            const escrowTx = await escrowContract.createEscrow(currentProjectId, workerWallet, cashRaw, 0, deadlineTs);
+                            await escrowTx.wait();
+                            escrowTxHash = escrowTx.hash;
+                        }
+
+                        await projectRef.update({
+                            status: 'in-progress',
+                            acceptedBid: bid,
+                            acceptedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            acceptedBidderUid: bid.bidderUid,
+                            acceptedBidderUsername: bid.bidderName,
+                            deadline: deadline,
+                            bidsOpen: false,
+                            escrowType: cashMatch ? 'mixed' : 'equity',
+                            equityUnits,
+                            equityReserved: true,
+                            equityReserveTxHash: reserveTx.hash,
+                            escrowTxHash
+                        });
+
+                        if (btn) { btn.textContent = 'Accept Bid'; btn.disabled = false; }
+                        document.getElementById('bid-detail-modal').classList.add('hidden');
+
+                        alert(`✅ Bid accepted!\n\n${equityPct}% equity (${equityUnits} units) reserved on-chain — cannot be double-pledged.\nTx: https://arbiscan.io/tx/${reserveTx.hash}${escrowTxHash ? `\n\nUSDC also locked in escrow.\nTx: https://arbiscan.io/tx/${escrowTxHash}` : ''}\n\nEquity transfers automatically when you approve the submitted work.`);
+                        loadMarketplace();
+                        return;
+
+                    } catch(equityErr) {
+                        const btn = document.getElementById('accept-bid-btn');
+                        if (btn) { btn.textContent = 'Accept Bid'; btn.disabled = false; }
+                        alert('Failed to reserve equity: ' + equityErr.message);
+                        return;
+                    }
+                }
+
                 const amountNum = parseFloat(compensationStr.replace(/[^0-9.]/g, ''));
                 if (!amountNum || amountNum <= 0) {
                     return alert("Could not parse compensation amount. Ensure it is a clear dollar value e.g. $500 USDC.");
@@ -7988,48 +8215,66 @@ if (hasEscrow) {
 
                     if (hasEquity && currentProject.equityUnits && currentProject.companyId) {
                         try {
-                            // Get wallets
-                            const founderSnap = await db.collection('users').doc(currentProject.ownerUid).get();
-                            const workerSnap  = await db.collection('users').doc(currentProject.acceptedBidderUid).get();
-                            const founderWallet = founderSnap.data()?.walletAddress;
-                            const workerWallet  = workerSnap.data()?.walletAddress;
+                            if (currentProject.equityReserved) {
+                                // V2 path — complete the on-chain reservation
+                                const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
+                                const completeTx = await equityContract.completeReservation(
+                                    currentProject.companyId,
+                                    currentProjectId
+                                );
+                                await completeTx.wait();
 
-                            if (founderWallet && workerWallet) {
-                                const equityResponse = await fetch('/api/transfer-equity', {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        projectId:     currentProject.companyId,
-                                        founderWallet,
-                                        workerWallet,
-                                        units:         currentProject.equityUnits,
-                                        reason:        `Bounty completion: ${currentProject.title}`,
-                                        bountyTitle:   currentProject.title,
-                                        callerUid:     currentUser.uid
-                                    })
+                                await projectRef.update({
+                                    equityTransferTxHash: completeTx.hash,
+                                    equityTransferred: true,
+                                    equityUnitsTransferred: currentProject.equityUnits
                                 });
 
-                                const equityResult = await equityResponse.json();
+                                const escrowMsg = releaseTx ? `\n\nFunds released from escrow.\nTx: https://arbiscan.io/tx/${releaseTx.hash}` : '';
+                                alert(`✅ Submission accepted!\n\n📈 ${(currentProject.equityUnits / 100).toFixed(2)}% equity transferred on-chain.\nTx: https://arbiscan.io/tx/${completeTx.hash}${escrowMsg}`);
 
-                                if (equityResult.success) {
-                                    await projectRef.update({
-                                        equityTransferTxHash: equityResult.txHash,
-                                        equityTransferred: true,
-                                        equityUnitsTransferred: currentProject.equityUnits
-                                    });
-                                    alert(`✅ Submission accepted!\n\nFunds released from escrow.\nTx: https://arbiscan.io/tx/${releaseTx.hash}\n\n📈 Equity transferred: ${equityResult.percentage}% (${currentProject.equityUnits} units) in ${equityResult.projectName}\nTx: https://arbiscan.io/tx/${equityResult.txHash}`);
-                                } else {
-                                    alert(`✅ Submission accepted! Funds released.\nTx: https://arbiscan.io/tx/${releaseTx.hash}\n\n⚠️ Equity transfer failed: ${equityResult.error}\nPlease transfer equity manually from your company dashboard.`);
-                                }
                             } else {
-                                alert(`✅ Submission accepted! Funds released.\nTx: https://arbiscan.io/tx/${releaseTx.hash}\n\n⚠️ Could not auto-transfer equity — worker or founder wallet not connected. Transfer manually from your company dashboard.`);
+                                // Legacy V1 path
+                                const founderSnap = await db.collection('users').doc(currentProject.ownerUid).get();
+                                const workerSnap  = await db.collection('users').doc(currentProject.acceptedBidderUid).get();
+                                const founderWallet = founderSnap.data()?.walletAddress;
+                                const workerWallet  = workerSnap.data()?.walletAddress;
+
+                                if (founderWallet && workerWallet) {
+                                    const equityResponse = await fetch('/api/transfer-equity', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({
+                                            projectId:     currentProject.companyId,
+                                            founderWallet,
+                                            workerWallet,
+                                            units:         currentProject.equityUnits,
+                                            reason:        `Bounty completion: ${currentProject.title}`,
+                                            bountyTitle:   currentProject.title,
+                                            callerUid:     currentUser.uid
+                                        })
+                                    });
+                                    const equityResult = await equityResponse.json();
+                                    if (equityResult.success) {
+                                        await projectRef.update({
+                                            equityTransferTxHash: equityResult.txHash,
+                                            equityTransferred: true,
+                                            equityUnitsTransferred: currentProject.equityUnits
+                                        });
+                                        alert(`✅ Submission accepted!\n\nFunds released from escrow.\nTx: https://arbiscan.io/tx/${releaseTx?.hash}\n\n📈 Equity transferred: ${equityResult.percentage}% in ${equityResult.projectName}\nTx: https://arbiscan.io/tx/${equityResult.txHash}`);
+                                    } else {
+                                        alert(`✅ Submission accepted! Funds released.\nTx: https://arbiscan.io/tx/${releaseTx?.hash}\n\n⚠️ Equity transfer failed: ${equityResult.error}\nPlease transfer equity manually.`);
+                                    }
+                                } else {
+                                    alert(`✅ Submission accepted! Funds released.\nTx: https://arbiscan.io/tx/${releaseTx?.hash}\n\n⚠️ Could not auto-transfer equity — wallet not connected. Transfer manually.`);
+                                }
                             }
                         } catch(equityErr) {
                             console.error('Equity transfer failed:', equityErr);
-                            alert(`✅ Submission accepted! Funds released.\nTx: https://arbiscan.io/tx/${releaseTx.hash}\n\n⚠️ Equity transfer failed: ${equityErr.message}\nPlease transfer equity manually.`);
+                            alert(`✅ Submission accepted!${releaseTx ? ` Funds released.\nTx: https://arbiscan.io/tx/${releaseTx.hash}` : ''}\n\n⚠️ Equity transfer failed: ${equityErr.message}\nPlease transfer manually.`);
                         }
                     } else {
-                        alert(`✅ Submission accepted! Funds released from escrow.\nTx: https://arbiscan.io/tx/${releaseTx.hash}`);
+                        alert(`✅ Submission accepted! Funds released from escrow.\nTx: https://arbiscan.io/tx/${releaseTx?.hash}`);
                     }
                 } else {
                     // Pre-escrow fallback
@@ -14170,11 +14415,34 @@ async function claimEscrowRefund(projectId) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
     if (!confirm("Claim full refund? The deadline has passed and no deliverables were submitted. 100% will be returned to you.")) return;
     try {
+        const projectSnap = await db.collection("subprojects").doc(projectId).get();
+        const project = projectSnap.data();
+
         const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
         const escrowId = await escrowContract.projectToEscrow(projectId);
         const tx = await escrowContract.claimRefund(escrowId);
         await tx.wait();
-        await db.collection("subprojects").doc(projectId).update({ status: "refunded", refundedAt: firebase.firestore.FieldValue.serverTimestamp() });
+
+        // Release equity reservation if one exists
+        if (project?.equityReserved && project?.companyId) {
+            try {
+                const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
+                const releaseTx = await equityContract.releaseReservation(project.companyId, projectId);
+                await releaseTx.wait();
+                await db.collection("subprojects").doc(projectId).update({
+                    status: "refunded",
+                    refundedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                    equityReserved: false,
+                    equityReleased: true
+                });
+            } catch(e) {
+                console.warn('Failed to release equity reservation:', e.message);
+                await db.collection("subprojects").doc(projectId).update({ status: "refunded", refundedAt: firebase.firestore.FieldValue.serverTimestamp() });
+            }
+        } else {
+            await db.collection("subprojects").doc(projectId).update({ status: "refunded", refundedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        }
+
         alert(`✅ Full refund received!\nTx: https://arbiscan.io/tx/${tx.hash}`);
         hideProjectDetailModal();
         loadMarketplace();
@@ -16927,6 +17195,35 @@ async function founderRelease() {
             Submit Ticket
         </button>
         <p class="text-zinc-600 text-xs text-center mt-3">Free to submit. We'll respond directly in your profile under "My Support Tickets".</p>
+    </div>
+</div>
+
+<!-- COUNTER BID MODAL -->
+<div id="counter-bid-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[999999]">
+    <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-6">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-xl font-bold">↩️ Counter Offer</h2>
+            <button onclick="document.getElementById('counter-bid-modal').classList.add('hidden')" class="text-3xl text-zinc-400 hover:text-white">×</button>
+        </div>
+        <p class="text-zinc-400 text-sm mb-6" id="counter-bid-context"></p>
+        <div id="counter-cash-field" class="mb-4">
+            <p class="text-xs text-zinc-400 mb-1">Counter cash amount <span class="text-zinc-600">(leave blank to remove cash)</span></p>
+            <input id="counter-cash-input" type="text" placeholder="e.g. $1,500 USDC"
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm">
+        </div>
+        <div id="counter-equity-field" class="mb-6">
+            <p class="text-xs text-zinc-400 mb-1">Counter equity % <span class="text-zinc-600">(leave blank to remove equity)</span></p>
+            <div class="flex gap-3 items-center">
+                <input id="counter-equity-input" type="number" placeholder="e.g. 1.5" min="0.001" max="100" step="0.001"
+                       class="flex-1 bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm">
+                <span class="text-zinc-400 font-semibold pr-2">%</span>
+            </div>
+        </div>
+        <button onclick="submitCounterBid()"
+                class="w-full py-4 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-3xl transition-colors">
+            Send Counter Offer
+        </button>
+        <p class="text-xs text-zinc-500 text-center mt-3">The builder will be notified and can accept or reject your counter.</p>
     </div>
 </div>
 </body>
