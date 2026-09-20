@@ -11063,6 +11063,7 @@ async function showPostBountyModal() {
 function hidePostBountyModal() {
     document.getElementById('post-bounty-modal').classList.add('hidden');
     selectedBountyProjectId = null;
+    window._postingFromNodeId = null;
 }
 
 async function populateBountyProjectList() {
@@ -11212,7 +11213,7 @@ async function submitBountyPosting() {
                         }
                     }
 
-                    await db.collection("subprojects").add({
+                    const newPostingRef = await db.collection("subprojects").add({
                         projectId: selectedBountyProjectId,
                         companyId: selectedBountyProjectId,
                         ownerUid: currentUser.uid,
@@ -11239,6 +11240,15 @@ async function submitBountyPosting() {
                         paymentTxHash: txHash,
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
+
+                    // If posted from a Studio node, mark it as live on marketplace
+                    if (window._postingFromNodeId) {
+                        await db.collection('subprojects').doc(window._postingFromNodeId).update({
+                            marketplacePostId: newPostingRef.id,
+                            marketplaceStatus: 'live'
+                        });
+                        window._postingFromNodeId = null;
+                    }
 
                     // Notify preferred builder
                     if (_preferredBuilderUid) {
@@ -14881,10 +14891,15 @@ async function renderBuildTab() {
                             class="px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-xl text-sm font-medium hover:bg-emerald-500/30">
                         ✓ Mark Complete
                     </button>
-                    <button onclick="postNodeToMarketplace('${node.id}', '${node.title.replace(/'/g,"\\\'")}')"
+                    ${node.marketplaceStatus === 'live' && node.marketplacePostId ? `
+                    <button onclick="navigateTo('marketplace'); setTimeout(() => showSubprojectDetail('${node.marketplacePostId}', null), 800)"
+                            class="px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-xl text-sm font-medium border border-emerald-500/30">
+                        🟢 Live on Marketplace →
+                    </button>` : `
+                    <button onclick="postNodeToMarketplace('${node.id}', '${node.title.replace(/'/g,"\\'")}')"
                             class="px-4 py-2 bg-white text-black rounded-xl text-sm font-semibold hover:bg-cyan-400 transition-colors">
                         📣 Post to Marketplace
-                    </button>
+                    </button>`}
                     <button onclick="sendNodeBackToPlan('${node.id}'); renderBuildTab()"
                             class="px-4 py-2 border border-zinc-600 text-zinc-400 rounded-xl text-sm hover:bg-zinc-800">
                         ← Back to Plan
@@ -14910,6 +14925,9 @@ async function postNodeToMarketplace(nodeId, title) {
     try {
         const doc = await db.collection('subprojects').doc(nodeId).get();
         const node = doc.data();
+
+        // Track which node this came from so we can link back after posting
+        window._postingFromNodeId = nodeId;
 
         // Pre-select the project and skip straight to step 2
         selectedBountyProjectId = node.companyId;
