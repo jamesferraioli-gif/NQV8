@@ -14860,7 +14860,11 @@ async function renderBuildTab() {
             .orderBy('createdAt', 'desc')
             .get();
 
-        if (snap.empty) {
+        const allNodes    = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const activeNodes = allNodes.filter(n => n.status !== 'completed');
+        const doneNodes   = allNodes.filter(n => n.status === 'completed');
+
+        if (allNodes.length === 0) {
             empty.classList.remove('hidden');
             container.innerHTML = '';
             return;
@@ -14869,8 +14873,8 @@ async function renderBuildTab() {
         empty.classList.add('hidden');
         container.innerHTML = '';
 
-        snap.forEach(doc => {
-            const node = { id: doc.id, ...doc.data() };
+        // ── Active nodes ──────────────────────────────────────────────
+        activeNodes.forEach(node => {
             const card = document.createElement('div');
             card.className = 'bg-zinc-900 border border-violet-500/30 rounded-2xl p-6';
             card.innerHTML = `
@@ -14879,7 +14883,10 @@ async function renderBuildTab() {
                         <p class="font-bold text-lg">${node.title}</p>
                         <p class="text-zinc-400 text-sm mt-1">${node.description}</p>
                     </div>
-                    <span class="px-3 py-1 rounded-full text-xs bg-violet-500/20 text-violet-400 ml-4 flex-shrink-0">In Build</span>
+                    ${node.marketplaceStatus === 'live' ?
+                        `<span class="px-3 py-1 rounded-full text-xs bg-emerald-500/20 text-emerald-400 ml-4 flex-shrink-0">🟢 Live</span>` :
+                        `<span class="px-3 py-1 rounded-full text-xs bg-violet-500/20 text-violet-400 ml-4 flex-shrink-0">In Build</span>`
+                    }
                 </div>
                 ${node.instructions ? `
                 <div class="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4 mb-4">
@@ -14908,11 +14915,43 @@ async function renderBuildTab() {
             `;
             container.appendChild(card);
         });
+
+        // ── Completed nodes dropdown ──────────────────────────────────
+        if (doneNodes.length > 0) {
+            const section = document.createElement('div');
+            section.className = 'mt-6 border-t border-zinc-800 pt-6';
+            section.innerHTML = `
+                <button onclick="this.nextElementSibling.classList.toggle('hidden')"
+                        class="flex items-center gap-2 text-zinc-400 hover:text-white text-sm font-medium mb-4">
+                    <span>✅ Completed Nodes (${doneNodes.length})</span>
+                    <span class="text-xs">▼</span>
+                </button>
+                <div class="hidden space-y-3">
+                    ${doneNodes.map(node => `
+                    <div class="bg-zinc-900 border border-zinc-700 rounded-2xl p-4 opacity-70">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <p class="font-medium text-sm">${node.title}</p>
+                                <p class="text-zinc-500 text-xs mt-0.5">${node.description}</p>
+                            </div>
+                            <div class="flex items-center gap-2 ml-4 flex-shrink-0">
+                                <span class="px-2 py-1 rounded-full text-xs bg-emerald-500/20 text-emerald-400">✅ Done</span>
+                                <button onclick="updateNodeStatus('${node.id}', 'open'); renderBuildTab()"
+                                        class="px-3 py-1 border border-zinc-600 text-zinc-400 rounded-xl text-xs hover:bg-zinc-800">
+                                    Reopen
+                                </button>
+                            </div>
+                        </div>
+                    </div>`).join('')}
+                </div>
+            `;
+            container.appendChild(section);
+        }
+
     } catch(e) {
         container.innerHTML = `<p class="text-red-400">Error: ${e.message}</p>`;
     }
 }
-
 async function sendNodeBackToPlan(nodeId) {
     try {
         await db.collection('subprojects').doc(nodeId).update({ type: 'plan', bidsOpen: false });
