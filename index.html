@@ -498,8 +498,41 @@
                 <p class="text-amber-400 text-xs">⚠️ Equity compensation requires a verified entity.</p>
             </div>
 
-            <input id="bounty-compensation" type="text" placeholder="Compensation (e.g. $2,500 USDC)"
-                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+
+            <!-- Cash compensation -->
+            <div id="comp-field-cash" class="mb-4">
+                <input id="bounty-compensation-cash" type="text" placeholder="e.g. $2,500 USDC"
+                       class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+            </div>
+
+            <!-- Equity compensation -->
+            <div id="comp-field-equity" class="hidden mb-4">
+                <p class="text-xs text-zinc-400 mb-2">Equity Percentage Offered</p>
+                <div class="flex gap-3 items-center">
+                    <input id="bounty-compensation-equity-pct" type="number" placeholder="e.g. 5" min="0.01" max="100" step="0.01"
+                           class="flex-1 bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
+                    <span class="text-zinc-400 font-semibold text-lg">%</span>
+                </div>
+                <p class="text-xs text-zinc-500 mt-2">Equity transfers on-chain automatically when work is approved.</p>
+            </div>
+
+            <!-- Mixed compensation -->
+            <div id="comp-field-mixed" class="hidden mb-4 space-y-3">
+                <div>
+                    <p class="text-xs text-zinc-400 mb-1">Cash Amount</p>
+                    <input id="bounty-compensation-mixed-cash" type="text" placeholder="e.g. $1,000 USDC"
+                           class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
+                </div>
+                <div>
+                    <p class="text-xs text-zinc-400 mb-1">Equity Percentage</p>
+                    <div class="flex gap-3 items-center">
+                        <input id="bounty-compensation-mixed-pct" type="number" placeholder="e.g. 2" min="0.01" max="100" step="0.01"
+                               class="flex-1 bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
+                        <span class="text-zinc-400 font-semibold text-lg">%</span>
+                    </div>
+                </div>
+                <p class="text-xs text-zinc-500">Cash and equity both transfer automatically when work is approved.</p>
+            </div>
 
             <p class="text-sm text-zinc-400 mb-2">Skills Required <span class="text-zinc-500">(optional — helps builders find your posting)</span></p>
             <div id="bounty-tags-picker" class="flex flex-wrap gap-2 mb-6"></div>
@@ -11032,7 +11065,10 @@ async function bountyGoToStep2() {
     document.getElementById('bounty-step-2').classList.remove('hidden');
     document.getElementById('bounty-title').value = '';
     document.getElementById('bounty-desc').value = '';
-    document.getElementById('bounty-compensation').value = '';
+    document.getElementById('bounty-compensation-cash').value = '';
+    document.getElementById('bounty-compensation-equity-pct').value = '';
+    document.getElementById('bounty-compensation-mixed-cash').value = '';
+    document.getElementById('bounty-compensation-mixed-pct').value = '';
     selectBountyCompType('cash');
 }
 
@@ -11043,7 +11079,10 @@ function bountyGoToStep1() {
     selectBountyCompType('cash');
     document.getElementById('bounty-title').value = '';
     document.getElementById('bounty-desc').value = '';
-    document.getElementById('bounty-compensation').value = '';
+    document.getElementById('bounty-compensation-cash').value = '';
+    document.getElementById('bounty-compensation-equity-pct').value = '';
+    document.getElementById('bounty-compensation-mixed-cash').value = '';
+    document.getElementById('bounty-compensation-mixed-pct').value = '';
     document.getElementById('bounty-category').value = '';
     _bountySelectedTags = [];
     initTagsPicker('bounty-tags-picker', _bountySelectedTags);
@@ -11063,13 +11102,26 @@ function selectBountyCompType(type) {
     });
     const warning = document.getElementById('bounty-equity-warning');
     warning.classList.toggle('hidden', type === 'cash');
+    document.getElementById('comp-field-cash').classList.toggle('hidden', type !== 'cash');
+    document.getElementById('comp-field-equity').classList.toggle('hidden', type !== 'equity');
+    document.getElementById('comp-field-mixed').classList.toggle('hidden', type !== 'mixed');
 }
 
 async function submitBountyPosting() {
     const title = document.getElementById('bounty-title').value.trim();
     const desc = document.getElementById('bounty-desc').value.trim();
     const category = document.getElementById('bounty-category').value;
-    const compensation = document.getElementById('bounty-compensation').value.trim();
+    let compensation = '';
+    if (selectedBountyCompType === 'cash') {
+        compensation = document.getElementById('bounty-compensation-cash').value.trim();
+    } else if (selectedBountyCompType === 'equity') {
+        const pct = document.getElementById('bounty-compensation-equity-pct').value.trim();
+        compensation = pct ? `${pct}% equity` : '';
+    } else if (selectedBountyCompType === 'mixed') {
+        const cash = document.getElementById('bounty-compensation-mixed-cash').value.trim();
+        const pct  = document.getElementById('bounty-compensation-mixed-pct').value.trim();
+        compensation = [cash, pct ? `${pct}% equity` : ''].filter(Boolean).join(' + ');
+    }
 
     if (!title || !desc || !category || !compensation) return alert("Please fill in all fields");
 
