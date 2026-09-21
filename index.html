@@ -7672,8 +7672,9 @@ function hideEditPostingModal() {
 
                         const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
 
+                        console.log('Checking availability:', project.companyId, connectedAddress);
                         const available = await equityContract.availableBalance(project.companyId, connectedAddress);
-                        if (available.lt(ethers.BigNumber.from(equityUnits))) {
+                        console.log('Available units:', available.toString());                        if (available.lt(ethers.BigNumber.from(equityUnits))) {
                             throw new Error(`Insufficient available equity. You have ${available.toNumber() / 100}% available.`);
                         }
 
