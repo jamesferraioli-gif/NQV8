@@ -7661,9 +7661,6 @@ function hideEditPostingModal() {
                     if (btn) { btn.textContent = '⏳ Reserving equity...'; btn.disabled = true; }
 
                     try {
-                        console.log('compensationStr:', compensationStr);
-                        console.log('project.companyId:', project.companyId);
-                        console.log('connectedAddress:', connectedAddress);
                         const equityMatch = compensationStr.match(/([\d.]+)%/);
                         if (!equityMatch) throw new Error('Could not parse equity percentage from bid.');
                         const equityPct = parseFloat(equityMatch[1]);
@@ -7708,8 +7705,16 @@ function hideEditPostingModal() {
                             escrowTxHash = escrowTx.hash;
                         }
 
-                        await projectRef.update({
-                            status: 'in-progress',
+                        // Update plan node status if this posting came from Studio
+                        const nodeSnap = await db.collection('subprojects')
+                            .where('marketplacePostId', '==', currentProjectId)
+                            .where('ownerUid', '==', currentUser.uid)
+                            .limit(1).get();
+                        if (!nodeSnap.empty) {
+                            await db.collection('subprojects').doc(nodeSnap.docs[0].id).update({
+                                marketplacePostStatus: 'in-progress'
+                            });
+                        }
                             acceptedBid: bid,
                             acceptedAt: firebase.firestore.FieldValue.serverTimestamp(),
                             acceptedBidderUid: bid.bidderUid,
@@ -7828,6 +7833,17 @@ function hideEditPostingModal() {
                 });
 
                 if (btn) { btn.textContent = 'Accept Bid'; btn.disabled = false; }
+
+                // Update plan node status if this posting came from Studio
+                const nodeSnap = await db.collection('subprojects')
+                    .where('marketplacePostId', '==', currentProjectId)
+                    .where('ownerUid', '==', currentUser.uid)
+                    .limit(1).get();
+                if (!nodeSnap.empty) {
+                    await db.collection('subprojects').doc(nodeSnap.docs[0].id).update({
+                        marketplacePostStatus: 'in-progress'
+                    });
+                }
 
                 alert(`✅ Bid accepted!\n\n$${amountNum} ${isNQV8 ? 'NQV8' : 'USDC'} locked in escrow.\nEscrow tx: https://arbiscan.io/tx/${escrowTx.hash}`);
                 notifyBidAccepted(currentProject, bid);
@@ -15181,8 +15197,8 @@ async function renderBuildTab() {
                     </button>
                     ${node.marketplaceStatus === 'live' && node.marketplacePostId ? `
                     <button onclick="navigateTo('marketplace'); setTimeout(() => showSubprojectDetail('${node.marketplacePostId}', null), 800)"
-                            class="px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-xl text-sm font-medium border border-emerald-500/30">
-                        🟢 Live on Marketplace →
+                            class="px-4 py-2 ${node.marketplacePostStatus === 'in-progress' ? 'bg-violet-500/20 text-violet-400 border-violet-500/30' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'} rounded-xl text-sm font-medium border">
+                        ${node.marketplacePostStatus === 'in-progress' ? '🔨 In Progress →' : '🟢 Live on Marketplace →'}
                     </button>` : `
                     <button onclick="postNodeToMarketplace('${node.id}', '${node.title.replace(/'/g,"\\'")}')"
                             class="px-4 py-2 bg-white text-black rounded-xl text-sm font-semibold hover:bg-cyan-400 transition-colors">
