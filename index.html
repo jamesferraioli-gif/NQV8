@@ -7468,7 +7468,7 @@ function hideEditPostingModal() {
 
                 <div class="mt-6 bg-zinc-800 rounded-2xl p-5">
                     <p class="text-cyan-400 font-medium">${bid.amount}</p>
-                    <p class="text-sm text-zinc-400 mt-1">${new Date(bid.timestamp).toLocaleDateString()}</p>
+                    <p class="text-sm text-zinc-400 mt-1">${bid.timestamp?.toDate ? bid.timestamp.toDate().toLocaleDateString() : bid.timestamp ? new Date(bid.timestamp).toLocaleDateString() : ''}</p>
                 </div>
 
                 <p class="text-zinc-400 mt-6 text-sm">Click "Message User" to discuss details before accepting.</p>
