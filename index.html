@@ -8526,22 +8526,27 @@ if (hasEscrow) {
                             (amountStr.includes('%') && !amountStr.includes('$'));
 
                         if (isEquityOnly && proj.equityApproved && proj.companyId && !proj.equityTransferred) {
-                            // ── Equity release via V3 completeReservation ──────────
-                            const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
-                            const completeTx = await equityContract.completeReservation(
-                                proj.companyId,
-                                currentReviewProjectId,
-                                '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D',
-                                350
-                            );
-                            await completeTx.wait();
+                            // ── Equity release via API (server-side, no MetaMask) ──
+                            const completeResp = await fetch('/api/equity-complete', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer nqvate-internal-2026`
+                                },
+                                body: JSON.stringify({
+                                    companyId: proj.companyId,
+                                    bountyId: currentReviewProjectId
+                                })
+                            });
+                            const completeResult = await completeResp.json();
+                            if (!completeResult.success) throw new Error(completeResult.error);
 
-                            const workerUnits   = Math.round(proj.equityUnits * 0.965);
-                            const platformUnits = proj.equityUnits - workerUnits;
+                            const workerUnits   = completeResult.workerUnits;
+                            const platformUnits = completeResult.platformUnits;
+                            const completeTxHash = completeResult.txHash;
 
                             await db.collection('subprojects').doc(currentReviewProjectId).update({
-                                equityTransferTxHash: completeTx.hash,
-                                equityTransferred: true,
+                                equityTransferTxHash: completeTxHash,
                                 equityUnitsTransferred: proj.equityUnits,
                                 paidAt: firebase.firestore.FieldValue.serverTimestamp()
                             });
@@ -8568,8 +8573,7 @@ if (hasEscrow) {
                                 });
                             }
 
-                            alert(`✅ Review submitted!\n\n📈 Equity released on-chain:\n• Builder: ${(workerUnits/100).toFixed(4)}% (${workerUnits} units)\n• NQVate: ${(platformUnits/100).toFixed(4)}% (${platformUnits} units)\n\nTx: https://arbiscan.io/tx/${completeTx.hash}`);
-
+                            alert(`✅ Review submitted!\n\n📈 Equity released on-chain:\n• Builder: ${(workerUnits/100).toFixed(4)}% (${workerUnits} units)\n• NQVate: ${(platformUnits/100).toFixed(4)}% (${platformUnits} units)\n\nTx: https://arbiscan.io/tx/${completeTxHash}`);
                         } else if (!isEquityOnly && workerWallet && proj.acceptedBid?.amount) {
                             // ── USDC/NQV8 release via escrow ──────────────────────
                             const amountNum = parseFloat(amountStr.replace(/[^0-9.]/g, ''));
