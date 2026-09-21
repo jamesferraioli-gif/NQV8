@@ -8262,6 +8262,10 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                 }
 
 if (hasEscrow) {
+                    // Release escrow first
+                    const releaseTx = await escrowContract.releaseEscrow(escrowId);
+                    await releaseTx.wait();
+
                     // Deposit USDC platform fee into Rewards contract + record in Firestore
                     try {
                         const isUSDC = currentProject.compensationType === 'usdc' ||
