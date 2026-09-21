@@ -7704,17 +7704,6 @@ function hideEditPostingModal() {
                             await escrowTx.wait();
                             escrowTxHash = escrowTx.hash;
                         }
-
-                        // Update plan node status if this posting came from Studio
-                        const nodeSnap = await db.collection('subprojects')
-                            .where('marketplacePostId', '==', currentProjectId)
-                            .where('ownerUid', '==', currentUser.uid)
-                            .limit(1).get();
-                        if (!nodeSnap.empty) {
-                            await db.collection('subprojects').doc(nodeSnap.docs[0].id).update({
-                                marketplacePostStatus: 'in-progress'
-                            });
-                        }
                             acceptedBid: bid,
                             acceptedAt: firebase.firestore.FieldValue.serverTimestamp(),
                             acceptedBidderUid: bid.bidderUid,
@@ -7727,6 +7716,17 @@ function hideEditPostingModal() {
                             equityReserveTxHash: reserveTx.hash,
                             escrowTxHash
                         });
+
+                        // Update plan node status if this posting came from Studio
+                        const nodeSnap = await db.collection('subprojects')
+                            .where('marketplacePostId', '==', currentProjectId)
+                            .where('ownerUid', '==', currentUser.uid)
+                            .limit(1).get();
+                        if (!nodeSnap.empty) {
+                            await db.collection('subprojects').doc(nodeSnap.docs[0].id).update({
+                                marketplacePostStatus: 'in-progress'
+                            });
+                        }
 
                         if (btn) { btn.textContent = 'Accept Bid'; btn.disabled = false; }
                         document.getElementById('bid-detail-modal').classList.add('hidden');
