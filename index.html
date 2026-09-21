@@ -13176,7 +13176,6 @@ async function loadProfileEquityStakes() {
         const arbProvider    = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
         const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
         // Also check V2 for legacy stakes during transition
-        const equityV2ReadOnly = new ethers.Contract('0x480A3B66f2B0cf11a0cBCF4c736ed47604108e7D', EQUITY_REGISTRY_ABI, arbProvider);
 
 // ── 1. Get registered project IDs from Firestore ─────────────────
         // More reliable than on-chain enumeration since contract has no getAllProjectIds
@@ -13205,16 +13204,10 @@ async function loadProfileEquityStakes() {
         const results = await Promise.all(
             allProjectIds.map(async (projectId) => {
                 try {
-                    const [unitsV3, unitsV2] = await Promise.all([
-                        equityReadOnly.balances(projectId, connectedAddress).catch(() => ethers.BigNumber.from(0)),
-                        equityV2ReadOnly.balances(projectId, connectedAddress).catch(() => ethers.BigNumber.from(0))
-                    ]);
-                    const units = unitsV3.add(unitsV2);                    if (units.toNumber() === 0) return null;
+                    const units = await equityReadOnly.balances(projectId, connectedAddress).catch(() => ethers.BigNumber.from(0));
+                    if (units.toNumber() === 0) return null;
 
-                    let project = await equityReadOnly.projects(projectId).catch(() => null);
-                    if (!project || !project.exists) {
-                        project = await equityV2ReadOnly.projects(projectId).catch(() => null);
-                    }
+                    const project = await equityReadOnly.projects(projectId).catch(() => null);
                     if (!project || !project.exists) return null;
 
                     // Skip founder's own equity in their own company — that's ownership,
@@ -14014,20 +14007,14 @@ async function showCapTable(projectId, companyName) {
 
         const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
         const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
-        const equityV2ReadOnly = new ethers.Contract('0x480A3B66f2B0cf11a0cBCF4c736ed47604108e7D', EQUITY_REGISTRY_ABI, arbProvider);
 
         const holders = [];
         for (const doc of holdersSnap.docs) {
             const h = doc.data();
             let onChainUnits;
             try {
-                const [v3, v2] = await Promise.all([
-                    equityReadOnly.balances(projectId, h.wallet).catch(() => ethers.BigNumber.from(0)),
-                    equityV2ReadOnly.balances(projectId, h.wallet).catch(() => ethers.BigNumber.from(0))
-                ]);
-                // Founders only read from V3 (current contract)
-                // Non-founders check both to catch legacy V2 stakes
-                onChainUnits = h.isFounder ? v3.toNumber() : v3.add(v2).toNumber();
+                const raw = await equityReadOnly.balances(projectId, h.wallet).catch(() => ethers.BigNumber.from(0));
+                onChainUnits = raw.toNumber();
             } catch(e) {
                 onChainUnits = h.units || 0;
             }
