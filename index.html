@@ -14713,6 +14713,7 @@ async function loadStudioProject() {
 
     const nodes = nodesSnap.docs
             .map(d => ({ id: d.id, ...d.data() }))
+            .filter(n => n.status !== 'completed')
             .sort((a, b) => (a.nodeOrder ?? 0) - (b.nodeOrder ?? 0));
         renderFlowNodes(nodes);
     } catch(e) {
