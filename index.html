@@ -8203,54 +8203,38 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                 const escrowId = await escrowContract.projectToEscrow(currentProjectId);
                 const hasEscrow = escrowId !== '0x0000000000000000000000000000000000000000000000000000000000000000';
 
-                // ── Equity reservation path (V3) ─────────────────────
+                // ── Equity reservation path — approve work, equity releases at review ──
                 if (currentProject.equityReserved && currentProject.companyId) {
-                    try {
-                        const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
-                        const completeTx = await equityContract.completeReservation(
-                            currentProject.companyId,
-                            currentProjectId,
-                            '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D',
-                            350
-                        );
-                        await completeTx.wait();
+                    const projectRef = db.collection('subprojects').doc(currentProjectId);
+                    const updatedSubmissions = [...currentProject.submissions];
+                    updatedSubmissions[submissionIndex].status = 'accepted';
 
-                        const projectRef = db.collection('subprojects').doc(currentProjectId);
-                        const updatedSubmissions = [...currentProject.submissions];
-                        updatedSubmissions[submissionIndex].status = 'accepted';
+                    await projectRef.update({
+                        submissions: updatedSubmissions,
+                        status: 'completed',
+                        completedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        equityApproved: true
+                    });
 
-                        await projectRef.update({
-                            submissions: updatedSubmissions,
-                            status: 'completed',
-                            completedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                            equityTransferTxHash: completeTx.hash,
-                            equityTransferred: true,
-                            equityUnitsTransferred: currentProject.equityUnits
+                    // Update plan node status
+                    const nodeSnap = await db.collection('subprojects')
+                        .where('marketplacePostId', '==', currentProjectId)
+                        .where('ownerUid', '==', currentUser.uid)
+                        .limit(1).get();
+                    if (!nodeSnap.empty) {
+                        await db.collection('subprojects').doc(nodeSnap.docs[0].id).update({
+                            marketplacePostStatus: 'completed',
+                            status: 'completed'
                         });
-
-                        const workerUnits   = Math.round(currentProject.equityUnits * 0.965);
-                        const platformUnits = currentProject.equityUnits - workerUnits;
-
-                        alert(`✅ Submission accepted!\n\n📈 Equity transferred on-chain:\n• Builder: ${(workerUnits / 100).toFixed(4)}% (${workerUnits} units)\n• NQVate: ${(platformUnits / 100).toFixed(4)}% (${platformUnits} units)\n\nTx: https://arbiscan.io/tx/${completeTx.hash}`);
-
-                        // Also release USDC escrow if mixed bounty
-                        if (hasEscrow) {
-                            const releaseTx = await escrowContract.releaseEscrow(escrowId);
-                            await releaseTx.wait();
-                            alert(`USDC also released from escrow.\nTx: https://arbiscan.io/tx/${releaseTx.hash}`);
-                        }
-
-                        notifySubmissionApproved(currentProject);
-                        hideProjectDetailModal();
-                        loadMarketplace();
-                        loadProfileData();
-                        setTimeout(() => showReviewModal(currentProjectId, currentProject.title), 600);
-                        return;
-
-                    } catch(equityErr) {
-                        alert('Failed to complete equity transfer: ' + equityErr.message);
-                        return;
                     }
+
+                    notifySubmissionApproved(currentProject);
+                    hideProjectDetailModal();
+                    loadMarketplace();
+                    loadProfileData();
+                    // Show review modal — equity releases when review is submitted
+                    setTimeout(() => showReviewModal(currentProjectId, currentProject.title), 600);
+                    return;
                 }
 
 if (hasEscrow) {
@@ -8503,39 +8487,76 @@ if (hasEscrow) {
                         createdAt: new Date()
                     })
                 });
-                // Release bounty payment to worker on-chain
-                try {
-                    const proj = (await db.collection('subprojects').doc(currentReviewProjectId).get()).data();
-                    const workerSnap = await db.collection('users').doc(proj.acceptedBidderUid).get();
-                    const workerWallet = workerSnap.data()?.walletAddress;
-                    if (workerWallet && proj.acceptedBid?.amount) {
-                        const amountNum = parseFloat(String(proj.acceptedBid.amount).replace(/[^0-9.]/g, ''));
-                        const currency = String(proj.acceptedBid.amount).toUpperCase().includes('NQV8') ? 'NQV8' : 'USDC';
-                        const payTxHash = await releaseBountyPayment(workerWallet, amountNum, currency);
-                        await db.collection('subprojects').doc(currentReviewProjectId).update({
-                            paymentTxHash: payTxHash,
-                            paidAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-                        // Mint equity stake if bounty included equity
-                        if (proj.compensationType === 'equity' || proj.compensationType === 'mixed') {
-                            const pctBps = Math.round((parseFloat(proj.equityPercentage) || 1) * 100);
-                            await mintEquityStake(workerWallet, currentReviewProjectId, pctBps);
-                        }
-                    }
-                } catch (payErr) {
-                    console.error('Payment release failed:', payErr);
-                    alert('⚠️ Review saved but on-chain payment failed: ' + payErr.message + '\nPlease pay manually.');
-                }
-                alert("✅ Review submitted! Thank you.");
+                // Release payment / equity when POSTER submits their review
+                if (isReviewerPoster) {
+                    try {
+                        const proj = (await db.collection('subprojects').doc(currentReviewProjectId).get()).data();
+                        const workerSnap = await db.collection('users').doc(proj.acceptedBidderUid).get();
+                        const workerWallet = workerSnap.data()?.walletAddress;
+                        const amountStr = String(proj.acceptedBid?.amount || '');
+                        const isEquityOnly = proj.compensationType === 'equity' || proj.escrowType === 'equity' ||
+                            (amountStr.includes('%') && !amountStr.includes('$'));
 
-                document.getElementById('review-modal').classList.add('hidden');
-                hideProjectDetailModal();
-                loadProfileData();
-            } catch (e) {
-                console.error(e);
-                alert("Failed to submit review");
-            }
-        }
+                        if (isEquityOnly && proj.equityApproved && proj.companyId && !proj.equityTransferred) {
+                            // ── Equity release via V3 completeReservation ──────────
+                            const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
+                            const completeTx = await equityContract.completeReservation(
+                                proj.companyId,
+                                currentReviewProjectId,
+                                '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D',
+                                350
+                            );
+                            await completeTx.wait();
+
+                            const workerUnits   = Math.round(proj.equityUnits * 0.965);
+                            const platformUnits = proj.equityUnits - workerUnits;
+
+                            await db.collection('subprojects').doc(currentReviewProjectId).update({
+                                equityTransferTxHash: completeTx.hash,
+                                equityTransferred: true,
+                                equityUnitsTransferred: proj.equityUnits,
+                                paidAt: firebase.firestore.FieldValue.serverTimestamp()
+                            });
+
+                            // Add builder to equityHolders for cap table
+                            if (workerWallet) {
+                                await db.collection('equityHolders').add({
+                                    projectId: proj.companyId,
+                                    wallet: workerWallet,
+                                    units: workerUnits,
+                                    isFounder: false,
+                                    earnedViaBuilding: true,
+                                    bountyId: currentReviewProjectId,
+                                    addedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                });
+                                // Add platform fee entry
+                                await db.collection('equityHolders').add({
+                                    projectId: proj.companyId,
+                                    wallet: '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D',
+                                    units: platformUnits,
+                                    isFounder: false,
+                                    isPlatformFee: true,
+                                    addedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                });
+                            }
+
+                            alert(`✅ Review submitted!\n\n📈 Equity released on-chain:\n• Builder: ${(workerUnits/100).toFixed(4)}% (${workerUnits} units)\n• NQVate: ${(platformUnits/100).toFixed(4)}% (${platformUnits} units)\n\nTx: https://arbiscan.io/tx/${completeTx.hash}`);
+
+                        } else if (!isEquityOnly && workerWallet && proj.acceptedBid?.amount) {
+                            // ── USDC/NQV8 release via escrow ──────────────────────
+                            const amountNum = parseFloat(amountStr.replace(/[^0-9.]/g, ''));
+                            const currency = amountStr.toUpperCase().includes('NQV8') ? 'NQV8' : 'USDC';
+                            const payTxHash = await releaseBountyPayment(workerWallet, amountNum, currency);
+                            await db.collection('subprojects').doc(currentReviewProjectId).update({
+                                paymentTxHash: payTxHash,
+                                paidAt: firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                        }
+                    } catch (payErr) {
+                        console.error('Payment release failed:', payErr);
+                        alert('⚠️ Review saved but on-chain payment failed: ' + payErr.message + '\nPlease transfer equity manually from Studio → Grow → Cap Table.');
+                    }
+                }
 
     
         // ====================== CHAT FUNCTIONS ======================
