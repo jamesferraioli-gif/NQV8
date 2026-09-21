@@ -14711,11 +14711,11 @@ async function loadStudioProject() {
         document.getElementById('plan-empty').classList.add('hidden');
         document.getElementById('plan-flowmap').classList.remove('hidden');
 
-    const nodes = nodesSnap.docs
-            .map(d => ({ id: d.id, ...d.data() }))
+    const allNodes = nodesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    const nodes = allNodes
             .filter(n => n.status !== 'completed' && n.type !== 'build')
             .sort((a, b) => (a.nodeOrder ?? 0) - (b.nodeOrder ?? 0));
-        renderFlowNodes(nodes);
+        renderFlowNodes(allNodes, nodes);
     } catch(e) {
         console.error('loadStudioProject error:', e.message);
         alert('Error loading plan: ' + e.message);
@@ -14723,16 +14723,16 @@ async function loadStudioProject() {
 }
 
 // ── Render the node list ─────────────────────────────────────────────
-function renderFlowNodes(nodes) {
+function renderFlowNodes(allNodes, nodes) {
     const container = document.getElementById('flowmap-nodes');
     if (!container) return;
 
-    const todo    = nodes.filter(n => n.status === 'open').length;
-    const inprog  = nodes.filter(n => n.status === 'in-progress').length;
-    const done    = nodes.filter(n => n.status === 'completed').length;
-    const inbuild = nodes.filter(n => n.type === 'build').length;
+    const todo    = allNodes.filter(n => n.status === 'open' && n.type !== 'build').length;
+    const inprog  = allNodes.filter(n => n.status === 'in-progress').length;
+    const done    = allNodes.filter(n => n.status === 'completed').length;
+    const inbuild = allNodes.filter(n => n.type === 'build').length;
     const completed = done + inbuild;
-    const pct = nodes.length > 0 ? Math.round((completed / nodes.length) * 100) : 0;
+    const pct = allNodes.length > 0 ? Math.round((completed / allNodes.length) * 100) : 0;
 
     const pb = document.getElementById('flowmap-progress-bar');
     const pt = document.getElementById('flowmap-progress-text');
