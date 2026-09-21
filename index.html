@@ -6988,6 +6988,17 @@ async function loadTotalFundingReceivedStat() {
             </button>
         </div>` : ''}
 
+        ${currentUser && project.acceptedBidderUid === currentUser.uid &&
+          project.status === 'completed' &&
+          !(project.reviews || []).find(r => r.reviewerUid === currentUser.uid) ? `
+        <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-4">
+            <p class="text-amber-400 font-semibold mb-2">⭐ Leave Your Review</p>
+            <p class="text-zinc-400 text-sm mb-3">Your work was approved! Please leave a review for the poster.</p>
+            <button onclick="showReviewModal('${projectId}', '${(project.title||'').replace(/'/g,"\\'")}')"
+                    class="w-full py-3 bg-amber-500 text-black font-semibold rounded-xl">
+                Leave Review
+            </button>
+        </div>` : ''}
         ${alreadyBid ? (() => {
             const myBid = project.bids.find(b => b.bidderUid === currentUser?.uid);
             if (myBid?.status === 'countered' && myBid?.counterOffer?.status === 'pending') {
@@ -8229,6 +8240,17 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                     }
 
                     notifySubmissionApproved(currentProject);
+
+                    // Notify builder to leave their review
+                    await db.collection('notifications').add({
+                        recipientUid: currentProject.acceptedBidderUid,
+                        type: 'leave_review',
+                        message: `✅ Your work on "${currentProject.title}" was approved! Please leave a review for @${currentUser.username}.`,
+                        projectId: currentProjectId,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        read: false
+                    });
+
                     hideProjectDetailModal();
                     loadMarketplace();
                     loadProfileData();
