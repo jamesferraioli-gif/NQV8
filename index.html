@@ -4275,7 +4275,7 @@ const FOUNDER_ADDRESS = '0x0A6090b655A9eB73f85449609eB2336e76d64c47';
 const ESCROW_CONTRACT_ADDRESS = '0x413EF7256f8099ea202d8C0fe3e620F5259c7a83';
 
 // NQVate Equity Registry — deployed on Arbitrum One
-const EQUITY_REGISTRY_ADDRESS = '0x0C3F24B61Ce141272ebeE39a7FcC2bCD91008746';
+const EQUITY_REGISTRY_ADDRESS = '0x99A3512b49b2dd8b4b553E98aAcF344DFF109C51';
 
 const EQUITY_REGISTRY_ABI = [
     "function registerProject(string projectId, string name, address founder) external",
@@ -4305,7 +4305,7 @@ const EQUITY_REGISTRY_ABI = [
     "function totalEquityTransferred() external view returns (uint256)",
     "function reserveEquity(string companyId, string bountyId, address beneficiary, uint256 units) external",
     "function releaseReservation(string companyId, string bountyId) external",
-    "function completeReservation(string companyId, string bountyId) external",
+    "function completeReservation(string companyId, string bountyId, address platformWallet, uint256 feeBps) external",
     "function availableBalance(string companyId, address holder) external view returns (uint256)",
     "function totalReserved(string companyId) external view returns (uint256)",
     "event ProjectRegistered(string indexed projectId, string name, address indexed founder)",
@@ -8247,7 +8247,9 @@ if (hasEscrow) {
                                 const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
                                 const completeTx = await equityContract.completeReservation(
                                     currentProject.companyId,
-                                    currentProjectId
+                                    currentProjectId,
+                                    '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D',
+                                    350
                                 );
                                 await completeTx.wait();
 
