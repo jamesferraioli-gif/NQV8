@@ -8224,8 +8224,11 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                             alert(`USDC also released from escrow.\nTx: https://arbiscan.io/tx/${releaseTx.hash}`);
                         }
 
+                        notifySubmissionApproved(currentProject);
                         hideProjectDetailModal();
                         loadMarketplace();
+                        loadProfileData();
+                        setTimeout(() => showReviewModal(currentProjectId, currentProject.title), 600);
                         return;
 
                     } catch(equityErr) {
