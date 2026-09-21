@@ -14782,7 +14782,7 @@ function renderFlowNodes(nodes) {
         </defs>`;
 
     nodes.forEach((node, idx) => {
-        const effectiveStatus = node.type === 'build' ? 'build' : (node.status || 'open');
+        const effectiveStatus = node.status === 'completed' ? 'completed' : (node.type === 'build' ? 'build' : (node.status || 'open'));
         const sc = statusConfig[effectiveStatus] || statusConfig.open;
         const icon = categoryIcon[node.nodeCategory || node.category] || '📋';
         const y = idx * UNIT;
