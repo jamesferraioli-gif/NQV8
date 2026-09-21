@@ -14759,8 +14759,8 @@ function renderFlowNodes(nodes) {
 
     const statusConfig = {
         'open':        { border: '#52525b', bg: '#18181b', badge: '#3f3f46', badgeText: '#a1a1aa', label: 'To Do' },
-        'in-progress': { border: '#52525b', bg: '#18181b', badge: '#3f3f46', badgeText: '#a1a1aa', label: 'To Do' },
-        'completed':   { border: '#52525b', bg: '#18181b', badge: '#3f3f46', badgeText: '#a1a1aa', label: 'To Do' },
+        'in-progress': { border: '#0891b2', bg: '#0c1a1f', badge: '#0e3a4a', badgeText: '#67e8f9', label: 'In Progress' },
+        'completed':   { border: '#16a34a', bg: '#0a1f0f', badge: '#14532d', badgeText: '#86efac', label: '✅ Done' },
         'build':       { border: '#8b5cf6', bg: '#0d0a1a', badge: '#2e1065', badgeText: '#c4b5fd', label: '→ In Build' }
     };
     const categoryIcon = {
@@ -14808,9 +14808,10 @@ function renderFlowNodes(nodes) {
             <rect x="${640 - 106}" y="${y + NODE_H/2 - 12}" width="98" height="22" rx="11" fill="${sc.badge}"/>
             <text x="${640 - 57}" y="${y + NODE_H/2}" text-anchor="middle" dominant-baseline="central"
                   style="font-size:11px;font-weight:500;fill:${sc.badgeText};pointer-events:none">${sc.label}</text>
+            ${effectiveStatus !== 'completed' ? `
             <text x="${640 - 116}" y="${y + NODE_H/2}" text-anchor="end" dominant-baseline="central"
                   style="font-size:11px;fill:#a78bfa;cursor:pointer;pointer-events:all"
-                  onclick="event.stopPropagation();sendNodeToBuild('${node.id}','${(node.title||'').replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">→ Send to Build</text>
+                  onclick="event.stopPropagation();sendNodeToBuild('${node.id}','${(node.title||'').replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">→ Send to Build</text>` : ''}
         </g>
         ${!isLast ? `
         <line x1="320" y1="${y + NODE_H}" x2="320" y2="${y + NODE_H + CONNECTOR_H - 6}"
