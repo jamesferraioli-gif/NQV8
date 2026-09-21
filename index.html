@@ -14025,7 +14025,9 @@ async function showCapTable(projectId, companyName) {
                     equityReadOnly.balances(projectId, h.wallet).catch(() => ethers.BigNumber.from(0)),
                     equityV2ReadOnly.balances(projectId, h.wallet).catch(() => ethers.BigNumber.from(0))
                 ]);
-                onChainUnits = v3.add(v2).toNumber();
+                // Founders only read from V3 (current contract)
+                // Non-founders check both to catch legacy V2 stakes
+                onChainUnits = h.isFounder ? v3.toNumber() : v3.add(v2).toNumber();
             } catch(e) {
                 onChainUnits = h.units || 0;
             }
