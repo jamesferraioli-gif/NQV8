@@ -7661,6 +7661,9 @@ function hideEditPostingModal() {
                     if (btn) { btn.textContent = '⏳ Reserving equity...'; btn.disabled = true; }
 
                     try {
+                        console.log('compensationStr:', compensationStr);
+                        console.log('project.companyId:', project.companyId);
+                        console.log('connectedAddress:', connectedAddress);
                         const equityMatch = compensationStr.match(/([\d.]+)%/);
                         if (!equityMatch) throw new Error('Could not parse equity percentage from bid.');
                         const equityPct = parseFloat(equityMatch[1]);
