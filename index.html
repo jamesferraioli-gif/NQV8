@@ -3790,7 +3790,12 @@ async function getTotalEarningsUSD(walletAddress) {
         completedSnap.forEach(doc => {
             const p = doc.data();
             if (p.planNode) return;
+            // Skip equity-only bounties — no USD value to count
+            if (p.compensationType === 'equity') return;
+            if (p.escrowType === 'equity') return;
             const amountStr = p.acceptedBid?.amount || p.compensation || '0';
+            // Skip if amount string contains % (equity) but no $ (cash)
+            if (amountStr.includes('%') && !amountStr.includes('$')) return;
             const amount = parseFloat(amountStr.replace(/[^0-9.]/g, '')) || 0;
             const isNQV8 = amountStr.toUpperCase().includes('NQV8');
             totalUSD += (isNQV8 ? amount * nqv8Price : amount) * 0.965;
