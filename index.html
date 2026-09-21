@@ -6481,6 +6481,11 @@ async function loadTVLAndAwardedStats() {
 
                 snapshot.forEach(doc => {
                     const p = doc.data();
+                    // Skip equity-only bounties — no USD value
+                    const isEquityOnly = p.compensationType === 'equity' || p.escrowType === 'equity' ||
+                        ((p.acceptedBid?.amount || p.compensation || '').includes('%') &&
+                         !(p.acceptedBid?.amount || p.compensation || '').includes('$'));
+                    if (isEquityOnly) return;
                     if (p.status === 'in-progress' && p.acceptedBid) {
                         tvl += parseDollarValue(p.acceptedBid.amount || p.compensation, p.compensationType);
                     }
@@ -6629,7 +6634,11 @@ async function loadTotalFundingReceivedStat() {
                     const p = doc.data();
                     if (!p.acceptedBidderUid) return;
                     ensureUser(p.acceptedBidderUid, p.acceptedBid?.bidderName || 'Builder', p.acceptedBidderUsername || '', '');
-                    const val = parseDollar(p.acceptedBid?.amount || p.compensation);
+                    // Skip equity-only — no USD value to count
+                    const amountStr = p.acceptedBid?.amount || p.compensation || '';
+                    const isEquityOnly = p.compensationType === 'equity' || p.escrowType === 'equity' ||
+                        (amountStr.includes('%') && !amountStr.includes('$'));
+                    const val = isEquityOnly ? 0 : parseDollar(amountStr);
                     userMap[p.acceptedBidderUid].bountiesCompleted += 1;
                     userMap[p.acceptedBidderUid].bountyValue += val;
                 });
