@@ -14080,7 +14080,7 @@ async function showCapTable(projectId, companyName) {
             </tr>`).join('');
 
         const totalUnits = holders.reduce((s, h) => s + h.units, 0);
-        document.getElementById('cap-table-total-units').textContent = totalUnits.toLocaleString();
+        document.getElementById('cap-table-total-units').textContent = Math.min(totalUnits, 10000).toLocaleString();
         document.getElementById('cap-table-holder-count').textContent = holders.length;
 
     } catch(e) {
