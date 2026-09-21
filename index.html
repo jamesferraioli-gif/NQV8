@@ -7695,22 +7695,24 @@ function hideEditPostingModal() {
                         const workerWallet = workerSnap.data()?.walletAddress;
                         if (!workerWallet) throw new Error('Builder has not connected a wallet yet.');
 
-                        const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
-
-                        console.log('Checking availability:', project.companyId, connectedAddress);
-                        const available = await equityContract.availableBalance(project.companyId, connectedAddress);
-                        console.log('Available units:', available.toString());                        if (available.lt(ethers.BigNumber.from(equityUnits))) {
-                            throw new Error(`Insufficient available equity. You have ${available.toNumber() / 100}% available.`);
-                        }
-
-                        if (btn) btn.textContent = '⏳ Confirming reservation...';
-                        const reserveTx = await equityContract.reserveEquity(
-                            project.companyId,
-                            currentProjectId,
-                            workerWallet,
-                            equityUnits
-                        );
-                        await reserveTx.wait();
+                        if (btn) btn.textContent = '⏳ Reserving equity...';
+                        const reserveResp = await fetch('/api/equity-reserve', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer nqvate-internal-2026`
+                            },
+                            body: JSON.stringify({
+                                companyId: project.companyId,
+                                bountyId: currentProjectId,
+                                beneficiaryWallet: workerWallet,
+                                equityUnits,
+                                founderWallet: connectedAddress
+                            })
+                        });
+                        const reserveResult = await reserveResp.json();
+                        if (!reserveResult.success) throw new Error(reserveResult.error);
+                        const reserveTxHash = reserveResult.txHash;
 
                         const cashMatch = compensationStr.match(/\$([\d,]+(?:\.\d+)?)\s*usdc/i);
                         let escrowTxHash = null;
@@ -7741,7 +7743,7 @@ function hideEditPostingModal() {
                             escrowType: cashMatch ? 'mixed' : 'equity',
                             equityUnits,
                             equityReserved: true,
-                            equityReserveTxHash: reserveTx.hash,
+                            equityReserveTxHash: reserveTxHash,
                             escrowTxHash
                         });
 
@@ -7760,7 +7762,7 @@ function hideEditPostingModal() {
                         if (btn) { btn.textContent = 'Accept Bid'; btn.disabled = false; }
                         document.getElementById('bid-detail-modal').classList.add('hidden');
 
-                        alert(`✅ Bid accepted!\n\n${equityPct}% equity (${equityUnits} units) reserved on-chain — cannot be double-pledged.\nTx: https://arbiscan.io/tx/${reserveTx.hash}${escrowTxHash ? `\n\nUSDC also locked in escrow.\nTx: https://arbiscan.io/tx/${escrowTxHash}` : ''}\n\nEquity transfers automatically when you approve the submitted work.`);
+                        alert(`✅ Bid accepted!\n\n${equityPct}% equity (${equityUnits} units) reserved on-chain — cannot be double-pledged.\nTx: https://arbiscan.io/tx/${reserveTxHash}${escrowTxHash ? `\n\nUSDC also locked in escrow.\nTx: https://arbiscan.io/tx/${escrowTxHash}` : ''}\n\nEquity transfers automatically when you approve the submitted work.`);
                         loadMarketplace();
                         return;
 
@@ -14565,9 +14567,20 @@ async function claimEscrowRefund(projectId) {
         // Release equity reservation if one exists
         if (project?.equityReserved && project?.companyId) {
             try {
-                const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
-                const releaseTx = await equityContract.releaseReservation(project.companyId, projectId);
-                await releaseTx.wait();
+                const releaseResp = await fetch('/api/equity-release', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer nqvate-internal-2026`
+                    },
+                    body: JSON.stringify({
+                        companyId: project.companyId,
+                        bountyId: projectId,
+                        reason: 'deadline passed / refund claimed'
+                    })
+                });
+                const releaseResult = await releaseResp.json();
+                console.log('Equity release result:', releaseResult);
                 await db.collection("subprojects").doc(projectId).update({
                     status: "refunded",
                     refundedAt: firebase.firestore.FieldValue.serverTimestamp(),
