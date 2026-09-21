@@ -14014,14 +14014,18 @@ async function showCapTable(projectId, companyName) {
 
         const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
         const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
+        const equityV2ReadOnly = new ethers.Contract('0x480A3B66f2B0cf11a0cBCF4c736ed47604108e7D', EQUITY_REGISTRY_ABI, arbProvider);
 
         const holders = [];
         for (const doc of holdersSnap.docs) {
             const h = doc.data();
             let onChainUnits;
             try {
-                const raw = await equityReadOnly.balances(projectId, h.wallet);
-                onChainUnits = raw.toNumber();
+                const [v3, v2] = await Promise.all([
+                    equityReadOnly.balances(projectId, h.wallet).catch(() => ethers.BigNumber.from(0)),
+                    equityV2ReadOnly.balances(projectId, h.wallet).catch(() => ethers.BigNumber.from(0))
+                ]);
+                onChainUnits = v3.add(v2).toNumber();
             } catch(e) {
                 onChainUnits = h.units || 0;
             }
