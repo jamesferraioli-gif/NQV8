@@ -6857,7 +6857,7 @@ async function loadTotalFundingReceivedStat() {
                     <p class="text-emerald-400 mb-6">✅ Accepted • Working with @${project.acceptedBid?.bidderName || 'the winner'}</p>
                     <div class="bg-zinc-800 rounded-3xl p-6 mb-8">
                         <p class="text-sm text-zinc-400">Agreed Terms</p>
-                        <p class="text-xl font-semibold">${project.compensation}</p>
+                        <p class="text-xl font-semibold">${project.acceptedBid?.amount || project.compensation}</p>
                         ${project.deadline ? `<p class="text-sm text-zinc-400 mt-2">Deadline: ${project.deadline}</p>` : ''}
                     </div>
                     <div class="flex gap-3 mb-8">
