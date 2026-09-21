@@ -4308,6 +4308,7 @@ const EQUITY_REGISTRY_ABI = [
     "function totalTradesExecuted() external view returns (uint256)",
     "function totalPlatformFeesCollected() external view returns (uint256)",
     "function totalEquityTransferred() external view returns (uint256)",
+    "function companies(string companyId) external view returns (string companyId, address founder, bool registered, uint256 registeredAt)",
     "function reserveEquity(string companyId, string bountyId, address beneficiary, uint256 units) external",
     "function releaseReservation(string companyId, string bountyId) external",
     "function completeReservation(string companyId, string bountyId, address platformWallet, uint256 feeBps) external",
@@ -13286,23 +13287,48 @@ async function loadProfileEquityStakes() {
                     const units = await equityReadOnly.balances(projectId, connectedAddress).catch(() => ethers.BigNumber.from(0));
                     if (units.toNumber() === 0) return null;
 
-                    const project = await equityReadOnly.projects(projectId).catch(() => null);
-                    if (!project || !project.exists) return null;
+                    // Try V3 companies mapping first, fall back to V1 projects mapping
+                    let projectName = projectId;
+                    let founderAddr = null;
+                    try {
+                        const company = await equityReadOnly.companies(projectId);
+                        if (company && company.registered) {
+                            projectName = company.companyId || projectId;
+                            founderAddr = company.founder;
+                        } else {
+                            // Fall back to V1 projects structure
+                            const proj = await equityReadOnly.projects(projectId).catch(() => null);
+                            if (proj && proj.exists) {
+                                projectName = proj.name || projectId;
+                                founderAddr = proj.founder;
+                            }
+                        }
+                    } catch(e) {
+                        // Try V1 projects fallback
+                        const proj = await equityReadOnly.projects(projectId).catch(() => null);
+                        if (proj && proj.exists) {
+                            projectName = proj.name || projectId;
+                            founderAddr = proj.founder;
+                        }
+                    }
 
-                    // Skip founder's own equity in their own company — that's ownership,
-                    // not an investment "stake," and is shown in the company detail view instead
-                    if (project.founder.toLowerCase() === connectedAddress.toLowerCase()) return null;
+                    if (!founderAddr) return null;
+
+                    // Skip founder's own equity
+                    if (founderAddr.toLowerCase() === connectedAddress.toLowerCase()) return null;
+
+                    // Get company name from Firestore since contract may not store it
+                    const companyDoc = await db.collection('companies').doc(projectId).get().catch(() => null);
+                    const companyName = companyDoc?.data()?.name || projectName;
 
                     return {
                         projectId,
-                        name:       project.name,
+                        name:       companyName,
                         units:      units.toNumber(),
                         percentage: (units.toNumber() / 10000 * 100).toFixed(2),
-                        lastSalePricePerUnit: project.lastSalePricePerUnit.gt(0)
-                            ? parseFloat(ethers.utils.formatUnits(project.lastSalePricePerUnit, 6))
-                            : null,
-                        lastSaleAt: project.lastSaleAt.toNumber(),
-                        founder:    project.founder
+                        lastSalePricePerUnit: null,
+                        lastSaleAt: 0,
+                        founder:    founderAddr
                     };
                 } catch(e) {
                     return null;
