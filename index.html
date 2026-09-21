@@ -8590,7 +8590,17 @@ if (hasEscrow) {
                     }
                 }
 
-    
+                alert("✅ Review submitted! Thank you.");
+                document.getElementById('review-modal').classList.add('hidden');
+                hideProjectDetailModal();
+                loadProfileData();
+
+            } catch (e) {
+                console.error(e);
+                alert("Failed to submit review");
+            }
+        }
+
         // ====================== CHAT FUNCTIONS ======================
         let currentChatId = null;
         let currentChatPartnerUid = null;
