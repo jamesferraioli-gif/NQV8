@@ -15270,7 +15270,7 @@ async function renderBuildTab() {
                         ✓ Mark Complete
                     </button>
                     ${node.marketplaceStatus === 'live' && node.marketplacePostId ? `
-                    <button onclick="navigateTo('marketplace'); setTimeout(() => showSubprojectDetail('${node.marketplacePostId}', null), 800)"
+                    <button onclick="db.collection('subprojects').doc('${node.marketplacePostId}').get().then(d => showSubprojectDetail('${node.marketplacePostId}', {id: d.id, ...d.data()}))"
                             class="px-4 py-2 ${node.marketplacePostStatus === 'in-progress' ? 'bg-violet-500/20 text-violet-400 border-violet-500/30' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'} rounded-xl text-sm font-medium border">
                         ${node.marketplacePostStatus === 'in-progress' ? '🔨 In Progress →' : '🟢 Live on Marketplace →'}
                     </button>` : `
