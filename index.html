@@ -7541,11 +7541,15 @@ function hideEditPostingModal() {
                     createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                     read: false
                 });
-        
+                
                 document.getElementById('counter-bid-modal').classList.add('hidden');
                 document.getElementById('bid-detail-modal').classList.add('hidden');
                 alert(`✅ Counter offer sent to @${bid.bidderName}: ${counterAmount}`);
+                // Reload the posting detail with fresh data so counter status shows
+                const freshSnap = await db.collection('subprojects').doc(currentProjectId).get();
+                const freshProject = { id: freshSnap.id, ...freshSnap.data() };
                 loadMarketplace();
+                showSubprojectDetail(currentProjectId, freshProject);
             } catch(e) {
                 alert('Failed to send counter: ' + e.message);
             }
