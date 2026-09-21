@@ -7704,6 +7704,9 @@ function hideEditPostingModal() {
                             await escrowTx.wait();
                             escrowTxHash = escrowTx.hash;
                         }
+
+                        await projectRef.update({
+                            status: 'in-progress',
                             acceptedBid: bid,
                             acceptedAt: firebase.firestore.FieldValue.serverTimestamp(),
                             acceptedBidderUid: bid.bidderUid,
