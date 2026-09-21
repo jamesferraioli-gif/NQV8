@@ -15269,7 +15269,18 @@ function showRegenerateModal() {
     document.getElementById('flowmap-stack').value = '';
     document.getElementById('flowmap-selected-label').textContent = 'Adding AI nodes to current project';
 }
-
+async function openMarketplacePosting(postingId) {
+    try {
+        const snap = await db.collection('subprojects').doc(postingId).get();
+        if (snap.exists) {
+            showSubprojectDetail(postingId, { id: snap.id, ...snap.data() });
+        } else {
+            alert('Posting not found.');
+        }
+    } catch(e) {
+        alert('Error loading posting: ' + e.message);
+    }
+}
 // ── Build tab ─────────────────────────────────────────────────────────
 async function renderBuildTab() {
     if (!currentUser) return;
@@ -15326,7 +15337,7 @@ async function renderBuildTab() {
                         ✓ Mark Complete
                     </button>
                     ${node.marketplaceStatus === 'live' && node.marketplacePostId ? `
-                    <button onclick="db.collection('subprojects').doc('${node.marketplacePostId}').get().then(d => showSubprojectDetail('${node.marketplacePostId}', {id: d.id, ...d.data()}))"
+                    <button onclick="openMarketplacePosting('${node.marketplacePostId}')"
                             class="px-4 py-2 ${node.marketplacePostStatus === 'in-progress' ? 'bg-violet-500/20 text-violet-400 border-violet-500/30' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'} rounded-xl text-sm font-medium border">
                         ${node.marketplacePostStatus === 'in-progress' ? '🔨 In Progress →' : '🟢 Live on Marketplace →'}
                     </button>` : `
