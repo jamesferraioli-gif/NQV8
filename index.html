@@ -8187,6 +8187,53 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                 const escrowId = await escrowContract.projectToEscrow(currentProjectId);
                 const hasEscrow = escrowId !== '0x0000000000000000000000000000000000000000000000000000000000000000';
 
+                // ── Equity reservation path (V3) ─────────────────────
+                if (currentProject.equityReserved && currentProject.companyId) {
+                    try {
+                        const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
+                        const completeTx = await equityContract.completeReservation(
+                            currentProject.companyId,
+                            currentProjectId,
+                            '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D',
+                            350
+                        );
+                        await completeTx.wait();
+
+                        const projectRef = db.collection('subprojects').doc(currentProjectId);
+                        const updatedSubmissions = [...currentProject.submissions];
+                        updatedSubmissions[submissionIndex].status = 'accepted';
+
+                        await projectRef.update({
+                            submissions: updatedSubmissions,
+                            status: 'completed',
+                            completedAt: firebase.firestore.FieldValue.serverTimestamp(),
+                            equityTransferTxHash: completeTx.hash,
+                            equityTransferred: true,
+                            equityUnitsTransferred: currentProject.equityUnits
+                        });
+
+                        const workerUnits   = Math.round(currentProject.equityUnits * 0.965);
+                        const platformUnits = currentProject.equityUnits - workerUnits;
+
+                        alert(`✅ Submission accepted!\n\n📈 Equity transferred on-chain:\n• Builder: ${(workerUnits / 100).toFixed(4)}% (${workerUnits} units)\n• NQVate: ${(platformUnits / 100).toFixed(4)}% (${platformUnits} units)\n\nTx: https://arbiscan.io/tx/${completeTx.hash}`);
+
+                        // Also release USDC escrow if mixed bounty
+                        if (hasEscrow) {
+                            const releaseTx = await escrowContract.releaseEscrow(escrowId);
+                            await releaseTx.wait();
+                            alert(`USDC also released from escrow.\nTx: https://arbiscan.io/tx/${releaseTx.hash}`);
+                        }
+
+                        hideProjectDetailModal();
+                        loadMarketplace();
+                        return;
+
+                    } catch(equityErr) {
+                        alert('Failed to complete equity transfer: ' + equityErr.message);
+                        return;
+                    }
+                }
+
 if (hasEscrow) {
                     // Deposit USDC platform fee into Rewards contract + record in Firestore
                     try {
