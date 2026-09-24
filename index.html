@@ -8576,6 +8576,17 @@ if (hasEscrow) {
                                 equityUnitsTransferred: proj.equityUnits,
                                 paidAt: firebase.firestore.FieldValue.serverTimestamp()
                             });
+                            // Mark plan node as completed
+                            const completedNodeSnap = await db.collection('subprojects')
+                                .where('marketplacePostId', '==', currentReviewProjectId)
+                                .where('ownerUid', '==', currentUser.uid)
+                                .limit(1).get();
+                            if (!completedNodeSnap.empty) {
+                                await db.collection('subprojects').doc(completedNodeSnap.docs[0].id).update({
+                                    marketplacePostStatus: 'completed',
+                                    status: 'completed'
+                                });
+                            }
 
                             // Add builder to equityHolders for cap table
                             if (workerWallet) {
