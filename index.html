@@ -3464,6 +3464,7 @@ async function confirmPromoteListing() {
                 alert(`✅ Listing promoted for ${_promoteDays} days!`);
                 hideProjectDetailModal();
                 loadMarketplace();
+                refreshProjectDetailModal();
             } catch(e) {
                 alert('Failed to promote: ' + e.message);
             }
@@ -5596,6 +5597,7 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                         alert("✅ Project and first task posted!");
                         hidePostProjectModal();
                         loadMarketplace();
+                        refreshProjectDetailModal();
                     } catch(e) {
                         console.error(e);
                         alert("Failed to post: " + e.message);
@@ -7173,6 +7175,17 @@ async function deletePosting(projectId) {
 
             document.getElementById('edit-posting-modal').classList.remove('hidden');
         }
+        async function refreshProjectDetailModal() {
+            if (!currentProjectId) return;
+            try {
+                const snap = await db.collection('subprojects').doc(currentProjectId).get();
+                if (snap.exists) {
+                    showSubprojectDetail(currentProjectId, { id: snap.id, ...snap.data() });
+                }
+            } catch(e) {
+                console.warn('Failed to refresh modal:', e.message);
+            }
+        }
 
 // ====================== EDIT PROFILE BIO & SKILLS ======================
 const SKILL_OPTIONS = [
@@ -7383,6 +7396,7 @@ function hideEditPostingModal() {
                 hideEditPostingModal();
                 hideProjectDetailModal();
                 loadMarketplace();
+                refreshProjectDetailModal();
                 alert('✅ Posting updated.');
             } catch(e) {
                 alert('Failed to update: ' + e.message);
@@ -7453,6 +7467,7 @@ function hideEditPostingModal() {
                             notifyBidReceived(project, projectId);
                             hideProjectDetailModal();
                             loadMarketplace();
+                            refreshProjectDetailModal();
                         } catch(e) {
                             alert("Bid payment succeeded but failed to save: " + e.message);
                         }
@@ -7575,6 +7590,7 @@ function hideEditPostingModal() {
                 const freshSnap = await db.collection('subprojects').doc(currentProjectId).get();
                 const freshProject = { id: freshSnap.id, ...freshSnap.data() };
                 loadMarketplace();
+                refreshProjectDetailModal();
                 showSubprojectDetail(currentProjectId, freshProject);
             } catch(e) {
                 alert('Failed to send counter: ' + e.message);
@@ -7615,6 +7631,7 @@ function hideEditPostingModal() {
                     : '❌ Counter rejected. The poster has been notified.');
         
                 loadMarketplace();
+                refreshProjectDetailModal();
                 hideProjectDetailModal();
             } catch(e) {
                 alert('Failed: ' + e.message);
@@ -7765,6 +7782,7 @@ function hideEditPostingModal() {
 
                         alert(`✅ Bid accepted!\n\n${equityPct}% equity (${equityUnits} units) reserved on-chain — cannot be double-pledged.\nTx: https://arbiscan.io/tx/${reserveTxHash}${escrowTxHash ? `\n\nUSDC also locked in escrow.\nTx: https://arbiscan.io/tx/${escrowTxHash}` : ''}\n\nEquity transfers automatically when you approve the submitted work.`);
                         loadMarketplace();
+                        refreshProjectDetailModal();
                         return;
 
                     } catch(equityErr) {
@@ -7891,6 +7909,7 @@ function hideEditPostingModal() {
                 hideBidDetailModal();
                 hideProjectDetailModal();
                 loadMarketplace();
+                refreshProjectDetailModal();
 
             } catch (e) {
                 const btn = document.getElementById('accept-bid-btn');
@@ -8143,6 +8162,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
         hideProjectDetailModal();
         alert("✅ Submission sent! The poster will review your work.");
         loadMarketplace();
+        refreshProjectDetailModal();
 
     } catch(e) {
         console.warn('submitWork error:', e.message);
@@ -8256,6 +8276,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
 
                     hideProjectDetailModal();
                     loadMarketplace();
+                    refreshProjectDetailModal();
                     loadProfileData();
                     // Show review modal — equity releases when review is submitted
                     setTimeout(() => showReviewModal(currentProjectId, currentProject.title), 600);
@@ -8407,6 +8428,7 @@ if (hasEscrow) {
                 hideProjectDetailModal();
                 setTimeout(() => showReviewModal(currentProjectId, currentProject.title), 600);
                 loadMarketplace();
+                refreshProjectDetailModal();
                 loadProfileData();
 
             } catch (e) {
@@ -8443,6 +8465,7 @@ if (hasEscrow) {
 
                 hideProjectDetailModal();
                 loadMarketplace();
+                refreshProjectDetailModal();
             } catch (e) {
                 console.error(e);
                 alert("Failed to send feedback: " + e.message);
@@ -10629,6 +10652,7 @@ async function loadForYouFeed() {
             projectsGrid.classList.remove('hidden');
             equityGrid.classList.add('hidden');
             loadMarketplace();
+            refreshProjectDetailModal();
         }
     }
 
@@ -11680,6 +11704,7 @@ async function submitBountyPosting() {
                     notifyMatchingBuilders({ title, compensation }, _bountySelectedTags, category);
                     hidePostBountyModal();
                     loadMarketplace();
+                    refreshProjectDetailModal();
                 } catch (e) {
                     alert("Failed to post: " + e.message);
                 }
@@ -11859,6 +11884,7 @@ async function submitFundingPosting() {
                     alert("✅ Funding request posted!");
                     hidePostFundingModal();
                     loadMarketplace();
+                    refreshProjectDetailModal();
                 } catch(e) {
                     console.error(e);
                     alert("Payment succeeded but failed to post: " + e.message);
@@ -14488,6 +14514,7 @@ async function fileProjectDispute(projectId) {
 
         hideProjectDetailModal();
         loadMarketplace();
+        refreshProjectDetailModal();
 
         // Auto-trigger Claude resolution immediately — fire and forget
         fetch('/api/resolve-dispute', {
@@ -14594,6 +14621,7 @@ async function claimAutoReleaseEscrow(projectId) {
         alert(`✅ Funds released!\nTx: https://arbiscan.io/tx/${tx.hash}`);
         hideProjectDetailModal();
         loadMarketplace();
+        refreshProjectDetailModal();
     } catch (e) {
         const msg = e.message || '';
         if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
@@ -14647,6 +14675,7 @@ async function claimEscrowRefund(projectId) {
         alert(`✅ Full refund received!\nTx: https://arbiscan.io/tx/${tx.hash}`);
         hideProjectDetailModal();
         loadMarketplace();
+        refreshProjectDetailModal();
     } catch (e) {
         const msg = e.message || '';
         if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
