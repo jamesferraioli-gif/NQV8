@@ -8121,9 +8121,12 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
         let fileUrls = [];
         for (const file of Array.from(filesInput.files)) {
             try {
-                const storageRef = storage.ref(`submissions/${currentSubmitProjectId}/${Date.now()}_${file.name}`);
+                const storagePath = `submissions/${currentSubmitProjectId}/${Date.now()}_${file.name}`;
+                console.log('Uploading to:', storagePath);
+                const storageRef = storage.ref(storagePath);
                 await storageRef.put(file);
                 const url = await storageRef.getDownloadURL();
+                console.log('Upload success, URL:', url);
                 fileUrls.push(url);
             } catch(e) {
                 console.warn('File upload failed:', file.name, e.message);
