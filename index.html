@@ -7772,8 +7772,7 @@ function hideEditPostingModal() {
                             .limit(1).get();
                         if (!nodeSnap.empty) {
                             await db.collection('subprojects').doc(nodeSnap.docs[0].id).update({
-                                marketplacePostStatus: 'completed',
-                                status: 'completed'
+                                marketplacePostStatus: 'in-progress'
                             });
                         }
 
@@ -7891,8 +7890,7 @@ function hideEditPostingModal() {
                     .limit(1).get();
                 if (!nodeSnap.empty) {
                     await db.collection('subprojects').doc(nodeSnap.docs[0].id).update({
-                        marketplacePostStatus: 'completed',
-                        status: 'completed'
+                        marketplacePostStatus: 'in-progress'
                     });
                 }
 
