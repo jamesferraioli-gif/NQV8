@@ -15,12 +15,21 @@ if (!getApps().length) {
 }
 const db = getFirestore();
 
-const ESCROW_CONTRACT_ADDRESS = '0x413EF7256f8099ea202d8C0fe3e620F5259c7a83';
-const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
+const ESCROW_CONTRACT_ADDRESS  = '0x413EF7256f8099ea202d8C0fe3e620F5259c7a83';
+const EQUITY_REGISTRY_ADDRESS  = '0x99A3512b49b2dd8b4b553E98aAcF344DFF109C51';
+const PLATFORM_WALLET          = '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D';
+const PLATFORM_FEE_BPS         = 350;
+const ARBITRUM_RPC             = 'https://arb1.arbitrum.io/rpc';
 
 const ESCROW_ABI = [
     "function resolveDispute(bytes32 escrowId, uint256 workerPct, uint256 posterPct, string claudeRuling) external",
     "function projectToEscrow(string) external view returns (bytes32)"
+];
+
+const EQUITY_ABI = [
+    "function completeReservation(string companyId, string bountyId, address platformWallet, uint256 feeBps) external",
+    "function releaseReservation(string companyId, string bountyId) external",
+    "function reservations(string companyId, string bountyId) external view returns (address,address,uint256,bool)"
 ];
 
 export default async function handler(req, res) {
@@ -153,22 +162,56 @@ workerPct + posterPct MUST equal exactly 100.`;
         // Execute on-chain
         const provider       = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
         const opsWallet      = new ethers.Wallet(process.env.OPERATIONS_PRIVATE_KEY, provider);
-        const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, opsWallet);
 
-        const escrowId = await escrowContract.projectToEscrow(projectId);
-        if (escrowId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
-            throw new Error('No escrow found for this project');
+        const isEquityBounty = project.escrowType === 'equity' || project.compensationType === 'equity';
+        let tx;
+
+        if (isEquityBounty && project.equityReserved && project.companyId) {
+            // ── Equity dispute resolution ─────────────────────────────
+            const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_ABI, opsWallet);
+            const reservation    = await equityContract.reservations(project.companyId, projectId);
+            const isActive       = reservation[3];
+
+            if (!isActive) {
+                throw new Error('No active equity reservation found for this project');
+            }
+
+            if (ruling.workerPct >= 50) {
+                // Worker wins — transfer equity to builder (with platform fee)
+                tx = await equityContract.completeReservation(
+                    project.companyId,
+                    projectId,
+                    PLATFORM_WALLET,
+                    PLATFORM_FEE_BPS
+                );
+            } else {
+                // Poster wins — release equity back to founder
+                tx = await equityContract.releaseReservation(
+                    project.companyId,
+                    projectId
+                );
+            }
+            await tx.wait();
+            console.log(`✅ Equity dispute resolved on-chain (${ruling.workerPct >= 50 ? 'transferred to builder' : 'released to founder'}). Tx: ${tx.hash}`);
+
+        } else {
+            // ── USDC escrow dispute resolution ────────────────────────
+            const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, opsWallet);
+            const escrowId       = await escrowContract.projectToEscrow(projectId);
+
+            if (escrowId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
+                throw new Error('No escrow found for this project');
+            }
+
+            tx = await escrowContract.resolveDispute(
+                escrowId,
+                ruling.workerPct,
+                ruling.posterPct,
+                ruling.ruling
+            );
+            await tx.wait();
+            console.log(`✅ USDC dispute resolved on-chain. Tx: ${tx.hash}`);
         }
-
-        const tx = await escrowContract.resolveDispute(
-            escrowId,
-            ruling.workerPct,
-            ruling.posterPct,
-            ruling.ruling
-        );
-        await tx.wait();
-
-        console.log(`✅ Dispute resolved on-chain. Tx: ${tx.hash}`);
 
         await db.collection('subprojects').doc(projectId).update({
             status:            'completed',
@@ -180,8 +223,12 @@ workerPct + posterPct MUST equal exactly 100.`;
         });
 
         // Notify both parties
-        const workerMsg = `⚖️ Dispute resolved on "${project.title}". ${ruling.workerPct > 0 ? `You receive ${ruling.workerPct}% of escrowed funds.` : 'No funds awarded to you.'} Ruling: ${ruling.ruling}`;
-        const posterMsg = `⚖️ Dispute resolved on "${project.title}". ${ruling.posterPct > 0 ? `You are refunded ${ruling.posterPct}% of escrowed funds.` : 'No refund issued.'} Ruling: ${ruling.ruling}`;
+        const workerMsg = isEquityBounty
+            ? `⚖️ Dispute resolved on "${project.title}". ${ruling.workerPct >= 50 ? 'Equity transferred to your wallet.' : 'Equity returned to founder.'} Ruling: ${ruling.ruling}`
+            : `⚖️ Dispute resolved on "${project.title}". ${ruling.workerPct > 0 ? `You receive ${ruling.workerPct}% of escrowed funds.` : 'No funds awarded to you.'} Ruling: ${ruling.ruling}`;
+        const posterMsg = isEquityBounty
+            ? `⚖️ Dispute resolved on "${project.title}". ${ruling.workerPct >= 50 ? 'Equity transferred to builder.' : 'Equity reservation released back to you.'} Ruling: ${ruling.ruling}`
+            : `⚖️ Dispute resolved on "${project.title}". ${ruling.posterPct > 0 ? `You are refunded ${ruling.posterPct}% of escrowed funds.` : 'No refund issued.'} Ruling: ${ruling.ruling}`;
 
         const batch = db.batch();
         batch.set(db.collection('notifications').doc(), {
