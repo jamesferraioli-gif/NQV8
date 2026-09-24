@@ -3,6 +3,14 @@
 // Calls completeReservation() on V3 from the Operations wallet,
 // splitting 3.5% to the platform and 96.5% to the builder.
 
+// Handle CORS preflight
+res.setHeader('Access-Control-Allow-Origin', '*');
+res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+if (req.method === 'OPTIONS') return res.status(200).end();
+
+if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
 import { ethers } from 'ethers';
 
 const EQUITY_REGISTRY_ADDRESS = '0x99A3512b49b2dd8b4b553E98aAcF344DFF109C51';
