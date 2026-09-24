@@ -80,6 +80,26 @@
             "dest": "/api/send-email.js"
         },
         {
+            "src": "/api/deposit-escrow-fee",
+            "dest": "/api/deposit-escrow-fee.js"
+        },
+        {
+            "src": "/api/refund-nqv8",
+            "dest": "/api/refund-nqv8.js"
+        },
+        {
+            "src": "/api/equity-reserve",
+            "dest": "/api/equity-reserve.js"
+        },
+        {
+            "src": "/api/equity-complete",
+            "dest": "/api/equity-complete.js"
+        },
+        {
+            "src": "/api/equity-release",
+            "dest": "/api/equity-release.js"
+        },
+        {
             "src": "/u/(.*)",
             "dest": "/index.html"
         },
