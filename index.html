@@ -14520,6 +14520,11 @@ async function loadEscrowActions(projectId, project) {
         const noEscrow = escrowId === '0x0000000000000000000000000000000000000000000000000000000000000000';
 
         if (noEscrow) {
+            // Check if this is an equity bounty — those have no USDC escrow by design
+            if (project.escrowType === 'equity' || project.compensationType === 'equity') {
+                container.innerHTML = `<div class="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 text-sm text-emerald-400">📈 Equity bounty — ${project.equityUnits ? (project.equityUnits / 100).toFixed(2) + '%' : ''} reserved on-chain via the Equity Registry. Transfers automatically when work is approved and reviewed.</div>`;
+                return;
+            }
             container.innerHTML = `<div class="bg-zinc-800 rounded-2xl p-4 text-sm text-zinc-400">This project was posted before escrow was enabled. Payment handled manually.</div>`;
             return;
         }
