@@ -8185,7 +8185,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                 const isPoster = currentUser && (currentUser.uid === project.posterUid || currentUser.uid === project.ownerUid);
                 const isLatest = index === project.submissions.length - 1;
                 const canRespond = isPoster
-                    ? sub.status !== 'accepted'
+                    ? (isLatest && sub.status !== 'accepted')
                     : (sub.status === 'changes-requested' && isLatest);
 
                 html += `
