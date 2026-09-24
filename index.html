@@ -8228,7 +8228,11 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             if (!connectedAddress) return alert("Please connect your wallet first.");
             if (!signer) return alert("Wallet not connected properly.");
 
-            if (!confirm("Accept this submission and release funds from escrow?\n\n96.5% goes to the worker. 3.5% platform fee. This cannot be undone.")) return;
+            const isEquityBounty = currentProject?.escrowType === 'equity' || currentProject?.compensationType === 'equity';
+            const confirmMsg = isEquityBounty
+                ? `Approve this submission?\n\n${(currentProject.equityUnits / 100).toFixed(2)}% equity agreed — ${((currentProject.equityUnits * 0.965) / 100).toFixed(4)}% transfers to @${currentProject.acceptedBidderUsername} and ${((currentProject.equityUnits * 0.035) / 100).toFixed(4)}% to NQVate (3.5% platform fee) when you submit your review. This cannot be undone.`
+                : "Accept this submission and release funds from escrow?\n\n96.5% goes to the worker. 3.5% platform fee. This cannot be undone.";
+            if (!confirm(confirmMsg)) return;
 
             try {
                 const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
