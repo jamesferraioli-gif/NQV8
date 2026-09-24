@@ -8588,26 +8588,48 @@ if (hasEscrow) {
                                 });
                             }
 
-                            // Add builder to equityHolders for cap table
+                            // Add/update equityHolders for cap table
                             if (workerWallet) {
-                                await db.collection('equityHolders').add({
-                                    projectId: proj.companyId,
-                                    wallet: workerWallet,
-                                    units: workerUnits,
-                                    isFounder: false,
-                                    earnedViaBuilding: true,
-                                    bountyId: currentReviewProjectId,
-                                    addedAt: firebase.firestore.FieldValue.serverTimestamp()
-                                });
-                                // Add platform fee entry
-                                await db.collection('equityHolders').add({
-                                    projectId: proj.companyId,
-                                    wallet: '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D',
-                                    units: platformUnits,
-                                    isFounder: false,
-                                    isPlatformFee: true,
-                                    addedAt: firebase.firestore.FieldValue.serverTimestamp()
-                                });
+                                // Builder — check if existing record
+                                const builderSnap = await db.collection('equityHolders')
+                                    .where('projectId', '==', proj.companyId)
+                                    .where('wallet', '==', workerWallet)
+                                    .limit(1).get();
+                                if (builderSnap.empty) {
+                                    await db.collection('equityHolders').add({
+                                        projectId: proj.companyId,
+                                        wallet: workerWallet,
+                                        units: workerUnits,
+                                        isFounder: false,
+                                        earnedViaBuilding: true,
+                                        addedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                    });
+                                } else {
+                                    await db.collection('equityHolders').doc(builderSnap.docs[0].id).update({
+                                        units: firebase.firestore.FieldValue.increment(workerUnits)
+                                    });
+                                }
+
+                                // Ops wallet — check if existing record
+                                const opsWallet = '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D';
+                                const opsSnap = await db.collection('equityHolders')
+                                    .where('projectId', '==', proj.companyId)
+                                    .where('wallet', '==', opsWallet)
+                                    .limit(1).get();
+                                if (opsSnap.empty) {
+                                    await db.collection('equityHolders').add({
+                                        projectId: proj.companyId,
+                                        wallet: opsWallet,
+                                        units: platformUnits,
+                                        isFounder: false,
+                                        isPlatformFee: true,
+                                        addedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                    });
+                                } else {
+                                    await db.collection('equityHolders').doc(opsSnap.docs[0].id).update({
+                                        units: firebase.firestore.FieldValue.increment(platformUnits)
+                                    });
+                                }
                             }
 
                             alert(`✅ Review submitted!\n\n📈 Equity released on-chain:\n• Builder: ${(workerUnits/100).toFixed(4)}% (${workerUnits} units)\n• NQVate: ${(platformUnits/100).toFixed(4)}% (${platformUnits} units)\n\nTx: https://arbiscan.io/tx/${completeTxHash}`);
