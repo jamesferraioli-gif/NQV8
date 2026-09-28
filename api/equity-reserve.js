@@ -54,6 +54,20 @@ export default async function handler(req, res) {
 
     } catch(e) {
         console.error('equity-reserve error:', e.message);
-        return res.status(500).json({ error: e.message });
+        
+        let userMessage = e.message;
+        if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') || 
+            e.message.includes('gas required exceeds allowance') ||
+            e.message.includes('insufficient funds')) {
+            userMessage = 'Platform wallet has insufficient ETH for gas. Please contact NQVate support.';
+        } else if (e.message.includes('Reservation already exists')) {
+            userMessage = 'This bounty already has an active equity reservation.';
+        } else if (e.message.includes('Insufficient available equity')) {
+            userMessage = 'Insufficient available equity. Some equity may already be reserved for other bounties.';
+        } else if (e.message.includes('Company not registered')) {
+            userMessage = 'This company is not registered on the Equity Registry. Please verify your entity first.';
+        }
+        
+        return res.status(500).json({ error: userMessage });
     }
 }
