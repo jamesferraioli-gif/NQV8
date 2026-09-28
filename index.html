@@ -7503,7 +7503,7 @@ function hideEditPostingModal() {
                             ${bid.bidderName || 'Unknown'}
                             ${bid.bidderUid === project.preferredBuilderUid ? '<span class="px-2 py-0.5 text-xs bg-violet-500/20 text-violet-400 rounded-full">⭐ Preferred</span>' : ''}
                         </p>
-                        <p class="text-sm text-zinc-400">Bidder • ${bid.rating ? '⭐'.repeat(bid.rating) : 'No rating yet'}</p>
+                        <p class="text-sm text-zinc-400" id="bid-detail-rating">Bidder • Loading...</p>
                     </div>
                 </div>
 
@@ -7516,6 +7516,18 @@ function hideEditPostingModal() {
             `;
 
             modal.classList.remove('hidden');
+
+            // Fetch bidder's actual rating from Firestore
+            db.collection('users').doc(bid.bidderUid).get().then(userDoc => {
+                const userData = userDoc.data();
+                const avgRating = userData?.avgRating;
+                const ratingEl = document.getElementById('bid-detail-rating');
+                if (ratingEl) {
+                    ratingEl.textContent = avgRating
+                        ? `Bidder • ${'⭐'.repeat(Math.round(avgRating))} (${avgRating.toFixed(1)})`
+                        : 'Bidder • No rating yet';
+                }
+            }).catch(() => {});
         }
         // ====================== COUNTER BID SYSTEM ======================
         function showCounterBidModal() {
