@@ -5303,8 +5303,8 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
         }
         
         async function handleNotifClick(notifId, notif) {
-            // Mark as read
-            await db.collection("notifications").doc(notifId).update({ read: true });
+            // Mark as read (don't await — don't block navigation)
+            db.collection("notifications").doc(notifId).update({ read: true }).catch(e => console.warn('mark read failed:', e));
         
             // Navigate to relevant page
             document.getElementById('notif-dropdown').classList.add('hidden');
