@@ -5303,6 +5303,7 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
         }
         
         async function handleNotifClick(notifId, notif) {
+            console.log('notif clicked:', notifId, notif);
             // Mark as read (don't await — don't block navigation)
             db.collection("notifications").doc(notifId).update({ read: true }).catch(e => console.warn('mark read failed:', e));
         
