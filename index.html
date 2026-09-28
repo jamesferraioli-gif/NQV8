@@ -7705,14 +7705,10 @@ function hideEditPostingModal() {
 
                 const bid = currentProject.bids[currentBidIndex];
 
-                const bid = currentProject.bids[currentBidIndex];
-
                 // Parse compensation amount
                 const compensationStr = bid.amount || project.compensation || '';
                 const isEquity = compensationStr.toLowerCase().includes('equity') ||
                                  project.compensationType === 'equity';
-
-                console.log('acceptBid debug:', { compensationStr, isEquity, companyId: project.companyId, compensationType: project.compensationType });
 
                 // ── Equity component — reserve on V2 contract ─────────
                 if (isEquity) {
