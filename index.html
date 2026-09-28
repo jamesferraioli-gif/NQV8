@@ -7726,6 +7726,13 @@ function hideEditPostingModal() {
                         if (!workerWallet) throw new Error('Builder has not connected a wallet yet.');
 
                         if (btn) btn.textContent = '⏳ Reserving equity...';
+                            console.log('equity-reserve payload:', {
+                            companyId: project.companyId,
+                            bountyId: currentProjectId,
+                            beneficiaryWallet: workerWallet,
+                            equityUnits,
+                            founderWallet: connectedAddress
+                        });
                         const reserveResp = await fetch('/api/equity-reserve', {
                             method: 'POST',
                             headers: {
