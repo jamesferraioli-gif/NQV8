@@ -6872,9 +6872,14 @@ async function loadTotalFundingReceivedStat() {
                     <p class="text-emerald-400 mb-6">✅ Project Completed</p>
                     <div class="bg-zinc-800 rounded-3xl p-6 mb-8">
                         <p class="text-sm text-zinc-400">Final Terms</p>
-                        <p class="text-xl font-semibold">${project.compensation}</p>
+                        <p class="text-xl font-semibold">${project.acceptedBid?.amount || project.compensation}</p>
                     </div>
-                    <button onclick="messageBidderFromDetail()" class="w-full py-4 border border-cyan-400 text-cyan-400 font-semibold rounded-3xl">💬 Open Chat</button>
+                    <button onclick="messageBidderFromDetail()" class="w-full py-4 border border-cyan-400 text-cyan-400 font-semibold rounded-3xl mb-4">💬 Open Chat</button>
+                    ${isWorker && !(project.reviews || []).find(r => r.reviewerUid === currentUser?.uid) ? `
+                    <button onclick="showReviewModal('${id}', '${(project.title||'').replace(/'/g,"\\'")}')"
+                            class="w-full py-4 bg-amber-500 text-black font-semibold rounded-3xl">
+                        ⭐ Leave Your Review
+                    </button>` : ''}
                 `;
             } else if (isInProgress) {
                 // (your existing in-progress code remains unchanged)
