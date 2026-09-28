@@ -110,7 +110,7 @@
 
                     <!-- Notification Bell -->
                     <div class="relative flex-shrink-0">
-                        <button onclick="toggleNotifications()" class="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-zinc-800 transition-colors">
+                        <button onclick="toggleNotifications(event)" class="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-zinc-800 transition-colors">
                             <i class="fa-solid fa-bell text-lg"></i>
                             <span id="notif-count" class="hidden absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">0</span>
                         </button>
@@ -5231,7 +5231,8 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                 });
         }
         
-        async function toggleNotifications() {
+        async function toggleNotifications(event) {
+            if (event) event.stopPropagation();
             const dropdown = document.getElementById('notif-dropdown');
             dropdown.classList.toggle('hidden');
             if (!dropdown.classList.contains('hidden')) {
@@ -5270,14 +5271,7 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                             ${!n.read ? '<div class="w-2 h-2 bg-cyan-400 rounded-full mt-1 flex-shrink-0"></div>' : ''}
                         </div>
                     `;
-                    div.dataset.notifId = doc.id;
-                    div.dataset.notifData = JSON.stringify(n);
-                    div.addEventListener('click', function(e) {
-                        e.stopPropagation();
-                        const id = this.dataset.notifId;
-                        const data = JSON.parse(this.dataset.notifData);
-                        handleNotifClick(id, data);
-                    });
+                    div.onclick = () => handleNotifClick(doc.id, n);
                     list.appendChild(div);
                 });
             } catch (e) {
