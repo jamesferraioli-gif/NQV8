@@ -5270,7 +5270,14 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
                             ${!n.read ? '<div class="w-2 h-2 bg-cyan-400 rounded-full mt-1 flex-shrink-0"></div>' : ''}
                         </div>
                     `;
-                    div.onclick = () => handleNotifClick(doc.id, n);
+                    div.dataset.notifId = doc.id;
+                    div.dataset.notifData = JSON.stringify(n);
+                    div.addEventListener('click', function(e) {
+                        e.stopPropagation();
+                        const id = this.dataset.notifId;
+                        const data = JSON.parse(this.dataset.notifData);
+                        handleNotifClick(id, data);
+                    });
                     list.appendChild(div);
                 });
             } catch (e) {
