@@ -8527,12 +8527,28 @@ if (hasEscrow) {
         let currentReviewProjectId = null;
         let currentReviewRating = 0;
 
-        function showReviewModal(projectId, projectTitle) {
+        async function showReviewModal(projectId, projectTitle) {
             currentReviewProjectId = projectId;
             document.getElementById('review-project-name').textContent = projectTitle;
             currentReviewRating = 0;
             renderStars();
             document.getElementById('review-modal').classList.remove('hidden');
+
+            // Update button label based on who is reviewing
+            const projSnap = await db.collection('subprojects').doc(projectId).get();
+            const proj = projSnap.data();
+            const isPoster = proj?.ownerUid === currentUser?.uid || proj?.posterUid === currentUser?.uid;
+            const isEquityOnly = proj?.compensationType === 'equity' || proj?.escrowType === 'equity';
+            const reviewBtn = document.querySelector('#review-modal button[onclick="submitReview()"]');
+            if (reviewBtn) {
+                if (isPoster && isEquityOnly) {
+                    reviewBtn.textContent = 'Submit Review & Release Equity';
+                } else if (isPoster) {
+                    reviewBtn.textContent = 'Submit Review & Release Funds';
+                } else {
+                    reviewBtn.textContent = 'Submit Review';
+                }
+            }
         }
 
         function renderStars() {
