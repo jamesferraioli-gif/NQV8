@@ -7724,8 +7724,14 @@ function hideEditPostingModal() {
                         const workerSnap = await db.collection('users').doc(bid.bidderUid).get();
                         const workerWallet = workerSnap.data()?.walletAddress;
                         if (!workerWallet) throw new Error('Builder has not connected a wallet yet.');
-                        if (workerWallet.toLowerCase() === connectedAddress.toLowerCase()) {
-                            throw new Error('You cannot award equity to your own wallet. The builder must have a different wallet address than the posting founder.');
+                        // Check against both connected wallet and founder wallet on contract
+                        const founderSnap = await db.collection('users').doc(currentUser.uid).get();
+                        const founderWalletAddr = founderSnap.data()?.walletAddress || connectedAddress;
+                        if (workerWallet.toLowerCase() === founderWalletAddr.toLowerCase() ||
+                            workerWallet.toLowerCase() === connectedAddress.toLowerCase()) {
+                            const btn = document.getElementById('accept-bid-btn');
+                            if (btn) { btn.textContent = 'Accept Bid'; btn.disabled = false; }
+                            return alert('❌ Cannot award equity: The builder\'s wallet address is the same as the founder\'s. The builder must connect a different wallet before you can accept their bid on an equity bounty.');
                         }
 
                         if (btn) btn.textContent = '⏳ Reserving equity...';
