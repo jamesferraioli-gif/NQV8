@@ -5310,13 +5310,25 @@ async function recordProtocolFee(amountUSDC, feeType, txHash) {
             document.getElementById('notif-dropdown').classList.add('hidden');
         
             if (notif.projectId) {
-                const snap = await db.collection("projects").doc(notif.projectId).get();
-                if (snap.exists) showProjectDetail(notif.projectId, snap.data());
-            } else if (notif.type === 'message') {
-                navigateToChat();
+                // Try subprojects first (marketplace bounties), then projects
+                const subSnap = await db.collection('subprojects').doc(notif.projectId).get();
+                if (subSnap.exists) {
+                    navigateTo('marketplace');
+                    setTimeout(() => showSubprojectDetail(notif.projectId, { id: subSnap.id, ...subSnap.data() }), 500);
+                } else {
+                    const projSnap = await db.collection('projects').doc(notif.projectId).get();
+                    if (projSnap.exists) showProjectDetail(notif.projectId, projSnap.data());
+                }
+            } else if (notif.type === 'message' || notif.type === 'chat') {
+                navigateTo('chat');
             } else if (notif.postId) {
-                const snap = await db.collection("posts").doc(notif.postId).get();
-                if (snap.exists) viewPostDetail(notif.postId, snap.data());
+                navigateTo('ideas');
+                setTimeout(() => {
+                    db.collection('posts').doc(notif.postId).get()
+                        .then(snap => { if (snap.exists) viewPostDetail(notif.postId, snap.data()); });
+                }, 500);
+            } else if (notif.type === 'leave_review' || notif.type === 'counter_offer' || notif.type === 'counter_response') {
+                navigateTo('marketplace');
             }
         }
         
@@ -9869,6 +9881,7 @@ async function viewUserProfile(uid) {
                         if (doc.exists) {
                             currentUser = doc.data();
                             finishLogin();
+                            listenForNotifications();
                         } else {
                             // Firebase Auth user exists but no Firestore doc
                             // Show auth modal so they can complete signup
