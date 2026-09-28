@@ -9381,7 +9381,17 @@ async function startVideoCall() {
                         const isBuilder = p.acceptedBidderUid === currentUser.uid && p.ownerUid !== currentUser.uid;
                         const card = document.createElement('div');
                         card.className = "bg-zinc-800 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-emerald-400";
-                        card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs text-emerald-400">Completed • ${p.compensation}</span>${isBuilder ? '<span class="text-xs text-violet-400 ml-2">Builder</span>' : ''}`;
+                        const hasReviewed = (p.reviews || []).some(r => r.reviewerUid === currentUser.uid);
+                        const needsReview = isBuilder && !hasReviewed;
+                        card.innerHTML = `
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <strong>${p.title}</strong><br>
+                                    <span class="text-xs text-emerald-400">Completed • ${p.compensation}</span>
+                                    ${isBuilder ? '<span class="text-xs text-violet-400 ml-2">Builder</span>' : ''}
+                                </div>
+                                ${needsReview ? `<button onclick="event.stopPropagation(); showReviewModal('${doc.id}', '${(p.title||'').replace(/'/g,"\\'")}'); " class="text-xs px-3 py-1 bg-amber-500 text-black font-semibold rounded-xl flex-shrink-0">⭐ Review</button>` : ''}
+                            </div>`;
                         card.onclick = () => openMarketplacePosting(doc.id);
                         completedGrid.appendChild(card);
                     });
