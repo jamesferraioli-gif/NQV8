@@ -10,7 +10,8 @@ const ARBITRUM_RPC = 'https://arb1.arbitrum.io/rpc';
 
 const EQUITY_ABI = [
     "function reserveEquity(string companyId, string bountyId, address beneficiary, uint256 units) external",
-    "function availableBalance(string companyId, address holder) external view returns (uint256)"
+    "function availableBalance(string companyId, address holder) external view returns (uint256)",
+    "function companies(string companyId) external view returns (string, address, bool, uint256)"
 ];
 
 export default async function handler(req, res) {
@@ -32,12 +33,15 @@ export default async function handler(req, res) {
         const wallet   = new ethers.Wallet(process.env.OPERATIONS_PRIVATE_KEY, provider);
         const equity   = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_ABI, wallet);
 
-        // Verify available balance
-        if (founderWallet) {
-            const available = await equity.availableBalance(companyId, founderWallet);
+        // Verify available balance using the founder address from the contract
+        const companyData = await equity.companies(companyId).catch(() => null);
+        const founderAddr = companyData ? companyData[1] : founderWallet;
+        
+        if (founderAddr && founderAddr !== ethers.constants.AddressZero) {
+            const available = await equity.availableBalance(companyId, founderAddr);
             if (available.lt(ethers.BigNumber.from(equityUnits))) {
                 return res.status(400).json({
-                    error: `Insufficient available equity. Founder has ${available.toNumber() / 100}% available.`
+                    error: `Insufficient available equity. Founder has ${available.toNumber() / 100}% available (${available.toNumber()} units). Requested: ${equityUnits} units.`
                 });
             }
         }
