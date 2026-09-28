@@ -9354,21 +9354,40 @@ async function startVideoCall() {
                 const completedGrid = document.getElementById('completed-projects');
                 completedGrid.innerHTML = '<p class="col-span-full text-zinc-400">Loading...</p>';
                 try {
+                    // Completed as poster
                     const completedSnap = await db.collection("subprojects")
                         .where("ownerUid", "==", currentUser.uid)
                         .where("status", "==", "completed")
                         .get();
 
-                    completedGrid.innerHTML = completedSnap.empty ? 
+                    // Completed as builder
+                    const builtSnap = await db.collection("subprojects")
+                        .where("acceptedBidderUid", "==", currentUser.uid)
+                        .where("status", "==", "completed")
+                        .get();
+
+                    // Merge both
+                    const allCompleted = [
+                        ...completedSnap.docs,
+                        ...builtSnap.docs.filter(d => d.data().ownerUid !== currentUser.uid)
+                    ];
+
+                    const allCompleted = [
+                        ...completedSnap.docs,
+                        ...builtSnap.docs.filter(d => d.data().ownerUid !== currentUser.uid)
+                    ];
+
+                    completedGrid.innerHTML = allCompleted.length === 0 ? 
                         `<p class="text-zinc-400">No completed projects yet.</p>` : '';
 
-                completedSnap.forEach(doc => {
+                    allCompleted.forEach(doc => {
                         const p = doc.data();
                         if (p.planNode === true) return; // skip studio nodes
+                        const isBuilder = p.acceptedBidderUid === currentUser.uid && p.ownerUid !== currentUser.uid;
                         const card = document.createElement('div');
                         card.className = "bg-zinc-800 rounded-2xl p-4 cursor-pointer hover:ring-2 hover:ring-emerald-400";
-                        card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs text-emerald-400">Completed • ${p.compensation}</span>`;
-                        card.onclick = () => showProjectDetail(doc.id, p);
+                        card.innerHTML = `<strong>${p.title}</strong><br><span class="text-xs text-emerald-400">Completed • ${p.compensation}</span>${isBuilder ? '<span class="text-xs text-violet-400 ml-2">Builder</span>' : ''}`;
+                        card.onclick = () => openMarketplacePosting(doc.id);
                         completedGrid.appendChild(card);
                     });
                 } catch (e) {
