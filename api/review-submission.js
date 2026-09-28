@@ -145,6 +145,10 @@ export default async function handler(req, res) {
         });
 
         const claudeData = await claudeResponse.json();
+        if (!claudeData.content || claudeData.error) {
+            console.error('Claude API error:', JSON.stringify(claudeData));
+            throw new Error(`Claude API error: ${claudeData.error?.message || 'Unknown error'}`);
+        }
         const rawText = claudeData.content
             .filter(b => b.type === 'text')
             .map(b => b.text)
