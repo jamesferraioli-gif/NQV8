@@ -7724,6 +7724,9 @@ function hideEditPostingModal() {
                         const workerSnap = await db.collection('users').doc(bid.bidderUid).get();
                         const workerWallet = workerSnap.data()?.walletAddress;
                         if (!workerWallet) throw new Error('Builder has not connected a wallet yet.');
+                        if (workerWallet.toLowerCase() === connectedAddress.toLowerCase()) {
+                            throw new Error('You cannot award equity to your own wallet. The builder must have a different wallet address than the posting founder.');
+                        }
 
                         if (btn) btn.textContent = '⏳ Reserving equity...';
                             console.log('equity-reserve payload:', {
