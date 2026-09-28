@@ -9372,11 +9372,6 @@ async function startVideoCall() {
                         ...builtSnap.docs.filter(d => d.data().ownerUid !== currentUser.uid)
                     ];
 
-                    const allCompleted = [
-                        ...completedSnap.docs,
-                        ...builtSnap.docs.filter(d => d.data().ownerUid !== currentUser.uid)
-                    ];
-
                     completedGrid.innerHTML = allCompleted.length === 0 ? 
                         `<p class="text-zinc-400">No completed projects yet.</p>` : '';
 
