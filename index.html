@@ -6878,7 +6878,7 @@ async function loadTotalFundingReceivedStat() {
                     </div>
                     <button onclick="messageBidderFromDetail()" class="w-full py-4 border border-cyan-400 text-cyan-400 font-semibold rounded-3xl mb-4">💬 Open Chat</button>
                     ${isWorker && !(project.reviews || []).find(r => r.reviewerUid === currentUser?.uid) ? `
-                    <button onclick="showReviewModal('${id}', '${(project.title||'').replace(/'/g,"\\'")}')"
+                    <button onclick="showReviewModal('${projectId}', '${(project.title||'').replace(/'/g,"\\'")}')"
                             class="w-full py-4 bg-amber-500 text-black font-semibold rounded-3xl">
                         ⭐ Leave Your Review
                     </button>` : ''}
