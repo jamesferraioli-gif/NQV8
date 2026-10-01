@@ -128,6 +128,10 @@
             "dest": "/api/equity-auto-resolve.js"
         },
         {
+            "src": "/api/equity-auto-resolve",
+            "dest": "/api/equity-auto-resolve.js"
+        },
+        {
             "src": "/(.*)",
             "dest": "/index.html"
         }
@@ -141,9 +145,5 @@
             "path": "/api/revaluate-equity",
             "schedule": "0 0 * * *"
         },
-        {
-            "path": "/api/equity-auto-resolve",
-            "schedule": "0 6 * * *"
-        }
     ]
 }
