@@ -104,6 +104,10 @@
             "dest": "/api/equity-auto-resolve.js"
         },
         {
+            "src": "/api/escrow-release",
+            "dest": "/api/escrow-release.js"
+        },
+        {
             "src": "/u/(.*)",
             "dest": "/index.html"
         },
