@@ -12602,33 +12602,29 @@ async function loadTokenomics() {
     const pegStatusEl = document.getElementById('peg-status');
 
     try {
-        const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
-        const treasuryReadOnly = new ethers.Contract(TREASURY_CONTRACT_ADDRESS, TREASURY_ABI, arbProvider);
-        const nqv8ReadOnly = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, arbProvider);
+        const arbProvider      = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const treasuryReadOnly = new ethers.Contract(TREASURY_CONTRACT_ADDRESS, ['function pegEnded() view returns (bool)'], arbProvider);
+        const nqv8ReadOnly     = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, arbProvider);
+        const lockupReadOnly   = new ethers.Contract(FOUNDER_LOCKUP_ADDRESS, ['function lockedBalance() view returns (uint256)'], arbProvider);
 
-        const rewardsReadOnly = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, arbProvider);
-
-        const [pegEndedBool, treasuryBalRaw] = await Promise.all([
+        const [pegEndedBool, treasuryBalRaw, totalSupplyRaw, founderLockedRaw, founderWalletRaw, lost1Raw, lost2Raw] = await Promise.all([
             treasuryReadOnly.pegEnded(),
-            nqv8ReadOnly.balanceOf(TREASURY_CONTRACT_ADDRESS)
-        ]);
-        
-        // True circulating = total supply minus locked + permanently lost tokens
-        const founderLockupReadOnly = new ethers.Contract(FOUNDER_LOCKUP_ADDRESS, ['function lockedBalance() view returns (uint256)'], arbProvider);
-        const [totalSupplyRaw, founderLockedRaw, lost1Raw, lost2Raw] = await Promise.all([
+            nqv8ReadOnly.balanceOf(TREASURY_CONTRACT_ADDRESS),
             nqv8ReadOnly.totalSupply(),
-            founderLockupReadOnly.lockedBalance(),
+            lockupReadOnly.lockedBalance(),
+            nqv8ReadOnly.balanceOf('0x0A6090b655A9eB73f85449609eB2336e76d64c47'),
             nqv8ReadOnly.balanceOf('0xb14462e147e3a48982095733BBaC4f7CEaF1D112'),
             nqv8ReadOnly.balanceOf('0x53D6F52412bdf5f75c9ACA69B926023ED96b152F')
         ]);
-        const totalSupply  = parseFloat(ethers.utils.formatUnits(totalSupplyRaw, NQV8_DECIMALS));
-        const founderLocked = parseFloat(ethers.utils.formatUnits(founderLockedRaw, NQV8_DECIMALS));
-        const lostTokens   = parseFloat(ethers.utils.formatUnits(lost1Raw, NQV8_DECIMALS))
-                           + parseFloat(ethers.utils.formatUnits(lost2Raw, NQV8_DECIMALS));
-        const treasuryBal = parseFloat(ethers.utils.formatUnits(treasuryBalRaw, NQV8_DECIMALS));
-        const founderWalletBalRaw = await nqv8ReadOnly.balanceOf('0x0A6090b655A9eB73f85449609eB2336e76d64c47');
-        const founderWalletBal = parseFloat(ethers.utils.formatUnits(founderWalletBalRaw, NQV8_DECIMALS));
-        const totalCirculating = totalSupply - treasuryBal - founderLocked - lostTokens - founderWalletBal;
+
+        const treasuryBal      = parseFloat(ethers.utils.formatUnits(treasuryBalRaw, NQV8_DECIMALS));
+        const totalSupply      = parseFloat(ethers.utils.formatUnits(totalSupplyRaw, NQV8_DECIMALS));
+        const founderLocked    = parseFloat(ethers.utils.formatUnits(founderLockedRaw, NQV8_DECIMALS));
+        const founderWalletBal = parseFloat(ethers.utils.formatUnits(founderWalletRaw, NQV8_DECIMALS));
+        const lostTokens       = parseFloat(ethers.utils.formatUnits(lost1Raw, NQV8_DECIMALS))
+                               + parseFloat(ethers.utils.formatUnits(lost2Raw, NQV8_DECIMALS));
+        const totalCirculating = totalSupply - treasuryBal - founderLocked - founderWalletBal - lostTokens;
+
         if (circulatingEl) circulatingEl.textContent = Math.round(totalCirculating).toLocaleString();
         
         window._nqv8FloatMode = pegEndedBool;
