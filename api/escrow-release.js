@@ -10,7 +10,7 @@ const ESCROW_CONTRACT_ADDRESS = '0x413EF7256f8099ea202d8C0fe3e620F5259c7a83';
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
 
 const ESCROW_ABI = [
-    "function releaseEscrow(bytes32 escrowId) external",
+    "function adminRelease(bytes32 escrowId) external",
     "function projectToEscrow(string projectId) external view returns (bytes32)",
     "function escrows(bytes32 escrowId) external view returns (address poster, address worker, uint256 amount, uint8 currency, uint256 deadline, uint8 status)"
 ];
@@ -50,7 +50,7 @@ export default async function handler(req, res) {
         console.log(`   Worker: ${escrow[1]}`);
 
         // Release escrow — contract splits 96.5% to worker, 3.5% to platform
-        const tx = await escrowContract.releaseEscrow(escrowId, { gasLimit: 300000 });
+        const tx = await escrowContract.adminRelease(escrowId, { gasLimit: 300000 });
         await tx.wait();
 
         console.log(`✅ Escrow released. Tx: ${tx.hash}`);
