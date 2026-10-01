@@ -8337,7 +8337,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                     return;
                 }
 
-if (hasEscrow) {
+if (hasEscrow && !currentProject.escrowReleased) {
                     const projectRef = db.collection('subprojects').doc(currentProjectId);
                     // Release escrow first
                     const releaseTx = await escrowContract.releaseEscrow(escrowId);
