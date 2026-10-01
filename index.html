@@ -12650,6 +12650,7 @@ async function loadTokenomics() {
             }
         }
     } catch(e) {
+        alert('Tokenomics error: ' + e.message + ' | ' + e.stack?.split('\n')[1]);
         console.error('Tokenomics load failed:', e.message, e);
         if (circulatingEl) circulatingEl.textContent = '—';
     }
