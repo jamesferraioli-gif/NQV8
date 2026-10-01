@@ -12632,7 +12632,9 @@ async function loadTokenomics() {
         const lostTokens   = parseFloat(ethers.utils.formatUnits(lost1Raw, NQV8_DECIMALS))
                            + parseFloat(ethers.utils.formatUnits(lost2Raw, NQV8_DECIMALS));
         const treasuryBal = parseFloat(ethers.utils.formatUnits(treasuryBalRaw, NQV8_DECIMALS));
-        const totalCirculating = totalSupply - treasuryBal - founderLocked - lostTokens;
+        const founderWalletBalRaw = await nqv8ReadOnly.balanceOf('0x0A6090b655A9eB73f85449609eB2336e76d64c47');
+        const founderWalletBal = parseFloat(ethers.utils.formatUnits(founderWalletBalRaw, NQV8_DECIMALS));
+        const totalCirculating = totalSupply - treasuryBal - founderLocked - lostTokens - founderWalletBal;
         if (circulatingEl) circulatingEl.textContent = Math.round(totalCirculating).toLocaleString();
         
         window._nqv8FloatMode = pegEndedBool;
