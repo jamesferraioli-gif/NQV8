@@ -10749,6 +10749,8 @@ async function loadForYouFeed() {
 
         
     function switchMarketplaceTab(tab) {
+        // Close any open posting detail modal when switching tabs
+        hideProjectDetailModal();
         const buildTab = document.getElementById('tab-build-market');
         const fundTab = document.getElementById('tab-fund-market');
         const equityTab = document.getElementById('tab-equity-market');
