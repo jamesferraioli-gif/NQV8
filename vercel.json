@@ -108,6 +108,10 @@
             "dest": "/api/escrow-release.js"
         },
         {
+            "src": "/api/escrow-auto-refund",
+            "dest": "/api/escrow-auto-refund.js"
+        },
+        {
             "src": "/u/(.*)",
             "dest": "/index.html"
         },
@@ -147,6 +151,10 @@
         },
         {
             "path": "/api/equity-auto-resolve",
+            "schedule": "0 6 * * *"
+        },
+        {
+            "path": "/api/escrow-auto-refund",
             "schedule": "0 6 * * *"
         }
     ]
