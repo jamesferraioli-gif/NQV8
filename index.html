@@ -7962,7 +7962,8 @@ function hideEditPostingModal() {
                 const msg = e.message || '';
                 if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
                 else if (msg.includes('Poster cannot be worker')) alert("❌ Cannot accept your own bid. The bidder must use a different wallet address than the poster.");
-                else if (msg.includes('insufficient funds') || msg.includes('exceeds allowance')) alert("❌ Insufficient USDC balance to lock in escrow. Please add funds to your wallet.");
+                else if (msg.includes('insufficient funds') || msg.includes('exceeds allowance')) alert("❌ Insufficient USDC balance. Please add funds to your wallet.");
+                else if (msg.includes('UNPREDICTABLE_GAS_LIMIT') || msg.includes('cannot estimate gas')) alert("❌ Transaction failed. Make sure you are connected with the founder wallet that posted this bounty.");
                 else alert("Failed to lock escrow: " + msg);
             }
         }
