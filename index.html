@@ -7961,7 +7961,8 @@ function hideEditPostingModal() {
                 if (btn) { btn.textContent = 'Accept Bid'; btn.disabled = false; }
                 const msg = e.message || '';
                 if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
-                else if (msg.includes('insufficient funds')) alert("Not enough ETH for gas fees.");
+                else if (msg.includes('Poster cannot be worker')) alert("❌ Cannot accept your own bid. The bidder must use a different wallet address than the poster.");
+                else if (msg.includes('insufficient funds') || msg.includes('exceeds allowance')) alert("❌ Insufficient USDC balance to lock in escrow. Please add funds to your wallet.");
                 else alert("Failed to lock escrow: " + msg);
             }
         }
