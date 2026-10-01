@@ -12608,17 +12608,11 @@ async function loadTokenomics() {
 
         const rewardsReadOnly = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, arbProvider);
 
-        const [totalSoldRaw, totalBonusRaw, pegEndedBool, treasuryBalRaw, rewardsStats] = await Promise.all([
-            treasuryReadOnly.totalNQV8Sold(),
-            treasuryReadOnly.totalBonusClaimed(),
+        const [pegEndedBool, treasuryBalRaw] = await Promise.all([
             treasuryReadOnly.pegEnded(),
-            nqv8ReadOnly.balanceOf(TREASURY_CONTRACT_ADDRESS),
-            rewardsReadOnly.getStats()
+            nqv8ReadOnly.balanceOf(TREASURY_CONTRACT_ADDRESS)
         ]);
         
-        const totalSold = parseFloat(ethers.utils.formatUnits(totalSoldRaw, NQV8_DECIMALS));
-        const totalBonus = parseFloat(ethers.utils.formatUnits(totalBonusRaw, NQV8_DECIMALS));
-        const totalRewards = parseFloat(ethers.utils.formatUnits(rewardsStats[0], NQV8_DECIMALS));
         // True circulating = total supply minus locked + permanently lost tokens
         const founderLockupReadOnly = new ethers.Contract(FOUNDER_LOCKUP_ADDRESS, ['function lockedBalance() view returns (uint256)'], arbProvider);
         const [totalSupplyRaw, founderLockedRaw, lost1Raw, lost2Raw] = await Promise.all([
