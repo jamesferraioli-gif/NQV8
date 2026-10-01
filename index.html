@@ -12658,7 +12658,7 @@ async function loadTokenomics() {
             }
         }
     } catch(e) {
-        console.warn('Tokenomics load failed:', e.message);
+        console.error('Tokenomics load failed:', e.message, e);
         if (circulatingEl) circulatingEl.textContent = '—';
     }
 }
