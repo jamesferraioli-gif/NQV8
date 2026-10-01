@@ -8338,17 +8338,8 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
 
 if (hasEscrow) {
                     // Release escrow first
-                    const releaseResp = await fetch('/api/escrow-release', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer nqvate-internal-2026`
-                        },
-                        body: JSON.stringify({ projectId: currentProjectId })
-                    });
-                    const releaseResult = await releaseResp.json();
-                    if (!releaseResult.success) throw new Error(releaseResult.error);
-                    const releaseTx = { hash: releaseResult.txHash };
+                    const releaseTx = await escrowContract.releaseEscrow(escrowId);
+                    await releaseTx.wait();
 
                     // Deposit USDC platform fee into Rewards contract + record in Firestore
                     try {
