@@ -8340,7 +8340,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                     return;
                 }
 
-if (currentProject.escrowReleased) {
+                if (currentProject.escrowReleased) {
                     // Escrow already released — skip to completion
                     const projectRef = db.collection('subprojects').doc(currentProjectId);
                     const updatedSubmissions = [...currentProject.submissions];
@@ -8351,6 +8351,14 @@ if (currentProject.escrowReleased) {
                         completedAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
                     notifySubmissionApproved(currentProject);
+                    // Update plan node
+                    db.collection('subprojects')
+                        .where('marketplacePostId', '==', currentProjectId)
+                        .where('ownerUid', '==', currentUser.uid)
+                        .limit(1).get()
+                        .then(ns => {
+                            if (!ns.empty) db.collection('subprojects').doc(ns.docs[0].id).update({ marketplacePostStatus: 'completed', status: 'completed' });
+                        });
                     loadMarketplace();
                     loadProfileData();
                     setTimeout(() => showReviewModal(currentProjectId, currentProject.title), 300);
@@ -8359,9 +8367,18 @@ if (currentProject.escrowReleased) {
 
                 if (hasEscrow) {
                     const projectRef = db.collection('subprojects').doc(currentProjectId);
-                    // Release escrow first
-                    const releaseTx = await escrowContract.releaseEscrow(escrowId);
-                    await releaseTx.wait();
+                    // Release escrow server-side (no MetaMask needed)
+                    const releaseResp = await fetch('/api/escrow-release', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer nqvate-internal-2026`
+                        },
+                        body: JSON.stringify({ projectId: currentProjectId })
+                    });
+                    const releaseResult = await releaseResp.json();
+                    if (!releaseResult.success) throw new Error(releaseResult.error);
+                    const releaseTx = { hash: releaseResult.txHash };
 
                     // Deposit USDC platform fee into Rewards contract + record in Firestore
                     try {
@@ -8499,6 +8516,15 @@ if (currentProject.escrowReleased) {
                 }
 
                 notifySubmissionApproved(currentProject);
+
+                // Update plan node status if from Studio
+                db.collection('subprojects')
+                    .where('marketplacePostId', '==', currentProjectId)
+                    .where('ownerUid', '==', currentUser.uid)
+                    .limit(1).get()
+                    .then(ns => {
+                        if (!ns.empty) db.collection('subprojects').doc(ns.docs[0].id).update({ marketplacePostStatus: 'completed', status: 'completed' });
+                    });
 
                 hideProjectDetailModal();
                 setTimeout(() => showReviewModal(currentProjectId, currentProject.title), 600);
