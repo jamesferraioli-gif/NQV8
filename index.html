@@ -8337,7 +8337,24 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                     return;
                 }
 
-if (hasEscrow && !currentProject.escrowReleased) {
+if (currentProject.escrowReleased) {
+                    // Escrow already released — skip to completion
+                    const projectRef = db.collection('subprojects').doc(currentProjectId);
+                    const updatedSubmissions = [...currentProject.submissions];
+                    updatedSubmissions[submissionIndex].status = 'accepted';
+                    await projectRef.update({
+                        submissions: updatedSubmissions,
+                        status: 'completed',
+                        completedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    notifySubmissionApproved(currentProject);
+                    loadMarketplace();
+                    loadProfileData();
+                    setTimeout(() => showReviewModal(currentProjectId, currentProject.title), 300);
+                    return;
+                }
+
+                if (hasEscrow) {
                     const projectRef = db.collection('subprojects').doc(currentProjectId);
                     // Release escrow first
                     const releaseTx = await escrowContract.releaseEscrow(escrowId);
