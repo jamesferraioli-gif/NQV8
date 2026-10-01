@@ -1934,7 +1934,7 @@
         <div class="bg-zinc-900 rounded-3xl p-6">
             <div class="text-emerald-400 text-xs font-semibold uppercase tracking-wider mb-3">Circulating Supply</div>
             <div id="circulating-supply" class="text-4xl font-bold mb-1">Loading...</div>
-            <div class="text-zinc-400 text-sm">NQV8 Sold via Treasury + bonuses + rewards distributed</div>
+            <div class="text-zinc-400 text-sm">True circulating supply · verified on-chain</div>
             <p class="text-xs text-emerald-400 mt-5">🎁 1,000 NQV8 signup bonus · until 10M circulating</p>
             <p class="text-xs text-violet-400 mt-1">🔗 +1,000 NQV8 per 5 referrals · repeatable</p>
         </div>
@@ -12651,7 +12651,6 @@ async function loadTokenomics() {
             }
         }
     } catch(e) {
-        alert('Tokenomics error: ' + e.message + ' | ' + e.stack?.split('\n')[1]);
         console.error('Tokenomics load failed:', e.message, e);
         if (circulatingEl) circulatingEl.textContent = '—';
     }
