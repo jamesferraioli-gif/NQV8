@@ -5201,10 +5201,16 @@ async function distributeMonthlyRewards() {
 }
 
 // Record a fee collection event (call this every time a fee is charged)
-async function recordProtocolFee(amountUSDC, feeType, txHash) {
+async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
+    const now = new Date();
+    const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     await db.collection('protocolFees').add({
-        amountUSDC,
-        feeType,          // 'posting', 'micro', 'verification', etc.
+        amount,
+        amountUSDC: currency === 'USDC' ? amount : null,
+        amountNQV8: currency === 'NQV8' ? amount : null,
+        currency,
+        month,
+        feeType,
         txHash: txHash || null,
         collectedBy: connectedAddress || null,
         collectedAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -7486,6 +7492,7 @@ function hideEditPostingModal() {
                                 `@${currentUser.username} placed a bid on your project: ${project.title}`,
                                 { projectId }
                             );
+                            await recordProtocolFee(1, 'bid-placement', txHash, 'NQV8').catch(() => {});
                             alert("✅ Bid placed!");
                             notifyBidReceived(project, projectId);
                             hideProjectDetailModal();
@@ -11878,6 +11885,7 @@ async function submitBountyPosting() {
                             postingId: 'new'
                         });
                     }
+                    await recordProtocolFee(100, 'bounty-posting', txHash, 'NQV8').catch(() => {});
                     alert("✅ Build request posted!");
                     notifyMatchingBuilders({ title, compensation }, _bountySelectedTags, category);
                     hidePostBountyModal();
