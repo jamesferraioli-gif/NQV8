@@ -4698,6 +4698,8 @@ async function onWalletConnected() {
     }
 
     console.log('✅ Wallet connected:', connectedAddress);
+    // Reload profile data to refresh on-chain balances
+    if (typeof loadProfileData === 'function') loadProfileData();
 }
 
 async function connectWalletDuringSignup() {
