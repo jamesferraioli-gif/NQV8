@@ -7424,6 +7424,8 @@ function hideEditPostingModal() {
         async function placeBid(projectId, compensationType = 'cash') {
             if (!currentUser || !currentUser.uid) return alert('Please log in to place a bid.');
             if (!connectedAddress) {
+                // Close bid modal so wallet picker is visible
+                document.getElementById('project-detail-modal')?.classList.add('hidden');
                 alert('Please connect your wallet first, then place your bid.');
                 await connectWallet();
                 return;
