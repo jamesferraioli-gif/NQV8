@@ -101,7 +101,7 @@ export default async function handler(req, res) {
                 console.log(`💸 Auto-refunding expired escrow for ${projectId}: $${amount} USDC`);
 
                 // Claim refund
-                const tx = await escrowContract.adminRefund(escrowId, { gasLimit: 300000 });
+                const tx = await escrowContract.adminRefund(escrowId);
                 await tx.wait();
 
                 console.log(`✅ Refunded ${projectId}. Tx: ${tx.hash}`);
