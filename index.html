@@ -6966,8 +6966,8 @@ async function loadTotalFundingReceivedStat() {
 
             ${project.compensationType === 'cash' || !project.compensationType ? `
             <p class="text-xs text-zinc-400 mb-2">Your bid amount</p>
-            <input id="bid-amount-cash" type="text"
-                   placeholder="e.g. $2,000 USDC"
+            <input id="bid-amount-cash" type="number" min="0.01" step="0.01"
+                   placeholder="Enter amount in USDC (e.g. 2000)"
                    class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4 text-sm">
             ` : ''}
 
@@ -7433,8 +7433,10 @@ function hideEditPostingModal() {
             let amount = '';
 
             if (compensationType === 'cash') {
-                amount = document.getElementById('bid-amount-cash')?.value.trim() || '';
-                if (!amount) return alert('Please enter your bid amount.');
+                const rawAmount = document.getElementById('bid-amount-cash')?.value.trim() || '';
+                const parsedAmount = parseFloat(rawAmount);
+                if (!rawAmount || isNaN(parsedAmount) || parsedAmount <= 0) return alert('Please enter a valid USDC amount (numbers only, e.g. 2000).');
+                amount = `$${parsedAmount.toFixed(2)} USDC`;
             } else if (compensationType === 'equity') {
                 const pct = parseFloat(document.getElementById('bid-amount-equity')?.value || '');
                 if (!pct || pct < 0.001 || pct > 100) return alert('Please enter a valid equity percentage between 0.001% and 100%.');
