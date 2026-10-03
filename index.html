@@ -6026,6 +6026,8 @@ function navigateTo(page) {
             connectedAddress = null;
             nqv8Contract = null;
             usdcContract = null;
+            localStorage.removeItem('nqvate_wc_address');
+            localStorage.removeItem('nqvate_wc_connected');
         
             // Reset wallet button in navbar
             const walletBtn = document.querySelector('button[onclick="connectWallet()"]');
@@ -9979,6 +9981,38 @@ async function viewUserProfile(uid) {
                 navigateTo('marketplace');
             }
         });
+
+        // Auto-reconnect WalletConnect session on page load
+        async function tryAutoReconnectWalletConnect() {
+            try {
+                const WCEthereumProvider = window["@walletconnect/ethereum-provider"]?.EthereumProvider;
+                if (!WCEthereumProvider) return;
+                const wcProvider = await WCEthereumProvider.init({
+                    projectId: '250c551782f4c860b0da20de1e93967b',
+                    chains: [ARBITRUM_CHAIN_ID],
+                    optionalChains: [ARBITRUM_CHAIN_ID],
+                    showQrModal: false,
+                    metadata: {
+                        name: 'NQVate',
+                        description: 'The complete startup platform',
+                        url: 'https://www.nqvate.com',
+                        icons: ['https://www.nqvate.com/public/logo.png']
+                    },
+                    rpcMap: { [ARBITRUM_CHAIN_ID]: ARBITRUM_RPC }
+                });
+                if (wcProvider.session || localStorage.getItem('nqvate_wc_connected') === 'true') {
+                    provider = new ethers.providers.Web3Provider(wcProvider);
+                    signer = provider.getSigner();
+                    connectedAddress = await signer.getAddress();
+                    await onWalletConnected();
+                    setTimeout(() => refreshOnChainBalances(), 1500);
+                    console.log('✅ WalletConnect auto-reconnected:', connectedAddress);
+                }
+            } catch(e) {
+                console.warn('WalletConnect auto-reconnect failed:', e.message);
+            }
+        }
+        tryAutoReconnectWalletConnect();
 
         // Show welcome modal immediately for all visitors
             setTimeout(showWelcomeModal, 800);
