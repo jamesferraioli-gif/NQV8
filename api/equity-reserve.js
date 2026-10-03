@@ -46,9 +46,7 @@ export default async function handler(req, res) {
             }
         }
 
-        const tx = await equity.reserveEquity(companyId, bountyId, beneficiaryWallet, equityUnits, {
-            gasLimit: 300000
-        });
+        const tx = await equity.reserveEquity(companyId, bountyId, beneficiaryWallet, equityUnits);
         await tx.wait();
 
         console.log(`✅ Reserved ${equityUnits} units for bounty ${bountyId} → ${beneficiaryWallet}`);
