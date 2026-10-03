@@ -4471,37 +4471,16 @@ function showWalletPickerModal() {
                 </div>
                 <span class="ml-auto text-xs text-emerald-400">Detected ✓</span>
             </button>` : ''}
-
-            ${isMobile ? `
-            <!-- Mobile — deep link into MetaMask app -->
-            <button onclick="connectWithMetaMaskMobile()"
-                    class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors mb-3">
-                <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" class="w-8 h-8">
-                <div class="text-left">
-                    <p class="font-medium">MetaMask</p>
-                    <p class="text-xs text-zinc-400">Open in MetaMask app</p>
-                </div>
-            </button>` : ''}
-
-            <!-- Coinbase Wallet -->
+            ${!isMobile ? `
+            <!-- Coinbase Wallet — desktop only -->
             <button onclick="connectWithCoinbase()"
                     class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors mb-3">
                 <img src="https://avatars.githubusercontent.com/u/1885080" class="w-8 h-8 rounded-full">
                 <div class="text-left">
                     <p class="font-medium">Coinbase Wallet</p>
-                    <p class="text-xs text-zinc-400">${isMobile ? 'Open in Coinbase app' : 'Browser extension or QR code'}</p>
+                    <p class="text-xs text-zinc-400">Browser extension or QR code</p>
                 </div>
-            </button>
-
-            <!-- WalletConnect — works for all wallets on all devices -->
-            <button onclick="connectWithWalletConnect()"
-                    class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors mb-3">
-                <img src="https://avatars.githubusercontent.com/u/37784886" class="w-8 h-8 rounded-full">
-                <div class="text-left">
-                    <p class="font-medium">WalletConnect</p>
-                    <p class="text-xs text-zinc-400">${isMobile ? 'Any wallet app' : 'QR code · any wallet'}</p>
-                </div>
-            </button>
+            </button>` : ''}
 
             ${!isMobile && !hasMetaMaskExtension ? `
             <!-- Desktop without extension — suggest install -->
@@ -4513,6 +4492,16 @@ function showWalletPickerModal() {
                     <p class="text-xs text-zinc-400">Get the browser extension</p>
                 </div>
             </button>` : ''}
+
+            <!-- WalletConnect — only option on mobile, also on desktop -->
+            <button onclick="connectWithWalletConnect()"
+                    class="w-full flex items-center gap-4 p-4 bg-zinc-800 hover:bg-zinc-700 rounded-2xl transition-colors mb-3">
+                <img src="https://avatars.githubusercontent.com/u/37784886" class="w-8 h-8 rounded-full">
+                <div class="text-left">
+                    <p class="font-medium">${isMobile ? 'Connect Wallet' : 'WalletConnect'}</p>
+                    <p class="text-xs text-zinc-400">${isMobile ? 'MetaMask, Coinbase, or any wallet app' : 'QR code · any wallet'}</p>
+                </div>
+            </button>
 
             <button onclick="document.getElementById('wallet-picker-modal').remove()"
                     class="w-full py-3 text-zinc-500 hover:text-zinc-300 text-sm mt-2">
