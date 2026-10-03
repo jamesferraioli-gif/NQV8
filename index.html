@@ -8753,14 +8753,9 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
 
                             alert(`✅ Review submitted!\n\n📈 Equity released on-chain:\n• Builder: ${(workerUnits/100).toFixed(4)}% (${workerUnits} units)\n• NQVate: ${(platformUnits/100).toFixed(4)}% (${platformUnits} units)\n\nTx: https://arbiscan.io/tx/${completeTxHash}`);
                         } else if (!isEquityOnly && workerWallet && proj.acceptedBid?.amount) {
-                            // ── USDC/NQV8 release via escrow ──────────────────────
-                            const amountNum = parseFloat(amountStr.replace(/[^0-9.]/g, ''));
-                            const currency = amountStr.toUpperCase().includes('NQV8') ? 'NQV8' : 'USDC';
-                            const payTxHash = await releaseBountyPayment(workerWallet, amountNum, currency);
-                            await db.collection('subprojects').doc(currentReviewProjectId).update({
-                                paymentTxHash: payTxHash,
-                                paidAt: firebase.firestore.FieldValue.serverTimestamp()
-                            });
+                            // USDC/NQV8 already released via escrow contract (adminRelease)
+                            // when founder approved submission — no additional payment needed
+                            console.log('USDC escrow already released via adminRelease — skipping manual payment');
                         }
                     } catch (payErr) {
                         console.error('Payment release failed:', payErr);
