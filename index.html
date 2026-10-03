@@ -4437,6 +4437,54 @@ let usdcContract = null;
 // CONNECT WALLET — supports MetaMask, Coinbase, WalletConnect,
 // Ledger, Trezor, Rainbow, Trust, any EIP-1193 wallet
 // ============================================================
+function handleWalletError(e) {
+    const msg = e.message || '';
+    
+    if (msg.includes('user rejected') || e.code === 4001) {
+        alert('Transaction cancelled.');
+        return true;
+    }
+    if (msg.includes('underlying network changed') || 
+        msg.includes('disconnect') ||
+        msg.includes('session') ||
+        msg.includes('WalletConnect') ||
+        msg.includes('provider is not connected')) {
+        connectedAddress = null;
+        localStorage.removeItem('nqvate_wc_connected');
+        localStorage.removeItem('nqvate_wc_address');
+        alert('⚠️ Wallet disconnected. Please reconnect your wallet and try again.');
+        showWalletPickerModal();
+        return true;
+    }
+    if (msg.includes('insufficient funds') || msg.includes('INSUFFICIENT_FUNDS')) {
+        alert('❌ Insufficient ETH for gas fees. Please add ETH to your wallet on Arbitrum One.');
+        return true;
+    }
+    if (msg.includes('ERC20: transfer amount exceeds balance') || 
+        msg.includes('transfer amount exceeds balance')) {
+        alert('❌ Insufficient token balance. Please check your NQV8 or USDC balance.');
+        return true;
+    }
+    if (msg.includes('allowance') || msg.includes('ERC20: insufficient allowance')) {
+        alert('❌ Token approval required. Please approve the transaction and try again.');
+        return true;
+    }
+    if (msg.includes('UNPREDICTABLE_GAS_LIMIT') || msg.includes('cannot estimate gas')) {
+        alert('❌ Transaction would fail. Make sure you are connected with the correct wallet and have sufficient funds.');
+        return true;
+    }
+    if (msg.includes('nonce') || msg.includes('replacement fee too low')) {
+        alert('❌ Transaction conflict. Please wait a moment and try again.');
+        return true;
+    }
+    if (msg.includes('network') || msg.includes('wrong chain') || msg.includes('chainId')) {
+        alert('❌ Wrong network. Please switch to Arbitrum One in your wallet.');
+        return true;
+    }
+    
+    return false;
+}
+
 async function connectWallet() {
     if (!currentUser) {
         showAuthModal();
