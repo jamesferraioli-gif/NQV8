@@ -8423,7 +8423,9 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                         console.warn('Failed to record protocol fee:', feeErr.message);
                     }
                     const updatedSubmissions = [...currentProject.submissions];
-                    updatedSubmissions[submissionIndex].status = 'accepted';
+                    if (submissionIndex !== undefined && submissionIndex !== null) {
+                        updatedSubmissions[submissionIndex].status = 'accepted';
+                    }
 
                     await projectRef.update({
                         submissions: updatedSubmissions,
@@ -8431,7 +8433,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                         completedAt: firebase.firestore.FieldValue.serverTimestamp(),
                         escrowReleaseTxHash: releaseTx.hash,
                         escrowReleased: true
-                    });
+                    }).catch(e => console.error('Firestore update failed after escrow release:', e));
 
                     // ── Auto-transfer equity if bounty includes equity compensation ──
                     const hasEquity = currentProject.compensationType === 'equity' ||
