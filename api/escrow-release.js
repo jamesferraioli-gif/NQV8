@@ -44,7 +44,7 @@ export default async function handler(req, res) {
         console.log(`💰 Releasing escrow for project ${projectId}`);
 
         // Release escrow — contract splits 96.5% to worker, 3.5% to platform
-        const tx = await escrowContract.adminRelease(escrowId, { gasLimit: 300000 });
+        const tx = await escrowContract.adminRelease(escrowId);
         await tx.wait();
 
         console.log(`✅ Escrow released. Tx: ${tx.hash}`);
