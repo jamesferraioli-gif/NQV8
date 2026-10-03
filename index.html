@@ -4627,9 +4627,12 @@ async function connectWalletConnect() {
     provider = new ethers.providers.Web3Provider(wcProvider);
     signer = provider.getSigner();
     connectedAddress = await signer.getAddress();
+    localStorage.setItem('nqvate_wc_address', connectedAddress);
+    localStorage.setItem('nqvate_wc_connected', 'true');
     await onWalletConnected();
+    // Small delay for mobile — ensures provider is ready before balance fetch
+    setTimeout(() => refreshOnChainBalances(), 1500);
 }
-
 async function ensureArbitrum() {
     const network = await provider.getNetwork();
     if (network.chainId !== ARBITRUM_CHAIN_ID) {
