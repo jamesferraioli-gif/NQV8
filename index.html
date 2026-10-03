@@ -4735,7 +4735,7 @@ async function refreshOnChainBalances() {
             }
         }
         // USDC balance
-        const usdcRaw = await usdcContract.balanceOf(connectedAddress);
+        const usdcRaw = await usdcRead.balanceOf(connectedAddress);
         const usdcBal = parseFloat(ethers.utils.formatUnits(usdcRaw, USDC_DECIMALS));
         console.log('USDC balance:', usdcBal);
     } catch (e) {
