@@ -4740,7 +4740,8 @@ async function refreshOnChainBalances() {
         // USDC balance
         const usdcRaw = await usdcRead.balanceOf(connectedAddress);
         const usdcBal = parseFloat(ethers.utils.formatUnits(usdcRaw, USDC_DECIMALS));
-        console.log('USDC balance:', usdcBal);
+        const usdcEl = document.getElementById('profile-usdc-balance');
+        if (usdcEl) usdcEl.textContent = '$' + usdcBal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     } catch (e) {
         console.warn('Balance fetch failed:', e.message);
     }
