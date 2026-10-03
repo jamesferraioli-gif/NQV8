@@ -41,13 +41,7 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'No escrow found for this project' });
         }
 
-        // Get escrow details for logging
-        const escrow = await escrowContract.escrows(escrowId);
-        const amount = ethers.utils.formatUnits(escrow[2], 6); // USDC has 6 decimals
-
         console.log(`💰 Releasing escrow for project ${projectId}`);
-        console.log(`   Amount: $${amount} USDC`);
-        console.log(`   Worker: ${escrow[1]}`);
 
         // Release escrow — contract splits 96.5% to worker, 3.5% to platform
         const tx = await escrowContract.adminRelease(escrowId, { gasLimit: 300000 });
@@ -57,9 +51,7 @@ export default async function handler(req, res) {
 
         return res.status(200).json({
             success: true,
-            txHash: tx.hash,
-            amount,
-            worker: escrow[1]
+            txHash: tx.hash
         });
 
     } catch(e) {
