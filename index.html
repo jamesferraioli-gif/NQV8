@@ -4718,11 +4718,15 @@ async function connectWalletDuringSignup() {
 // ON-CHAIN BALANCE READER
 // ============================================================
 async function refreshOnChainBalances() {
-    if (!provider || !connectedAddress) return;
+    if (!connectedAddress) return;
     try {
+        // Use read-only provider for balance checks — works on mobile WalletConnect
+        const readProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const nqv8Read = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, readProvider);
+        const usdcRead = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, readProvider);
         // NQV8 balance
         if (NQV8_TOKEN_ADDRESS !== 'YOUR_NQV8_CONTRACT_ADDRESS') {
-            const nqv8Raw = await nqv8Contract.balanceOf(connectedAddress);
+            const nqv8Raw = await nqv8Read.balanceOf(connectedAddress);
             const nqv8Bal = parseFloat(ethers.utils.formatUnits(nqv8Raw, NQV8_DECIMALS));
             const nqv8El = document.getElementById('profile-nqv8-balance');
             if (nqv8El) nqv8El.textContent = nqv8Bal.toLocaleString();
