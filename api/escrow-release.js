@@ -6,7 +6,7 @@
 
 import { ethers } from 'ethers';
 
-const ESCROW_CONTRACT_ADDRESS = '0x413EF7256f8099ea202d8C0fe3e620F5259c7a83';
+const ESCROW_CONTRACT_ADDRESS = '0xE484561B8D1c4274853CDE01d397294CBa5dEaCa';
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
 
 const ESCROW_ABI = [
