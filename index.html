@@ -12645,7 +12645,7 @@ async function loadTokenomics() {
                     <div class="text-cyan-400 text-xs font-semibold uppercase tracking-wider mb-3">Current Peg</div>
                     <div class="text-4xl font-bold mb-1">$0.01</div>
                     <div class="text-zinc-400 text-sm">per NQV8 (first 10M only)</div>
-                    <p class="text-xs text-zinc-500 mt-5">${Math.round(remaining).toLocaleString()} NQV8 remaining at peg</p>
+                    <p class="text-xs text-zinc-500 mt-5">${remaining > 0 ? Math.round(remaining).toLocaleString() + ' NQV8 remaining at peg' : 'Peg threshold reached — transitioning to float'}</p>
                     <p class="text-xs text-zinc-600 mt-1">Treasury inventory: ${Math.round(treasuryBal).toLocaleString()} NQV8</p>
                 `;
             }
