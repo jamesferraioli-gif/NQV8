@@ -7422,6 +7422,12 @@ function hideEditPostingModal() {
         }
 
         async function placeBid(projectId, compensationType = 'cash') {
+            if (!currentUser || !currentUser.uid) return alert('Please log in to place a bid.');
+            if (!connectedAddress) {
+                alert('Please connect your wallet first, then place your bid.');
+                await connectWallet();
+                return;
+            }
             let amount = '';
 
             if (compensationType === 'cash') {
