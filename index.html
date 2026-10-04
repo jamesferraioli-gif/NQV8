@@ -8038,6 +8038,8 @@ function hideEditPostingModal() {
                     }
                 } else {
                     const amountRaw = ethers.utils.parseUnits(amountNum.toFixed(6), 6);
+                    const _ro5 = new ethers.Contract(USDC_ADDRESS, ['function allowance(address,address) view returns (uint256)'], new ethers.providers.JsonRpcProvider(ARBITRUM_RPC));
+                    const _rw5 = new ethers.Contract(USDC_ADDRESS, ['function approve(address,uint256) returns (bool)'], signer);
                     const allowance = await _ro5.allowance(connectedAddress, ESCROW_CONTRACT_ADDRESS);
                     if (allowance.lt(amountRaw)) {
                         if (btn) btn.textContent = '⏳ Waiting for approval...';
