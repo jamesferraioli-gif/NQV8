@@ -4820,6 +4820,7 @@ async function refreshOnChainBalances() {
 // Send USDC — amount in human units (e.g. 1.00 = $1)
 async function sendUSDC(toAddress, amountHuman) {
     if (!signer) throw new Error('Wallet not connected');
+    usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, signer);
     const amount = ethers.utils.parseUnits(String(amountHuman), USDC_DECIMALS);
     const tx = await usdcContract.transfer(toAddress, amount);
     await tx.wait();
@@ -4829,6 +4830,7 @@ async function sendUSDC(toAddress, amountHuman) {
 // Send NQV8 — amount in human units
 async function sendNQV8(toAddress, amountHuman) {
     if (!signer) throw new Error('Wallet not connected');
+    nqv8Contract = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, signer);
     const amount = ethers.utils.parseUnits(String(amountHuman), NQV8_DECIMALS);
     const tx = await nqv8Contract.transfer(toAddress, amount);
     await tx.wait();
@@ -5077,9 +5079,10 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
             const rewardsContract = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
             const amountRaw = ethers.utils.parseUnits(String(nqv8Amount), 18);
 
+            nqv8Contract = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, signer);
             const allowance = await nqv8Contract.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
             if (allowance.lt(amountRaw)) {
-                setStatus('⏳ Approve NQV8 in wallet...');
+                btn.textContent = '⏳ Approve NQV8...';
                 const approveTx = await nqv8Contract.approve(REWARDS_CONTRACT_ADDRESS, amountRaw);
                 await approveTx.wait();
             }
@@ -5792,10 +5795,11 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                 btn.innerHTML = `⏳ Confirm ${verifNQV8Amount} NQV8 in wallet...`;
                 const rewardsContract = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
                 const verifAmountRaw = ethers.utils.parseUnits(String(verifNQV8Amount), 18);
+                nqv8Contract = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, signer);
                 const allowance = await nqv8Contract.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
-                if (allowance.lt(verifAmountRaw)) {
-                    btn.innerHTML = '⏳ Approve NQV8 in wallet...';
-                    const approveTx = await nqv8Contract.approve(REWARDS_CONTRACT_ADDRESS, verifAmountRaw);
+                if (allowance.lt(amountRaw)) {
+                    setStatus('⏳ Approve NQV8 in wallet...');
+                    const approveTx = await nqv8Contract.approve(REWARDS_CONTRACT_ADDRESS, amountRaw);
                     await approveTx.wait();
                 }
                 btn.innerHTML = `⏳ Paying ${verifNQV8Amount} NQV8...`;
@@ -7988,6 +7992,7 @@ function hideEditPostingModal() {
                 // Approve token spend
                 if (isNQV8) {
                     const amountRaw = ethers.utils.parseUnits(String(amountNum), 18);
+                    nqv8Contract = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, signer);
                     const allowance = await nqv8Contract.allowance(connectedAddress, ESCROW_CONTRACT_ADDRESS);
                     if (allowance.lt(amountRaw)) {
                         const approveTx = await nqv8Contract.approve(ESCROW_CONTRACT_ADDRESS, amountRaw);
@@ -14810,6 +14815,7 @@ async function fileProjectDispute(projectId) {
 
         // Pay dispute fee in NQV8 (not USDC)
         const disputeFeeRaw = ethers.utils.parseUnits(String(disputeNQV8Amount), 18);
+        nqv8Contract = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, signer);
         const allowance = await nqv8Contract.allowance(connectedAddress, ESCROW_CONTRACT_ADDRESS);
         if (allowance.lt(disputeFeeRaw)) {
             const approveTx = await nqv8Contract.approve(ESCROW_CONTRACT_ADDRESS, disputeFeeRaw);
@@ -15563,6 +15569,7 @@ async function submitNewFlowMap(useAI = false) {
             }
             const rewardsContract = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
             const amountRaw = ethers.utils.parseUnits(String(nqv8Amount), 18);
+            nqv8Contract = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, signer);
             const allowance = await nqv8Contract.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
             if (allowance.lt(amountRaw)) {
                 if (btnAI) btnAI.textContent = '⏳ Approving...';
