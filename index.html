@@ -5080,6 +5080,7 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
             payBtn.disabled = false;
             console.error('Payment error:', e.message, e.code);
             window._lastPaymentError = e.message;
+            alert('Debug error: ' + e.message);
             if (handleWalletError(e)) {
                 modal.remove();
                 return;
