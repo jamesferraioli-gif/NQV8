@@ -5087,12 +5087,14 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
             const allowance = await _ro2.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
             if (allowance.lt(amountRaw)) {
                 setStatus('⏳ Approve NQV8 in wallet...');
-                const approveTx = await _rw2.approve(REWARDS_CONTRACT_ADDRESS, amountRaw);
-                // Wait with timeout for mobile compatibility
-                await Promise.race([
-                    approveTx.wait(),
-                    new Promise(resolve => setTimeout(resolve, 5000))
-                ]);
+                try {
+                    await Promise.race([
+                        _rw2.approve(REWARDS_CONTRACT_ADDRESS, amountRaw).then(tx => tx.wait()),
+                        new Promise(resolve => setTimeout(resolve, 15000))
+                    ]);
+                } catch(approveErr) {
+                    console.warn('Approve failed or timed out:', approveErr?.message);
+                }
             }
 
             setStatus('⏳ Processing payment...');
