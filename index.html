@@ -3888,6 +3888,7 @@ async function submitMetricsVerification() {
 
         const rewardsContract = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
         const amountRaw = ethers.utils.parseUnits(String(metricsNQV8Amount), 18);
+        nqv8Contract = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, signer);
         const allowance = await nqv8Contract.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
         if (allowance.lt(amountRaw)) {
             btn.textContent = '⏳ Approve NQV8...';
