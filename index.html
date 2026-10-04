@@ -3764,14 +3764,15 @@ function toggleBountyTag(containerId, tag) {
 // ====================== EARNINGS FROM CHAIN ======================
 async function getTotalEarningsUSD(walletAddress) {
     try {
-        // Find user by wallet address
-        const userSnap = await db.collection('users')
-            .where('walletAddress', '==', walletAddress.toLowerCase())
-            .limit(1).get();
-
-        if (userSnap.empty) return 0;
-
-        const uid = userSnap.docs[0].id;
+        // Use currentUser.uid directly if available, otherwise look up by wallet
+        let uid = currentUser?.uid;
+        if (!uid) {
+            const userSnap = await db.collection('users')
+                .where('walletAddress', '==', walletAddress.toLowerCase())
+                .limit(1).get();
+            if (userSnap.empty) return 0;
+            uid = userSnap.docs[0].id;
+        }
 
         // Get NQV8 price for conversion
         let nqv8Price = 0.01;
