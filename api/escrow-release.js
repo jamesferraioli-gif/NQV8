@@ -58,8 +58,8 @@ export default async function handler(req, res) {
         console.error('escrow-release error:', e.message);
 
         let userMessage = e.message;
-        if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') || e.message.includes('gas required exceeds allowance')) {
-            userMessage = 'Platform wallet has insufficient ETH for gas. Please contact NQVate support.';
+        if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') || e.message.includes('gas required exceeds allowance') || e.message.includes('INSUFFICIENT_FUNDS')) {
+            userMessage = 'Transaction failed — insufficient ETH for gas fees. Please add more ETH to your wallet on Arbitrum One and try again.';
         } else if (e.message.includes('Not poster')) {
             userMessage = 'Only the posting founder can release escrow.';
         } else if (e.message.includes('Already released') || e.message.includes('Invalid status')) {
