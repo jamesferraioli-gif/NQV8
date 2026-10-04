@@ -7104,7 +7104,8 @@ async function loadTotalFundingReceivedStat() {
             <p class="text-xs text-zinc-400 mb-2">Your bid amount</p>
             <input id="bid-amount-cash" type="number" min="0.01" step="0.01"
                    placeholder="Enter amount in USDC (e.g. 2000)"
-                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4 text-sm">
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4 text-sm"
+                   onblur="this.value = this.value ? parseFloat(this.value).toFixed(2) : ''">
             ` : ''}
 
             ${project.compensationType === 'equity' ? `
@@ -7122,8 +7123,9 @@ async function loadTotalFundingReceivedStat() {
             <div class="space-y-3 mb-4">
                 <div>
                     <p class="text-xs text-zinc-400 mb-1">Cash amount you're requesting</p>
-                    <input id="bid-amount-mixed-cash" type="text"
-                           placeholder="e.g. $1,000 USDC"
+                    <input id="bid-amount-mixed-cash" type="number" min="0.01" step="0.01"
+                           placeholder="Enter amount in USDC (e.g. 1000)"
+                           onblur="this.value = this.value ? parseFloat(this.value).toFixed(2) : ''"
                            class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
                 </div>
                 <div>
@@ -7578,11 +7580,14 @@ function hideEditPostingModal() {
                 if (!pct || pct < 0.001 || pct > 100) return alert('Please enter a valid equity percentage between 0.001% and 100%.');
                 amount = `${pct}% equity`;
             } else if (compensationType === 'mixed') {
-                const cash = document.getElementById('bid-amount-mixed-cash')?.value.trim() || '';
+                const cashRaw = document.getElementById('bid-amount-mixed-cash')?.value.trim() || '';
+                const cashNum = parseFloat(cashRaw);
                 const pct  = parseFloat(document.getElementById('bid-amount-mixed-equity')?.value || '');
-                if (!cash && !pct) return alert('Please enter at least a cash amount or equity percentage.');
+                if (!cashRaw && !pct) return alert('Please enter at least a cash amount or equity percentage.');
+                if (cashRaw && (isNaN(cashNum) || cashNum <= 0)) return alert('Please enter a valid USDC amount.');
                 if (pct && (pct < 0.001 || pct > 100)) return alert('Equity percentage must be between 0.001% and 100%.');
-                amount = [cash, pct ? `${pct}% equity` : ''].filter(Boolean).join(' + ');
+                const cashFormatted = cashNum ? `$${cashNum.toFixed(2)} USDC` : '';
+                amount = [cashFormatted, pct ? `${pct}% equity` : ''].filter(Boolean).join(' + ');
             }
 
             if (!amount) return alert('Please enter your bid.');
