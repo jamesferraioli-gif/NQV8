@@ -5099,11 +5099,15 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
 
             setStatus('⏳ Processing payment...');
             const rewardsContractRW2 = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
-            const tx = await rewardsContractRW2.payNQV8Fee(connectedAddress, amountRaw);
-            await tx.wait();
-            await recordProtocolFee(usdAmount, 'fee', tx.hash);
+            let txHash = null;
+            await Promise.race([
+                rewardsContractRW2.payNQV8Fee(connectedAddress, amountRaw)
+                    .then(tx => tx.wait().then(() => { txHash = tx.hash; })),
+                new Promise(resolve => setTimeout(resolve, 15000))
+            ]);
+            await recordProtocolFee(usdAmount, 'fee', txHash);
             modal.remove();
-            onSuccess(tx.hash);
+            onSuccess(txHash);
         } catch(e) {
             payBtn.disabled = false;
             console.error('Payment error:', e.message, e.code);
