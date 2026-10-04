@@ -7896,7 +7896,9 @@ function hideEditPostingModal() {
                     if (btn) { btn.textContent = '⏳ Reserving equity...'; btn.disabled = true; }
 
                     try {
+                        console.log('Entering equity path, compensationStr:', compensationStr);
                         const equityMatch = compensationStr.match(/([\d.]+)%/);
+                        console.log('equityMatch:', equityMatch);
                         if (!equityMatch) throw new Error('Could not parse equity percentage from bid.');
                         const equityPct = parseFloat(equityMatch[1]);
                         const equityUnits = Math.round(equityPct * 100);
@@ -7963,7 +7965,6 @@ function hideEditPostingModal() {
                                 new Promise(resolve => setTimeout(resolve, 15000))
                             ]);
                             escrowTxHash = escrowTxHash3m;
-                            escrowTxHash = escrowTx.hash;
                         }
 
                         await projectRef.update({
