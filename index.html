@@ -501,7 +501,10 @@
 
             <!-- Cash compensation -->
             <div id="comp-field-cash" class="mb-4">
-                <input id="bounty-compensation-cash" type="text" placeholder="e.g. $2,500 USDC"
+                <input id="bounty-compensation-cash" type="text" placeholder="e.g. $2,500.00 USDC"
+                       oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
+                       onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : '$' + n.toFixed(2) + ' USDC'; }"
+                       onfocus="this.value = this.value.replace(/[^0-9.]/g, '')"
                        class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
             </div>
 
@@ -520,7 +523,10 @@
             <div id="comp-field-mixed" class="hidden mb-4 space-y-3">
                 <div>
                     <p class="text-xs text-zinc-400 mb-1">Cash Amount</p>
-                    <input id="bounty-compensation-mixed-cash" type="text" placeholder="e.g. $1,000 USDC"
+                    <input id="bounty-compensation-mixed-cash" type="text" placeholder="e.g. $1,000.00 USDC"
+                           oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
+                           onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : '$' + n.toFixed(2) + ' USDC'; }"
+                           onfocus="this.value = this.value.replace(/[^0-9.]/g, '')"
                            class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
                 </div>
                 <div>
@@ -17868,7 +17874,10 @@ async function founderRelease() {
         <p class="text-zinc-400 text-sm mb-6" id="counter-bid-context"></p>
         <div id="counter-cash-field" class="mb-4">
             <p class="text-xs text-zinc-400 mb-1">Counter cash amount <span class="text-zinc-600">(leave blank to remove cash)</span></p>
-            <input id="counter-cash-input" type="text" placeholder="e.g. $1,500 USDC"
+            <input id="counter-cash-input" type="text" placeholder="e.g. $1,500.00 USDC"
+                   oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
+                   onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : '$' + n.toFixed(2) + ' USDC'; }"
+                   onfocus="this.value = this.value.replace(/[^0-9.]/g, '')"
                    class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm">
         </div>
         <div id="counter-equity-field" class="mb-6">
