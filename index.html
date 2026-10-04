@@ -3894,10 +3894,11 @@ async function submitMetricsVerification() {
         if (allowance.lt(amountRaw)) {
             btn.textContent = '⏳ Approve NQV8...';
             const approveTx = await _rw1.approve(REWARDS_CONTRACT_ADDRESS, amountRaw);
-            await approveTx.wait();
+            await Promise.race([approveTx.wait(), new Promise(resolve => setTimeout(resolve, 30000))]);
         }
         btn.textContent = '⏳ Paying...';
-        const payTx = await rewardsContract.payNQV8Fee(connectedAddress, amountRaw);
+        const rewardsContractRW1 = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
+        const payTx = await rewardsContractRW1.payNQV8Fee(connectedAddress, amountRaw);
         await payTx.wait();
         await recordProtocolFee(5, 'metrics-verification', payTx.hash);
 
@@ -5095,7 +5096,8 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
             }
 
             setStatus('⏳ Processing payment...');
-            const tx = await rewardsContract.payNQV8Fee(connectedAddress, amountRaw);
+            const rewardsContractRW2 = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
+            const tx = await rewardsContractRW2.payNQV8Fee(connectedAddress, amountRaw);
             await tx.wait();
             await recordProtocolFee(usdAmount, 'fee', tx.hash);
             modal.remove();
@@ -5805,13 +5807,17 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                 const _ro3 = new ethers.Contract(NQV8_TOKEN_ADDRESS, ['function allowance(address,address) view returns (uint256)', 'function approve(address,uint256) returns (bool)'], new ethers.providers.JsonRpcProvider(ARBITRUM_RPC));
                 const _rw3 = new ethers.Contract(NQV8_TOKEN_ADDRESS, ['function allowance(address,address) view returns (uint256)', 'function approve(address,uint256) returns (bool)'], signer);
                 const allowance = await _ro3.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
-                if (allowance.lt(amountRaw)) {
-                    setStatus('⏳ Approve NQV8 in wallet...');
-                    const approveTx = await _rw3.approve(REWARDS_CONTRACT_ADDRESS, amountRaw);
-                    await approveTx.wait();
+                if (allowance.lt(verifAmountRaw)) {
+                    btn.innerHTML = '⏳ Approve NQV8 in wallet...';
+                    const approveTx = await _rw3.approve(REWARDS_CONTRACT_ADDRESS, verifAmountRaw);
+                    await Promise.race([
+                        approveTx.wait(),
+                        new Promise(resolve => setTimeout(resolve, 30000))
+                    ]);
                 }
                 btn.innerHTML = `⏳ Paying ${verifNQV8Amount} NQV8...`;
-                const verifyPayTx = await rewardsContract.payNQV8Fee(connectedAddress, verifAmountRaw);
+                const rewardsContractRW3 = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
+                const verifyPayTx = await rewardsContractRW3.payNQV8Fee(connectedAddress, verifAmountRaw);
                 await verifyPayTx.wait();
                 const txHash = verifyPayTx.hash;
                 await recordProtocolFee(10, 'verification', txHash);
@@ -8006,17 +8012,15 @@ function hideEditPostingModal() {
                     if (allowance.lt(amountRaw)) {
                         const approveTx = await _rw4.approve(ESCROW_CONTRACT_ADDRESS, amountRaw);
                         if (btn) btn.textContent = '⏳ Waiting for approval...';
-                        await approveTx.wait();
+                        await Promise.race([approveTx.wait(), new Promise(resolve => setTimeout(resolve, 30000))]);
                     }
                 } else {
                     const amountRaw = ethers.utils.parseUnits(amountNum.toFixed(6), 6);
-                    const _ro5 = new ethers.Contract(USDC_ADDRESS, ['function allowance(address,address) view returns (uint256)', 'function approve(address,uint256) returns (bool)'], new ethers.providers.JsonRpcProvider(ARBITRUM_RPC));
-                    const _rw5 = new ethers.Contract(USDC_ADDRESS, ['function allowance(address,address) view returns (uint256)', 'function approve(address,uint256) returns (bool)'], signer);
                     const allowance = await _ro5.allowance(connectedAddress, ESCROW_CONTRACT_ADDRESS);
                     if (allowance.lt(amountRaw)) {
                         const approveTx = await _rw5.approve(ESCROW_CONTRACT_ADDRESS, amountRaw);
                         if (btn) btn.textContent = '⏳ Waiting for approval...';
-                        await approveTx.wait();
+                        await Promise.race([approveTx.wait(), new Promise(resolve => setTimeout(resolve, 30000))]);
                     }
                 }
 
@@ -14831,7 +14835,7 @@ async function fileProjectDispute(projectId) {
         const allowance = await _ro6.allowance(connectedAddress, ESCROW_CONTRACT_ADDRESS);
         if (allowance.lt(disputeFeeRaw)) {
             const approveTx = await _rw6.approve(ESCROW_CONTRACT_ADDRESS, disputeFeeRaw);
-            await approveTx.wait();
+            await Promise.race([approveTx.wait(), new Promise(resolve => setTimeout(resolve, 30000))]);
         }
 
         const disputeTx = await escrowContract.fileDispute(escrowId);
@@ -15587,9 +15591,10 @@ async function submitNewFlowMap(useAI = false) {
             if (allowance.lt(amountRaw)) {
                 if (btnAI) btnAI.textContent = '⏳ Approving...';
                 const approveTx = await _rw7.approve(REWARDS_CONTRACT_ADDRESS, amountRaw);
-                await approveTx.wait();
+                await Promise.race([approveTx.wait(), new Promise(resolve => setTimeout(resolve, 30000))]);
             }
-            const payTx = await rewardsContract.payNQV8Fee(connectedAddress, amountRaw);
+            const rewardsContractRW7 = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
+            const payTx = await rewardsContractRW7.payNQV8Fee(connectedAddress, amountRaw);
             await payTx.wait();
             await recordProtocolFee(5, 'flow-map-generation', payTx.hash);
 
