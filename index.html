@@ -5052,6 +5052,8 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
         }
     })();
 
+    // Debug — log all errors
+    window._lastPaymentError = null;
     // Pay handler
     payBtn.addEventListener('click', async () => {
         if (payBtn.disabled) return;
@@ -5076,6 +5078,12 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
             onSuccess(tx.hash);
         } catch(e) {
             payBtn.disabled = false;
+            console.error('Payment error:', e.message, e.code);
+            window._lastPaymentError = e.message;
+            if (handleWalletError(e)) {
+                modal.remove();
+                return;
+            }
             setStatus('❌ ' + parsePaymentError(e));
         }
     });
