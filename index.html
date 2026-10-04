@@ -4916,6 +4916,23 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
         return;
     }
 
+    // Verify wallet is actually still connected
+    try {
+        const roProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        await roProvider.getBalance(connectedAddress); // just a ping
+        if (signer) await signer.getAddress(); // verify signer is live
+    } catch(e) {
+        connectedAddress = null;
+        localStorage.removeItem('nqvate_wc_connected');
+        localStorage.removeItem('nqvate_wc_address');
+        if (confirm("Your wallet session has expired. Reconnect now?")) {
+            connectWallet().then(() => {
+                if (connectedAddress) showPaymentPicker(label, usdAmount, _ignored, onSuccess);
+            });
+        }
+        return;
+    }
+
     document.getElementById('payment-picker-modal')?.remove();
 
     // Show loading modal while we fetch price
@@ -5005,7 +5022,8 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
     // Check balances
     (async () => {
         try {
-            const ethBal = await provider.getBalance(connectedAddress);
+            const roProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+            const ethBal = await roProvider.getBalance(connectedAddress);
             if (parseFloat(ethers.utils.formatEther(ethBal)) < 0.00001) {
                 setStatus('⚠️ You have no ETH for gas fees. Add a small amount of ETH to Arbitrum (~$0.01 worth).');
                 payBtn.disabled = true;
@@ -5015,7 +5033,9 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
         } catch(e) {}
 
         try {
-            const nqv8Raw = await nqv8Contract.balanceOf(connectedAddress);
+            const roProvider2 = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+            const nqv8ro = new ethers.Contract(NQV8_TOKEN_ADDRESS, ['function balanceOf(address) view returns (uint256)'], roProvider2);
+            const nqv8Raw = await nqv8ro.balanceOf(connectedAddress);
             const nqv8Bal = parseFloat(ethers.utils.formatUnits(nqv8Raw, 18));
             balEl.textContent = `Balance: ${nqv8Bal.toLocaleString(undefined, {maximumFractionDigits: 4})} NQV8`;
 
