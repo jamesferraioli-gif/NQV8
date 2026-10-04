@@ -4486,6 +4486,20 @@ function handleWalletError(e) {
     return false;
 }
 
+async function getNQV8Contract(readOnly = false) {
+    const roProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+    if (readOnly) return new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, roProvider);
+    if (!signer) throw new Error('Wallet not connected');
+    return new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, signer);
+}
+
+async function getUSDCContract(readOnly = false) {
+    const roProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+    if (readOnly) return new ethers.Contract(USDC_ADDRESS, ERC20_ABI, roProvider);
+    if (!signer) throw new Error('Wallet not connected');
+    return new ethers.Contract(USDC_ADDRESS, ERC20_ABI, signer);
+}
+
 async function connectWallet() {
     if (!currentUser) {
         showAuthModal();
