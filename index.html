@@ -5085,7 +5085,7 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
             const _rw2 = new ethers.Contract(NQV8_TOKEN_ADDRESS, ['function allowance(address,address) view returns (uint256)', 'function approve(address,uint256) returns (bool)'], signer);
             const allowance = await _ro2.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
             if (allowance.lt(amountRaw)) {
-                btn.textContent = '⏳ Approve NQV8...';
+                setStatus('⏳ Approve NQV8 in wallet...');
                 const approveTx = await _rw2.approve(REWARDS_CONTRACT_ADDRESS, amountRaw);
                 await approveTx.wait();
             }
