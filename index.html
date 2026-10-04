@@ -5091,7 +5091,7 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
                 // Wait with timeout for mobile compatibility
                 await Promise.race([
                     approveTx.wait(),
-                    new Promise(resolve => setTimeout(resolve, 30000))
+                    new Promise(resolve => setTimeout(resolve, 5000))
                 ]);
             }
 
