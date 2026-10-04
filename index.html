@@ -4718,7 +4718,8 @@ async function onWalletConnected() {
     // Save wallet address to Firestore user record
     if (currentUser) {
         await db.collection('users').doc(currentUser.uid).update({
-            walletAddress: connectedAddress.toLowerCase()
+            walletAddress: connectedAddress.toLowerCase(),
+            walletHistory: firebase.firestore.FieldValue.arrayUnion(connectedAddress.toLowerCase())
         });
         currentUser.walletAddress = connectedAddress.toLowerCase();
     }
@@ -6188,6 +6189,7 @@ async function createProfile() {
             username,
             email: user.email,
             walletAddress: connectedAddress ? connectedAddress.toLowerCase() : null,
+            walletHistory: connectedAddress ? [connectedAddress.toLowerCase()] : [],
             nqv8Balance: 0,
             totalNQV8Earned: 0,
             pendingNQV8Bonus: 1000,
@@ -14993,7 +14995,8 @@ async function changeWallet() {
                 clearInterval(check);
                 try {
                     await db.collection('users').doc(currentUser.uid).update({
-                        walletAddress: connectedAddress.toLowerCase()
+                        walletAddress: connectedAddress.toLowerCase(),
+                        walletHistory: firebase.firestore.FieldValue.arrayUnion(connectedAddress.toLowerCase())
                     });
                     currentUser.walletAddress = connectedAddress.toLowerCase();
                     const settingsWallet = document.getElementById('settings-wallet-address');
