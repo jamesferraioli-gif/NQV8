@@ -60,6 +60,12 @@ export default async function handler(req, res) {
 
     } catch(e) {
         console.error('equity-release error:', e.message);
-        return res.status(500).json({ error: e.message });
+        let userMessage = e.message;
+        if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') ||
+            e.message.includes('gas required exceeds allowance') ||
+            e.message.includes('insufficient funds')) {
+            userMessage = 'Transaction failed — insufficient ETH for gas fees. Please add a small amount of ETH to your wallet on Arbitrum One and try again.';
+        }
+        return res.status(500).json({ error: userMessage });
     }
 }
