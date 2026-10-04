@@ -8004,11 +8004,14 @@ function hideEditPostingModal() {
                     } catch(equityErr) {
                         const btn = document.getElementById('accept-bid-btn');
                         if (btn) { btn.textContent = 'Accept Bid'; btn.disabled = false; }
-                        alert('Failed to reserve equity: ' + equityErr.message);
+                        if (equityErr.message === 'PLATFORM_GAS_ERROR') {
+                            alert('⚠️ We\'re experiencing a temporary technical issue. Please try again in a few minutes or contact NQVate support.');
+                        } else {
+                            alert('Failed to reserve equity: ' + equityErr.message);
+                        }
                         return;
                     }
                 }
-
                 const amountNum = parseFloat(compensationStr.replace(/[^0-9.]/g, ''));
                 if (!amountNum || amountNum <= 0) {
                     return alert("Could not parse compensation amount. Ensure it is a clear dollar value e.g. $500 USDC.");
