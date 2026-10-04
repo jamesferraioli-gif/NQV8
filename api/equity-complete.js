@@ -61,6 +61,14 @@ export default async function handler(req, res) {
 
     } catch(e) {
         console.error('equity-complete error:', e.message);
-        return res.status(500).json({ error: e.message });
+        let userMessage = e.message;
+        if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') ||
+            e.message.includes('gas required exceeds allowance') ||
+            e.message.includes('insufficient funds')) {
+            userMessage = 'Transaction failed — insufficient ETH for gas fees. Please add more ETH to your wallet on Arbitrum One and try again.';
+        } else if (e.message.includes('No active reservation')) {
+            userMessage = 'No active equity reservation found for this bounty.';
+        }
+        return res.status(500).json({ error: userMessage });
     }
 }
