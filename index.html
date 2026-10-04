@@ -13741,7 +13741,8 @@ async function loadProfileEquityStakes() {
                         percentage: (units.toNumber() / 10000 * 100).toFixed(2),
                         lastSalePricePerUnit: null,
                         lastSaleAt: 0,
-                        founder:    founderAddr
+                        founder:    founderAddr,
+                        wallet:     connectedAddress
                     };
                 } catch(e) {
                     return null;
@@ -13881,6 +13882,7 @@ async function loadProfileEquityStakes() {
                 <div class="flex justify-between text-xs text-zinc-400 mb-2">
                     <span>Last sale: ${lastSaleStr}</span>
                 </div>
+                <p class="text-xs text-zinc-600 mb-2">Held by: ${stake.wallet ? stake.wallet.slice(0,6) + '...' + stake.wallet.slice(-4) : 'Unknown wallet'}</p>
 
                 ${valuationHTML}
 
