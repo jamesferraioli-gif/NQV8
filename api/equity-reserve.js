@@ -61,7 +61,7 @@ export default async function handler(req, res) {
         if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') || 
             e.message.includes('gas required exceeds allowance') ||
             e.message.includes('insufficient funds')) {
-            userMessage = 'Transaction failed — insufficient ETH for gas fees. Please add more ETH to your wallet on Arbitrum One and try again.';
+            userMessage = 'PLATFORM_GAS_ERROR';
         } else if (e.message.includes('Reservation already exists')) {
             userMessage = 'This bounty already has an active equity reservation.';
         } else if (e.message.includes('Insufficient available equity')) {
