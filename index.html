@@ -512,7 +512,8 @@
             <div id="comp-field-equity" class="hidden mb-4">
                 <p class="text-xs text-zinc-400 mb-2">Equity Percentage Offered</p>
                 <div class="flex gap-3 items-center">
-                    <input id="bounty-compensation-equity-pct" type="number" placeholder="e.g. 5" min="0.01" max="100" step="0.01"
+                    <input id="bounty-compensation-equity-pct" type="number" placeholder="e.g. 5.00" min="0.01" max="100" step="0.01"
+                           onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : n.toFixed(2); }"                        
                            class="flex-1 bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
                     <span class="text-zinc-400 font-semibold text-lg">%</span>
                 </div>
@@ -724,7 +725,8 @@
                class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
 
         <div class="relative mb-4">
-            <input id="funding-equity-pct" type="number" min="0.01" max="100" step="0.01" placeholder="Equity offered (e.g. 10)"
+            <input id="funding-equity-pct" type="number" min="0.01" max="100" step="0.01" placeholder="Equity offered (e.g. 10.00)"
+                   onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : n.toFixed(2); }"                
                    oninput="updateFundingUnitsPreview(this.value)"
                    class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none pr-12">
             <span class="absolute right-6 top-1/2 -translate-y-1/2 text-zinc-500 text-lg">%</span>
@@ -7118,6 +7120,7 @@ async function loadTotalFundingReceivedStat() {
             <p class="text-xs text-zinc-400 mb-2">Equity percentage you're requesting</p>
             <div class="flex gap-3 items-center mb-2">
                 <input id="bid-amount-equity" type="number"
+                       onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : n.toFixed(2); }"                
                        placeholder="e.g. 1.5" min="0.001" max="100" step="0.001"
                        class="flex-1 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none text-sm">
                 <span class="text-zinc-400 font-semibold text-lg pr-2">%</span>
@@ -7138,6 +7141,7 @@ async function loadTotalFundingReceivedStat() {
                     <p class="text-xs text-zinc-400 mb-1">Equity percentage you're requesting</p>
                     <div class="flex gap-3 items-center">
                         <input id="bid-amount-mixed-equity" type="number"
+                               onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : n.toFixed(2); }"                        
                                placeholder="e.g. 1.5" min="0.001" max="100" step="0.001"
                                class="flex-1 bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
                         <span class="text-zinc-400 font-semibold pr-2">%</span>
@@ -17883,7 +17887,8 @@ async function founderRelease() {
         <div id="counter-equity-field" class="mb-6">
             <p class="text-xs text-zinc-400 mb-1">Counter equity % <span class="text-zinc-600">(leave blank to remove equity)</span></p>
             <div class="flex gap-3 items-center">
-                <input id="counter-equity-input" type="number" placeholder="e.g. 1.5" min="0.001" max="100" step="0.001"
+                <input id="counter-equity-input" type="number" placeholder="e.g. 1.50" min="0.001" max="100" step="0.001"
+                       onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : n.toFixed(2); }"                    
                        class="flex-1 bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm">
                 <span class="text-zinc-400 font-semibold pr-2">%</span>
             </div>
