@@ -8030,14 +8030,6 @@ function hideEditPostingModal() {
                     const _rw4 = new ethers.Contract(NQV8_TOKEN_ADDRESS, ['function allowance(address,address) view returns (uint256)', 'function approve(address,uint256) returns (bool)'], signer);
                     const allowance = await _ro4.allowance(connectedAddress, ESCROW_CONTRACT_ADDRESS);
                     if (allowance.lt(amountRaw)) {
-                        const approveTx = await _rw4.approve(ESCROW_CONTRACT_ADDRESS, amountRaw);
-                        if (btn) btn.textContent = '⏳ Waiting for approval...';
-                        await Promise.race([approveTx.wait(), new Promise(resolve => setTimeout(resolve, 30000))]);
-                    }
-                } else {
-                    const amountRaw = ethers.utils.parseUnits(amountNum.toFixed(6), 6);
-                    const allowance = await _ro5.allowance(connectedAddress, ESCROW_CONTRACT_ADDRESS);
-                    if (allowance.lt(amountRaw)) {
                         if (btn) btn.textContent = '⏳ Waiting for approval...';
                         await Promise.race([
                             _rw4.approve(ESCROW_CONTRACT_ADDRESS, amountRaw).then(tx => tx.wait()),
@@ -8069,7 +8061,6 @@ function hideEditPostingModal() {
                     new Promise(resolve => setTimeout(resolve, 15000))
                 ]);
                 const escrowTx = { hash: escrowTxHash4 };
-                await escrowTx.wait();
 
                 // Update Firestore
                 await projectRef.update({
