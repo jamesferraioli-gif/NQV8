@@ -3893,14 +3893,19 @@ async function submitMetricsVerification() {
         const allowance = await _ro1.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
         if (allowance.lt(amountRaw)) {
             btn.textContent = '⏳ Approve NQV8...';
-            const approveTx = await _rw1.approve(REWARDS_CONTRACT_ADDRESS, amountRaw);
-            await Promise.race([approveTx.wait(), new Promise(resolve => setTimeout(resolve, 30000))]);
+            await Promise.race([
+                _rw1.approve(REWARDS_CONTRACT_ADDRESS, amountRaw).then(tx => tx.wait()),
+                new Promise(resolve => setTimeout(resolve, 15000))
+            ]).catch(e => console.warn('Approve timed out:', e?.message));
         }
         btn.textContent = '⏳ Paying...';
         const rewardsContractRW1 = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
-        const payTx = await rewardsContractRW1.payNQV8Fee(connectedAddress, amountRaw);
-        await payTx.wait();
-        await recordProtocolFee(5, 'metrics-verification', payTx.hash);
+        let _txHash1 = null;
+        await Promise.race([
+            rewardsContractRW1.payNQV8Fee(connectedAddress, amountRaw).then(tx => tx.wait().then(() => { _txHash1 = tx.hash; })),
+            new Promise(resolve => setTimeout(resolve, 15000))
+        ]);
+        await recordProtocolFee(5, 'metrics-verification', _txHash1);
 
         // Convert to base64
         btn.textContent = '⏳ Analyzing with Claude AI...';
@@ -5815,17 +5820,18 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                 const allowance = await _ro3.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
                 if (allowance.lt(verifAmountRaw)) {
                     btn.innerHTML = '⏳ Approve NQV8 in wallet...';
-                    const approveTx = await _rw3.approve(REWARDS_CONTRACT_ADDRESS, verifAmountRaw);
                     await Promise.race([
-                        approveTx.wait(),
-                        new Promise(resolve => setTimeout(resolve, 30000))
-                    ]);
+                        _rw3.approve(REWARDS_CONTRACT_ADDRESS, verifAmountRaw).then(tx => tx.wait()),
+                        new Promise(resolve => setTimeout(resolve, 15000))
+                    ]).catch(e => console.warn('Approve timed out:', e?.message));
                 }
                 btn.innerHTML = `⏳ Paying ${verifNQV8Amount} NQV8...`;
                 const rewardsContractRW3 = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
-                const verifyPayTx = await rewardsContractRW3.payNQV8Fee(connectedAddress, verifAmountRaw);
-                await verifyPayTx.wait();
-                const txHash = verifyPayTx.hash;
+                let txHash = null;
+                await Promise.race([
+                    rewardsContractRW3.payNQV8Fee(connectedAddress, verifAmountRaw).then(tx => tx.wait().then(() => { txHash = tx.hash; })),
+                    new Promise(resolve => setTimeout(resolve, 15000))
+                ]);
                 await recordProtocolFee(10, 'verification', txHash);
 
                 console.log('✅ Payment done:', txHash);
@@ -7926,14 +7932,22 @@ function hideEditPostingModal() {
                             const cashRaw = ethers.utils.parseUnits(cashAmount.toFixed(6), 6);
                             const deadlineTs = deadlineToTimestamp(deadline);
                             if (btn) btn.textContent = '⏳ Locking USDC...';
-                            const allowance = await usdcContract.allowance(connectedAddress, ESCROW_CONTRACT_ADDRESS);
-                            if (allowance.lt(cashRaw)) {
-                                const approveTx = await usdcContract.approve(ESCROW_CONTRACT_ADDRESS, cashRaw);
-                                await approveTx.wait();
+                            const _ro3m = new ethers.Contract(USDC_ADDRESS, ['function allowance(address,address) view returns (uint256)'], new ethers.providers.JsonRpcProvider(ARBITRUM_RPC));
+                            const _rw3m = new ethers.Contract(USDC_ADDRESS, ['function approve(address,uint256) returns (bool)'], signer);
+                            const allowance3m = await _ro3m.allowance(connectedAddress, ESCROW_CONTRACT_ADDRESS);
+                            if (allowance3m.lt(cashRaw)) {
+                                await Promise.race([
+                                    _rw3m.approve(ESCROW_CONTRACT_ADDRESS, cashRaw).then(tx => tx.wait()),
+                                    new Promise(resolve => setTimeout(resolve, 15000))
+                                ]).catch(e => console.warn('Approve timed out:', e?.message));
                             }
                             const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
-                            const escrowTx = await escrowContract.createEscrow(currentProjectId, workerWallet, cashRaw, 0, deadlineTs);
-                            await escrowTx.wait();
+                            let escrowTxHash3m = null;
+                            await Promise.race([
+                                escrowContract.createEscrow(currentProjectId, workerWallet, cashRaw, 0, deadlineTs).then(tx => tx.wait().then(() => { escrowTxHash3m = tx.hash; })),
+                                new Promise(resolve => setTimeout(resolve, 15000))
+                            ]);
+                            escrowTxHash = escrowTxHash3m;
                             escrowTxHash = escrowTx.hash;
                         }
 
@@ -8024,9 +8038,21 @@ function hideEditPostingModal() {
                     const amountRaw = ethers.utils.parseUnits(amountNum.toFixed(6), 6);
                     const allowance = await _ro5.allowance(connectedAddress, ESCROW_CONTRACT_ADDRESS);
                     if (allowance.lt(amountRaw)) {
-                        const approveTx = await _rw5.approve(ESCROW_CONTRACT_ADDRESS, amountRaw);
                         if (btn) btn.textContent = '⏳ Waiting for approval...';
-                        await Promise.race([approveTx.wait(), new Promise(resolve => setTimeout(resolve, 30000))]);
+                        await Promise.race([
+                            _rw4.approve(ESCROW_CONTRACT_ADDRESS, amountRaw).then(tx => tx.wait()),
+                            new Promise(resolve => setTimeout(resolve, 15000))
+                        ]).catch(e => console.warn('Approve timed out:', e?.message));
+                    }
+                } else {
+                    const amountRaw = ethers.utils.parseUnits(amountNum.toFixed(6), 6);
+                    const allowance = await _ro5.allowance(connectedAddress, ESCROW_CONTRACT_ADDRESS);
+                    if (allowance.lt(amountRaw)) {
+                        if (btn) btn.textContent = '⏳ Waiting for approval...';
+                        await Promise.race([
+                            _rw5.approve(ESCROW_CONTRACT_ADDRESS, amountRaw).then(tx => tx.wait()),
+                            new Promise(resolve => setTimeout(resolve, 15000))
+                        ]).catch(e => console.warn('Approve timed out:', e?.message));
                     }
                 }
 
@@ -8036,13 +8062,13 @@ function hideEditPostingModal() {
                     ? ethers.utils.parseUnits(String(amountNum), 18)
                     : ethers.utils.parseUnits(amountNum.toFixed(6), 6);
 
-                const escrowTx = await escrowContract.createEscrow(
-                    currentProjectId,
-                    workerWallet,
-                    amountRaw,
-                    currency,
-                    deadlineTs
-                );
+                const escrowContractFresh = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
+                let escrowTxHash4 = null;
+                await Promise.race([
+                    escrowContractFresh.createEscrow(currentProjectId, workerWallet, amountRaw, currency, deadlineTs).then(tx => tx.wait().then(() => { escrowTxHash4 = tx.hash; })),
+                    new Promise(resolve => setTimeout(resolve, 15000))
+                ]);
+                const escrowTx = { hash: escrowTxHash4 };
                 await escrowTx.wait();
 
                 // Update Firestore
@@ -12907,12 +12933,12 @@ async function buyNQV8() {
 
         if (allowance < amount) {
             setBtn('⏳ Approve USDC in wallet...', true);
-            const approveTx = await usdcContract.approve(
-                TREASURY_CONTRACT_ADDRESS,
-                usdcAmountRaw
-            );
+            const _rw5b = new ethers.Contract(USDC_ADDRESS, ['function approve(address,uint256) returns (bool)'], signer);
             setBtn('⏳ Waiting for approval...', true);
-            await approveTx.wait();
+            await Promise.race([
+                _rw5b.approve(TREASURY_CONTRACT_ADDRESS, usdcAmountRaw).then(tx => tx.wait()),
+                new Promise(resolve => setTimeout(resolve, 15000))
+            ]).catch(e => console.warn('Approve timed out:', e?.message));
         }
 
         // ── 5. Call buyNQV8 on Treasury contract ─────────────────
@@ -14360,16 +14386,23 @@ async function buyNowOnChain(listingId, totalUSDC) {
         const totalRaw = listing.units.mul(listing.askPricePerUnit);
 
         // Approve USDC
-        const allowance = await usdcContract.allowance(connectedAddress, EQUITY_REGISTRY_ADDRESS);
-        if (allowance.lt(totalRaw)) {
-            const approveTx = await usdcContract.approve(EQUITY_REGISTRY_ADDRESS, totalRaw);
-            await approveTx.wait();
+        const _ro6b = new ethers.Contract(USDC_ADDRESS, ['function allowance(address,address) view returns (uint256)'], new ethers.providers.JsonRpcProvider(ARBITRUM_RPC));
+        const _rw6b = new ethers.Contract(USDC_ADDRESS, ['function approve(address,uint256) returns (bool)'], signer);
+        const allowance6b = await _ro6b.allowance(connectedAddress, EQUITY_REGISTRY_ADDRESS);
+        if (allowance6b.lt(totalRaw)) {
+            await Promise.race([
+                _rw6b.approve(EQUITY_REGISTRY_ADDRESS, totalRaw).then(tx => tx.wait()),
+                new Promise(resolve => setTimeout(resolve, 15000))
+            ]).catch(e => console.warn('Approve timed out:', e?.message));
         }
 
-        const tx = await equityContract.buyNow(listingId);
-        await tx.wait();
+        let _txHash6b = null;
+        await Promise.race([
+            equityContract.buyNow(listingId).then(tx => tx.wait().then(() => { _txHash6b = tx.hash; })),
+            new Promise(resolve => setTimeout(resolve, 15000))
+        ]);
 
-        alert(`✅ Purchase complete!\nTx: https://arbiscan.io/tx/${tx.hash}`);
+        alert(`✅ Purchase complete!\nTx: https://arbiscan.io/tx/${_txHash6b}`);
         hideProjectDetailModal();
         loadEquityListings();
         triggerEquityRevaluation(listing.projectId);
@@ -14398,14 +14431,22 @@ async function makeOfferOnChain(listingId, units) {
         const priceRaw = ethers.utils.parseUnits(pricePerUnit.toFixed(6), 6);
         const totalRaw = priceRaw.mul(units);
 
-        const allowance = await usdcContract.allowance(connectedAddress, EQUITY_REGISTRY_ADDRESS);
-        if (allowance.lt(totalRaw)) {
-            const approveTx = await usdcContract.approve(EQUITY_REGISTRY_ADDRESS, totalRaw);
-            await approveTx.wait();
+        const _ro7b = new ethers.Contract(USDC_ADDRESS, ['function allowance(address,address) view returns (uint256)'], new ethers.providers.JsonRpcProvider(ARBITRUM_RPC));
+        const _rw7b = new ethers.Contract(USDC_ADDRESS, ['function approve(address,uint256) returns (bool)'], signer);
+        const allowance7b = await _ro7b.allowance(connectedAddress, EQUITY_REGISTRY_ADDRESS);
+        if (allowance7b.lt(totalRaw)) {
+            await Promise.race([
+                _rw7b.approve(EQUITY_REGISTRY_ADDRESS, totalRaw).then(tx => tx.wait()),
+                new Promise(resolve => setTimeout(resolve, 15000))
+            ]).catch(e => console.warn('Approve timed out:', e?.message));
         }
 
-        const tx = await equityContract.makeOffer(listingId, priceRaw);
-        await tx.wait();
+        let _txHash7b = null;
+        await Promise.race([
+            equityContract.makeOffer(listingId, priceRaw).then(tx => tx.wait().then(() => { _txHash7b = tx.hash; })),
+            new Promise(resolve => setTimeout(resolve, 15000))
+        ]);
+        const tx = { hash: _txHash7b };
 
         alert(`✅ Offer accepted! Equity transferred.\nTx: https://arbiscan.io/tx/${tx.hash}`);
         hideProjectDetailModal();
@@ -14615,15 +14656,23 @@ async function acceptCounterOnChain(offerId, units, counterPriceStr, lockedUSDCS
 
         if (topUp > 0) {
             const topUpRaw = ethers.utils.parseUnits(topUp.toFixed(6), 6);
-            const allowance = await usdcContract.allowance(connectedAddress, EQUITY_REGISTRY_ADDRESS);
-            if (allowance.lt(topUpRaw)) {
-                const approveTx = await usdcContract.approve(EQUITY_REGISTRY_ADDRESS, topUpRaw);
-                await approveTx.wait();
+            const _ro8 = new ethers.Contract(USDC_ADDRESS, ['function allowance(address,address) view returns (uint256)'], new ethers.providers.JsonRpcProvider(ARBITRUM_RPC));
+            const _rw8 = new ethers.Contract(USDC_ADDRESS, ['function approve(address,uint256) returns (bool)'], signer);
+            const allowance8 = await _ro8.allowance(connectedAddress, EQUITY_REGISTRY_ADDRESS);
+            if (allowance8.lt(topUpRaw)) {
+                await Promise.race([
+                    _rw8.approve(EQUITY_REGISTRY_ADDRESS, topUpRaw).then(tx => tx.wait()),
+                    new Promise(resolve => setTimeout(resolve, 15000))
+                ]).catch(e => console.warn('Approve timed out:', e?.message));
             }
         }
 
-        const tx = await equityContract.acceptCounter(offerId);
-        await tx.wait();
+        let _txHash8 = null;
+        await Promise.race([
+            equityContract.acceptCounter(offerId).then(tx => tx.wait().then(() => { _txHash8 = tx.hash; })),
+            new Promise(resolve => setTimeout(resolve, 15000))
+        ]);
+        const tx = { hash: _txHash8 };
         alert(`✅ Counter accepted! Trade complete.\nTx: https://arbiscan.io/tx/${tx.hash}`);
         hideProjectDetailModal();
         loadEquityListings();
@@ -14840,12 +14889,18 @@ async function fileProjectDispute(projectId) {
         const _rw6 = new ethers.Contract(NQV8_TOKEN_ADDRESS, ['function allowance(address,address) view returns (uint256)', 'function approve(address,uint256) returns (bool)'], signer);
         const allowance = await _ro6.allowance(connectedAddress, ESCROW_CONTRACT_ADDRESS);
         if (allowance.lt(disputeFeeRaw)) {
-            const approveTx = await _rw6.approve(ESCROW_CONTRACT_ADDRESS, disputeFeeRaw);
-            await Promise.race([approveTx.wait(), new Promise(resolve => setTimeout(resolve, 30000))]);
+            await Promise.race([
+                _rw6.approve(ESCROW_CONTRACT_ADDRESS, disputeFeeRaw).then(tx => tx.wait()),
+                new Promise(resolve => setTimeout(resolve, 15000))
+            ]).catch(e => console.warn('Approve timed out:', e?.message));
         }
 
-        const disputeTx = await escrowContract.fileDispute(escrowId);
-        await disputeTx.wait();
+        let _disputeTxHash = null;
+        await Promise.race([
+            escrowContract.fileDispute(escrowId).then(tx => tx.wait().then(() => { _disputeTxHash = tx.hash; })),
+            new Promise(resolve => setTimeout(resolve, 15000))
+        ]);
+        const disputeTx = { hash: _disputeTxHash };
 
         await db.collection("subprojects").doc(projectId).update({
             disputeFiled:   true,
@@ -15596,13 +15651,18 @@ async function submitNewFlowMap(useAI = false) {
             const allowance = await _ro7.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
             if (allowance.lt(amountRaw)) {
                 if (btnAI) btnAI.textContent = '⏳ Approving...';
-                const approveTx = await _rw7.approve(REWARDS_CONTRACT_ADDRESS, amountRaw);
-                await Promise.race([approveTx.wait(), new Promise(resolve => setTimeout(resolve, 30000))]);
+                await Promise.race([
+                    _rw7.approve(REWARDS_CONTRACT_ADDRESS, amountRaw).then(tx => tx.wait()),
+                    new Promise(resolve => setTimeout(resolve, 15000))
+                ]).catch(e => console.warn('Approve timed out:', e?.message));
             }
             const rewardsContractRW7 = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
-            const payTx = await rewardsContractRW7.payNQV8Fee(connectedAddress, amountRaw);
-            await payTx.wait();
-            await recordProtocolFee(5, 'flow-map-generation', payTx.hash);
+            let _txHash10 = null;
+            await Promise.race([
+                rewardsContractRW7.payNQV8Fee(connectedAddress, amountRaw).then(tx => tx.wait().then(() => { _txHash10 = tx.hash; })),
+                new Promise(resolve => setTimeout(resolve, 15000))
+            ]);
+            await recordProtocolFee(5, 'flow-map-generation', _txHash10);
 
             setStatus('🤖 Claude is generating your plan...');
             if (btnAI) btnAI.textContent = '⏳ Generating...';
