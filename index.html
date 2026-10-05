@@ -7997,6 +7997,16 @@ function hideEditPostingModal() {
                         document.getElementById('bid-detail-modal').classList.add('hidden');
 
                         alert(`✅ Bid accepted!\n\n${equityPct}% equity (${equityUnits} units) reserved on-chain — cannot be double-pledged.\nTx: https://arbiscan.io/tx/${reserveTxHash}${escrowTxHash ? `\n\nUSDC also locked in escrow.\nTx: https://arbiscan.io/tx/${escrowTxHash}` : ''}\n\nEquity transfers automatically when you approve the submitted work.`);
+
+                        // Notify builder
+                        notifyBidAccepted(currentProject, bid);
+                        await createNotification(
+                            bid.bidderUid,
+                            'bid_accepted',
+                            `Your bid was accepted on: ${currentProject.title}! ${equityPct}% equity reserved on-chain.${escrowTxHash ? ' USDC also locked in escrow.' : ''}`,
+                            { projectId: currentProjectId }
+                        );
+
                         loadMarketplace();
                         refreshProjectDetailModal();
                         return;
