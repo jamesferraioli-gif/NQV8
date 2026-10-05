@@ -14645,8 +14645,27 @@ async function showCapTable(projectId, companyName) {
             });
         }
 
-        holders.sort((a, b) => b.units - a.units);
-
+        // Deduplicate by wallet address — sum units if same wallet appears twice
+        const walletMap = new Map();
+        for (const h of holders) {
+            const key = h.wallet.toLowerCase();
+            if (walletMap.has(key)) {
+                // Keep the one with username, use max units
+                const existing = walletMap.get(key);
+                existing.units = Math.max(existing.units, h.units);
+                existing.pct = existing.units / 10000 * 100;
+                if (!existing.username && h.username) {
+                    existing.username = h.username;
+                    existing.profileUid = h.profileUid;
+                }
+            } else {
+                walletMap.set(key, h);
+            }
+        }
+        const deduped = Array.from(walletMap.values());
+        holders.length = 0;
+        holders.push(...deduped);
+    
         if (holders.length === 0) {
             tbody.innerHTML = '<tr><td colspan="4" class="text-center text-zinc-400 py-8">No active equity holders.</td></tr>';
             return;
