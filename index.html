@@ -1263,88 +1263,134 @@
         </div>
 
         <!-- My Companies -->
-        <div class="mb-10">
-            <div class="flex justify-between items-center mb-4">
+        <div class="mb-6">
+            <button onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('span').textContent = this.nextElementSibling.classList.contains('hidden') ? '▸' : '▾'"
+                    class="w-full flex justify-between items-center mb-3">
                 <h2 class="text-2xl font-semibold">My Companies</h2>
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <span class="text-xs text-zinc-400">Show inactive</span>
-                    <div class="relative">
-                        <input type="checkbox" id="show-inactive-toggle" class="sr-only"
-                               onchange="toggleInactiveCompanies()">
-                        <div class="w-10 h-5 bg-zinc-700 rounded-full transition-colors" id="toggle-track"></div>
-                        <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform" id="toggle-thumb"></div>
-                    </div>
-                </label>
-            </div>
-            <div id="my-companies" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- Populated by JS -->
+                <div class="flex items-center gap-3">
+                    <label class="flex items-center gap-2 cursor-pointer" onclick="event.stopPropagation()">
+                        <span class="text-xs text-zinc-400">Show inactive</span>
+                        <div class="relative">
+                            <input type="checkbox" id="show-inactive-toggle" class="sr-only" onchange="toggleInactiveCompanies()">
+                            <div class="w-10 h-5 bg-zinc-700 rounded-full transition-colors" id="toggle-track"></div>
+                            <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform" id="toggle-thumb"></div>
+                        </div>
+                    </label>
+                    <span class="text-zinc-400 text-lg">▾</span>
+                </div>
+            </button>
+            <div>
+                <div id="my-companies" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-80 overflow-y-auto pr-1">
+                    <!-- Populated by JS -->
+                </div>
             </div>
         </div>
 
         <!-- My Posted Projects -->
-        <div class="mb-10">
-            <h2 class="text-2xl font-semibold mb-4">My Postings</h2>
-            <div id="my-posted-projects" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- Populated by JS -->
+        <div class="mb-6">
+            <button onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('span.arrow').textContent = this.nextElementSibling.classList.contains('hidden') ? '▸' : '▾'"
+                    class="w-full flex justify-between items-center mb-3">
+                <h2 class="text-2xl font-semibold">My Postings</h2>
+                <span class="arrow text-zinc-400 text-lg">▾</span>
+            </button>
+            <div>
+                <div id="my-posted-projects" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-80 overflow-y-auto pr-1">
+                    <!-- Populated by JS -->
+                </div>
             </div>
         </div>
 
         <!-- Projects I'm Working On -->
-        <div class="mb-10">
-            <h2 class="text-2xl font-semibold mb-4">Projects I'm Working On</h2>
-            <div id="working-on-projects" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- Populated by JS -->
+        <div class="mb-6">
+            <button onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('span.arrow').textContent = this.nextElementSibling.classList.contains('hidden') ? '▸' : '▾'"
+                    class="w-full flex justify-between items-center mb-3">
+                <h2 class="text-2xl font-semibold">Projects I'm Working On</h2>
+                <span class="arrow text-zinc-400 text-lg">▾</span>
+            </button>
+            <div>
+                <div id="working-on-projects" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-80 overflow-y-auto pr-1">
+                    <!-- Populated by JS -->
+                </div>
             </div>
         </div>
 
-<!-- Completed Projects -->
-        <div class="mb-10">
-            <div class="flex justify-between items-center mb-4">
+        <!-- Completed Projects -->
+        <div class="mb-6">
+            <button onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('span.arrow').textContent = this.nextElementSibling.classList.contains('hidden') ? '▸' : '▾'"
+                    class="w-full flex justify-between items-center mb-3">
                 <h2 class="text-2xl font-semibold">Completed Postings</h2>
-                <label class="flex items-center gap-2 cursor-pointer">
-                    <span class="text-xs text-zinc-400">Show on profile</span>
-                    <div class="relative">
-                        <input type="checkbox" id="show-completed-toggle" checked class="sr-only"
-                               onchange="toggleCompletedPostings()">
-                        <div class="w-10 h-5 bg-cyan-500 rounded-full transition-colors" id="completed-toggle-track"></div>
-                        <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform" id="completed-toggle-thumb" style="transform: translateX(20px)"></div>
-                    </div>
-                </label>
-            </div>
-            <div id="completed-projects" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- Populated by JS -->
+                <div class="flex items-center gap-3">
+                    <label class="flex items-center gap-2 cursor-pointer" onclick="event.stopPropagation()">
+                        <span class="text-xs text-zinc-400">Show on profile</span>
+                        <div class="relative">
+                            <input type="checkbox" id="show-completed-toggle" checked class="sr-only" onchange="toggleCompletedPostings()">
+                            <div class="w-10 h-5 bg-cyan-500 rounded-full transition-colors" id="completed-toggle-track"></div>
+                            <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform" id="completed-toggle-thumb" style="transform: translateX(20px)"></div>
+                        </div>
+                    </label>
+                    <span class="arrow text-zinc-400 text-lg">▾</span>
+                </div>
+            </button>
+            <div>
+                <div id="completed-projects" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-80 overflow-y-auto pr-1">
+                    <!-- Populated by JS -->
+                </div>
             </div>
         </div>
 
         <!-- Saved Bounties -->
-        <div class="mb-10">
-            <h2 class="text-2xl font-semibold mb-4">🔖 Saved Bounties</h2>
-            <div id="saved-bounties" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <!-- Populated by JS -->
+        <div class="mb-6">
+            <button onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('span.arrow').textContent = this.nextElementSibling.classList.contains('hidden') ? '▸' : '▾'"
+                    class="w-full flex justify-between items-center mb-3">
+                <h2 class="text-2xl font-semibold">🔖 Saved Bounties</h2>
+                <span class="arrow text-zinc-400 text-lg">▾</span>
+            </button>
+            <div>
+                <div id="saved-bounties" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-80 overflow-y-auto pr-1">
+                    <!-- Populated by JS -->
+                </div>
             </div>
         </div>
 
         <!-- My Rewards -->
-        <div class="mb-8">
-            <h2 class="text-2xl font-semibold mb-4">🎁 Reward History</h2>
-            <div id="my-reward-history" class="space-y-3">
-                <p class="text-zinc-500 text-sm">Loading...</p>
+        <div class="mb-6">
+            <button onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('span.arrow').textContent = this.nextElementSibling.classList.contains('hidden') ? '▸' : '▾'"
+                    class="w-full flex justify-between items-center mb-3">
+                <h2 class="text-2xl font-semibold">🎁 Reward History</h2>
+                <span class="arrow text-zinc-400 text-lg">▾</span>
+            </button>
+            <div>
+                <div id="my-reward-history" class="space-y-3 max-h-80 overflow-y-auto pr-1">
+                    <p class="text-zinc-500 text-sm">Loading...</p>
+                </div>
             </div>
         </div>
 
         <!-- Equity Stakes -->
-        <div class="mb-10">
-            <h2 class="text-2xl font-semibold mb-4">Equity Stakes</h2>
-            <div id="equity-stakes" class="space-y-3">
-                <!-- Populated by JS -->
+        <div class="mb-6">
+            <button onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('span.arrow').textContent = this.nextElementSibling.classList.contains('hidden') ? '▸' : '▾'"
+                    class="w-full flex justify-between items-center mb-3">
+                <h2 class="text-2xl font-semibold">Equity Stakes</h2>
+                <span class="arrow text-zinc-400 text-lg">▾</span>
+            </button>
+            <div>
+                <div id="equity-stakes" class="space-y-3 max-h-80 overflow-y-auto pr-1">
+                    <!-- Populated by JS -->
+                </div>
             </div>
         </div>
 
-<!-- My Reviews -->
-        <div>
-            <h2 class="text-2xl font-semibold mb-4">Reviews Received</h2>
-            <div id="my-reviews" class="space-y-4">
-                <!-- Populated by JS -->
+        <!-- My Reviews -->
+        <div class="mb-6">
+            <button onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('span.arrow').textContent = this.nextElementSibling.classList.contains('hidden') ? '▸' : '▾'"
+                    class="w-full flex justify-between items-center mb-3">
+                <h2 class="text-2xl font-semibold">Reviews Received</h2>
+                <span class="arrow text-zinc-400 text-lg">▾</span>
+            </button>
+            <div>
+                <div id="my-reviews" class="space-y-4 max-h-80 overflow-y-auto pr-1">
+                    <!-- Populated by JS -->
+                </div>
             </div>
         </div>
 
