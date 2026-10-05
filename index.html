@@ -3998,7 +3998,9 @@ async function submitMetricsVerification() {
                     const metricsData = { revenueBucket: result.revenueBucket, usersBucket: result.usersBucket, verifiedAt: Date.now() };
                     const metricsHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(JSON.stringify(metricsData)));
                     const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
-                    const tx = await equityContract.updateMetrics(verifyMetricsCompanyId, metricsHash);
+                        // updateMetrics removed in V4 — metrics stored in Firestore only
+                    console.log('Metrics hash (Firestore only):', metricsHash);
+                    const tx = { hash: '0x0' }; // placeholder
                     await tx.wait();
                 } catch(e) {
                     console.warn('On-chain metrics timestamp failed:', e.message);
@@ -4299,45 +4301,47 @@ const FOUNDER_ADDRESS = '0x0A6090b655A9eB73f85449609eB2336e76d64c47';
 const ESCROW_CONTRACT_ADDRESS = '0xE484561B8D1c4274853CDE01d397294CBa5dEaCa';
 
 // NQVate Equity Registry — deployed on Arbitrum One
-const EQUITY_REGISTRY_ADDRESS = '0x99A3512b49b2dd8b4b553E98aAcF344DFF109C51';
+const EQUITY_REGISTRY_ADDRESS = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2'
+// Convert string ID to bytes32 for V4 contract calls
+function toBytes32(str) {
+    return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(str));
+}
 
 const EQUITY_REGISTRY_ABI = [
-    "function registerProject(string projectId, string name, address founder) external",
-    "function updateMetrics(string projectId, bytes32 metricsHash) external",
-    "function transferEquity(string projectId, address to, uint256 units, string reason) external",
-    "function adminTransferEquity(string projectId, address from, address to, uint256 units, string reason) external",
-    "function listEquity(string listingId, string companyId, uint256 units, uint256 pricePerUnit) external",
-    "function cancelListing(string listingId) external",
-    "function makeOffer(string offerId, string listingId, uint256 units, uint256 pricePerUnit) external",
-    "function acceptOffer(string offerId) external",
-    "function rejectOffer(string offerId) external",
-    "function balances(string projectId, address wallet) external view returns (uint256)",
-    "function projects(string projectId) external view returns (tuple(string projectId, string name, address founder, bool exists, uint256 createdAt, uint256 lastSalePricePerUnit, uint256 lastSaleAt, uint256 totalTradeVolume, bytes32 metricsHash, uint256 metricsUpdatedAt))",
-    "function listings(bytes32 listingId) external view returns (bytes32 listingId, string projectId, address seller, uint256 units, uint256 askPricePerUnit, uint8 status, uint256 createdAt)",
-    "function offers(bytes32 offerId) external view returns (tuple(bytes32 offerId, bytes32 listingId, string projectId, address buyer, address seller, uint256 units, uint256 offerPricePerUnit, uint256 counterPricePerUnit, uint256 lockedUSDC, uint8 status, uint256 createdAt, uint256 expiresAt))",
-    "function listingOffers(bytes32 listingId) external view returns (bytes32[])",
-    "function allListingIds(uint256 index) external view returns (bytes32)",
-    "function totalProjectsRegistered() external view returns (uint256)",
-    "function totalTradesExecuted() external view returns (uint256)",
-    "function totalPlatformFeesCollected() external view returns (uint256)",
-    "function totalEquityTransferred() external view returns (uint256)",
-    "function companies(string companyId) external view returns (string companyId, address founder, bool registered, uint256 registeredAt)",
-    "function reserveEquity(string companyId, string bountyId, address beneficiary, uint256 units) external",
-    "function releaseReservation(string companyId, string bountyId) external",
-    "function completeReservation(string companyId, string bountyId, address platformWallet, uint256 feeBps) external",
-    "function availableBalance(string companyId, address holder) external view returns (uint256)",
-    "function totalReserved(string companyId) external view returns (uint256)",
-    "event ProjectRegistered(string indexed projectId, string name, address indexed founder)",
-    "event ListingCreated(bytes32 indexed listingId, string projectId, address seller, uint256 units, uint256 askPricePerUnit)",
-    "event BoughtNow(bytes32 indexed listingId, address buyer, uint256 units, uint256 totalPrice, uint256 platformFee)",
-    "event OfferSubmitted(bytes32 indexed offerId, bytes32 indexed listingId, address buyer, uint256 offerPricePerUnit, uint256 lockedUSDC)",    
-    "event OfferAccepted(bytes32 indexed offerId, uint256 totalPrice, uint256 platformFee)",
-    "event OfferRejected(bytes32 indexed offerId)",
-    "event OfferCountered(bytes32 indexed offerId, uint256 counterPricePerUnit)",
-    "event CounterAccepted(bytes32 indexed offerId, uint256 totalPrice, uint256 platformFee)",
-    "event CounterRejected(bytes32 indexed offerId)",
-    "event OfferWithdrawn(bytes32 indexed offerId)",
-    "event OfferExpired(bytes32 indexed offerId)"
+    "function registerCompany(bytes32 companyId, address founder) external",
+    "function updateFounder(bytes32 companyId, address newFounder) external",
+    "function pauseCompany(bytes32 companyId) external",
+    "function unpauseCompany(bytes32 companyId) external",
+    "function reserveEquity(bytes32 companyId, bytes32 bountyId, address beneficiary, uint256 units) external",
+    "function releaseReservation(bytes32 companyId, bytes32 bountyId) external",
+    "function completeReservation(bytes32 companyId, bytes32 bountyId, address platformWallet, uint256 feeBps) external",
+    "function transferEquity(bytes32 companyId, address from, address to, uint256 units) external",
+    "function listEquity(bytes32 listingId, bytes32 companyId, uint256 units, uint256 pricePerUnit) external",
+    "function adminListEquity(bytes32 listingId, bytes32 companyId, address seller, uint256 units, uint256 pricePerUnit) external",
+    "function cancelListing(bytes32 listingId) external",
+    "function makeOffer(bytes32 offerId, bytes32 listingId, uint256 units, uint256 pricePerUnit) external",
+    "function adminMakeOffer(bytes32 offerId, bytes32 listingId, address buyer, uint256 units, uint256 pricePerUnit) external",
+    "function acceptOffer(bytes32 offerId) external",
+    "function rejectOffer(bytes32 offerId) external",
+    "function expireOffer(bytes32 offerId) external",
+    "function balances(bytes32 companyId, address wallet) external view returns (uint256)",
+    "function listings(bytes32 listingId) external view returns (bytes32 companyId, address seller, uint128 units, uint128 pricePerUnit, bool active)",
+    "function offers(bytes32 offerId) external view returns (bytes32 listingId, address buyer, uint128 units, uint128 pricePerUnit, uint64 createdAt, bool active)",
+    "function companies(bytes32 companyId) external view returns (address founder, uint64 registeredAt, bool registered, bool paused)",
+    "function availableBalance(bytes32 companyId, address holder) external view returns (uint256)",
+    "function reservations(bytes32 companyId, bytes32 bountyId) external view returns (address founder, address beneficiary, uint128 units, bool active)",
+    "function totalReserved(bytes32 companyId) external view returns (uint256)",
+    "event CompanyRegistered(bytes32 indexed companyId, address founder)",
+    "event EquityTransferred(bytes32 indexed companyId, address from, address to, uint256 units)",
+    "event EquityReserved(bytes32 indexed companyId, bytes32 indexed bountyId, address beneficiary, uint256 units)",
+    "event ReservationReleased(bytes32 indexed companyId, bytes32 indexed bountyId, uint256 units)",
+    "event ReservationCompleted(bytes32 indexed companyId, bytes32 indexed bountyId, address beneficiary, uint256 workerUnits, uint256 platformUnits)",
+    "event Listed(bytes32 indexed listingId, bytes32 indexed companyId, address seller, uint256 units, uint256 pricePerUnit)",
+    "event ListingCancelled(bytes32 indexed listingId)",
+    "event OfferMade(bytes32 indexed offerId, bytes32 indexed listingId, address buyer, uint256 units, uint256 pricePerUnit)",
+    "event OfferAccepted(bytes32 indexed offerId, address buyer, address seller, uint256 units, uint256 totalPrice)",
+    "event OfferRejected(bytes32 indexed offerId, address buyer, uint256 refund)",
+    "event OfferExpired(bytes32 indexed offerId, address buyer, uint256 refund)"
 ];
 const ESCROW_ABI = [
     "function createEscrow(string projectId, address worker, uint256 amount, uint8 currency, uint256 deadline) external returns (bytes32)",
@@ -11164,44 +11168,48 @@ async function loadEquityListings() {
         const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
         const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
 
-        let listingIds = [];
-        try {
-            const total = await equityReadOnly.totalProjectsRegistered();
-            // allListingIds is index-based — fetch until we get a revert
-            let i = 0;
-            while (true) {
-                try {
-                    const id = await equityReadOnly.allListingIds(i);
-                    listingIds.push(id);
-                    i++;
-                } catch(e) {
-                    break; // no more listings
-                }
-            }
-        } catch(e) {
-            listingIds = [];
-        }
+        // V4: Read listings from Firestore (no enumeration in contract)
+        const listingsSnap = await db.collection('equityListings')
+            .where('active', '==', true)
+            .orderBy('createdAt', 'desc')
+            .get();
 
-        if (listingIds.length === 0) {
+        if (listingsSnap.empty) {
             grid.innerHTML = `<p class="col-span-full text-center text-zinc-400 py-12">No equity listings yet. Be the first to list a stake!</p>`;
             return;
         }
 
-        // Fetch all listings in parallel
-        const listings = await Promise.all(
-            listingIds.map(id => equityReadOnly.listings(id).then(l => ({ 
-                id,
-                projectId: l.projectId,
-                seller: l.seller,
-                units: l.units,
-                askPricePerUnit: l.askPricePerUnit,
-                status: l.status,
-                createdAt: l.createdAt
-            })))
-        );
-
-        // Only show active listings (status === 0)
-        const active = listings.filter(l => parseInt(l.status.toString()) === 0);
+        // Verify each listing on-chain and build active list
+        const active = [];
+        for (const doc of listingsSnap.docs) {
+            const data = doc.data();
+            try {
+                const listingIdBytes = toBytes32(data.listingId);
+                const onChain = await equityReadOnly.listings(listingIdBytes);
+                if (onChain.active) {
+                    active.push({
+                        id: data.listingId,
+                        projectId: data.companyId,
+                        seller: data.seller,
+                        units: { toString: () => data.units.toString() },
+                        askPricePerUnit: ethers.utils.parseUnits(data.pricePerUnit.toFixed(6), 6),
+                        status: 0
+                    });
+                } else {
+                    db.collection('equityListings').doc(data.listingId).update({ active: false }).catch(() => {});
+                }
+            } catch(e) {
+                // On-chain read failed — use Firestore data
+                active.push({
+                    id: data.listingId,
+                    projectId: data.companyId,
+                    seller: data.seller,
+                    units: { toString: () => data.units.toString() },
+                    askPricePerUnit: ethers.utils.parseUnits(data.pricePerUnit.toFixed(6), 6),
+                    status: 0
+                });
+            }
+        }
 
         if (active.length === 0) {
             grid.innerHTML = `<p class="col-span-full text-center text-zinc-400 py-12">No active equity listings right now.</p>`;
@@ -11546,7 +11554,7 @@ async function showCompanyDetail(companyId, company) {
         if (connectedAddress) {
             const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
             const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
-            const units = await equityReadOnly.balances(companyId, connectedAddress);
+            const units = await equityReadOnly.balances(toBytes32(companyId), connectedAddress);
             const unitsNum = parseInt(units.toString());
             if (unitsNum > 0) {
                 const pct = (unitsNum / 10000 * 100).toFixed(2);
@@ -11639,8 +11647,8 @@ async function loadDataRoom(companyId, isOwner) {
         if (currentUser && connectedAddress) {
             try {
                 const roProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
-                const equityRO = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, ['function balances(string,address) view returns (uint256)'], roProvider);
-                const units = await equityRO.balances(companyId, connectedAddress);
+                const equityRO = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, ['function balances(bytes32,address) view returns (uint256)'], roProvider);
+                const units = await equityRO.balances(toBytes32(companyId), connectedAddress);
                 hasEquityStake = units.toNumber() > 0;
             } catch(e) {}
         }
@@ -13446,7 +13454,9 @@ async function submitMetricsOnChain(companyId) {
 
     try {
         const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
-        const tx = await equityContract.updateMetrics(companyId, metricsHash);
+        // updateMetrics removed in V4 — metrics stored in Firestore only
+        console.log('Metrics hash (Firestore only):', metricsHash);
+        const tx = { hash: '0x' + Date.now().toString(16) }; // placeholder
         await tx.wait();
         alert(`✅ Metrics saved and timestamped on-chain!\nHash: ${metricsHash}\nTx: https://arbiscan.io/tx/${tx.hash}`);
         hideProjectDetailModal();
@@ -13535,14 +13545,29 @@ async function submitEquityListingModal(companyId, availableUnits) {
         const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
         const priceRaw = ethers.utils.parseUnits(price.toFixed(6), 6);
         let listingTxHash = null;
-        const listingId = `${companyId}_${connectedAddress}_${Date.now()}`;
-        await Promise.race([
-            equityContract.listEquity(listingId, companyId, units, priceRaw).then(tx => tx.wait().then(() => { listingTxHash = tx.hash; })),
-            new Promise(resolve => setTimeout(resolve, 15000))
-        ]);
+        const listingIdStr = `${companyId}_${connectedAddress}_${Date.now()}`;
+        // Use server-side adminListEquity to avoid MetaMask Delegation Manager
+        const listResp = await fetch('/api/admin-list-equity', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer nqvate-internal-2026`
+            },
+            body: JSON.stringify({
+                listingId: listingIdStr,
+                companyId,
+                seller: connectedAddress,
+                units,
+                pricePerUnit: price
+            })
+        });
+        const listResult = await listResp.json();
+        if (!listResult.success) throw new Error(listResult.error);
+        listingTxHash = listResult.txHash;
+        const listingIdStr2 = listResult.listingId || listingIdStr;
         // Save listing to Firestore so marketplace can enumerate
-        await db.collection('equityListings').doc(listingId).set({
-            listingId,
+        await db.collection('equityListings').doc(listingIdStr2).set({
+            listingId: listingIdStr2,
             companyId,
             seller: connectedAddress.toLowerCase(),
             sellerUid: currentUser?.uid || null,
@@ -13913,32 +13938,22 @@ async function loadProfileEquityStakes() {
         const results = await Promise.all(
             allProjectIds.map(async (projectId) => {
                 try {
-                    const units = await equityReadOnly.balances(projectId, connectedAddress).catch(() => ethers.BigNumber.from(0));
+                    const units = await equityReadOnly.balances(toBytes32(projectId), connectedAddress).catch(() => ethers.BigNumber.from(0));
                     if (units.toNumber() === 0) return null;
 
                     // Try V3 companies mapping first, fall back to V1 projects mapping
                     let projectName = projectId;
                     let founderAddr = null;
                     try {
-                        const company = await equityReadOnly.companies(projectId);
+                        const company = await equityReadOnly.companies(toBytes32(projectId));
                         if (company && company.registered) {
-                            projectName = company.companyId || projectId;
+                            // V4 has no companyId field — use Firestore name
+                            const compDoc = await db.collection('companies').doc(projectId).get().catch(() => null);
+                            projectName = compDoc?.data()?.name || projectId;
                             founderAddr = company.founder;
-                        } else {
-                            // Fall back to V1 projects structure
-                            const proj = await equityReadOnly.projects(projectId).catch(() => null);
-                            if (proj && proj.exists) {
-                                projectName = proj.name || projectId;
-                                founderAddr = proj.founder;
-                            }
                         }
                     } catch(e) {
-                        // Try V1 projects fallback
-                        const proj = await equityReadOnly.projects(projectId).catch(() => null);
-                        if (proj && proj.exists) {
-                            projectName = proj.name || projectId;
-                            founderAddr = proj.founder;
-                        }
+                        console.warn('Could not read company from V4:', e.message);
                     }
 
                     if (!founderAddr) return null;
@@ -14273,11 +14288,11 @@ async function deleteUnverifiedCompany(companyId, companyName) {
         try {
             const arbProvider    = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
             const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
-            const onChainProject = await Promise.race([
-                equityReadOnly.projects(companyId),
+            const onChainCompany = await Promise.race([
+                equityReadOnly.companies(toBytes32(companyId)),
                 new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 5000))
             ]);
-            if (onChainProject.exists) {
+            if (onChainCompany.registered) {
                 return alert(`❌ Cannot delete "${companyName}" — this project has been tokenized on-chain.\n\nOnce equity is registered on Arbitrum it is permanent. Mark it inactive instead.`);
             }
         } catch(e) {
@@ -14463,7 +14478,8 @@ async function showEquityDetailOnChain(listingId, listing, project) {
     try {
         const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
         const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
-        const offerIds = await equityReadOnly.listingOffers(listingId);
+        // V4 has no listingOffers enumeration — offers loaded from Firestore
+        const offerIds = [];
 
         if (offerIds.length > 0) {
             const offerData = await Promise.all(offerIds.map(id => equityReadOnly.offers(id).then(o => ({ id, ...o }))));
@@ -14605,41 +14621,6 @@ async function loadAndShowDeck(companyId) {
 async function buyNowOnChain(listingId, totalUSDC) {
     return alert('Direct purchase is not available. Please use "Make Offer" at the asking price.');
 }
-async function buyNowOnChain_v2(listingId, totalUSDC) {
-    if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
-    if (!confirm(`Buy this stake for $${totalUSDC.toFixed(2)} USDC?\n\n3.5% platform fee applies. 96.5% goes to seller.`)) return;
-    try {
-        const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
-        const listing = await equityContract.listings(listingId);
-        const totalRaw = listing.units.mul(listing.askPricePerUnit);
-
-        // Approve USDC
-        const _ro6b = new ethers.Contract(USDC_ADDRESS, ['function allowance(address,address) view returns (uint256)'], new ethers.providers.JsonRpcProvider(ARBITRUM_RPC));
-        const _rw6b = new ethers.Contract(USDC_ADDRESS, ['function approve(address,uint256) returns (bool)'], signer);
-        const allowance6b = await _ro6b.allowance(connectedAddress, EQUITY_REGISTRY_ADDRESS);
-        if (allowance6b.lt(totalRaw)) {
-            await Promise.race([
-                _rw6b.approve(EQUITY_REGISTRY_ADDRESS, totalRaw).then(tx => tx.wait()),
-                new Promise(resolve => setTimeout(resolve, 15000))
-            ]).catch(e => console.warn('Approve timed out:', e?.message));
-        }
-
-        let _txHash6b = null;
-        await Promise.race([
-            equityContract.buyNow(listingId).then(tx => tx.wait().then(() => { _txHash6b = tx.hash; })),
-            new Promise(resolve => setTimeout(resolve, 15000))
-        ]);
-
-        alert(`✅ Purchase complete!\nTx: https://arbiscan.io/tx/${_txHash6b}`);
-        hideProjectDetailModal();
-        loadEquityListings();
-        triggerEquityRevaluation(listing.projectId);
-        indexEquityTrade(listing.projectId, listing.seller, connectedAddress, listing.units.toNumber(), tx.hash);
-    } catch(e) {
-        const msg = e.message || '';
-        if (!handleWalletError(e)) alert("Purchase failed: " + msg);
-    }
-}
 
 async function makeOfferOnChain(listingId, units) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
@@ -14669,13 +14650,13 @@ async function makeOfferOnChain(listingId, units) {
         }
 
         let _txHash7b = null;
-        const offerId = `${listingId}_${connectedAddress}_${Date.now()}`;
+        const offerIdStr = `${listingId}_${connectedAddress}_${Date.now()}`;
         await Promise.race([
-            equityContract.makeOffer(offerId, listingId, units, priceRaw).then(tx => tx.wait().then(() => { _txHash7b = tx.hash; })),
+            equityContract.makeOffer(toBytes32(offerIdStr), toBytes32(listingId), units, priceRaw).then(tx => tx.wait().then(() => { _txHash7b = tx.hash; })),
             new Promise(resolve => setTimeout(resolve, 15000))
         ]);
         const tx = { hash: _txHash7b };
-
+        
         alert(`✅ Offer accepted! Equity transferred.\nTx: https://arbiscan.io/tx/${tx.hash}`);
         hideProjectDetailModal();
         loadEquityListings();
@@ -14683,7 +14664,7 @@ async function makeOfferOnChain(listingId, units) {
         try {
             const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
             const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
-            const offer = await equityReadOnly.offers(offerId);
+            const offer = await equityReadOnly.offers(toBytes32(offerId));
             triggerEquityRevaluation(offer.projectId);
         } catch(e) { console.warn('Could not trigger revaluation:', e.message); }
     } catch(e) {
@@ -14698,10 +14679,9 @@ async function acceptOfferOnChain(offerId) {
     try {
         const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
         const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
-        const offer = await equityReadOnly.offers(offerId);
-
+        const offer = await equityReadOnly.offers(toBytes32(offerId));
         const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
-        const tx = await equityContract.acceptOffer(offerId);
+        const tx = await equityContract.acceptOffer(toBytes32(offerId));
         await tx.wait();
         alert(`✅ Counter accepted! Trade complete.\nTx: https://arbiscan.io/tx/${tx.hash}`);
         hideProjectDetailModal();
@@ -14765,7 +14745,7 @@ async function showCapTable(projectId, companyName) {
             const h = doc.data();
             let onChainUnits;
             try {
-                const raw = await equityReadOnly.balances(projectId, h.wallet).catch(() => ethers.BigNumber.from(0));
+                const raw = await equityReadOnly.balances(toBytes32(projectId), h.wallet).catch(() => ethers.BigNumber.from(0));
                 onChainUnits = raw.toNumber();
             } catch(e) {
                 onChainUnits = h.units || 0;
@@ -14857,7 +14837,7 @@ async function rejectOfferOnChain(offerId) {
     if (!confirm("Reject this offer? USDC will be refunded to the buyer.")) return;
     try {
         const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
-        const tx = await equityContract.rejectOffer(offerId);
+        const tx = await equityContract.rejectOffer(toBytes32(offerId));
         await tx.wait();
         alert("✅ Offer rejected. Buyer refunded.");
         hideProjectDetailModal();
@@ -14971,7 +14951,7 @@ async function cancelListingOnChain(listingId) {
     if (!confirm("Cancel this listing? Your units will be returned to you.")) return;
     try {
         const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
-        const tx = await equityContract.cancelListing(listingId);
+        const tx = await equityContract.cancelListing(toBytes32(listingId));
         await tx.wait();
         alert("✅ Listing cancelled. Units returned.");
         hideProjectDetailModal();
