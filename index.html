@@ -13540,9 +13540,23 @@ async function submitEquityListingModal(companyId, availableUnits) {
             equityContract.listEquity(listingId, companyId, units, priceRaw).then(tx => tx.wait().then(() => { listingTxHash = tx.hash; })),
             new Promise(resolve => setTimeout(resolve, 15000))
         ]);
+        // Save listing to Firestore so marketplace can enumerate
+        await db.collection('equityListings').doc(listingId).set({
+            listingId,
+            companyId,
+            seller: connectedAddress.toLowerCase(),
+            sellerUid: currentUser?.uid || null,
+            units,
+            pricePerUnit: price,
+            totalAsk: units * price,
+            txHash: listingTxHash,
+            active: true,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
         alert(`✅ Listing created!\nTx: https://arbiscan.io/tx/${listingTxHash}`);
         hideProjectDetailModal();
         loadEquityListings();
+        loadProfileData();
     } catch(e) {
         if (!handleWalletError(e)) alert("Listing failed: " + e.message);
     }
