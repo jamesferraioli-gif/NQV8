@@ -8304,8 +8304,11 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             alert("✅ Boilerplate funding agreement loaded.\n\nReview and edit as needed before submitting.");
         }
 
+    let _submitWorkInProgress = false;
     async function submitWork() {
     if (!currentSubmitProjectId) return;
+    if (_submitWorkInProgress) return;
+    _submitWorkInProgress = true;
 
     const desc = document.getElementById('submit-desc').value.trim();
     const link = document.getElementById('submit-link').value.trim();
@@ -8478,6 +8481,8 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
         console.warn('submitWork error:', e.message);
         if (reviewBtn) { reviewBtn.textContent = 'Submit'; reviewBtn.disabled = false; }
         alert('Failed to submit: ' + e.message);
+    } finally {
+        _submitWorkInProgress = false;
     }
 }
 
