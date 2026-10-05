@@ -6,13 +6,12 @@
 
 import { ethers } from 'ethers';
 
-const ESCROW_CONTRACT_ADDRESS = '0xE484561B8D1c4274853CDE01d397294CBa5dEaCa';
+const ESCROW_CONTRACT_ADDRESS = '0x19E9E191e5F277053Db4373FAbb8fBdEa8A30761';
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
 
 const ESCROW_ABI = [
     "function adminRelease(bytes32 escrowId) external",
-    "function projectToEscrow(string projectId) external view returns (bytes32)",
-    "function escrows(bytes32 escrowId) external view returns (address poster, address worker, uint256 amount, uint8 currency, uint256 deadline, uint8 status)"
+    "function projectToEscrow(bytes32 projectKey) external view returns (bytes32)"
 ];
 
 export default async function handler(req, res) {
@@ -36,7 +35,7 @@ export default async function handler(req, res) {
         const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, opsWallet);
 
         // Get escrow ID for this project
-        const escrowId = await escrowContract.projectToEscrow(projectId);
+        const escrowId = await escrowContract.projectToEscrow(ethers.utils.keccak256(ethers.utils.toUtf8Bytes(projectId)));
         if (escrowId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
             return res.status(400).json({ error: 'No escrow found for this project' });
         }
