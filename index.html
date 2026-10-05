@@ -13459,14 +13459,15 @@ async function showCreateEquityListingModal(companyId, companyName, availableUni
                    class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm mb-4">
 
             <p class="text-xs text-zinc-400 mb-1">Price per unit (USDC)</p>
-            <input id="listing-price" type="number" min="0.000001" step="0.01"
-                   placeholder="e.g. 10.00"
-                   oninput="
+            <input id="listing-price" type="text"
+                   placeholder="e.g. $10.00 USDC"
+                   oninput="this.value = this.value.replace(/[^0-9.]/g, '');
                        const u = parseInt(document.getElementById('listing-units')?.value) || 0;
                        const p = parseFloat(this.value) || 0;
                        const totalEl = document.getElementById('listing-total');
-                       if (totalEl) totalEl.textContent = u && p ? '$' + (u * p).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) + ' USDC' : '—';
-                   "
+                       if (totalEl) totalEl.textContent = u && p ? '$' + (u * p).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) + ' USDC' : '—';"
+                   onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : '$' + n.toFixed(2) + ' USDC'; }"
+                   onfocus="this.value = this.value.replace(/[^0-9.]/g, '')"
                    class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm mb-4">
 
             <div class="bg-zinc-800 rounded-2xl px-4 py-3 mb-6">
@@ -13492,8 +13493,8 @@ async function showCreateEquityListingModal(companyId, companyName, availableUni
 
 async function submitEquityListing(companyId, availableUnits) {
     const units = parseInt(document.getElementById('listing-units')?.value);
-    const price = parseFloat(document.getElementById('listing-price')?.value);
-
+    const price = parseFloat((document.getElementById('listing-price')?.value || '').replace(/[^0-9.]/g, ''));
+    
     if (!units || isNaN(units) || units < 1 || units > availableUnits) {
         return alert(`Please enter a valid number of units between 1 and ${availableUnits}.`);
     }
