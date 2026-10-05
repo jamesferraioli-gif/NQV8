@@ -501,7 +501,8 @@
 
             <!-- Cash compensation -->
             <div id="comp-field-cash" class="mb-4">
-                <input id="bounty-compensation-cash" type="text" placeholder="e.g. $2,500.00 USDC"
+                <p class="text-xs text-zinc-500 mb-1">Minimum bounty: <span class="text-cyan-400">$20.00 USDC</span></p>
+                <input id="bounty-compensation-cash" type="text" placeholder="Minimum $20.00 USDC"
                        oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
                        onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : '$' + n.toFixed(2) + ' USDC'; }"
                        onfocus="this.value = this.value.replace(/[^0-9.]/g, '')"
@@ -523,8 +524,8 @@
             <!-- Mixed compensation -->
             <div id="comp-field-mixed" class="hidden mb-4 space-y-3">
                 <div>
-                    <p class="text-xs text-zinc-400 mb-1">Cash Amount</p>
-                    <input id="bounty-compensation-mixed-cash" type="text" placeholder="e.g. $1,000.00 USDC"
+                    <p class="text-xs text-zinc-400 mb-1">Cash Amount <span class="text-zinc-500">(minimum $20.00 USDC)</span></p>
+                    <input id="bounty-compensation-mixed-cash"
                            oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
                            onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : '$' + n.toFixed(2) + ' USDC'; }"
                            onfocus="this.value = this.value.replace(/[^0-9.]/g, '')"
@@ -7168,6 +7169,23 @@ async function loadTotalFundingReceivedStat() {
                 </div>
             </div>
 
+            <!-- Payment wallet -->
+            <div class="mb-4 bg-zinc-800 border border-zinc-700 rounded-2xl p-4">
+                <p class="text-xs text-zinc-400 mb-2">💳 Payment will be sent to</p>
+                <div class="flex items-center gap-2 mb-2">
+                    <input type="radio" id="wallet-use-connected" name="payment-wallet-choice" value="connected" checked onchange="document.getElementById('bid-custom-wallet').classList.add('hidden')">
+                    <label for="wallet-use-connected" class="text-sm text-zinc-300">My connected wallet: <span class="font-mono text-cyan-400">${connectedAddress ? connectedAddress.slice(0,6)+'...'+connectedAddress.slice(-4) : 'Not connected'}</span></label>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="radio" id="wallet-use-custom" name="payment-wallet-choice" value="custom" onchange="document.getElementById('bid-custom-wallet').classList.remove('hidden')">
+                    <label for="wallet-use-custom" class="text-sm text-zinc-300">Use a different wallet address</label>
+                </div>
+                <div id="bid-custom-wallet" class="hidden mt-2">
+                    <input id="bid-payment-wallet" type="text" placeholder="0x..."
+                           class="w-full bg-zinc-900 border border-zinc-600 rounded-xl px-4 py-2 outline-none text-sm font-mono">
+                </div>
+            </div>
+
             <button onclick="placeBid('${projectId}', '${project.compensationType || 'cash'}')"
                     class="w-full py-5 bg-white text-black font-semibold rounded-3xl">
                 Place Bid ($0.01 NQV8)
@@ -9956,8 +9974,7 @@ async function startVideoCall() {
                     : document.getElementById('bounty-compensation-mixed-cash').value;
                 const cashNum = parseFloat(cashStr.replace(/[^0-9.]/g, ''));
                 if (isNaN(cashNum) || cashNum < 20) {
-                    return alert('❌ Minimum USDC bounty amount is $20.00. This ensures platform fees cover transaction costs.');
-                }
+                    return alert('❌ Minimum USDC bounty amount is $20.00.');                }
             }        
             try {
                 const projectSnap = await db.collection("projects").doc(currentParentProjectId).get();
@@ -11976,7 +11993,13 @@ async function showPostBountyModal() {
         if (knob) knob.style.transform = 'translateX(0)';
     }
     clearPreferredBuilder();
-    }
+
+    // Pre-fill minimum cash amount
+    setTimeout(() => {
+        const cashEl = document.getElementById('bounty-compensation-cash');
+        if (cashEl && !cashEl.value) cashEl.value = '$20.00 USDC';
+    }, 100);
+}
 
 function hidePostBountyModal() {
     document.getElementById('post-bounty-modal').classList.add('hidden');
@@ -12078,6 +12101,16 @@ function selectBountyCompType(type) {
     document.getElementById('comp-field-cash').classList.toggle('hidden', type !== 'cash');
     document.getElementById('comp-field-equity').classList.toggle('hidden', type !== 'equity');
     document.getElementById('comp-field-mixed').classList.toggle('hidden', type !== 'mixed');
+
+    if (type === 'cash') {
+        const cashEl = document.getElementById('bounty-compensation-cash');
+        if (cashEl && !cashEl.value) cashEl.value = '$20.00 USDC';
+    }
+    if (type === 'mixed') {
+        const mixedCashEl = document.getElementById('bounty-compensation-mixed-cash');
+        if (mixedCashEl && !mixedCashEl.value) mixedCashEl.value = '$20.00 USDC';
+    }
+}
 }
 
 async function submitBountyPosting() {
@@ -18015,6 +18048,15 @@ async function founderRelease() {
                 <span class="text-zinc-400 font-semibold pr-2">%</span>
             </div>
         </div>
+        <!-- Payment wallet for counter -->
+        <div class="mb-4 bg-zinc-800 border border-zinc-700 rounded-2xl p-4">
+            <p class="text-xs text-zinc-400 mb-2">💳 Payment wallet</p>
+            <input id="counter-payment-wallet" type="text"
+                   placeholder="0x... (leave blank to use your connected wallet)"
+                   class="w-full bg-zinc-900 border border-zinc-600 rounded-xl px-4 py-2 outline-none text-sm font-mono">
+            <p class="text-xs text-zinc-500 mt-1">Leave blank to use your connected wallet</p>
+        </div>
+
         <!-- Payment wallet for counter -->
         <div class="mb-4 bg-zinc-800 border border-zinc-700 rounded-2xl p-4">
             <p class="text-xs text-zinc-400 mb-2">💳 Payment wallet</p>
