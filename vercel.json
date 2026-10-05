@@ -116,6 +116,14 @@
             "dest": "/api/check-ops-wallet.js"
         },
         {
+            "src": "/api/admin-list-equity",
+            "dest": "/api/admin-list-equity.js"
+        },
+        {
+            "src": "/api/admin-make-offer",
+            "dest": "/api/admin-make-offer.js"
+        },
+        {
             "src": "/u/(.*)",
             "dest": "/index.html"
         },
