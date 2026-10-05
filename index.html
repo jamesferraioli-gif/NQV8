@@ -9983,8 +9983,8 @@ async function startVideoCall() {
                     ? document.getElementById('bounty-compensation-cash').value
                     : document.getElementById('bounty-compensation-mixed-cash').value;
                 const cashNum = parseFloat(cashStr.replace(/[^0-9.]/g, ''));
-                if (isNaN(cashNum) || cashNum < 20) {
-                    return alert('❌ Minimum USDC bounty amount is $20.00.');                }
+                if (isNaN(cashNum) || cashNum < 1) {
+                    return alert('❌ Minimum USDC bounty amount is $1.00.');                }
             }        
             try {
                 const projectSnap = await db.collection("projects").doc(currentParentProjectId).get();
