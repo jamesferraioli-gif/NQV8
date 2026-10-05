@@ -4306,7 +4306,7 @@ const EQUITY_REGISTRY_ABI = [
     "function updateMetrics(string projectId, bytes32 metricsHash) external",
     "function transferEquity(string projectId, address to, uint256 units, string reason) external",
     "function adminTransferEquity(string projectId, address from, address to, uint256 units, string reason) external",
-    "function createListing(string projectId, uint256 units, uint256 askPricePerUnit) external returns (bytes32)",
+    "function listEquity(string listingId, string companyId, uint256 units, uint256 pricePerUnit) external",
     "function cancelListing(bytes32 listingId) external",
     "function buyNow(bytes32 listingId) external",
     "function makeOffer(bytes32 listingId, uint256 offerPricePerUnit) external returns (bytes32)",
@@ -13542,7 +13542,8 @@ async function submitEquityListingModal(companyId, availableUnits) {
         const priceRaw = ethers.utils.parseUnits(price.toFixed(6), 6);
         let listingTxHash = null;
         await Promise.race([
-            equityContract.createListing(companyId, units, priceRaw).then(tx => tx.wait().then(() => { listingTxHash = tx.hash; })),
+            const listingId = `${companyId}_${connectedAddress}_${Date.now()}`;
+            equityContract.listEquity(listingId, companyId, units, priceRaw).then(tx => tx.wait().then(() => { listingTxHash = tx.hash; })),
             new Promise(resolve => setTimeout(resolve, 15000))
         ]);
         alert(`✅ Listing created!\nTx: https://arbiscan.io/tx/${listingTxHash}`);
