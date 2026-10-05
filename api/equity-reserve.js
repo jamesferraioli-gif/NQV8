@@ -1,18 +1,23 @@
 // api/equity-reserve.js
 // Called when a founder accepts an equity bid.
-// Calls reserveEquity() on V3 from the Operations wallet so the
+// Calls reserveEquity() on V4 from the Operations wallet so the
 // transaction goes directly to the contract without MetaMask interference.
 
 import { ethers } from 'ethers';
 
-const EQUITY_REGISTRY_ADDRESS = '0x99A3512b49b2dd8b4b553E98aAcF344DFF109C51';
+const EQUITY_REGISTRY_ADDRESS = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2';
 const ARBITRUM_RPC = 'https://arb1.arbitrum.io/rpc';
 
 const EQUITY_ABI = [
-    "function reserveEquity(string companyId, string bountyId, address beneficiary, uint256 units) external",
-    "function availableBalance(string companyId, address holder) external view returns (uint256)",
-    "function companies(string companyId) external view returns (string, address, bool, uint256)"
+    "function reserveEquity(bytes32 companyId, bytes32 bountyId, address beneficiary, uint256 units) external",
+    "function availableBalance(bytes32 companyId, address holder) external view returns (uint256)",
+    "function companies(bytes32 companyId) external view returns (address founder, uint64 registeredAt, bool registered, bool paused)"
 ];
+
+// Convert string ID to bytes32
+function toBytes32(str) {
+    return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(str));
+}
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -33,12 +38,15 @@ export default async function handler(req, res) {
         const wallet   = new ethers.Wallet(process.env.OPERATIONS_PRIVATE_KEY, provider);
         const equity   = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_ABI, wallet);
 
+        const companyIdBytes = toBytes32(companyId);
+        const bountyIdBytes  = toBytes32(bountyId);
+
         // Verify available balance using the founder address from the contract
-        const companyData = await equity.companies(companyId).catch(() => null);
-        const founderAddr = companyData ? companyData[1] : founderWallet;
-        
+        const companyData = await equity.companies(companyIdBytes).catch(() => null);
+        const founderAddr = companyData ? companyData[0] : founderWallet; // V4: founder is index 0
+
         if (founderAddr && founderAddr !== ethers.constants.AddressZero) {
-            const available = await equity.availableBalance(companyId, founderAddr);
+            const available = await equity.availableBalance(companyIdBytes, founderAddr);
             if (available.lt(ethers.BigNumber.from(equityUnits))) {
                 return res.status(400).json({
                     error: `Insufficient available equity. Founder has ${available.toNumber() / 100}% available (${available.toNumber()} units). Requested: ${equityUnits} units.`
@@ -46,7 +54,7 @@ export default async function handler(req, res) {
             }
         }
 
-        const tx = await equity.reserveEquity(companyId, bountyId, beneficiaryWallet, equityUnits);
+        const tx = await equity.reserveEquity(companyIdBytes, bountyIdBytes, beneficiaryWallet, equityUnits);
         await tx.wait();
 
         console.log(`✅ Reserved ${equityUnits} units for bounty ${bountyId} → ${beneficiaryWallet}`);
@@ -56,20 +64,22 @@ export default async function handler(req, res) {
 
     } catch(e) {
         console.error('equity-reserve error:', e.message);
-        
+
         let userMessage = e.message;
-        if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') || 
+        if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') ||
             e.message.includes('gas required exceeds allowance') ||
             e.message.includes('insufficient funds')) {
             userMessage = 'PLATFORM_GAS_ERROR';
-        } else if (e.message.includes('Reservation already exists')) {
+        } else if (e.message.includes('Reservation exists')) {
             userMessage = 'This bounty already has an active equity reservation.';
         } else if (e.message.includes('Insufficient available equity')) {
             userMessage = 'Insufficient available equity. Some equity may already be reserved for other bounties.';
         } else if (e.message.includes('Company not registered')) {
             userMessage = 'This company is not registered on the Equity Registry. Please verify your entity first.';
+        } else if (e.message.includes('Company equity paused')) {
+            userMessage = 'This company\'s equity is currently paused. Please contact NQVate support.';
         }
-        
+
         return res.status(500).json({ error: userMessage });
     }
 }
