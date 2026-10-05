@@ -64,7 +64,7 @@ export default async function handler(req, res) {
         if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') ||
             e.message.includes('gas required exceeds allowance') ||
             e.message.includes('insufficient funds')) {
-            userMessage = 'Transaction failed — insufficient ETH for gas fees. Please add a small amount of ETH to your wallet on Arbitrum One and try again.';
+            userMessage = 'PLATFORM_GAS_ERROR';
         }
         return res.status(500).json({ error: userMessage });
     }
