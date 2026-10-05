@@ -24,7 +24,7 @@ const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
 const ESCROW_ABI = [
     "function adminRefund(bytes32 escrowId) external",
     "function projectToEscrow(string projectId) external view returns (bytes32)",
-    "function escrows(bytes32 escrowId) external view returns (address poster, address worker, uint256 amount, uint8 currency, uint256 deadline, uint8 status)"
+    "function escrowCore(bytes32 escrowId) external view returns (address poster, address worker, uint256 amount, uint8 currency, uint256 deadline, uint8 status)"
 ];
 
 // Deadline string to days mapping
@@ -90,7 +90,7 @@ export default async function handler(req, res) {
                 }
 
                 // Check escrow status — only refund if still active
-                const escrow = await escrowContract.escrows(escrowId);
+                const escrow = await escrowContract.escrowCore(escrowId);
                 const escrowStatus = escrow[5].toNumber(); // 0=active, 1=released, 2=refunded, 3=disputed
                 if (escrowStatus !== 0) {
                     console.log(`⚠️ ${projectId}: escrow status ${escrowStatus}, skipping`);
@@ -140,7 +140,13 @@ export default async function handler(req, res) {
                 results.push({ projectId, txHash: tx.hash, amount, status: 'refunded' });
 
             } catch(e) {
-                console.error(`Failed to auto-refund ${projectId}:`, e.message);
+                if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') || 
+                    e.message.includes('gas required exceeds allowance') || 
+                    e.message.includes('insufficient funds')) {
+                    console.error(`⚠️ PLATFORM GAS LOW — top up Operations wallet. Failed to auto-refund ${projectId}:`, e.message);
+                } else {
+                    console.error(`Failed to auto-refund ${projectId}:`, e.message);
+                }
                 results.push({ projectId, status: 'error', error: e.message });
             }
         }
@@ -149,7 +155,13 @@ export default async function handler(req, res) {
         return res.json({ success: true, processed: results.length, results });
 
     } catch(e) {
-        console.error('escrow-auto-refund fatal error:', e);
+        if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') || 
+            e.message.includes('gas required exceeds allowance') || 
+            e.message.includes('insufficient funds')) {
+            console.error('⚠️ PLATFORM GAS LOW — top up Operations wallet:', e.message);
+        } else {
+            console.error('escrow-auto-refund fatal error:', e.message);
+        }
         return res.status(500).json({ error: e.message });
     }
 }
