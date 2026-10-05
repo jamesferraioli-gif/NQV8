@@ -13435,31 +13435,87 @@ async function showCreateEquityListingModal(companyId, companyName, availableUni
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
     if (availableUnits === 0) return alert("You have no equity units available to list.");
 
-    const unitsStr = prompt(`List equity in ${companyName} for sale.\n\nYou own ${availableUnits} units (${(availableUnits/10000*100).toFixed(2)}%).\n\nHow many units to list? (1 unit = 0.01%)`);
-    if (!unitsStr) return;
-    const units = parseInt(unitsStr);
-    if (isNaN(units) || units <= 0 || units > availableUnits) return alert(`Invalid amount. You can list between 1 and ${availableUnits} units.`);
+    // Remove any existing modal
+    document.getElementById('equity-listing-modal')?.remove();
 
-    const priceStr = prompt(`Price per unit in USDC?\n(e.g. 10.00 = $10 per unit · ${units} units = $${(units * 10).toLocaleString()} total)`);
-    if (!priceStr) return;
-    const price = parseFloat(priceStr);
-    if (isNaN(price) || price <= 0) return alert("Invalid price.");
+    const modal = document.createElement('div');
+    modal.id = 'equity-listing-modal';
+    modal.className = 'fixed inset-0 bg-black/95 flex items-center justify-center z-[999999]';
+    modal.innerHTML = `
+        <div class="bg-zinc-900 border border-zinc-700 rounded-3xl p-8 w-full max-w-sm mx-4">
+            <h3 class="text-xl font-bold mb-1">List Equity for Sale</h3>
+            <p class="text-zinc-400 text-sm mb-6">${companyName} · You own ${availableUnits} units (${(availableUnits/10000*100).toFixed(2)}%)</p>
 
-    const total = units * price;
-    if (!confirm(`List ${units} units (${(units/10000*100).toFixed(2)}%) in ${companyName} for $${total.toLocaleString(undefined,{maximumFractionDigits:2})} USDC total?\n\n3.5% platform fee on sale.`)) return;
+            <p class="text-xs text-zinc-400 mb-1">Units to list <span class="text-zinc-600">(1–${availableUnits})</span></p>
+            <input id="listing-units" type="number" min="1" max="${availableUnits}" step="1"
+                   placeholder="e.g. 100"
+                   oninput="
+                       this.value = this.value.replace(/[^0-9]/g, '');
+                       const u = parseInt(this.value) || 0;
+                       const p = parseFloat(document.getElementById('listing-price')?.value) || 0;
+                       const totalEl = document.getElementById('listing-total');
+                       if (totalEl) totalEl.textContent = u && p ? '$' + (u * p).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) + ' USDC' : '—';
+                   "
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm mb-4">
+
+            <p class="text-xs text-zinc-400 mb-1">Price per unit (USDC)</p>
+            <input id="listing-price" type="number" min="0.000001" step="0.01"
+                   placeholder="e.g. 10.00"
+                   oninput="
+                       const u = parseInt(document.getElementById('listing-units')?.value) || 0;
+                       const p = parseFloat(this.value) || 0;
+                       const totalEl = document.getElementById('listing-total');
+                       if (totalEl) totalEl.textContent = u && p ? '$' + (u * p).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) + ' USDC' : '—';
+                   "
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm mb-4">
+
+            <div class="bg-zinc-800 rounded-2xl px-4 py-3 mb-6">
+                <div class="flex justify-between text-sm">
+                    <span class="text-zinc-400">Total listing value</span>
+                    <span id="listing-total" class="font-semibold text-emerald-400">—</span>
+                </div>
+                <p class="text-xs text-zinc-600 mt-1">3.5% platform fee deducted on sale</p>
+            </div>
+
+            <button onclick="submitEquityListing('${companyId}', ${availableUnits})"
+                    class="w-full py-4 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-2xl mb-3">
+                Create Listing
+            </button>
+            <button onclick="document.getElementById('equity-listing-modal').remove()"
+                    class="w-full py-3 text-zinc-500 hover:text-zinc-300 text-sm">
+                Cancel
+            </button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+}
+
+async function submitEquityListing(companyId, availableUnits) {
+    const units = parseInt(document.getElementById('listing-units')?.value);
+    const price = parseFloat(document.getElementById('listing-price')?.value);
+
+    if (!units || isNaN(units) || units < 1 || units > availableUnits) {
+        return alert(`Please enter a valid number of units between 1 and ${availableUnits}.`);
+    }
+    if (!price || isNaN(price) || price <= 0) {
+        return alert('Please enter a valid price per unit in USDC.');
+    }
+
+    document.getElementById('equity-listing-modal').remove();
 
     try {
         const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
         const priceRaw = ethers.utils.parseUnits(price.toFixed(6), 6);
-        const tx = await equityContract.createListing(companyId, units, priceRaw);
-        await tx.wait();
-        alert(`✅ Listing created!\nTx: https://arbiscan.io/tx/${tx.hash}`);
+        let listingTxHash = null;
+        await Promise.race([
+            equityContract.createListing(companyId, units, priceRaw).then(tx => tx.wait().then(() => { listingTxHash = tx.hash; })),
+            new Promise(resolve => setTimeout(resolve, 15000))
+        ]);
+        alert(`✅ Listing created!\nTx: https://arbiscan.io/tx/${listingTxHash}`);
         hideProjectDetailModal();
         loadEquityListings();
     } catch(e) {
-        const msg = e.message || '';
-        if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
-        else alert("Listing failed: " + msg);
+        if (!handleWalletError(e)) alert("Listing failed: " + e.message);
     }
 }
 
