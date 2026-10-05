@@ -18,13 +18,13 @@ if (!getApps().length) {
 }
 const db = getFirestore();
 
-const ESCROW_CONTRACT_ADDRESS = '0xE484561B8D1c4274853CDE01d397294CBa5dEaCa';
+const ESCROW_CONTRACT_ADDRESS = '0x19E9E191e5F277053Db4373FAbb8fBdEa8A30761';
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
 
 const ESCROW_ABI = [
     "function adminRefund(bytes32 escrowId) external",
-    "function projectToEscrow(string projectId) external view returns (bytes32)",
-    "function escrowCore(bytes32 escrowId) external view returns (address poster, address worker, uint256 amount, uint8 currency, uint256 deadline, uint8 status)"
+    "function projectToEscrow(bytes32 projectKey) external view returns (bytes32)",
+    "function escrows(bytes32 escrowId) external view returns (address poster, address worker, uint128 amount, uint64 deadline, uint64 createdAt, uint64 submittedAt, uint64 autoReleaseAt, uint8 status, bool disputeFiled, address disputeFiledBy, uint32 workerPct, uint32 posterPct)"
 ];
 
 // Deadline string to days mapping
@@ -83,21 +83,21 @@ export default async function handler(req, res) {
                 if (hasAccepted) continue;
 
                 // Get escrow ID
-                const escrowId = await escrowContract.projectToEscrow(projectId);
+                const projectKey = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(projectId));
+                const escrowId = await escrowContract.projectToEscrow(projectKey);
                 if (escrowId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
                     console.log(`⚠️ ${projectId}: no escrow found, skipping`);
                     continue;
                 }
 
-                // Check escrow status — only refund if still active
-                const escrow = await escrowContract.escrowCore(escrowId);
-                const escrowStatus = escrow[5].toNumber(); // 0=active, 1=released, 2=refunded, 3=disputed
-                if (escrowStatus !== 0) {
-                    console.log(`⚠️ ${projectId}: escrow status ${escrowStatus}, skipping`);
+                // Check escrow status — only refund if still active (0=Active)
+                const escrow = await escrowContract.escrows(escrowId);
+                if (escrow.status !== 0) {
+                    console.log(`⚠️ ${projectId}: escrow status ${escrow.status}, skipping`);
                     continue;
                 }
 
-                const amount = ethers.utils.formatUnits(escrow[2], 6);
+                const amount = ethers.utils.formatUnits(escrow.amount, 6);
                 console.log(`💸 Auto-refunding expired escrow for ${projectId}: $${amount} USDC`);
 
                 // Claim refund
