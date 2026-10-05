@@ -8006,6 +8006,16 @@ function hideEditPostingModal() {
                         if (btn) { btn.textContent = 'Accept Bid'; btn.disabled = false; }
                         if (equityErr.message === 'PLATFORM_GAS_ERROR') {
                             alert('⚠️ We\'re experiencing a temporary technical issue. Please try again in a few minutes or contact NQVate support.');
+                            // Alert ops team
+                            fetch('/api/send-email', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    to: 'james.ferraioli@gmail.com',
+                                    subject: '🚨 NQVate: Operations Wallet Low — equity-reserve failed',
+                                    body: `Operations wallet is low on ETH. equity-reserve failed for project ${currentProjectId}.\n\nPlease top up: 0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D\n\nBridge ETH to Arbitrum: https://bridge.arbitrum.io/`
+                                })
+                            }).catch(() => {});
                         } else {
                             alert('Failed to reserve equity: ' + equityErr.message);
                         }
@@ -8714,7 +8724,18 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             } catch (e) {
                 const msg = e.message || '';
                 if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
-                else if (msg === 'PLATFORM_GAS_ERROR') alert("⚠️ We're experiencing a temporary technical issue. Please try again in a few minutes or contact NQVate support.");
+                else if (msg === 'PLATFORM_GAS_ERROR') {
+                    alert("⚠️ We're experiencing a temporary technical issue. Please try again in a few minutes or contact NQVate support.");
+                    fetch('/api/send-email', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            to: 'james.ferraioli@gmail.com',
+                            subject: '🚨 NQVate: Operations Wallet Low — escrow-release failed',
+                            body: `Operations wallet is low on ETH. escrow-release failed for project ${currentReviewProjectId}.\n\nPlease top up: 0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D\n\nBridge ETH to Arbitrum: https://bridge.arbitrum.io/`
+                        })
+                    }).catch(() => {});
+                }
                 else alert("Failed to release escrow: " + msg);
             }
         }
@@ -8934,7 +8955,20 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                         }
                     } catch (payErr) {
                         console.error('Payment release failed:', payErr);
-                        alert('⚠️ Review saved but on-chain payment failed: ' + payErr.message + '\nPlease transfer equity manually from Studio → Grow → Cap Table.');
+                        if (payErr.message === 'PLATFORM_GAS_ERROR') {
+                            alert('⚠️ We\'re experiencing a temporary technical issue. Please try again in a few minutes or contact NQVate support.');
+                            fetch('/api/send-email', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    to: 'james.ferraioli@gmail.com',
+                                    subject: '🚨 NQVate: Operations Wallet Low — equity-complete failed',
+                                    body: `Operations wallet is low on ETH. equity-complete failed for project ${currentReviewProjectId}.\n\nPlease top up: 0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D\n\nBridge ETH to Arbitrum: https://bridge.arbitrum.io/`
+                                })
+                            }).catch(() => {});
+                        } else {
+                            alert('⚠️ Review saved but on-chain payment failed: ' + payErr.message + '\nPlease transfer equity manually from Studio → Grow → Cap Table.');
+                        }
                     }
                 }
 
