@@ -179,7 +179,13 @@ export default async function handler(req, res) {
                 results.push({ projectId, txHash: tx.hash, equityUnits, status: 'released' });
 
             } catch(e) {
-                console.error(`Failed to auto-release ${projectId}:`, e.message);
+                if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') || 
+                    e.message.includes('gas required exceeds allowance') || 
+                    e.message.includes('insufficient funds')) {
+                    console.error(`⚠️ PLATFORM GAS LOW — top up Operations wallet. Failed to auto-release ${projectId}:`, e.message);
+                } else {
+                    console.error(`Failed to auto-release ${projectId}:`, e.message);
+                }
                 results.push({ projectId, status: 'error', error: e.message });
             }
         }
@@ -188,7 +194,13 @@ export default async function handler(req, res) {
         return res.json({ success: true, processed: results.length, results });
 
     } catch(e) {
-        console.error('equity-auto-resolve fatal error:', e);
+        if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') || 
+            e.message.includes('gas required exceeds allowance') || 
+            e.message.includes('insufficient funds')) {
+            console.error('⚠️ PLATFORM GAS LOW — top up Operations wallet:', e.message);
+        } else {
+            console.error('equity-auto-resolve fatal error:', e.message);
+        }
         return res.status(500).json({ error: e.message });
     }
 }
