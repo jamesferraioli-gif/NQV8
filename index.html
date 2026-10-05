@@ -11576,7 +11576,19 @@ async function loadDataRoom(companyId, isOwner) {
         const roomDoc = await db.collection('dataRooms').doc(companyId).get();
         const room = roomDoc.exists ? roomDoc.data() : { files: [], approvedViewers: [] };
 
+        // Check if user has equity on-chain for this company
+        let hasEquityStake = false;
+        if (currentUser && connectedAddress) {
+            try {
+                const roProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+                const equityRO = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, ['function balances(string,address) view returns (uint256)'], roProvider);
+                const units = await equityRO.balances(companyId, connectedAddress);
+                hasEquityStake = units.toNumber() > 0;
+            } catch(e) {}
+        }
+
         const hasAccess = isOwner ||
+            hasEquityStake ||
             (currentUser && (room.approvedViewers || []).includes(currentUser.uid));
 
         if (!hasAccess) {
