@@ -7151,6 +7151,23 @@ async function loadTotalFundingReceivedStat() {
             <p class="text-xs text-zinc-500 mb-4">Poster offered: ${project.compensation || '—'}</p>
             ` : ''}
 
+            <!-- Payment wallet -->
+            <div class="mb-4 bg-zinc-800 border border-zinc-700 rounded-2xl p-4">
+                <p class="text-xs text-zinc-400 mb-2">💳 Payment will be sent to</p>
+                <div class="flex items-center gap-2 mb-2">
+                    <input type="radio" id="wallet-use-connected" name="payment-wallet-choice" value="connected" checked onchange="document.getElementById('bid-custom-wallet').classList.add('hidden')">
+                    <label for="wallet-use-connected" class="text-sm text-zinc-300">My connected wallet: <span class="font-mono text-cyan-400">${connectedAddress ? connectedAddress.slice(0,6)+'...'+connectedAddress.slice(-4) : 'Not connected'}</span></label>
+                </div>
+                <div class="flex items-center gap-2">
+                    <input type="radio" id="wallet-use-custom" name="payment-wallet-choice" value="custom" onchange="document.getElementById('bid-custom-wallet').classList.remove('hidden')">
+                    <label for="wallet-use-custom" class="text-sm text-zinc-300">Use a different wallet address</label>
+                </div>
+                <div id="bid-custom-wallet" class="hidden mt-2">
+                    <input id="bid-payment-wallet" type="text" placeholder="0x..."
+                           class="w-full bg-zinc-900 border border-zinc-600 rounded-xl px-4 py-2 outline-none text-sm font-mono">
+                </div>
+            </div>
+
             <button onclick="placeBid('${projectId}', '${project.compensationType || 'cash'}')"
                     class="w-full py-5 bg-white text-black font-semibold rounded-3xl">
                 Place Bid ($0.01 NQV8)
@@ -7602,6 +7619,14 @@ function hideEditPostingModal() {
 
             if (!amount) return alert('Please enter your bid.');
 
+            // Get payment wallet
+            const useCustomWallet = document.querySelector('input[name="payment-wallet-choice"]:checked')?.value === 'custom';
+            const customWallet = document.getElementById('bid-payment-wallet')?.value.trim();
+            const paymentWallet = useCustomWallet ? (customWallet || connectedAddress) : connectedAddress;
+            if (!paymentWallet || !paymentWallet.startsWith('0x') || paymentWallet.length !== 42) {
+                return alert('Please enter a valid payment wallet address (must start with 0x and be 42 characters).');
+            }
+
             try {
                 const projectRef = db.collection("subprojects").doc(projectId);
                 const projectSnap = await projectRef.get();
@@ -7631,7 +7656,8 @@ function hideEditPostingModal() {
                                 bidderName: currentUser.fullName || currentUser.username,
                                 amount,
                                 timestamp: new Date(),
-                                paymentTxHash: txHash
+                                paymentTxHash: txHash,
+                                paymentWallet: paymentWallet.toLowerCase()
                             };
                             await projectRef.update({
                                 bids: firebase.firestore.FieldValue.arrayUnion(newBid)
@@ -7752,14 +7778,17 @@ function hideEditPostingModal() {
             try {
                 const projectRef = db.collection('subprojects').doc(currentProjectId);
                 const updatedBids = [...currentProject.bids];
+                const counterPaymentWallet = (document.getElementById('counter-payment-wallet')?.value.trim() || connectedAddress || '').toLowerCase();
                 updatedBids[currentBidIndex] = {
                     ...updatedBids[currentBidIndex],
                     status: 'countered',
+                    paymentWallet: counterPaymentWallet,
                     counterOffer: {
                         amount: counterAmount,
                         sentAt: new Date().toISOString(),
                         sentByUid: currentUser.uid,
-                        status: 'pending'
+                        status: 'pending',
+                        paymentWallet: counterPaymentWallet
                     }
                 };
         
@@ -7904,8 +7933,8 @@ function hideEditPostingModal() {
                         const equityUnits = Math.round(equityPct * 100);
 
                         const workerSnap = await db.collection('users').doc(bid.bidderUid).get();
-                        const workerWallet = workerSnap.data()?.walletAddress;
-                        if (!workerWallet) throw new Error('Builder has not connected a wallet yet.');
+                        const workerWallet = bid.paymentWallet || workerSnap.data()?.walletAddress;
+                        if (!workerWallet) throw new Error('Builder has not provided a payment wallet. Ask them to place a new bid.');
                         // Check against both connected wallet and founder wallet on contract
                         const founderSnap = await db.collection('users').doc(currentUser.uid).get();
                         const founderWalletAddr = founderSnap.data()?.walletAddress || connectedAddress;
@@ -7913,7 +7942,7 @@ function hideEditPostingModal() {
                             workerWallet.toLowerCase() === connectedAddress.toLowerCase()) {
                             const btn = document.getElementById('accept-bid-btn');
                             if (btn) { btn.textContent = 'Accept Bid'; btn.disabled = false; }
-                            return alert('❌ Cannot award equity: The builder\'s wallet address is the same as the founder\'s. The builder must connect a different wallet before you can accept their bid on an equity bounty.');
+                            return alert('❌ Cannot award equity: The payment wallet cannot be the same as the founder\'s wallet. The builder must use a different payment wallet address.');
                         }
 
                         if (btn) btn.textContent = '⏳ Reserving equity...';
@@ -8051,10 +8080,13 @@ function hideEditPostingModal() {
                     if (bal < amountNum) return alert(`Insufficient USDC. You have $${bal.toFixed(2)} but need $${amountNum.toFixed(2)}.`);
                 }
 
-                // Get worker wallet
+                // Get worker wallet — prefer bid.paymentWallet over connected wallet
                 const workerSnap = await db.collection('users').doc(bid.bidderUid).get();
-                const workerWallet = workerSnap.data()?.walletAddress;
-                if (!workerWallet) return alert("The worker has not connected a wallet yet. Ask them to connect first.");
+                const workerWallet = bid.paymentWallet || workerSnap.data()?.walletAddress;
+                if (!workerWallet) return alert("The builder has not provided a payment wallet. Ask them to place a new bid.");
+                if (workerWallet.toLowerCase() === connectedAddress.toLowerCase()) {
+                    return alert('❌ Cannot accept this bid — the payment wallet matches the poster\'s wallet. The builder must use a different wallet address.');
+                }
 
                 const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
                 const deadlineTs = deadlineToTimestamp(deadline);
@@ -8871,7 +8903,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                     try {
                         const proj = (await db.collection('subprojects').doc(currentReviewProjectId).get()).data();
                         const workerSnap = await db.collection('users').doc(proj.acceptedBidderUid).get();
-                        const workerWallet = workerSnap.data()?.walletAddress;
+                        const workerWallet = proj.acceptedBid?.paymentWallet || workerSnap.data()?.walletAddress;
                         const amountStr = String(proj.acceptedBid?.amount || '');
                         const isEquityOnly = proj.compensationType === 'equity' || proj.escrowType === 'equity' ||
                             (amountStr.includes('%') && !amountStr.includes('$'));
@@ -17983,6 +18015,15 @@ async function founderRelease() {
                 <span class="text-zinc-400 font-semibold pr-2">%</span>
             </div>
         </div>
+        <!-- Payment wallet for counter -->
+        <div class="mb-4 bg-zinc-800 border border-zinc-700 rounded-2xl p-4">
+            <p class="text-xs text-zinc-400 mb-2">💳 Payment wallet</p>
+            <input id="counter-payment-wallet" type="text"
+                   placeholder="0x... (leave blank to use your connected wallet)"
+                   class="w-full bg-zinc-900 border border-zinc-600 rounded-xl px-4 py-2 outline-none text-sm font-mono">
+            <p class="text-xs text-zinc-500 mt-1">Leave blank to use your connected wallet</p>
+        </div>
+
         <button onclick="submitCounterBid()"
                 class="w-full py-4 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-3xl transition-colors">
             Send Counter Offer
