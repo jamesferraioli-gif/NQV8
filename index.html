@@ -14665,6 +14665,7 @@ async function showCapTable(projectId, companyName) {
         const deduped = Array.from(walletMap.values());
         holders.length = 0;
         holders.push(...deduped);
+        holders.sort((a, b) => b.units - a.units);
     
         if (holders.length === 0) {
             tbody.innerHTML = '<tr><td colspan="4" class="text-center text-zinc-400 py-8">No active equity holders.</td></tr>';
