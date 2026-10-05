@@ -13535,8 +13535,8 @@ async function submitEquityListingModal(companyId, availableUnits) {
         const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
         const priceRaw = ethers.utils.parseUnits(price.toFixed(6), 6);
         let listingTxHash = null;
+        const listingId = `${companyId}_${connectedAddress}_${Date.now()}`;
         await Promise.race([
-            const listingId = `${companyId}_${connectedAddress}_${Date.now()}`;
             equityContract.listEquity(listingId, companyId, units, priceRaw).then(tx => tx.wait().then(() => { listingTxHash = tx.hash; })),
             new Promise(resolve => setTimeout(resolve, 15000))
         ]);
