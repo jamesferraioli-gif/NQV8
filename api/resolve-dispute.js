@@ -15,21 +15,25 @@ if (!getApps().length) {
 }
 const db = getFirestore();
 
-const ESCROW_CONTRACT_ADDRESS  = '0x413EF7256f8099ea202d8C0fe3e620F5259c7a83';
-const EQUITY_REGISTRY_ADDRESS  = '0x99A3512b49b2dd8b4b553E98aAcF344DFF109C51';
+const ESCROW_CONTRACT_ADDRESS  = '0x19E9E191e5F277053Db4373FAbb8fBdEa8A30761';
+const EQUITY_REGISTRY_ADDRESS  = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2';
 const PLATFORM_WALLET          = '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D';
 const PLATFORM_FEE_BPS         = 350;
 const ARBITRUM_RPC             = 'https://arb1.arbitrum.io/rpc';
 
 const ESCROW_ABI = [
     "function resolveDispute(bytes32 escrowId, uint256 workerPct, uint256 posterPct, string claudeRuling) external",
-    "function projectToEscrow(string) external view returns (bytes32)"
+    "function projectToEscrow(bytes32 projectKey) external view returns (bytes32)"
 ];
 
+function toBytes32(str) {
+    return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(str));
+}
+
 const EQUITY_ABI = [
-    "function completeReservation(string companyId, string bountyId, address platformWallet, uint256 feeBps) external",
-    "function releaseReservation(string companyId, string bountyId) external",
-    "function reservations(string companyId, string bountyId) external view returns (address,address,uint256,bool)"
+    "function completeReservation(bytes32 companyId, bytes32 bountyId, address platformWallet, uint256 feeBps) external",
+    "function releaseReservation(bytes32 companyId, bytes32 bountyId) external",
+    "function reservations(bytes32 companyId, bytes32 bountyId) external view returns (address founder, address beneficiary, uint128 units, bool active)"
 ];
 
 export default async function handler(req, res) {
@@ -169,26 +173,25 @@ workerPct + posterPct MUST equal exactly 100.`;
         if (isEquityBounty && project.equityReserved && project.companyId) {
             // ── Equity dispute resolution ─────────────────────────────
             const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_ABI, opsWallet);
-            const reservation    = await equityContract.reservations(project.companyId, projectId);
-            const isActive       = reservation[3];
+            const companyIdBytes = toBytes32(project.companyId);
+            const bountyIdBytes  = toBytes32(projectId);
+            const reservation    = await equityContract.reservations(companyIdBytes, bountyIdBytes);
 
-            if (!isActive) {
+            if (!reservation.active) {
                 throw new Error('No active equity reservation found for this project');
             }
 
             if (ruling.workerPct >= 50) {
-                // Worker wins — transfer equity to builder (with platform fee)
                 tx = await equityContract.completeReservation(
-                    project.companyId,
-                    projectId,
+                    companyIdBytes,
+                    bountyIdBytes,
                     PLATFORM_WALLET,
                     PLATFORM_FEE_BPS
                 );
             } else {
-                // Poster wins — release equity back to founder
                 tx = await equityContract.releaseReservation(
-                    project.companyId,
-                    projectId
+                    companyIdBytes,
+                    bountyIdBytes
                 );
             }
             await tx.wait();
@@ -197,8 +200,8 @@ workerPct + posterPct MUST equal exactly 100.`;
         } else {
             // ── USDC escrow dispute resolution ────────────────────────
             const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, opsWallet);
-            const escrowId       = await escrowContract.projectToEscrow(projectId);
-
+            const escrowId       = await escrowContract.projectToEscrow(ethers.utils.keccak256(ethers.utils.toUtf8Bytes(projectId)));
+            
             if (escrowId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
                 throw new Error('No escrow found for this project');
             }
