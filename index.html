@@ -7168,24 +7168,6 @@ async function loadTotalFundingReceivedStat() {
                            class="w-full bg-zinc-900 border border-zinc-600 rounded-xl px-4 py-2 outline-none text-sm font-mono">
                 </div>
             </div>
-
-            <!-- Payment wallet -->
-            <div class="mb-4 bg-zinc-800 border border-zinc-700 rounded-2xl p-4">
-                <p class="text-xs text-zinc-400 mb-2">💳 Payment will be sent to</p>
-                <div class="flex items-center gap-2 mb-2">
-                    <input type="radio" id="wallet-use-connected" name="payment-wallet-choice" value="connected" checked onchange="document.getElementById('bid-custom-wallet').classList.add('hidden')">
-                    <label for="wallet-use-connected" class="text-sm text-zinc-300">My connected wallet: <span class="font-mono text-cyan-400">${connectedAddress ? connectedAddress.slice(0,6)+'...'+connectedAddress.slice(-4) : 'Not connected'}</span></label>
-                </div>
-                <div class="flex items-center gap-2">
-                    <input type="radio" id="wallet-use-custom" name="payment-wallet-choice" value="custom" onchange="document.getElementById('bid-custom-wallet').classList.remove('hidden')">
-                    <label for="wallet-use-custom" class="text-sm text-zinc-300">Use a different wallet address</label>
-                </div>
-                <div id="bid-custom-wallet" class="hidden mt-2">
-                    <input id="bid-payment-wallet" type="text" placeholder="0x..."
-                           class="w-full bg-zinc-900 border border-zinc-600 rounded-xl px-4 py-2 outline-none text-sm font-mono">
-                </div>
-            </div>
-
             <button onclick="placeBid('${projectId}', '${project.compensationType || 'cash'}')"
                     class="w-full py-5 bg-white text-black font-semibold rounded-3xl">
                 Place Bid ($0.01 NQV8)
