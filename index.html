@@ -4298,7 +4298,7 @@ const TREASURY_ADDRESS = '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D';
 const FOUNDER_ADDRESS = '0x0A6090b655A9eB73f85449609eB2336e76d64c47';
 
 // NQVate Escrow contract — deployed on Arbitrum One NEWXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
-const ESCROW_CONTRACT_ADDRESS = '0xE484561B8D1c4274853CDE01d397294CBa5dEaCa';
+const ESCROW_CONTRACT_ADDRESS = '0x19E9E191e5F277053Db4373FAbb8fBdEa8A30761';
 
 // NQVate Equity Registry — deployed on Arbitrum One
 const EQUITY_REGISTRY_ADDRESS = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2'
@@ -4343,8 +4343,9 @@ const EQUITY_REGISTRY_ABI = [
     "event OfferRejected(bytes32 indexed offerId, address buyer, uint256 refund)",
     "event OfferExpired(bytes32 indexed offerId, address buyer, uint256 refund)"
 ];
+
 const ESCROW_ABI = [
-    "function createEscrow(string projectId, address worker, uint256 amount, uint8 currency, uint256 deadline) external returns (bytes32)",
+    "function createEscrow(string projectId, address worker, uint256 amount, uint256 deadline) external returns (bytes32)",
     "function submitDeliverables(bytes32 escrowId) external",
     "function releaseEscrow(bytes32 escrowId) external",
     "function claimAutoRelease(bytes32 escrowId) external",
@@ -4353,14 +4354,15 @@ const ESCROW_ABI = [
     "function resolveDispute(bytes32 escrowId, uint256 workerPct, uint256 posterPct, string claudeRuling) external",
     "function emergencyRefund(bytes32 id) external",
     "function emergencyRelease(bytes32 id) external",
-    "function getEscrowByProject(string projectId) external view returns (tuple(string projectId, address poster, address worker, uint256 amount, uint8 currency, uint8 status, uint256 deadline, uint256 createdAt), tuple(uint256 submittedAt, uint256 autoReleaseAt, bool disputeFiled, address disputeFiledBy, uint256 disputedAt, uint256 workerPct, uint256 posterPct, string claudeRuling))",
-    "function canAutoRelease(bytes32 escrowId) external view returns (bool)",
-    "function canClaimRefund(bytes32 escrowId) external view returns (bool)",
-    "function previewWorkerPayout(uint256 amount) external pure returns (uint256 workerAmount, uint256 platformFee)",
-    "function projectToEscrow(string) external view returns (bytes32)",
     "function adminRelease(bytes32 escrowId) external",
     "function adminRefund(bytes32 escrowId) external",
     "function adminAutoRelease(bytes32 escrowId) external",
+    "function getEscrowByProject(string projectId) external view returns (tuple(address poster, address worker, uint128 amount, uint64 deadline, uint64 createdAt, uint64 submittedAt, uint64 autoReleaseAt, uint8 status, bool disputeFiled, address disputeFiledBy, uint32 workerPct, uint32 posterPct), string ruling)",
+    "function canAutoRelease(bytes32 escrowId) external view returns (bool)",
+    "function canClaimRefund(bytes32 escrowId) external view returns (bool)",
+    "function previewWorkerPayout(uint256 amount) external pure returns (uint256 workerAmount, uint256 platformFee)",
+    "function projectToEscrow(bytes32) external view returns (bytes32)",
+    "function escrows(bytes32) external view returns (address poster, address worker, uint128 amount, uint64 deadline, uint64 createdAt, uint64 submittedAt, uint64 autoReleaseAt, uint8 status, bool disputeFiled, address disputeFiledBy, uint32 workerPct, uint32 posterPct)",
     "event EscrowReleased(bytes32 indexed escrowId, address worker, uint256 workerAmount, uint256 platformFee)"
 ];
 
@@ -8016,7 +8018,7 @@ function hideEditPostingModal() {
                             const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
                             let escrowTxHash3m = null;
                             await Promise.race([
-                                escrowContract.createEscrow(currentProjectId, workerWallet, cashRaw, 0, deadlineTs).then(tx => tx.wait().then(() => { escrowTxHash3m = tx.hash; })),
+                                escrowContract.createEscrow(currentProjectId, workerWallet, cashRaw, deadlineTs).then(tx => tx.wait().then(() => { escrowTxHash3m = tx.hash; })),
                                 new Promise(resolve => setTimeout(resolve, 15000))
                             ]);
                             escrowTxHash = escrowTxHash3m;
@@ -8156,7 +8158,7 @@ function hideEditPostingModal() {
                 const escrowContractFresh = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
                 let escrowTxHash4 = null;
                 await Promise.race([
-                    escrowContractFresh.createEscrow(currentProjectId, workerWallet, amountRaw, currency, deadlineTs).then(tx => tx.wait().then(() => { escrowTxHash4 = tx.hash; })),
+                    escrowContractFresh.createEscrow(currentProjectId, workerWallet, amountRaw, deadlineTs).then(tx => tx.wait().then(() => { escrowTxHash4 = tx.hash; })),
                     new Promise(resolve => setTimeout(resolve, 15000))
                 ]);
                 const escrowTx = { hash: escrowTxHash4 };
@@ -8546,7 +8548,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
 
             try {
                 const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
-                const escrowId = await escrowContract.projectToEscrow(currentProjectId);
+                const escrowId = await escrowContract.projectToEscrow(ethers.utils.keccak256(ethers.utils.toUtf8Bytes(currentProjectId)));
                 const hasEscrow = escrowId !== '0x0000000000000000000000000000000000000000000000000000000000000000';
 
                 // ── Equity reservation path — approve work, equity releases at review ──
@@ -15108,7 +15110,7 @@ async function fileProjectDispute(projectId) {
 
     try {
         const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
-        const escrowId = await escrowContract.projectToEscrow(projectId);
+        const escrowId = await escrowContract.projectToEscrow(ethers.utils.keccak256(ethers.utils.toUtf8Bytes(projectId)));
         const hasEscrow = escrowId !== '0x0000000000000000000000000000000000000000000000000000000000000000';
         if (!hasEscrow) return alert("No escrow found for this project.");
 
@@ -15182,7 +15184,7 @@ async function loadEscrowActions(projectId, project) {
     try {
         const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
         const escrowReadOnly = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, arbProvider);
-        const escrowId = await escrowReadOnly.projectToEscrow(projectId);
+        const escrowId = await escrowReadOnly.projectToEscrow(ethers.utils.keccak256(ethers.utils.toUtf8Bytes(projectId)));
         const noEscrow = escrowId === '0x0000000000000000000000000000000000000000000000000000000000000000';
 
         if (noEscrow) {
@@ -15200,9 +15202,7 @@ async function loadEscrowActions(projectId, project) {
         const status = statusMap[core.status] || 'Unknown';
         const isPoster = currentUser.uid === project.posterUid || currentUser.uid === project.ownerUid;
         const isWorker = currentUser.uid === project.acceptedBidderUid;
-        const amountFormatted = core.currency === 0
-            ? `$${parseFloat(ethers.utils.formatUnits(core.amount, 6)).toFixed(2)} USDC`
-            : `${parseFloat(ethers.utils.formatUnits(core.amount, 18)).toLocaleString()} NQV8`;
+        const amountFormatted = `$${parseFloat(ethers.utils.formatUnits(core.amount, 6)).toFixed(2)} USDC`;
 
         let html = `
             <div class="bg-zinc-800 rounded-2xl p-5 mb-4">
@@ -15253,7 +15253,7 @@ async function claimAutoReleaseEscrow(projectId) {
     if (!confirm("Claim auto-release? 7 days have passed since you submitted. 96.5% will be released to you now.")) return;
     try {
         const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
-        const escrowId = await escrowContract.projectToEscrow(projectId);
+        const escrowId = await escrowContract.projectToEscrow(ethers.utils.keccak256(ethers.utils.toUtf8Bytes(projectId)));
         const tx = await escrowContract.claimAutoRelease(escrowId);
         await tx.wait();
         await db.collection("subprojects").doc(projectId).update({ status: "completed", completedAt: firebase.firestore.FieldValue.serverTimestamp(), escrowAutoReleased: true });
@@ -15274,9 +15274,8 @@ async function claimEscrowRefund(projectId) {
     try {
         const projectSnap = await db.collection("subprojects").doc(projectId).get();
         const project = projectSnap.data();
-
         const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
-        const escrowId = await escrowContract.projectToEscrow(projectId);
+        const escrowId = await escrowContract.projectToEscrow(ethers.utils.keccak256(ethers.utils.toUtf8Bytes(projectId)));
         const tx = await escrowContract.claimRefund(escrowId);
         await tx.wait();
 
