@@ -4307,16 +4307,10 @@ const EQUITY_REGISTRY_ABI = [
     "function transferEquity(string projectId, address to, uint256 units, string reason) external",
     "function adminTransferEquity(string projectId, address from, address to, uint256 units, string reason) external",
     "function listEquity(string listingId, string companyId, uint256 units, uint256 pricePerUnit) external",
-    "function cancelListing(bytes32 listingId) external",
-    "function buyNow(bytes32 listingId) external",
-    "function makeOffer(bytes32 listingId, uint256 offerPricePerUnit) external returns (bytes32)",
-    "function acceptOffer(bytes32 offerId) external",
-    "function rejectOffer(bytes32 offerId) external",
-    "function counterOffer(bytes32 offerId, uint256 counterPricePerUnit) external",
-    "function acceptCounter(bytes32 offerId) external",
-    "function rejectCounter(bytes32 offerId) external",
-    "function withdrawOffer(bytes32 offerId) external",
-    "function expireOffer(bytes32 offerId) external",
+    "function cancelListing(string listingId) external",
+    "function makeOffer(string offerId, string listingId, uint256 units, uint256 pricePerUnit) external",
+    "function acceptOffer(string offerId) external",
+    "function rejectOffer(string offerId) external",
     "function balances(string projectId, address wallet) external view returns (uint256)",
     "function projects(string projectId) external view returns (tuple(string projectId, string name, address founder, bool exists, uint256 createdAt, uint256 lastSalePricePerUnit, uint256 lastSaleAt, uint256 totalTradeVolume, bytes32 metricsHash, uint256 metricsUpdatedAt))",
     "function listings(bytes32 listingId) external view returns (bytes32 listingId, string projectId, address seller, uint256 units, uint256 askPricePerUnit, uint8 status, uint256 createdAt)",
@@ -14595,9 +14589,11 @@ async function loadAndShowDeck(companyId) {
 }
 
 async function buyNowOnChain(listingId, totalUSDC) {
+    return alert('Direct purchase is not available. Please use "Make Offer" at the asking price.');
+}
+async function buyNowOnChain_v2(listingId, totalUSDC) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
     if (!confirm(`Buy this stake for $${totalUSDC.toFixed(2)} USDC?\n\n3.5% platform fee applies. 96.5% goes to seller.`)) return;
-
     try {
         const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
         const listing = await equityContract.listings(listingId);
@@ -14659,8 +14655,9 @@ async function makeOfferOnChain(listingId, units) {
         }
 
         let _txHash7b = null;
+        const offerId = `${listingId}_${connectedAddress}_${Date.now()}`;
         await Promise.race([
-            equityContract.makeOffer(listingId, priceRaw).then(tx => tx.wait().then(() => { _txHash7b = tx.hash; })),
+            equityContract.makeOffer(offerId, listingId, units, priceRaw).then(tx => tx.wait().then(() => { _txHash7b = tx.hash; })),
             new Promise(resolve => setTimeout(resolve, 15000))
         ]);
         const tx = { hash: _txHash7b };
@@ -14858,6 +14855,9 @@ async function rejectOfferOnChain(offerId) {
 }
 
 async function counterOfferOnChain(offerId) {
+    return alert('Counter offers are not available in this version. Please reject and make a new offer.');
+}
+async function counterOfferOnChain_v2(offerId) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
     const counterStr = prompt("Enter your counter price per unit in USDC:");
     if (!counterStr) return;
