@@ -3,8 +3,8 @@
 // Finds equity bounties where:
 //   - Work was submitted (latest submission status = 'pending')
 //   - Founder has not responded in 7+ days
-//   - Equity is still reserved on V3
-// Auto-completes the reservation in the builder's favor (same as USDC 7-day auto-release).
+//   - Equity is still reserved on V4
+// Auto-completes the reservation in the builder's favor.
 
 import { ethers } from 'ethers';
 import { initializeApp, getApps } from 'firebase-admin/app';
@@ -18,21 +18,30 @@ if (!getApps().length) {
 }
 const db = getFirestore();
 
-const EQUITY_REGISTRY_ADDRESS = '0x99A3512b49b2dd8b4b553E98aAcF344DFF109C51';
+const EQUITY_REGISTRY_ADDRESS = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2';
 const PLATFORM_WALLET         = '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D';
 const PLATFORM_FEE_BPS        = 350;
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
-const AUTO_RELEASE_DAYS       = 7;
+const AUTO_RELEASE_DAYS       = parseInt(process.env.AUTO_RELEASE_DAYS || '7');
 
 const EQUITY_ABI = [
-    "function completeReservation(string companyId, string bountyId, address platformWallet, uint256 feeBps) external",
-    "function reservations(string companyId, string bountyId) external view returns (address,address,uint256,bool)"
+    "function completeReservation(bytes32 companyId, bytes32 bountyId, address platformWallet, uint256 feeBps) external",
+    "function reservations(bytes32 companyId, bytes32 bountyId) external view returns (address founder, address beneficiary, uint128 units, bool active)"
 ];
 
+function toBytes32(str) {
+    return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(str));
+}
+
 export default async function handler(req, res) {
-    // Allow both cron invocations and manual POST triggers
     if (req.method !== 'POST' && req.method !== 'GET') {
         return res.status(405).json({ error: 'Method not allowed' });
+    }
+
+    const authHeader = req.headers['authorization'];
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}` &&
+        authHeader !== `Bearer ${process.env.INTERNAL_API_SECRET}`) {
+        return res.status(401).json({ error: 'Unauthorized' });
     }
 
     const cutoff = new Date();
@@ -41,15 +50,14 @@ export default async function handler(req, res) {
     console.log(`🕐 equity-auto-resolve: checking for stale equity bounties submitted before ${cutoff.toISOString()}`);
 
     try {
-        // Find in-progress equity bounties with pending submissions
         const snap = await db.collection('subprojects')
             .where('status', '==', 'in-progress')
             .where('equityReserved', '==', true)
             .where('equityTransferred', '==', false)
             .get();
 
-        const provider    = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
-        const opsWallet   = new ethers.Wallet(process.env.OPERATIONS_PRIVATE_KEY, provider);
+        const provider       = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const opsWallet      = new ethers.Wallet(process.env.OPERATIONS_PRIVATE_KEY, provider);
         const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_ABI, opsWallet);
 
         const results = [];
@@ -59,38 +67,37 @@ export default async function handler(req, res) {
             const projectId = doc.id;
 
             try {
-                // Find the latest pending submission
                 const submissions = project.submissions || [];
                 if (submissions.length === 0) continue;
 
                 const latest = submissions[submissions.length - 1];
                 if (latest.status !== 'pending') continue;
 
-                // Check if it's been 7+ days since submission
                 const submittedAt = latest.submittedAt?.toDate
                     ? latest.submittedAt.toDate()
                     : new Date(latest.submittedAt);
 
-                if (submittedAt > cutoff) continue; // Not old enough yet
+                if (submittedAt > cutoff) continue;
 
-                // Verify reservation is still active on V3
-                const reservation = await equityContract.reservations(project.companyId, projectId);
-                const isActive    = reservation[3];
-                if (!isActive) {
+                // Verify reservation is still active on V4
+                const companyIdBytes = toBytes32(project.companyId);
+                const bountyIdBytes  = toBytes32(projectId);
+                const reservation    = await equityContract.reservations(companyIdBytes, bountyIdBytes);
+
+                if (!reservation.active) {
                     console.log(`⚠️ ${projectId}: reservation not active, skipping`);
                     continue;
                 }
 
-                const equityUnits   = reservation[2].toNumber();
+                const equityUnits   = reservation.units.toNumber();
                 const workerUnits   = Math.round(equityUnits * (10000 - PLATFORM_FEE_BPS) / 10000);
                 const platformUnits = equityUnits - workerUnits;
 
                 console.log(`🔓 Auto-releasing equity for ${projectId}: ${equityUnits} units → builder`);
 
-                // Complete the reservation — builder gets 96.5%, platform 3.5%
                 const tx = await equityContract.completeReservation(
-                    project.companyId,
-                    projectId,
+                    companyIdBytes,
+                    bountyIdBytes,
                     PLATFORM_WALLET,
                     PLATFORM_FEE_BPS
                 );
@@ -110,8 +117,8 @@ export default async function handler(req, res) {
                     autoReleaseReason:      `Founder did not respond within ${AUTO_RELEASE_DAYS} days of submission`
                 });
 
-                // Update equityHolders index — upsert builder entry
-                const workerWallet = reservation[1]; // beneficiary from reservation
+                // Update equityHolders index
+                const workerWallet = reservation.beneficiary;
                 if (workerWallet && workerWallet !== ethers.constants.AddressZero) {
                     const builderSnap = await db.collection('equityHolders')
                         .where('projectId', '==', project.companyId)
@@ -128,8 +135,9 @@ export default async function handler(req, res) {
                             addedAt: new Date()
                         });
                     } else {
+                        const existing = builderSnap.docs[0].data().units || 0;
                         await db.collection('equityHolders').doc(builderSnap.docs[0].id).update({
-                            units: workerUnits // Note: increment would be better but admin SDK FieldValue differs
+                            units: existing + workerUnits
                         });
                     }
 
@@ -156,8 +164,6 @@ export default async function handler(req, res) {
                 }
 
                 // Notify both parties
-                const autoRuling = `Work was submitted ${AUTO_RELEASE_DAYS} days ago with no response from the project owner. Equity auto-released to the builder per NQVate policy.`;
-
                 await db.collection('notifications').add({
                     recipientUid: project.acceptedBidderUid,
                     type: 'auto_release',
@@ -179,8 +185,8 @@ export default async function handler(req, res) {
                 results.push({ projectId, txHash: tx.hash, equityUnits, status: 'released' });
 
             } catch(e) {
-                if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') || 
-                    e.message.includes('gas required exceeds allowance') || 
+                if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') ||
+                    e.message.includes('gas required exceeds allowance') ||
                     e.message.includes('insufficient funds')) {
                     console.error(`⚠️ PLATFORM GAS LOW — top up Operations wallet. Failed to auto-release ${projectId}:`, e.message);
                 } else {
@@ -194,8 +200,8 @@ export default async function handler(req, res) {
         return res.json({ success: true, processed: results.length, results });
 
     } catch(e) {
-        if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') || 
-            e.message.includes('gas required exceeds allowance') || 
+        if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') ||
+            e.message.includes('gas required exceeds allowance') ||
             e.message.includes('insufficient funds')) {
             console.error('⚠️ PLATFORM GAS LOW — top up Operations wallet:', e.message);
         } else {
