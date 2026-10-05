@@ -5125,7 +5125,7 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
             payBtn.disabled = false;
             console.error('Payment error:', e.message, e.code);
             window._lastPaymentError = e.message;
-            alert('Debug error: ' + e.message);
+            console.error('Payment debug error:', e.message);
             if (handleWalletError(e)) {
                 modal.remove();
                 return;
@@ -8714,9 +8714,10 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             } catch (e) {
                 const msg = e.message || '';
                 if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
+                else if (msg === 'PLATFORM_GAS_ERROR') alert("⚠️ We're experiencing a temporary technical issue. Please try again in a few minutes or contact NQVate support.");
                 else alert("Failed to release escrow: " + msg);
             }
-        }    
+        }
 
         async function requestChanges(submissionIndex) {
             if (!currentProjectId || !currentProject) return;
@@ -9872,6 +9873,16 @@ async function startVideoCall() {
         
             if (!title || !desc || !category || !compensation) return alert("Please fill in all fields");
         
+            // Enforce $20 minimum for USDC and mixed bounties
+            if (selectedBountyCompType === 'cash' || selectedBountyCompType === 'mixed') {
+                const cashStr = selectedBountyCompType === 'cash'
+                    ? document.getElementById('bounty-compensation-cash').value
+                    : document.getElementById('bounty-compensation-mixed-cash').value;
+                const cashNum = parseFloat(cashStr.replace(/[^0-9.]/g, ''));
+                if (isNaN(cashNum) || cashNum < 20) {
+                    return alert('❌ Minimum USDC bounty amount is $20.00. This ensures platform fees cover transaction costs.');
+                }
+            }        
             try {
                 const projectSnap = await db.collection("projects").doc(currentParentProjectId).get();
                 const project = projectSnap.data();
@@ -14423,8 +14434,7 @@ async function buyNowOnChain(listingId, totalUSDC) {
         indexEquityTrade(listing.projectId, listing.seller, connectedAddress, listing.units.toNumber(), tx.hash);
     } catch(e) {
         const msg = e.message || '';
-        if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
-        else alert("Purchase failed: " + msg);
+        if (!handleWalletError(e)) alert("Purchase failed: " + msg);
     }
 }
 
@@ -14474,8 +14484,7 @@ async function makeOfferOnChain(listingId, units) {
         } catch(e) { console.warn('Could not trigger revaluation:', e.message); }
     } catch(e) {
         const msg = e.message || '';
-        if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
-        else alert("Offer failed: " + msg);
+        if (!handleWalletError(e)) alert("Offer failed: " + msg);
     }
 }
 
@@ -14631,8 +14640,7 @@ async function rejectOfferOnChain(offerId) {
         loadEquityListings();
     } catch(e) {
         const msg = e.message || '';
-        if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
-        else alert("Failed: " + msg);
+        if (!handleWalletError(e)) alert("Failed to file dispute: " + msg);
     }
 }
 
