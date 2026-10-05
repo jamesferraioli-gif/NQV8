@@ -6073,12 +6073,18 @@ function navigateTo(page) {
             if (dropdown) dropdown.classList.toggle('hidden');
         }
 
-        // Close profile dropdown and mobile menu when clicking outside
+        // Close profile dropdown, notification panel and mobile menu when clicking outside
         document.addEventListener('click', (e) => {
             const dropdown = document.getElementById('profile-dropdown');
             const profileBtn = e.target.closest('[onclick="toggleProfileMenu()"]');
             if (dropdown && !dropdown.classList.contains('hidden') && !profileBtn && !dropdown.contains(e.target)) {
                 dropdown.classList.add('hidden');
+            }
+
+            const notifDropdown = document.getElementById('notif-dropdown');
+            const notifBtn = e.target.closest('[onclick^="toggleNotifications"]');
+            if (notifDropdown && !notifDropdown.classList.contains('hidden') && !notifBtn && !notifDropdown.contains(e.target)) {
+                notifDropdown.classList.add('hidden');
             }
 
             const mobileMenu = document.getElementById('mobile-menu');
