@@ -136,12 +136,12 @@
                                 <p class="font-semibold" id="dropdown-name">User</p>
                                 <p class="text-xs text-zinc-500" id="dropdown-username"></p>
                             </div>
-                            <button onclick="viewProfile()" class="w-full text-left px-6 py-3 hover:bg-zinc-800 flex items-center gap-3">👤 View Profile</button>
+                            <button onclick="toggleProfileMenu(); viewProfile()" class="w-full text-left px-6 py-3 hover:bg-zinc-800 flex items-center gap-3">👤 View Profile</button>
                             <button onclick="toggleProfileMenu(); showSupportModal()" class="w-full text-left px-6 py-3 hover:bg-zinc-800 flex items-center gap-3">🎫 Submit Support Ticket</button>
-                            <button onclick="disconnectWallet()" class="w-full text-left px-6 py-3 text-amber-400 hover:bg-zinc-800 flex items-center gap-3">
-                                <i class="fa-solid fa-wallet"></i> Disconnect Wallet
+                            <button id="dropdown-wallet-btn" onclick="toggleProfileMenu(); connectedAddress ? disconnectWallet() : connectWallet()" class="w-full text-left px-6 py-3 text-amber-400 hover:bg-zinc-800 flex items-center gap-3">
+                                <i class="fa-solid fa-wallet"></i> <span id="dropdown-wallet-label">Connect Wallet</span>
                             </button>
-                            <button onclick="logout()" class="w-full text-left px-6 py-3 text-red-400 hover:bg-zinc-800">Logout</button>
+                            <button onclick="toggleProfileMenu(); logout()" class="w-full text-left px-6 py-3 text-red-400 hover:bg-zinc-800">Logout</button>
                         </div>
                     </div>
 
@@ -4777,7 +4777,8 @@ async function onWalletConnected() {
         });
         window.ethereum.on('chainChanged', () => window.location.reload());
     }
-
+    const walletLabel = document.getElementById('dropdown-wallet-label');
+    if (walletLabel) walletLabel.textContent = 'Disconnect Wallet';
     console.log('✅ Wallet connected:', connectedAddress);
     // Reload profile data to refresh on-chain balances
     if (typeof loadProfileData === 'function') loadProfileData();
@@ -6180,7 +6181,8 @@ function navigateTo(page) {
         
             // Hide wallet status in signup form
             document.getElementById('wallet-status')?.classList.add('hidden');
-        
+            const walletLabel = document.getElementById('dropdown-wallet-label');
+            if (walletLabel) walletLabel.textContent = 'Connect Wallet';
             console.log('Wallet disconnected');
         }
 
