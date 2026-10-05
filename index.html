@@ -167,16 +167,16 @@
 </div>
 
 <div id="mobile-menu" class="hidden md:hidden bg-zinc-900 border-b border-zinc-800 px-6 py-4 space-y-4 sticky top-[72px] z-40">    
-    <a onclick="navigateTo('marketplace'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏪 Marketplace</a>
-    <a onclick="navigateTo('ideas'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🔎 Explore</a>
-    <a onclick="navigateTo('advertise'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">📢 Advertise</a>
-    <a onclick="navigateToChat(); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">💬 Chat</a>
-    <a onclick="navigateTo('leaderboard'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏆 Leaderboard</a>
-    <a onclick="navigateTo('tokenomics'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🪙 NQV8 Tokenomics</a>
-    <a onclick="navigateTo('studio'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🗺️ Studio</a>
-    <a onclick="navigateTo('about'); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">ℹ️ About</a>
-    <a onclick="viewProfile(); toggleMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">👤 My Profile</a>
-    <a onclick="toggleMobileMenu(); showSupportModal()" class="block py-2 hover:text-cyan-400 cursor-pointer">🎫 Support</a>
+    <a onclick="navigateTo('marketplace'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏪 Marketplace</a>
+    <a onclick="navigateTo('ideas'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🔎 Explore</a>
+    <a onclick="navigateTo('advertise'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">📢 Advertise</a>
+    <a onclick="navigateToChat(); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">💬 Chat</a>
+    <a onclick="navigateTo('leaderboard'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏆 Leaderboard</a>
+    <a onclick="navigateTo('tokenomics'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🪙 NQV8 Tokenomics</a>
+    <a onclick="navigateTo('studio'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🗺️ Studio</a>
+    <a onclick="navigateTo('about'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">ℹ️ About</a>
+    <a onclick="viewProfile(); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">👤 My Profile</a>
+    <a onclick="closeMobileMenu(); showSupportModal()" class="block py-2 hover:text-cyan-400 cursor-pointer">🎫 Support</a>
     <a onclick="logout()" class="block py-2 text-red-400 cursor-pointer">Logout</a>
 </div>
 
@@ -6119,6 +6119,9 @@ function navigateTo(page) {
             menu.classList.toggle('hidden');
         }
 
+        function closeMobileMenu() {
+            document.getElementById('mobile-menu')?.classList.add('hidden');
+        }
         function updateProfileUI() {
             if (!currentUser) return;
             const initials = (currentUser.firstName?.[0] || '') + (currentUser.lastName?.[0] || '');
