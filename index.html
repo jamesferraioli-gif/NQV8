@@ -6043,6 +6043,11 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
         }
 
 function navigateTo(page) {
+            // Close all dropdowns on navigation
+            document.getElementById('notif-dropdown')?.classList.add('hidden');
+            document.getElementById('profile-dropdown')?.classList.add('hidden');
+            document.getElementById('mobile-menu')?.classList.add('hidden');
+
             // Pages that require login
             const protectedPages = ['profile', 'chat', 'studio', 'advertise'];
             if (protectedPages.includes(page) && !currentUser) {
