@@ -11121,8 +11121,13 @@ async function loadForYouFeed() {
 
         
     function switchMarketplaceTab(tab) {
-        // Close any open posting detail modal when switching tabs
+        // Close all dropdowns and modals when switching tabs
+        document.getElementById('notif-dropdown')?.classList.add('hidden');
+        document.getElementById('profile-dropdown')?.classList.add('hidden');
+        document.getElementById('project-detail-modal')?.classList.add('hidden');
         hideProjectDetailModal();
+        currentProjectId = null;
+        currentProject = null;
         const buildTab = document.getElementById('tab-build-market');
         const fundTab = document.getElementById('tab-fund-market');
         const equityTab = document.getElementById('tab-equity-market');
