@@ -6073,6 +6073,21 @@ function navigateTo(page) {
             if (dropdown) dropdown.classList.toggle('hidden');
         }
 
+        // Close profile dropdown and mobile menu when clicking outside
+        document.addEventListener('click', (e) => {
+            const dropdown = document.getElementById('profile-dropdown');
+            const profileBtn = e.target.closest('[onclick="toggleProfileMenu()"]');
+            if (dropdown && !dropdown.classList.contains('hidden') && !profileBtn && !dropdown.contains(e.target)) {
+                dropdown.classList.add('hidden');
+            }
+
+            const mobileMenu = document.getElementById('mobile-menu');
+            const mobileBtn = e.target.closest('#mobile-menu-btn');
+            if (mobileMenu && !mobileMenu.classList.contains('hidden') && !mobileBtn && !mobileMenu.contains(e.target)) {
+                mobileMenu.classList.add('hidden');
+            }
+        });
+
         function viewProfile() {
             toggleProfileMenu();
             navigateTo('profile');
