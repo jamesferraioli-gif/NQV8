@@ -1,18 +1,21 @@
 // api/equity-release.js
 // Called when a bounty is cancelled, deadline passes, or work is rejected.
-// Calls releaseReservation() on V3 from the Operations wallet,
+// Calls releaseReservation() on V4 from the Operations wallet,
 // returning the reserved units to the founder's available balance.
-
 
 import { ethers } from 'ethers';
 
-const EQUITY_REGISTRY_ADDRESS = '0x99A3512b49b2dd8b4b553E98aAcF344DFF109C51';
+const EQUITY_REGISTRY_ADDRESS = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2';
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
 
 const EQUITY_ABI = [
-    "function releaseReservation(string companyId, string bountyId) external",
-    "function reservations(string companyId, string bountyId) external view returns (address,address,uint256,bool)"
+    "function releaseReservation(bytes32 companyId, bytes32 bountyId) external",
+    "function reservations(bytes32 companyId, bytes32 bountyId) external view returns (address founder, address beneficiary, uint128 units, bool active)"
 ];
+
+function toBytes32(str) {
+    return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(str));
+}
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -33,9 +36,12 @@ export default async function handler(req, res) {
         const wallet   = new ethers.Wallet(process.env.OPERATIONS_PRIVATE_KEY, provider);
         const equity   = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_ABI, wallet);
 
+        const companyIdBytes = toBytes32(companyId);
+        const bountyIdBytes  = toBytes32(bountyId);
+
         // Check if reservation is active
-        const reservation = await equity.reservations(companyId, bountyId);
-        if (!reservation[3]) {
+        const reservation = await equity.reservations(companyIdBytes, bountyIdBytes);
+        if (!reservation.active) {
             return res.status(200).json({
                 success: true,
                 skipped: true,
@@ -43,8 +49,8 @@ export default async function handler(req, res) {
             });
         }
 
-        const units = reservation[2].toNumber();
-        const tx = await equity.releaseReservation(companyId, bountyId);
+        const units = reservation.units.toNumber();
+        const tx = await equity.releaseReservation(companyIdBytes, bountyIdBytes);
         await tx.wait();
 
         console.log(`✅ Released ${units} units for bounty ${bountyId}`);
