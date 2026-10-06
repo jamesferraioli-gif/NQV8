@@ -14796,6 +14796,14 @@ async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk) {
         const acceptResult = await acceptResp.json();
         if (!acceptResult.success) throw new Error(acceptResult.error || 'Auto-accept failed');
 
+        // Mark listing as sold in Firestore
+        await db.collection('equityListings').doc(listingId).update({
+            active: false,
+            status: 'sold',
+            soldAt: firebase.firestore.FieldValue.serverTimestamp(),
+            buyerAddress: connectedAddress.toLowerCase()
+        }).catch(e => console.warn('Failed to mark listing sold:', e.message));
+
         alert(`✅ Purchase complete! Equity transferred.\nTx: https://arbiscan.io/tx/${acceptResult.txHash}`);
         hideProjectDetailModal();
         loadEquityListings();
