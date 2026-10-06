@@ -8641,12 +8641,12 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
 
         async function rerunVirusScan(projectId, submissionIndex) {
             try {
-                await fetch('/api/review-submission', {
+                await fetch('/api/virus-scan', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ virusScanOnly: true, projectId, submissionIndex })
+                    body: JSON.stringify({ projectId, submissionIndex, attachments: [] })
                 });
-                alert('🔍 Security scan started — refresh in a moment to see results.');
+                alert('🔍 Security scan started — results will update automatically.');
             } catch(e) {
                 alert('Failed to start scan: ' + e.message);
             }
