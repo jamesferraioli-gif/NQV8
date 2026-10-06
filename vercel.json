@@ -130,6 +130,10 @@
             "dest": "/api/virus-scan.js"
         },
         {
+            "src": "/api/virus-scan-poll",
+            "dest": "/api/virus-scan-poll.js"
+        },
+        {
             "src": "/api/admin-list-equity",
             "dest": "/api/admin-list-equity.js"
         },
@@ -186,6 +190,10 @@
         {
             "path": "/api/check-ops-wallet",
             "schedule": "0 7 * * *"
+        },
+        {
+            "path": "/api/virus-scan-poll",
+            "schedule": "*/5 * * * *"
         }
     ]
 }
