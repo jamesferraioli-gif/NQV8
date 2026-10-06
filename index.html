@@ -8470,11 +8470,17 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
 
             // ── Soft warning on scope issues (funding exempt) ──────────
             if (currentSubmitProjectType !== 'fund') {
+                const recLabel = review.recommendation === 'approve'
+                    ? '✅ APPROVED'
+                    : review.recommendation === 'request_changes'
+                    ? '⚠️ CHANGES SUGGESTED'
+                    : '❌ NOT RECOMMENDED';
+
                 const proceed = confirm(
                     `✨ Claude Review\n\n${review.summary}\n\n` +
                     `${review.missingItems.length > 0 ? 'Potentially missing:\n• ' + review.missingItems.join('\n• ') + '\n\n' : ''}` +
-                    `Recommendation: ${review.recommendation.replace('_', ' ').toUpperCase()}\n\n` +
-                    `Do you want to submit anyway?`
+                    `Recommendation: ${recLabel}\n\n` +
+                    `${review.recommendation === 'approve' ? 'Click OK to submit.' : 'Click OK to submit anyway, or Cancel to revise your submission.'}`
                 );
                 if (!proceed) return;
             }
