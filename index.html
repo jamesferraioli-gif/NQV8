@@ -14744,6 +14744,8 @@ async function buyNowOnChain(listingId, totalUSDC) {
 
 async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
+    const buyBtn = document.querySelector(`button[onclick*="makeOfferOnChain('${listingId}'"]`);
+    if (buyBtn) { buyBtn.disabled = true; buyBtn.textContent = '⏳ Processing...'; }
 
     const fee = parseFloat(totalAsk) * 0.035;
     const totalWithFee = parseFloat(totalAsk) + fee;
@@ -14756,16 +14758,16 @@ async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk) {
         const priceRaw = ethers.utils.parseUnits(pricePerUnit.toFixed(6), 6);
         const totalRaw = priceRaw.mul(units);
         const feeRaw = totalRaw.mul(350).div(10000);
-        const totalWithFee = totalRaw.add(feeRaw);
+        const totalWithFeeRaw = totalRaw.add(feeRaw);
 
 
         
         const _ro7b = new ethers.Contract(USDC_ADDRESS, ['function allowance(address,address) view returns (uint256)'], new ethers.providers.JsonRpcProvider(ARBITRUM_RPC));
         const _rw7b = new ethers.Contract(USDC_ADDRESS, ['function approve(address,uint256) returns (bool)'], signer);
         const allowance7b = await _ro7b.allowance(connectedAddress, EQUITY_REGISTRY_ADDRESS);
-        if (allowance7b.lt(totalWithFee)) {
+        if (allowance7b.lt(totalWithFeeRaw)) {
             try {
-                const approveTx = await _rw7b.approve(EQUITY_REGISTRY_ADDRESS, totalWithFee);
+                const approveTx = await _rw7b.approve(EQUITY_REGISTRY_ADDRESS, totalWithFeeRaw);
                 await approveTx.wait();
             } catch(e) {
                 if (e.code === 4001 || e.message?.includes('user rejected')) {
