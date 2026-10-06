@@ -48,7 +48,7 @@ export default async function handler(req, res) {
         }
 
         const totalUnits    = reservation.units.toNumber();
-        const platformUnits = Math.round(totalUnits * PLATFORM_FEE_BPS / 10000);
+        const platformUnits = Math.floor(totalUnits * PLATFORM_FEE_BPS / 10000);
         const workerUnits   = totalUnits - platformUnits;
 
         const tx = await equity.completeReservation(companyIdBytes, bountyIdBytes, PLATFORM_WALLET, PLATFORM_FEE_BPS);
