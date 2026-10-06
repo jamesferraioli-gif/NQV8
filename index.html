@@ -3221,7 +3221,7 @@ async function submitNewCampaign() {
         if (imageFile) {
             if (imageFile.size > 5 * 1024 * 1024) throw new Error('Image must be under 5MB');
 
-            const BLOCKED_EXTENSIONS = ['exe','bat','cmd','msi','dmg','app','vbs','ps1','jar','apk','ipa','deb','rpm','bin','run','php','asp','aspx','jsp','cgi','pl','scr','pif','com','reg','inf','lnk'];
+            const BLOCKED_EXTENSIONS = ['exe','bat','cmd','msi','dmg','app','vbs','ps1','jar','apk','ipa','deb','rpm','bin','run','php','asp','aspx','jsp','cgi','pl','scr','pif','com','reg','inf','lnk','svg','svgz'];
             const ext = imageFile.name.split('.').pop().toLowerCase();
             if (BLOCKED_EXTENSIONS.includes(ext)) {
                 throw new Error(`File type ".${ext}" is not allowed.`);
@@ -8370,12 +8370,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
 
     try {
         // ── File type validation ──────────────────────────────────────
-        const BLOCKED_EXTENSIONS = [
-            'exe','bat','cmd','msi','dmg','app','vbs','ps1',
-            'jar','apk','ipa','deb','rpm','bin','run',
-            'php','asp','aspx','jsp','cgi','pl',
-            'scr','pif','com','reg','inf','lnk'
-        ];
+        const BLOCKED_EXTENSIONS = ['exe','bat','cmd','msi','dmg','app','vbs','ps1','jar','apk','ipa','deb','rpm','bin','run','php','asp','aspx','jsp','cgi','pl','scr','pif','com','reg','inf','lnk','svg','svgz'];
 
         for (const file of Array.from(filesInput.files)) {
             const ext = file.name.split('.').pop().toLowerCase();
@@ -8482,7 +8477,8 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
         let fileUrls = [];
         for (const file of Array.from(filesInput.files)) {
             try {
-                const storagePath = `submissions/${currentSubmitProjectId}/${Date.now()}_${file.name}`;
+                const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+                const storagePath = `submissions/${currentSubmitProjectId}/${Date.now()}_${safeName}`;
                 console.log('Uploading to:', storagePath);
                 const storageRef = storage.ref(storagePath);
                 await storageRef.put(file);
@@ -11778,8 +11774,7 @@ function showUploadToDataRoomModal(companyId) {
         if (!file) return;
         if (file.size > 25 * 1024 * 1024) return alert('File too large — 25MB max.');
 
-        const BLOCKED_EXTENSIONS = ['exe','bat','cmd','msi','dmg','app','vbs','ps1','jar','apk','ipa','deb','rpm','bin','run','php','asp','aspx','jsp','cgi','pl','scr','pif','com','reg','inf','lnk'];
-        const ext = file.name.split('.').pop().toLowerCase();
+        const BLOCKED_EXTENSIONS = ['exe','bat','cmd','msi','dmg','app','vbs','ps1','jar','apk','ipa','deb','rpm','bin','run','php','asp','aspx','jsp','cgi','pl','scr','pif','com','reg','inf','lnk','svg','svgz'];        const ext = file.name.split('.').pop().toLowerCase();
         if (BLOCKED_EXTENSIONS.includes(ext)) {
             return alert(`❌ File type ".${ext}" is not allowed in the data room.`);
         }
@@ -11824,7 +11819,8 @@ function showUploadToDataRoomModal(companyId) {
             }
 
             // ── Upload after passing scan ────────────────────────────────
-            const storageRef = storage.ref(`dataRooms/${companyId}/${Date.now()}_${file.name}`);
+            const safeName2 = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+            const storageRef = storage.ref(`dataRooms/${companyId}/${Date.now()}_${safeName2}`);
             await storageRef.put(file);
             const url = await storageRef.getDownloadURL();
 
