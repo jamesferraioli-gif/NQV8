@@ -4,13 +4,12 @@
 // Fire-and-forget from frontend — response sent immediately, scan runs synchronously here.
 
 import { ethers } from 'ethers';
-import { initializeApp, getApps } from 'firebase-admin/app';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { credential } from 'firebase-admin';
 
 if (!getApps().length) {
     initializeApp({
-        credential: credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
+        credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
     });
 }
 const db = getFirestore();
