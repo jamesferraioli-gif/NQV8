@@ -8521,6 +8521,19 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
         );
 
         hideSubmitWorkModal();
+        // Fire virus scan in background — don't await
+        if (attachments.length > 0) {
+            fetch('/api/virus-scan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    projectId: currentSubmitProjectId,
+                    submissionIndex: (currentProject?.submissions?.length ?? 0),
+                    attachments
+                })
+            }).catch(e => console.warn('Virus scan failed to start:', e.message));
+        }
+
         hideProjectDetailModal();
         alert("✅ Submission sent! The poster will review your work.");
         loadMarketplace();
