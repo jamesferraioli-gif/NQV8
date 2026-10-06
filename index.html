@@ -14782,10 +14782,23 @@ async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk) {
             new Promise(resolve => setTimeout(resolve, 15000))
         ]);
         const tx = { hash: _txHash7b };
-        
-        alert(`✅ Offer accepted! Equity transferred.\nTx: https://arbiscan.io/tx/${tx.hash}`);
+
+        // Auto-accept at asking price — call ops wallet server-side
+        const acceptResp = await fetch('/api/accept-offer', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer nqvate-internal-2026`
+            },
+            body: JSON.stringify({ offerId: offerIdStr, listingId })
+        });
+        const acceptResult = await acceptResp.json();
+        if (!acceptResult.success) throw new Error(acceptResult.error || 'Auto-accept failed');
+
+        alert(`✅ Purchase complete! Equity transferred.\nTx: https://arbiscan.io/tx/${acceptResult.txHash}`);
         hideProjectDetailModal();
         loadEquityListings();
+        loadProfileData();
         // Get offer's project ID for revaluation
         try {
             const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
