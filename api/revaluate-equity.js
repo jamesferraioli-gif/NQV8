@@ -47,7 +47,8 @@ export default async function handler(req, res) {
                 }
 
                 // Call the valuation endpoint with forceRefresh
-                const response = await fetch(`${process.env.VERCEL_URL}/api/valuate-equity`, {
+                const baseUrl = process.env.VERCEL_URL?.startsWith('http') ? process.env.VERCEL_URL : `https://${process.env.VERCEL_URL}`;
+                const response = await fetch(`${baseUrl}/api/valuate-equity`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ projectId: project.id, forceRefresh: true })
