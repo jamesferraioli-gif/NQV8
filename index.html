@@ -13659,7 +13659,10 @@ async function showCreateEquityListingModal(companyId, companyName, availableUni
     document.body.appendChild(modal);
 }
 
+let _listingInProgress = false;
 async function submitEquityListingModal(companyId, availableUnits) {
+    if (_listingInProgress) return;
+    _listingInProgress = true;
     const units = parseInt(document.getElementById('listing-units')?.value);
     const price = parseFloat((document.getElementById('listing-price')?.value || '').replace(/[^0-9.]/g, ''));
     
@@ -13715,10 +13718,13 @@ async function submitEquityListingModal(companyId, availableUnits) {
         loadProfileData();
     } catch(e) {
         if (!handleWalletError(e)) alert("Listing failed: " + e.message);
+    } finally {
+        _listingInProgress = false;
     }
 }
 
 // ====================== REWARDS ======================
+
 let _rewardsViewMonths = 12;
 
 function setRewardsView(months) {
