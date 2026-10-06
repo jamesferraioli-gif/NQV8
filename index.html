@@ -14644,13 +14644,6 @@ async function showEquityDetailOnChain(listingId, listing, project) {
                             <p class="text-cyan-400 font-semibold">$${offerTotal.toLocaleString(undefined,{maximumFractionDigits:2})} USDC <span class="text-xs text-zinc-400">($${offerPrice.toFixed(4)}/unit)</span></p>
                             ${counterPrice ? `<p class="text-violet-400 text-sm mt-1">Counter: $${(counterPrice * o.units.toNumber()).toLocaleString(undefined,{maximumFractionDigits:2})} ($${counterPrice.toFixed(4)}/unit)</p>` : ''}
                             <div class="flex gap-2 mt-3">
-                                ${isSeller && o.status === 0 ? `
-                                    <button onclick="acceptOfferOnChain('${o.id}')" class="flex-1 py-2 bg-emerald-500 text-black text-sm font-semibold rounded-xl">Accept</button>
-                                    <button onclick="rejectOfferOnChain('${o.id}')" class="flex-1 py-2 border border-zinc-600 text-sm rounded-xl">Reject</button>
-                                ` : ''}
-                                ${isBuyer && o.status === 0 ? `
-                                    <button onclick="rejectOfferOnChain('${o.id}')" class="flex-1 py-2 border border-red-500/50 text-red-400 text-sm rounded-xl">Withdraw Offer</button>
-                                ` : ''}
                             </div>
                         </div>`;
                 }
@@ -14811,28 +14804,7 @@ async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk) {
         if (!handleWalletError(e)) alert("Offer failed: " + msg);
     }
 }
-
-async function acceptOfferOnChain(offerId) {
-    if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
-    if (!confirm("Accept this offer? Trade will execute immediately.")) return;
-    try {
-        const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
-        const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
-        const offer = await equityReadOnly.offers(toBytes32(offerId));
-        const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
-        const tx = await equityContract.acceptOffer(toBytes32(offerId));
-        await tx.wait();
-        alert(`✅ Counter accepted! Trade complete.\nTx: https://arbiscan.io/tx/${tx.hash}`);
-        hideProjectDetailModal();
-        loadEquityListings();
-        triggerEquityRevaluation(offer.projectId);
-        indexEquityTrade(offer.projectId, offer.seller, offer.buyer, offer.units.toNumber(), tx.hash);
-    } catch(e) {
-        const msg = e.message || '';
-        if (msg.includes('user rejected') || e.code === 4001) alert("Failed: " + msg);
-        else alert("Failed: " + msg);
-    }
-}
+    
 
 // ====================== CAP TABLE ======================
 async function indexEquityTrade(projectId, sellerAddr, buyerAddr, units, txHash) {
@@ -14971,21 +14943,7 @@ function hideCapTable() {
     document.getElementById('cap-table-modal').classList.add('hidden');
 }
 
-async function rejectOfferOnChain(offerId) {
-    if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
-    if (!confirm("Reject this offer? USDC will be refunded to the buyer.")) return;
-    try {
-        const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
-        const tx = await equityContract.rejectOffer(toBytes32(offerId));
-        await tx.wait();
-        alert("✅ Offer rejected. Buyer refunded.");
-        hideProjectDetailModal();
-        loadEquityListings();
-    } catch(e) {
-        const msg = e.message || '';
-        if (!handleWalletError(e)) alert("Failed to file dispute: " + msg);
-    }
-}
+
 
 async function counterOfferOnChain(offerId) {
     return alert('Counter offers are not available in this version. Please reject and make a new offer.');
