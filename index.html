@@ -14771,13 +14771,12 @@ async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk) {
             }
         }
 
-        let _txHash7b = null;
+
         const offerIdStr = `${listingId}_${connectedAddress}_${Date.now()}`;
-        await Promise.race([
-            equityContract.makeOffer(toBytes32(offerIdStr), toBytes32(listingId), units, priceRaw).then(tx => tx.wait().then(() => { _txHash7b = tx.hash; })),
-            new Promise(resolve => setTimeout(resolve, 15000))
-        ]);
-        const tx = { hash: _txHash7b };
+        const offerTx = await equityContract.makeOffer(toBytes32(offerIdStr), toBytes32(listingId), units, priceRaw);
+        await offerTx.wait();
+        if (!offerTx.hash) throw new Error('makeOffer transaction failed');
+        const tx = { hash: offerTx.hash };
 
         // Auto-accept at asking price — call ops wallet server-side
         const acceptResp = await fetch('/api/accept-offer', {
