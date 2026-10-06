@@ -126,6 +126,10 @@
             "dest": "/api/check-ops-wallet.js"
         },
         {
+            "src": "/api/virus-scan",
+            "dest": "/api/virus-scan.js"
+        },
+        {
             "src": "/api/admin-list-equity",
             "dest": "/api/admin-list-equity.js"
         },
