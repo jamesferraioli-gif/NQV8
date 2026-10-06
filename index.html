@@ -9057,8 +9057,9 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                         const amountStr = String(proj.acceptedBid?.amount || '');
                         const isEquityOnly = proj.compensationType === 'equity' || proj.escrowType === 'equity' ||
                             (amountStr.includes('%') && !amountStr.includes('$'));
+                        const isMixedWithEquity = proj.compensationType === 'mixed' && proj.equityReserved;
 
-                        if (isEquityOnly && proj.equityApproved && proj.companyId && !proj.equityTransferred) {
+                        if ((isEquityOnly || isMixedWithEquity) && proj.equityApproved && proj.companyId && !proj.equityTransferred) {
                             // ── Equity release via API (server-side, no MetaMask) ──
                             const completeResp = await fetch('/api/equity-complete', {
                                 method: 'POST',
