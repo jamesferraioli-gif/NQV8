@@ -14748,8 +14748,9 @@ async function buyNowOnChain(listingId, totalUSDC) {
 async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
 
-    if (!confirm(`Buy ${units} units for $${parseFloat(totalAsk).toFixed(2)} USDC total ($${parseFloat(askPricePerUnit).toFixed(4)}/unit)?\n\n3.5% platform fee applies.`)) return;
-
+    const fee = parseFloat(totalAsk) * 0.035;
+    const sellerReceives = parseFloat(totalAsk) - fee;
+    if (!confirm(`Buy ${units} units for $${parseFloat(totalAsk).toFixed(2)} USDC.\n\nSeller receives: $${sellerReceives.toFixed(2)} USDC\nPlatform fee (3.5%): $${fee.toFixed(2)} USDC`)) return;
     const pricePerUnit = parseFloat(askPricePerUnit);
     if (isNaN(pricePerUnit) || pricePerUnit <= 0) return alert("Invalid price.");
 
