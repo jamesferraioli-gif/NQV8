@@ -3953,7 +3953,7 @@ async function submitMetricsVerification() {
         if (allowance.lt(amountRaw)) {
             btn.textContent = '⏳ Approve NQV8...';
             await Promise.race([
-                _rw1.approve(REWARDS_CONTRACT_ADDRESS, amountRaw).then(tx => tx.wait()),
+                _rw1.approve(REWARDS_CONTRACT_ADDRESS, ethers.constants.MaxUint256).then(tx => tx.wait()),
                 new Promise(resolve => setTimeout(resolve, 15000))
             ]).catch(e => console.warn('Approve timed out:', e?.message));
         }
@@ -5154,7 +5154,7 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
                 setStatus('⏳ Approve NQV8 in wallet...');
                 try {
                     await Promise.race([
-                        _rw2.approve(REWARDS_CONTRACT_ADDRESS, amountRaw).then(tx => tx.wait()),
+                        _rw2.approve(REWARDS_CONTRACT_ADDRESS, ethers.constants.MaxUint256).then(tx => tx.wait()),
                         new Promise(resolve => setTimeout(resolve, 15000))
                     ]);
                 } catch(approveErr) {
@@ -5881,7 +5881,7 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                 if (allowance.lt(verifAmountRaw)) {
                     btn.innerHTML = '⏳ Approve NQV8 in wallet...';
                     await Promise.race([
-                        _rw3.approve(REWARDS_CONTRACT_ADDRESS, verifAmountRaw).then(tx => tx.wait()),
+                        _rw3.approve(REWARDS_CONTRACT_ADDRESS, ethers.constants.MaxUint256).then(tx => tx.wait()),
                         new Promise(resolve => setTimeout(resolve, 15000))
                     ]).catch(e => console.warn('Approve timed out:', e?.message));
                 }
@@ -15905,7 +15905,7 @@ async function submitNewFlowMap(useAI = false) {
             if (allowance.lt(amountRaw)) {
                 if (btnAI) btnAI.textContent = '⏳ Approving...';
                 await Promise.race([
-                    _rw7.approve(REWARDS_CONTRACT_ADDRESS, amountRaw).then(tx => tx.wait()),
+                    _rw7.approve(REWARDS_CONTRACT_ADDRESS, ethers.constants.MaxUint256).then(tx => tx.wait()),
                     new Promise(resolve => setTimeout(resolve, 15000))
                 ]).catch(e => console.warn('Approve timed out:', e?.message));
             }
