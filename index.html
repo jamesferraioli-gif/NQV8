@@ -7383,8 +7383,15 @@ async function deletePosting(projectId) {
             }
         }
     
-    function hideProjectDetailModal() {
+
+        function hideProjectDetailModal() {
             document.getElementById('project-detail-modal').classList.add('hidden');
+            document.getElementById('notif-dropdown')?.classList.add('hidden');
+            document.getElementById('profile-dropdown')?.classList.add('hidden');
+            if (window._virusScanListener) {
+                window._virusScanListener();
+                window._virusScanListener = null;
+            }
         }
 
         // ====================== EDIT POSTING ======================
@@ -8550,6 +8557,20 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
 
         function renderSubmissions(project) {
             const container = document.getElementById('submissions-list');
+
+            // Real-time listener for virus scan status updates
+            if (currentProjectId && !window._virusScanListener) {
+                window._virusScanListener = db.collection('subprojects').doc(currentProjectId)
+                    .onSnapshot(snap => {
+                        const updated = snap.data();
+                        if (updated && currentProject) {
+                            const hadPending = (currentProject.submissions || []).some(s => s.virusScanStatus === 'pending');
+                            currentProject.submissions = updated.submissions;
+                            const nowClean = (updated.submissions || []).every(s => s.virusScanStatus !== 'pending');
+                            if (hadPending && nowClean) renderSubmissions(currentProject);
+                        }
+                    });
+            }
             if (!project.submissions || project.submissions.length === 0) {
                 container.innerHTML = `<p class="text-zinc-400">No submissions yet.</p>`;
                 return;
