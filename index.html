@@ -3240,12 +3240,16 @@ async function submitNewCampaign() {
             const reviewResponse = await fetch('/api/review-submission', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    projectTitle: 'Ad Campaign Creative',
-                    projectDescription: 'Advertiser uploading creative image for an ad campaign.',
-                    submissionDescription: `Advertiser uploading "${imageFile.name}" as ad creative.`,
-                    attachments: [{ name: imageFile.name, type: imageFile.type, base64 }]
-                })
+                    body: JSON.stringify({
+                        projectTitle: currentProject?.title || '',
+                        projectDescription: currentProject?.description || '',
+                        acceptedBidAmount: currentProject?.acceptedBid?.amount || '',
+                        submissionDescription: desc,
+                        submissionLink: link || '',
+                        attachments,
+                        projectId: currentSubmitProjectId || '',
+                        submissionIndex: currentProject?.submissions?.length ?? null
+                    })
             });
 
             if (reviewResponse.ok) {
@@ -8557,13 +8561,29 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                         </div>
                         <p class="text-zinc-300 mt-3 line-clamp-6">${sub.description}</p>
                         ${sub.link ? `<p class="text-cyan-400 text-sm mt-2">🔗 <a href="${sub.link}" target="_blank" class="hover:underline">${sub.link}</a></p>` : ''}
-                        ${sub.files && sub.files.length > 0 ? `
+                         ${sub.files && sub.files.length > 0 ? `
                         <div class="mt-3 space-y-1">
                             ${sub.files.map((url, i) => `
                                 <a href="${url}" target="_blank" 
                                    class="flex items-center gap-2 text-xs text-violet-400 hover:text-violet-300 hover:underline">
                                     <i class="fa-solid fa-paperclip"></i> Attachment ${i + 1}
                                 </a>`).join('')}
+                        </div>
+                        <div class="mt-2">
+                            ${!sub.virusScanStatus || sub.virusScanStatus === 'pending' ? `
+                            <div class="flex items-center justify-between bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2 mt-2">
+                                <p class="text-amber-400 text-xs">🔍 Security scan in progress...</p>
+                                <button onclick="rerunVirusScan('${currentProjectId}', ${index})" class="text-xs text-amber-400 hover:underline ml-3">Rerun Scan</button>
+                            </div>` : sub.virusScanStatus === 'clean' ? `
+                            <p class="text-emerald-400 text-xs mt-2">✅ Security scan passed</p>` : sub.virusScanStatus === 'flagged' ? `
+                            <div class="flex items-center justify-between bg-red-500/10 border border-red-500/30 rounded-xl px-3 py-2 mt-2">
+                                <p class="text-red-400 text-xs">⚠️ File(s) flagged by security scan. Download at your own risk.</p>
+                                <button onclick="rerunVirusScan('${currentProjectId}', ${index})" class="text-xs text-red-400 hover:underline ml-3">Rerun Scan</button>
+                            </div>` : `
+                            <div class="flex items-center justify-between bg-zinc-700/50 border border-zinc-600 rounded-xl px-3 py-2 mt-2">
+                                <p class="text-zinc-400 text-xs">Security scan failed.</p>
+                                <button onclick="rerunVirusScan('${currentProjectId}', ${index})" class="text-xs text-zinc-400 hover:underline ml-3">Rerun Scan</button>
+                            </div>`}
                         </div>` : ''}
                         
                         ${sub.feedback ? `
@@ -8583,6 +8603,19 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                     </div>`;
             });
             container.innerHTML = html;
+        }
+
+        async function rerunVirusScan(projectId, submissionIndex) {
+            try {
+                await fetch('/api/review-submission', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ virusScanOnly: true, projectId, submissionIndex })
+                });
+                alert('🔍 Security scan started — refresh in a moment to see results.');
+            } catch(e) {
+                alert('Failed to start scan: ' + e.message);
+            }
         }
 
         async function acceptSubmission(submissionIndex) {
