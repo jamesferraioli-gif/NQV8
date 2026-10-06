@@ -14704,8 +14704,10 @@ async function showEquityDetailOnChain(listingId, listing, project) {
                     class="w-full py-4 border border-violet-400 text-violet-400 font-semibold rounded-3xl">
                 📄 View Investor Deck
             </button>
-            <button onclick="makeOfferOnChain('${listingId}', ${unitsNum})"
-                    class="w-full py-5 border border-cyan-400 text-cyan-400 font-semibold rounded-3xl">
+            <button onclick="makeOfferOnChain('${listingId}', ${unitsNum}, '${askPriceUSDC}', '${totalAsk}')"
+                    class="w-full py-5 bg-white text-black font-semibold rounded-3xl">
+                ✅ Buy Now — $${totalAsk.toLocaleString(undefined,{maximumFractionDigits:2})} USDC
+            </button>
                 💬 Make Offer
             </button>
         </div>` : ''}
@@ -14750,17 +14752,13 @@ async function buyNowOnChain(listingId, totalUSDC) {
     return alert('Direct purchase is not available. Please use "Make Offer" at the asking price.');
 }
 
-async function makeOfferOnChain(listingId, units) {
+async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
 
-    const pricePerUnitStr = prompt(`Make an offer for ${units} units.\n\nEnter your price per unit in USDC (e.g. 5.00 = $5 per unit):`);
-    if (!pricePerUnitStr) return;
+    if (!confirm(`Buy ${units} units for $${parseFloat(totalAsk).toFixed(2)} USDC total ($${parseFloat(askPricePerUnit).toFixed(4)}/unit)?\n\n3.5% platform fee applies.`)) return;
 
-    const pricePerUnit = parseFloat(pricePerUnitStr);
+    const pricePerUnit = parseFloat(askPricePerUnit);
     if (isNaN(pricePerUnit) || pricePerUnit <= 0) return alert("Invalid price.");
-
-    const totalOffer = pricePerUnit * units;
-    if (!confirm(`Submit offer of $${totalOffer.toFixed(2)} USDC total ($${pricePerUnit.toFixed(4)}/unit)?\n\nYour USDC will be locked until the seller responds or the offer expires in 7 days.`)) return;
 
     try {
         const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
