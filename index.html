@@ -14746,8 +14746,8 @@ async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
 
     const fee = parseFloat(totalAsk) * 0.035;
-    const sellerReceives = parseFloat(totalAsk) - fee;
-    if (!confirm(`Buy ${units} units for $${parseFloat(totalAsk).toFixed(2)} USDC.\n\nSeller receives: $${sellerReceives.toFixed(4)} USDC\nPlatform fee (3.5%): $${fee.toFixed(4)} USDC`)) return;
+    const totalWithFee = parseFloat(totalAsk) + fee;
+    if (!confirm(`Buy ${units} units for $${parseFloat(totalAsk).toFixed(4)} USDC.\n\nPlatform fee (3.5%): $${fee.toFixed(4)} USDC\nTotal you pay: $${totalWithFee.toFixed(4)} USDC\nSeller receives: $${parseFloat(totalAsk).toFixed(4)} USDC`)) return;
     const pricePerUnit = parseFloat(askPricePerUnit);
     if (isNaN(pricePerUnit) || pricePerUnit <= 0) return alert("Invalid price.");
 
