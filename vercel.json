@@ -134,6 +134,10 @@
             "dest": "/api/virus-scan-poll.js"
         },
         {
+            "src": "/api/accept-offer",
+            "dest": "/api/accept-offer.js"
+        },
+        {
             "src": "/api/admin-list-equity",
             "dest": "/api/admin-list-equity.js"
         },
