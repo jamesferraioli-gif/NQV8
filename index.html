@@ -14763,10 +14763,15 @@ async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk) {
         const _rw7b = new ethers.Contract(USDC_ADDRESS, ['function approve(address,uint256) returns (bool)'], signer);
         const allowance7b = await _ro7b.allowance(connectedAddress, EQUITY_REGISTRY_ADDRESS);
         if (allowance7b.lt(totalRaw)) {
-            await Promise.race([
-                _rw7b.approve(EQUITY_REGISTRY_ADDRESS, totalRaw).then(tx => tx.wait()),
-                new Promise(resolve => setTimeout(resolve, 15000))
-            ]).catch(e => console.warn('Approve timed out:', e?.message));
+            try {
+                const approveTx = await _rw7b.approve(EQUITY_REGISTRY_ADDRESS, totalRaw);
+                await approveTx.wait();
+            } catch(e) {
+                if (e.code === 4001 || e.message?.includes('user rejected')) {
+                    return alert('❌ Transaction cancelled. USDC approval is required to purchase equity.');
+                }
+                throw e;
+            }
         }
 
         let _txHash7b = null;
