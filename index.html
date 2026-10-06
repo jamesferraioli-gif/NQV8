@@ -8777,18 +8777,23 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                     if (hasEquity && currentProject.equityUnits && currentProject.companyId) {
                         try {
                             if (currentProject.equityReserved) {
-                                // V2 path — complete the on-chain reservation
-                                const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
-                                const completeTx = await equityContract.completeReservation(
-                                    currentProject.companyId,
-                                    currentProjectId,
-                                    '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D',
-                                    350
-                                );
-                                await completeTx.wait();
+                                // V4 path — complete via server-side API
+                                const completeResp = await fetch('/api/equity-complete', {
+                                    method: 'POST',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer nqvate-internal-2026`
+                                    },
+                                    body: JSON.stringify({
+                                        companyId: currentProject.companyId,
+                                        bountyId: currentProjectId
+                                    })
+                                });
+                                const completeResult = await completeResp.json();
+                                if (!completeResult.success) throw new Error(completeResult.error);
 
                                 await projectRef.update({
-                                    equityTransferTxHash: completeTx.hash,
+                                    equityTransferTxHash: completeResult.txHash,
                                     equityTransferred: true,
                                     equityUnitsTransferred: currentProject.equityUnits
                                 });
