@@ -108,11 +108,15 @@ export default async function handler(req, res) {
 
                 // Update Firestore
                 await db.collection('subprojects').doc(projectId).update({
-                    status:          'refunded',
-                    refundedAt:      new Date(),
-                    refundTxHash:    tx.hash,
-                    autoRefunded:    true,
-                    autoRefundReason: 'Deadline passed with no accepted submission'
+                    status:              'refunded',
+                    refundedAt:          new Date(),
+                    refundTxHash:        tx.hash,
+                    autoRefunded:        true,
+                    autoRefundReason:    'Deadline passed with no accepted submission',
+                    marketplacePostStatus: 'open',
+                    bidsOpen:            true,
+                    acceptedBidderUid:   null,
+                    acceptedBid:         null
                 });
 
                 // Notify poster
