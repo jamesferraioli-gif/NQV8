@@ -119,6 +119,15 @@ export default async function handler(req, res) {
                     acceptedBid:         null
                 });
 
+                // Update linked plan node if exists
+                if (project.planNodeId) {
+                    await db.collection('subprojects').doc(project.planNodeId).update({
+                        status: 'refunded',
+                        marketplacePostStatus: 'open',
+                        marketplacePostId: null
+                    }).catch(() => {});
+                }
+
                 // Notify poster
                 await db.collection('notifications').add({
                     recipientUid: project.ownerUid || project.posterUid,
