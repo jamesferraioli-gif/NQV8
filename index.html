@@ -6450,7 +6450,7 @@ async function createProfile() {
                     if (p.planNode === true && !p.acceptedBidderUid) return;
                     if (p.status === "in-progress") inprogress++;
                     else if (p.status === "completed") completed++;
-                    if (p.status === "in-progress" || p.status === "completed") return;
+                    if (p.status === "in-progress" || p.status === "completed" || p.status === "refunded" || p.status === "disputed" || p.status === "resolved") return;     
                     if (currentMarketplaceFilter && currentMarketplaceFilter !== 'equity-exchange' && p.type !== currentMarketplaceFilter) return;
                     // Hide private bounties unless viewer is the poster or is invited
                     if (p.isPrivate) {
