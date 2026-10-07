@@ -19,9 +19,8 @@ const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
 const AUTO_RELEASE_DAYS       = parseInt(process.env.AUTO_RELEASE_DAYS || '7');
 
 const ESCROW_ABI = [
-    "function adminAutoRelease(bytes32 escrowId) external",
-    "function projectToEscrow(bytes32 projectKey) external view returns (bytes32)",
-    "function canAutoRelease(bytes32 escrowId) external view returns (bool)"
+    "function adminRelease(bytes32 escrowId) external",
+    "function projectToEscrow(bytes32 projectKey) external view returns (bytes32)"
 ];
 
 export default async function handler(req, res) {
@@ -80,16 +79,8 @@ export default async function handler(req, res) {
                     continue;
                 }
 
-                // Check if auto-release is ready
-                const canRelease = await escrowContract.canAutoRelease(escrowId);
-                if (!canRelease) {
-                    console.log(`⚠️ ${projectId}: not ready for auto-release, skipping`);
-                    continue;
-                }
-
                 console.log(`🔓 Auto-releasing USDC escrow for ${projectId}`);
-
-                const tx = await escrowContract.adminAutoRelease(escrowId);
+                const tx = await escrowContract.adminRelease(escrowId);
                 await tx.wait();
 
                 console.log(`✅ Auto-released ${projectId}. Tx: ${tx.hash}`);
