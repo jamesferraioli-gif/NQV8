@@ -53,7 +53,6 @@ export default async function handler(req, res) {
         const snap = await db.collection('subprojects')
             .where('status', '==', 'in-progress')
             .where('equityReserved', '==', true)
-            .where('equityTransferred', '==', false)
             .get();
 
         const provider       = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
@@ -67,6 +66,9 @@ export default async function handler(req, res) {
             const projectId = doc.id;
 
             try {
+                // Skip if already transferred
+                if (project.equityTransferred === true) continue;
+
                 const submissions = project.submissions || [];
                 if (submissions.length === 0) continue;
 
