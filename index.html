@@ -16064,7 +16064,7 @@ async function renderBuildTab() {
             .get();
 
         const allNodes    = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        const activeNodes = allNodes.filter(n => n.status !== 'completed');
+        const activeNodes = allNodes.filter(n => n.status !== 'completed' && n.status !== 'refunded');
         const doneNodes   = allNodes.filter(n => n.status === 'completed');
 
         if (allNodes.length === 0) {
