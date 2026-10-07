@@ -87,12 +87,13 @@ export default async function handler(req, res) {
 
                 // Update Firestore
                 await db.collection('subprojects').doc(projectId).update({
-                    status:            'completed',
-                    completedAt:       new Date(),
-                    autoReleased:      true,
-                    autoReleasedAt:    new Date(),
-                    autoReleaseReason: `Poster did not respond within ${AUTO_RELEASE_DAYS} days of submission`,
-                    escrowReleaseTxHash: tx.hash
+                    status:              'completed',
+                    completedAt:         new Date(),
+                    autoReleased:        true,
+                    autoReleasedAt:      new Date(),
+                    autoReleaseReason:   `Poster did not respond within ${AUTO_RELEASE_DAYS} days of submission`,
+                    escrowReleaseTxHash: tx.hash,
+                    marketplacePostStatus: 'completed'
                 });
 
                 // Notify both parties
