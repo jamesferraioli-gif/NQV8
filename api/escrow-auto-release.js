@@ -42,7 +42,7 @@ export default async function handler(req, res) {
     try {
         const snap = await db.collection('subprojects')
             .where('status', '==', 'in-progress')
-            .where('escrowType', 'in', ['usdc', 'mixed'])
+            .where('compensationType', 'in', ['cash', 'mixed'])
             .get();
 
         const provider       = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
