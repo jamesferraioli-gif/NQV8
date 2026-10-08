@@ -15151,6 +15151,19 @@ async function counterOfferOnChain(offerId) {
 
 async function makeFundingOffer(projectId, listingId, units) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
+
+    // Check if user already has an active offer on this listing
+    const existingOffer = await db.collection('equityOffers')
+        .where('listingId', '==', listingId)
+        .where('buyerUid', '==', currentUser.uid)
+        .where('active', '==', true)
+        .limit(1).get();
+    if (!existingOffer.empty) {
+        return alert('❌ You already have an active offer on this funding request. Wait for the founder to respond before making another.');
+    }
+
+    const offerBtn = document.querySelector(`button[onclick*="makeFundingOffer('${projectId}'"]`);
+    if (offerBtn) { offerBtn.disabled = true; offerBtn.textContent = '⏳ Processing...'; }
     const amountStr = (document.getElementById('funding-offer-amount')?.value || '').replace(/[^0-9.]/g, '');
     const totalOffer = parseFloat(amountStr);
     if (isNaN(totalOffer) || totalOffer <= 0) return alert('Please enter a valid offer amount in USDC.');
@@ -15160,7 +15173,12 @@ async function makeFundingOffer(projectId, listingId, units) {
     const pct = (units / 100).toFixed(2);
     if (!confirm(`Submit investment offer of $${totalOffer.toFixed(2)} USDC for ${pct}% equity.\n\nPlatform fee (3.5%): $${fee.toFixed(2)} USDC\nTotal you pay: $${totalWithFee.toFixed(2)} USDC\nFounder receives: $${totalOffer.toFixed(2)} USDC\n\nYour USDC will be locked until the founder accepts or offer expires in 7 days.`)) return;
     const pricePerUnitStr = pricePerUnit.toFixed(6);
-    await makeOfferOnChain(listingId, units, pricePerUnitStr, totalOffer.toFixed(2), true);
+    try {
+        await makeOfferOnChain(listingId, units, pricePerUnitStr, totalOffer.toFixed(2), true);
+    } finally {
+        if (offerBtn) { offerBtn.disabled = false; offerBtn.textContent = '💼 Submit Investment Offer'; }
+    }
+}
 }
 
 async function loadFundingOffers(listingId, isPoster) {
