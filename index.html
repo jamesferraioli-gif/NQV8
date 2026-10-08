@@ -13548,11 +13548,18 @@ function showImproveSuggestionsModal(original, improved, changes, onConfirm) {
                 </button>
             </div>
 
+            <!-- Editable area — shown when Claude's version is selected -->
+            <div id=\"edit-version-area\" class=\"hidden mt-4\">
+                <p class=\"text-xs text-zinc-400 mb-2\">✏️ Edit before posting — fill in the bracketed sections:</p>
+                <textarea id=\"edit-version-text\" rows=\"6\"
+                          class=\"w-full bg-zinc-800 border border-zinc-600 rounded-2xl px-4 py-3 outline-none text-sm text-zinc-300 leading-relaxed resize-none\"></textarea>
+            </div>
+
             <!-- Confirm button — only enabled after selection -->
-            <button id="confirm-posting-btn"
+            <button id=\"confirm-posting-btn\"
                     disabled
-                    onclick="confirmPostingVersion()"
-                    class="w-full mt-4 py-4 bg-white text-black font-semibold rounded-2xl opacity-30 cursor-not-allowed transition-all">
+                    onclick=\"confirmPostingVersion()\"
+                    class=\"w-full mt-4 py-4 bg-white text-black font-semibold rounded-2xl opacity-30 cursor-not-allowed transition-all\">
                 Continue with Selected Version →
             </button>
         </div>
@@ -13568,9 +13575,18 @@ function showImproveSuggestionsModal(original, improved, changes, onConfirm) {
 function selectPostingVersion(version) {
     window._selectedPostingVersion = version;
 
-    const originalBtn = document.getElementById('keep-original-btn');
-    const improvedBtn = document.getElementById('use-improved-btn');
-    const confirmBtn = document.getElementById('confirm-posting-btn');
+    const originalBtn  = document.getElementById('keep-original-btn');
+    const improvedBtn  = document.getElementById('use-improved-btn');
+    const confirmBtn   = document.getElementById('confirm-posting-btn');
+    const editArea     = document.getElementById('edit-version-area');
+    const editTextarea = document.getElementById('edit-version-text');
+
+    if (version === 'improved' && editArea && editTextarea) {
+        editArea.classList.remove('hidden');
+        editTextarea.value = window._postingVersions.improved;
+    } else if (editArea) {
+        editArea.classList.add('hidden');
+    }
 
     if (version === 'original') {
         originalBtn.classList.add('border-white', 'text-white');
@@ -13589,9 +13605,13 @@ function selectPostingVersion(version) {
 
 function confirmPostingVersion() {
     if (!window._selectedPostingVersion) return;
-    const chosen = window._selectedPostingVersion === 'improved'
-        ? window._postingVersions.improved
-        : window._postingVersions.original;
+    let chosen;
+    if (window._selectedPostingVersion === 'improved') {
+        const editTextarea = document.getElementById('edit-version-text');
+        chosen = editTextarea?.value.trim() || window._postingVersions.improved;
+    } else {
+        chosen = window._postingVersions.original;
+    }
 
     document.getElementById('improve-suggestions-modal')?.remove();
     window._onPostingConfirm(chosen);
