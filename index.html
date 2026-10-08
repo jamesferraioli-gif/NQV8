@@ -6761,7 +6761,8 @@ async function loadEquityTradedStat() {
         const snapshot = await db.collection("equityListings")
             .where("status", "==", "sold")
             .get();
-        document.getElementById('stat-equity-traded').textContent = snapshot.size.toLocaleString();
+        const count = snapshot.docs.filter(d => !d.data().isFundingRequest).length;
+        document.getElementById('stat-equity-traded').textContent = count.toLocaleString();
     } catch(e) {
         console.error("Equity stat error:", e);
         document.getElementById('stat-equity-traded').textContent = '0';
