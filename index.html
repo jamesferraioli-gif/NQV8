@@ -12507,6 +12507,9 @@ async function showPostFundingModalForProject(companyId, companyName, isVerified
 function hidePostFundingModal() {
     document.getElementById('post-funding-modal').classList.add('hidden');
     selectedFundingProjectId = null;
+    _fundingPostInProgress = false;
+    const postBtn = document.querySelector('#post-funding-modal button[onclick="submitFundingPosting()"]');
+    if (postBtn) { postBtn.disabled = false; postBtn.textContent = 'Post ($1.00 in NQV8)'; }
 }
 
 async function populateFundingProjectList() {
