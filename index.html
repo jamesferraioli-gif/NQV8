@@ -8080,8 +8080,7 @@ function hideEditPostingModal() {
                         const workerWallet = bid.paymentWallet || workerSnap.data()?.walletAddress;
                         if (!workerWallet) throw new Error('Builder has not provided a payment wallet. Ask them to place a new bid.');
                         // Check against both connected wallet and founder wallet on contract
-                        const founderSnap = await db.collection('users').doc(currentUser.uid).get();
-                        const founderWalletAddr = founderSnap.data()?.walletAddress || connectedAddress;
+                        const founderWallet = connectedAddress;
                         if (workerWallet.toLowerCase() === founderWalletAddr.toLowerCase() ||
                             workerWallet.toLowerCase() === connectedAddress.toLowerCase()) {
                             const btn = document.getElementById('accept-bid-btn');
@@ -12612,21 +12611,27 @@ async function submitFundingPosting() {
 
                     // List equity on V4 via ops wallet
                     try {
+                        const roProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+                        const equityRO = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, [
+                            'function availableBalance(bytes32,address) view returns (uint256)',
+                            'function companies(bytes32) view returns (address founder, uint64 registeredAt, bool registered, bool paused)'
+                        ], roProvider);
+                        const companyIdBytes = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(selectedFundingProjectId));
+
+                        // Verify connected wallet is the registered founder wallet
+                        const company = await equityRO.companies(companyIdBytes);
+                        const registeredFounder = company.founder.toLowerCase();
+                        if (connectedAddress.toLowerCase() !== registeredFounder) {
+                            return alert(`❌ Wrong wallet connected.\n\nYour equity for this company is held in:\n${registeredFounder.slice(0,6)}...${registeredFounder.slice(-4)}\n\nPlease connect that wallet to post a funding request.`);
+                        }
+
+                        // Verify enough available equity
+                        const available = await equityRO.availableBalance(companyIdBytes, connectedAddress);
+                        if (available.lt(ethers.BigNumber.from(equityUnits))) {
+                            return alert(`❌ Insufficient available equity. You have ${available.toNumber()} units available but this request requires ${equityUnits} units (${equityPct}%).\n\nSome equity may already be reserved for active bounties or listings.`);
+                        }
+
                         const listResp = await fetch('/api/admin-list-equity', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer nqvate-internal-2026`
-                            },
-                            body: JSON.stringify({
-                                listingId: listingIdStr,
-                                companyId: selectedFundingProjectId,
-                                seller: connectedAddress,
-                                units: equityUnits,
-                                pricePerUnit
-                            })
-                        });
-                        const listResult = await listResp.json();
                         if (listResult.success) {
                             await db.collection('equityListings').doc(listingIdStr).set({
                                 listingId: listingIdStr,
@@ -13714,6 +13719,19 @@ async function submitMetricsOnChain(companyId) {
 async function showCreateEquityListingModal(companyId, companyName, availableUnits) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
     if (availableUnits === 0) return alert("You have no equity units available to list.");
+
+    // Verify connected wallet actually holds units on V4
+    try {
+        const roProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const equityRO = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, ['function balances(bytes32,address) view returns (uint256)'], roProvider);
+        const companyIdBytes = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(companyId));
+        const onChainBalance = await equityRO.balances(companyIdBytes, connectedAddress);
+        if (onChainBalance.eq(0)) {
+            return alert(`❌ Wrong wallet connected.\n\nYour equity units are not held in this wallet (${connectedAddress.slice(0,6)}...${connectedAddress.slice(-4)}).\n\nPlease connect the wallet that received your equity payment to list your stake.`);
+        }
+    } catch(e) {
+        console.warn('Balance check failed:', e.message);
+    }
 
     // Remove any existing modal
     document.getElementById('equity-listing-modal')?.remove();
