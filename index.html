@@ -12632,6 +12632,21 @@ async function submitFundingPosting() {
                         }
 
                         const listResp = await fetch('/api/admin-list-equity', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer nqvate-internal-2026`
+                            },
+                            body: JSON.stringify({
+                                listingId: listingIdStr,
+                                companyId: selectedFundingProjectId,
+                                seller: connectedAddress,
+                                units: equityUnits,
+                                pricePerUnit
+                            })
+                        });
+                        const listResult = await listResp.json();
+                        console.log('admin-list-equity result:', listResult);
                         if (listResult.success) {
                             await db.collection('equityListings').doc(listingIdStr).set({
                                 listingId: listingIdStr,
