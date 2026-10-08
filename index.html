@@ -7478,11 +7478,16 @@ async function deletePosting(projectId) {
 
             // Block editing funding requests that have active offers
             if (p.type === 'fund' && p.listingId) {
-                const offers = await db.collection('equityOffers')
-                    .where('listingId', '==', p.listingId)
-                    .where('active', '==', true)
-                    .limit(1).get();
-                if (!offers.empty) {
+                try {
+                    const offers = await db.collection('equityOffers')
+                        .where('listingId', '==', p.listingId)
+                        .where('active', '==', true)
+                        .limit(1).get();
+                    if (!offers.empty) {
+                        return alert('❌ Cannot edit a funding request that has active investment offers.');
+                    }
+                } catch(idxErr) {
+                    // If index missing, block edit to be safe
                     return alert('❌ Cannot edit a funding request that has active investment offers.');
                 }
             }
