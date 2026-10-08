@@ -17926,7 +17926,10 @@ async function founderRelease() {
         <textarea id="edit-posting-desc" rows="4" placeholder="Description"
                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4"></textarea>
 
-        <input id="edit-posting-compensation" type="text" placeholder="Compensation"
+        <input id="edit-posting-compensation" type="text" placeholder="e.g. $500.00 USDC"
+               oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
+               onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : '$' + n.toFixed(2) + ' USDC'; }"
+               onfocus="this.value = this.value.replace(/[^0-9.]/g, '')"
                class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
 
         <select id="edit-posting-category" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
