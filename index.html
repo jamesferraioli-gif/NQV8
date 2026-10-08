@@ -12644,7 +12644,19 @@ async function submitFundingPosting() {
                             await fundingRef.update({ equityListingId: listingIdStr, equityListed: true });
                         }
                     } catch(listErr) {
-                        console.warn('Equity listing failed (non-fatal):', listErr.message);
+                        console.warn('Equity listing failed:', listErr.message);
+                        if (listErr.message === 'PLATFORM_GAS_ERROR' || listErr.message?.includes('PLATFORM_GAS_ERROR')) {
+                            alert('⚠️ We\'re experiencing a temporary technical issue. Your funding request was posted but equity listing failed. Please try again in a few minutes.');
+                            fetch('/api/send-email', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    to: 'james.ferraioli@gmail.com',
+                                    subject: '🚨 NQVate: Operations Wallet Low — admin-list-equity failed',
+                                    body: `Operations wallet is low on ETH. adminListEquity failed for funding request.\n\nTop up: 0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D`
+                                })
+                            }).catch(() => {});
+                        }
                     }
 
                     alert("✅ Funding request posted! Investors can now make offers on your equity stake.");
