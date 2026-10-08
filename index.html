@@ -15230,22 +15230,26 @@ async function rejectFundingOffer(offerId, firestoreOfferId) {
 }
 
 async function cancelListingOnChain(listingId) {
-    if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
+    if (!connectedAddress) return alert("Please connect your wallet first.");
     if (!confirm("Cancel this listing? Your units will be returned to you.")) return;
     try {
-        const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
-        const tx = await equityContract.cancelListing(toBytes32(listingId));
-        await tx.wait();
-        // Mark listing as inactive in Firestore
+        const resp = await fetch('/api/cancel-listing', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer nqvate-internal-2026`
+            },
+            body: JSON.stringify({ listingId, callerAddress: connectedAddress })
+        });
+        const result = await resp.json();
+        if (!result.success) throw new Error(result.error);
         await db.collection('equityListings').doc(listingId).update({ active: false, status: 'cancelled' }).catch(() => {});
         alert("✅ Listing cancelled. Units returned.");
         hideProjectDetailModal();
         loadEquityListings();
         loadProfileData();
     } catch(e) {
-        const msg = e.message || '';
-        if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
-        else alert("Failed: " + msg);
+        if (!handleWalletError(e)) alert("Failed: " + e.message);
     }
 }
 // ====================== EMAIL NOTIFICATIONS ======================
