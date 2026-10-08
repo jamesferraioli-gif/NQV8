@@ -4949,7 +4949,7 @@ async function payPostingFee(preferNQV8 = false) {
     }
 }
 
-// Pay micro fee ($0.01 USDC or 1 NQV8) — bids, posts, deletes, chat
+// Pay micro fee ($0.01 NQV8) — bids, posts, deletes, chat
 async function payMicroFee(preferNQV8 = false) {
     if (!connectedAddress) {
         await connectWallet();
@@ -7355,7 +7355,7 @@ async function loadTotalFundingReceivedStat() {
                 </button>
                 <button onclick="deletePosting('${projectId}')"
                         class="w-full py-4 border border-red-500/50 text-red-400 hover:bg-red-500/10 font-medium rounded-3xl flex items-center justify-center gap-2 transition-colors">
-                    <i class="fa-solid fa-trash-can"></i> ${project.planNode ? 'Delete Node' : 'Delete This Posting ($0.01 USDC or 1 NQV8)'}
+                    <i class="fa-solid fa-trash-can"></i> ${project.planNode ? 'Delete Node' : 'Delete This Posting ($0.01 NQV8)'}
                 </button>
             </div>` : ''}
     `;
@@ -7428,7 +7428,7 @@ async function deletePosting(projectId) {
                 await doDelete();
             } else {
                 showPaymentPicker(
-                    `Delete posting: "${project.title}" — $0.01 fee`,
+                    `Delete posting: \"${project.title}\" — $0.01 NQV8 fee`,
                     0.01, 1,
                     doDelete
                 );
