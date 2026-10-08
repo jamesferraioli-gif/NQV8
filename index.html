@@ -14926,7 +14926,7 @@ async function buyNowOnChain(listingId, totalUSDC) {
     return alert('Direct purchase is not available. Please use "Make Offer" at the asking price.');
 }
 
-async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk, skipConfirm = false) {
+async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk, skipConfirm = false, noAutoAccept = false) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
     const buyBtn = document.querySelector(`button[onclick*="makeOfferOnChain('${listingId}'"]`);
     if (buyBtn) { buyBtn.disabled = true; buyBtn.textContent = '⏳ Processing...'; }
@@ -14970,7 +14970,15 @@ async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk, ski
         if (!offerTx.hash) throw new Error('makeOffer transaction failed');
         const tx = { hash: offerTx.hash };
 
-        // Auto-accept at asking price — call ops wallet server-side
+        // Auto-accept at asking price — skip for funding requests (founder reviews manually)
+        if (noAutoAccept) {
+            alert(`✅ Investment offer submitted! The founder will review and respond.\nTx: https://arbiscan.io/tx/${tx.hash}`);
+            hideProjectDetailModal();
+            loadMarketplace();
+            return;
+        }
+
+        // Auto-accept at asking price — ops wallet accepts server-side
         const acceptResp = await fetch('/api/accept-offer', {
             method: 'POST',
             headers: {
@@ -15191,7 +15199,7 @@ async function makeFundingOffer(projectId, listingId, units) {
     if (!confirm(`Submit investment offer of $${totalOffer.toFixed(2)} USDC for ${pct}% equity.\n\nPlatform fee (3.5%): $${fee.toFixed(2)} USDC\nTotal you pay: $${totalWithFee.toFixed(2)} USDC\nFounder receives: $${totalOffer.toFixed(2)} USDC\n\nYour USDC will be locked until the founder accepts or offer expires in 7 days.`)) return;
     const pricePerUnitStr = pricePerUnit.toFixed(6);
     try {
-        await makeOfferOnChain(listingId, units, pricePerUnitStr, totalOffer.toFixed(2), true);
+        await makeOfferOnChain(listingId, units, pricePerUnitStr, totalOffer.toFixed(2), true, true);
     } finally {
         if (offerBtn) { offerBtn.disabled = false; offerBtn.textContent = '💼 Submit Investment Offer'; }
     }
