@@ -722,7 +722,10 @@
             <button onclick="startFundingVerification()" class="mt-3 px-4 py-2 bg-violet-600 text-white text-xs rounded-xl">Submit Verification Docs</button>
         </div>
 
-        <input id="funding-ask" type="text" placeholder="Funding Amount (e.g. $50,000 USDC)"
+        <input id="funding-ask" type="text" placeholder="e.g. $50,000.00 USDC"
+               oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
+               onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : '$' + n.toFixed(2) + ' USDC'; }"
+               onfocus="this.value = this.value.replace(/[^0-9.]/g, '')"
                class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
 
         <div class="relative mb-4">
