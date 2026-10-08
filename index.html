@@ -7179,8 +7179,9 @@ async function loadTotalFundingReceivedStat() {
         ${project.category ? `<p class="text-sm text-violet-400 mb-4">Category: ${project.category}</p>` : ''}
 
         <div class="bg-zinc-800 rounded-3xl p-6 mb-8">
-            <p class="text-sm text-zinc-400">Compensation</p>
+            <p class="text-sm text-zinc-400">${project.type === 'fund' ? 'Funding Ask' : 'Compensation'}</p>
             <p class="text-xl font-semibold text-cyan-400">${project.compensation}</p>
+            ${project.type === 'fund' && project.equityPct ? `<p class="text-sm text-zinc-400 mt-1">Equity offered: ${project.equityPct}%</p>` : ''}
         </div>
 
         <p class="text-sm text-zinc-400 mb-2">
