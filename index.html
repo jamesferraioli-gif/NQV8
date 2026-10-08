@@ -2392,10 +2392,13 @@
             <p id="equity-selected-company-label" class="text-cyan-400 font-medium mb-4"></p>
 
             <input id="equity-percentage" type="text" placeholder="Equity % being sold (e.g. 1.5%)"
-                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4"
 
-            <input id="equity-ask-price" type="text" placeholder="Asking Price (e.g. $5,000 USDC)"
-                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+            <input id="equity-ask-price" type="text" placeholder="e.g. $5,000.00 USDC"
+               oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
+               onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : '$' + n.toFixed(2) + ' USDC'; }"
+               onfocus="this.value = this.value.replace(/[^0-9.]/g, '')"
+               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
 
             <textarea id="equity-desc" placeholder="Describe the stake and why it's valuable..." rows="3"
                       class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-4"></textarea>
