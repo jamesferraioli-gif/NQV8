@@ -138,6 +138,10 @@
             "dest": "/api/virus-scan-poll.js"
         },
         {
+            "src": "/api/cancel-listing",
+            "dest": "/api/cancel-listing.js"
+        },
+        {
             "src": "/api/accept-offer",
             "dest": "/api/accept-offer.js"
         },
