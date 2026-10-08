@@ -14909,14 +14909,16 @@ async function buyNowOnChain(listingId, totalUSDC) {
     return alert('Direct purchase is not available. Please use "Make Offer" at the asking price.');
 }
 
-async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk) {
+async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk, skipConfirm = false) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
     const buyBtn = document.querySelector(`button[onclick*="makeOfferOnChain('${listingId}'"]`);
     if (buyBtn) { buyBtn.disabled = true; buyBtn.textContent = '⏳ Processing...'; }
 
-    const fee = parseFloat(totalAsk) * 0.035;
-    const totalWithFee = parseFloat(totalAsk) + fee;
-    if (!confirm(`Buy ${units} units for $${parseFloat(totalAsk).toFixed(4)} USDC.\n\nPlatform fee (3.5%): $${fee.toFixed(4)} USDC\nTotal you pay: $${totalWithFee.toFixed(4)} USDC\nSeller receives: $${parseFloat(totalAsk).toFixed(4)} USDC`)) return;
+    if (!skipConfirm) {
+        const fee = parseFloat(totalAsk) * 0.035;
+        const totalWithFee = parseFloat(totalAsk) + fee;
+        if (!confirm(`Buy ${units} units for $${parseFloat(totalAsk).toFixed(4)} USDC.\n\nPlatform fee (3.5%): $${fee.toFixed(4)} USDC\nTotal you pay: $${totalWithFee.toFixed(4)} USDC\nSeller receives: $${parseFloat(totalAsk).toFixed(4)} USDC`)) return;
+    }
     const pricePerUnit = parseFloat(askPricePerUnit);
     if (isNaN(pricePerUnit) || pricePerUnit <= 0) return alert("Invalid price.");
 
@@ -15153,7 +15155,12 @@ async function makeFundingOffer(projectId, listingId, units) {
     const totalOffer = parseFloat(amountStr);
     if (isNaN(totalOffer) || totalOffer <= 0) return alert('Please enter a valid offer amount in USDC.');
     const pricePerUnit = totalOffer / units;
-    await makeOfferOnChain(listingId, units, pricePerUnit.toFixed(6), totalOffer.toFixed(2));
+    const fee = totalOffer * 0.035;
+    const totalWithFee = totalOffer + fee;
+    const pct = (units / 100).toFixed(2);
+    if (!confirm(`Submit investment offer of $${totalOffer.toFixed(2)} USDC for ${pct}% equity.\n\nPlatform fee (3.5%): $${fee.toFixed(2)} USDC\nTotal you pay: $${totalWithFee.toFixed(2)} USDC\nFounder receives: $${totalOffer.toFixed(2)} USDC\n\nYour USDC will be locked until the founder accepts or offer expires in 7 days.`)) return;
+    const pricePerUnitStr = pricePerUnit.toFixed(6);
+    await makeOfferOnChain(listingId, units, pricePerUnitStr, totalOffer.toFixed(2), true);
 }
 
 async function loadFundingOffers(listingId, isPoster) {
