@@ -7403,6 +7403,20 @@ async function deletePosting(projectId) {
 
             const doDelete = async () => {
                 try {
+                    // If this is a funding request with equity listed on V4, cancel the listing first
+                    if (project.type === 'fund' && project.equityListed && project.listingId) {
+                        try {
+                            const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
+                            const tx = await equityContract.cancelListing(toBytes32(project.listingId));
+                            await tx.wait();
+                            // Mark equityListings doc as inactive
+                            await db.collection('equityListings').doc(project.listingId).update({ active: false, status: 'cancelled' }).catch(() => {});
+                        } catch(cancelErr) {
+                            console.warn('Could not cancel equity listing:', cancelErr.message);
+                            // Still proceed with delete — ops wallet can cancel manually if needed
+                        }
+                    }
+
                     await db.collection("subprojects").doc(projectId).delete();
 
                     if (project.bids && project.bids.length > 0) {
@@ -15222,9 +15236,12 @@ async function cancelListingOnChain(listingId) {
         const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
         const tx = await equityContract.cancelListing(toBytes32(listingId));
         await tx.wait();
+        // Mark listing as inactive in Firestore
+        await db.collection('equityListings').doc(listingId).update({ active: false, status: 'cancelled' }).catch(() => {});
         alert("✅ Listing cancelled. Units returned.");
         hideProjectDetailModal();
         loadEquityListings();
+        loadProfileData();
     } catch(e) {
         const msg = e.message || '';
         if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled.");
