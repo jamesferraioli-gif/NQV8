@@ -12555,8 +12555,13 @@ function updateFundingUnitsPreview(value) {
     }
 }
 
+let _fundingPostInProgress = false;
 async function submitFundingPosting() {
+    if (_fundingPostInProgress) return;
     if (!selectedFundingProjectId) return alert("Please select a project first");
+    const postBtn = document.querySelector('#post-funding-modal button[onclick="submitFundingPosting()"]');
+    if (postBtn) { postBtn.disabled = true; postBtn.textContent = '⏳ Posting...'; }
+    _fundingPostInProgress = true;
 
     const ask = document.getElementById('funding-ask').value.trim();
     const equityPctStr = document.getElementById('funding-equity-pct').value.trim();
@@ -12701,6 +12706,9 @@ async function submitFundingPosting() {
                 } catch(e) {
                     console.error(e);
                     alert("Payment succeeded but failed to post: " + e.message);
+                } finally {
+                    _fundingPostInProgress = false;
+                    if (postBtn) { postBtn.disabled = false; postBtn.textContent = 'Post ($1.00 in NQV8)'; }
                 }
             }
         );
