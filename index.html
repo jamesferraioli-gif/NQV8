@@ -7476,6 +7476,17 @@ async function deletePosting(projectId) {
                 return alert('❌ Cannot edit a posting once a bid has been accepted.');
             }
 
+            // Block editing funding requests that have active offers
+            if (p.type === 'fund' && p.listingId) {
+                const offers = await db.collection('equityOffers')
+                    .where('listingId', '==', p.listingId)
+                    .where('active', '==', true)
+                    .limit(1).get();
+                if (!offers.empty) {
+                    return alert('❌ Cannot edit a funding request that has active investment offers.');
+                }
+            }
+
             const bidCount = p.bids?.length || 0;
 
             if (bidCount > 0) {
@@ -15238,6 +15249,14 @@ async function acceptFundingOffer(firestoreOfferId, offerId) {
         const result = await acceptResp.json();
         if (!result.success) throw new Error(result.error);
         await db.collection('equityOffers').doc(firestoreOfferId).update({ active: false, status: 'accepted' }).catch(() => {});
+
+        // Notify investor
+        const offerDoc = await db.collection('equityOffers').doc(firestoreOfferId).get().catch(() => null);
+        if (offerDoc?.data()?.buyerUid) {
+            await createNotification(offerDoc.data().buyerUid, 'offer_accepted',
+                `🎉 Your investment offer was accepted! Equity has been transferred to your wallet.\nTx: https://arbiscan.io/tx/${result.txHash}`, {});
+        }
+
         alert(`✅ Investment accepted! Equity transferred.\nTx: https://arbiscan.io/tx/${result.txHash}`);
         hideProjectDetailModal();
         loadMarketplace();
@@ -15254,6 +15273,14 @@ async function rejectFundingOffer(offerId, firestoreOfferId) {
         const tx = await equityContract.rejectOffer(toBytes32(offerId));
         await tx.wait();
         await db.collection('equityOffers').doc(firestoreOfferId).update({ active: false, status: 'rejected' }).catch(() => {});
+
+        // Notify investor
+        const offerDoc = await db.collection('equityOffers').doc(firestoreOfferId).get().catch(() => null);
+        if (offerDoc?.data()?.buyerUid) {
+            await createNotification(offerDoc.data().buyerUid, 'offer_rejected',
+                `❌ Your investment offer was rejected by the founder. Your USDC has been refunded.`, {});
+        }
+
         alert('✅ Offer rejected. Investor refunded.');
         loadFundingOffers(offerId.split('_')[0], true);
     } catch(e) {
