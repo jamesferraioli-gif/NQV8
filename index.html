@@ -7187,32 +7187,35 @@ async function loadTotalFundingReceivedStat() {
             </span>
         </p>
 
-        <h3 class="text-2xl font-semibold mt-8 mb-4">Bids (${project.bids ? project.bids.length : 0})</h3>
-
-        <div class="space-y-3 mb-8">
+        ${project.type === 'fund' ? `
+        <h3 class=\"text-2xl font-semibold mt-8 mb-4\">Investment Offers</h3>
+        <div id=\"funding-offers-list\"><p class=\"text-zinc-500 text-sm\">Loading offers...</p></div>
+        ` : `
+        <h3 class=\"text-2xl font-semibold mt-8 mb-4\">Bids (${project.bids ? project.bids.length : 0})</h3>
+        <div class=\"space-y-3 mb-8\">
             ${project.bids && project.bids.length > 0
                 ? project.bids.map((bid, i) => `
-                    <div class="bg-zinc-800 rounded-2xl p-4 flex justify-between items-center ${isPoster ? 'cursor-pointer hover:ring-2 hover:ring-cyan-400' : ''}"
-                         ${isPoster ? `onclick="showBidDetail('${projectId}', ${i})"` : ''}>
-                        <div class="flex-1 min-w-0">
-                            <p class="font-medium">@${bid.bidderName}</p>
-                            <p class="text-cyan-400 text-sm">${bid.amount}</p>
+                    <div class=\"bg-zinc-800 rounded-2xl p-4 flex justify-between items-center ${isPoster ? 'cursor-pointer hover:ring-2 hover:ring-cyan-400' : ''}\"
+                         ${isPoster ? `onclick=\"showBidDetail('${projectId}', ${i})\"` : ''}>
+                        <div class=\"flex-1 min-w-0\">
+                            <p class=\"font-medium\">@${bid.bidderName}</p>
+                            <p class=\"text-cyan-400 text-sm\">${bid.amount}</p>
                             ${bid.status === 'countered' && bid.counterOffer ? `
-                            <p class="text-violet-400 text-xs mt-1">↩️ Counter sent: ${bid.counterOffer.amount} · ${bid.counterOffer.status}</p>` : ''}
+                            <p class=\"text-violet-400 text-xs mt-1\">↩️ Counter sent: ${bid.counterOffer.amount} · ${bid.counterOffer.status}</p>` : ''}
                         </div>
                         ${isPoster ? `
-                        <div class="flex items-center gap-2 ml-3">
-                            ${bid.status === 'countered' ? `<span class="text-xs px-2 py-1 bg-violet-500/20 text-violet-400 rounded-lg">Countered</span>` : ''}
-                            <span class="text-xs text-zinc-400">Review →</span>
+                        <div class=\"flex items-center gap-2 ml-3\">
+                            ${bid.status === 'countered' ? `<span class=\"text-xs px-2 py-1 bg-violet-500/20 text-violet-400 rounded-lg\">Countered</span>` : ''}
+                            <span class=\"text-xs text-zinc-400\">Review →</span>
                         </div>` : ''}
                     </div>`).join('')
-                : `<p class="text-zinc-400">No bids yet. Be the first!</p>`
+                : `<p class=\"text-zinc-400\">No bids yet. Be the first!</p>`
             }
-        </div>
+        </div>`}
 
-        ${!isPoster && !alreadyBid ? `
-        <div class="border-t border-zinc-700 pt-6">
-            <p class="text-sm font-semibold mb-1">Place Your Bid</p>
+        ${!isPoster && !alreadyBid && project.type !== 'fund' ? `
+        <div class=\"border-t border-zinc-700 pt-6\">
+            <p class=\"text-sm font-semibold mb-1\">Place Your Bid</p>
             <p class="text-xs text-zinc-500 mb-4">Posted compensation: <span class="text-zinc-300">${project.compensation || 'Not specified'}</span></p>
 
             ${project.compensationType === 'cash' || !project.compensationType ? `
@@ -7314,8 +7317,28 @@ async function loadTotalFundingReceivedStat() {
                 </div>`;
             }
             return `<p class="text-emerald-400 text-center mt-4">✅ You have already placed a bid on this project.${myBid?.status === 'countered' ? ' Counter offer sent.' : ''}</p>`;
-        })() : ''}        ${isPoster ? `
-            <p class="text-amber-400 text-center mt-4">👆 Click any bid above to review it and accept.</p>
+        })() : ''}
+
+        ${!isPoster && project.type === 'fund' && project.listingId ? `
+        <div class="border-t border-zinc-700 pt-6 mt-4">
+            <p class="text-sm font-semibold mb-2">💰 Make an Investment Offer</p>
+            <p class="text-xs text-zinc-500 mb-4">Founder is offering ${project.equityPct}% equity for ${project.compensation}. Enter your offer price.</p>
+            <p class="text-xs text-zinc-400 mb-2">Your offer amount (USDC total)</p>
+            <input id="funding-offer-amount" type="text"
+                   placeholder="e.g. $5,000.00 USDC"
+                   oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
+                   onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : '$' + n.toFixed(2) + ' USDC'; }"
+                   onfocus="this.value = this.value.replace(/[^0-9.]/g, '')"
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm mb-4">
+            <button onclick="makeFundingOffer('${projectId}', '${project.listingId}', ${project.equityUnits})"
+                    class="w-full py-4 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-3xl">
+                💼 Submit Investment Offer
+            </button>
+            <p class="text-xs text-zinc-500 mt-2 text-center">3.5% platform fee added on top. USDC locked until founder accepts or expires in 7 days.</p>
+        </div>` : ''}
+
+        ${isPoster ? `
+            <p class="text-amber-400 text-center mt-4">${project.type === 'fund' ? '👆 Review investment offers above and accept the best one.' : '👆 Click any bid above to review it and accept.'}</p>
             <div class="border-t border-zinc-700 mt-8 pt-6 space-y-3">
                 ${!(project.isFeatured && project.featuredUntil > Date.now()) ? `
                 <button onclick="showPromoteListingModal('${projectId}')"
@@ -7343,6 +7366,10 @@ async function loadTotalFundingReceivedStat() {
 
             if (isInProgress) renderSubmissions(project);
             if (isInProgress) loadEscrowActions(projectId, project);
+            if (project.type === 'fund' && project.listingId) {
+                const isPosterCheck = currentUser && (project.posterUid === currentUser.uid || project.ownerUid === currentUser.uid);
+                loadFundingOffers(project.listingId, isPosterCheck);
+            }
         }
 
         function showSubprojectDetail(id, data) {
@@ -12549,7 +12576,11 @@ async function submitFundingPosting() {
                     const projectSnap = await db.collection("companies").doc(selectedFundingProjectId).get();
                     const project = projectSnap.data();
 
-                    await db.collection("subprojects").add({
+                    const askNum = parseFloat(ask.replace(/[^0-9.]/g, ''));
+                    const pricePerUnit = equityUnits > 0 ? askNum / equityUnits : 0;
+                    const listingIdStr = `${selectedFundingProjectId}_${connectedAddress}_${Date.now()}`;
+
+                    const fundingRef = await db.collection("subprojects").add({
                         projectId: selectedFundingProjectId,
                         companyId: selectedFundingProjectId,
                         ownerUid: currentUser.uid,
@@ -12563,6 +12594,8 @@ async function submitFundingPosting() {
                         compensation: ask,
                         equityPct,
                         equityUnits,
+                        pricePerUnit,
+                        listingId: listingIdStr,
                         compensationType: 'fund',
                         type: 'fund',
                         bids: [],
@@ -12573,7 +12606,45 @@ async function submitFundingPosting() {
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
 
-                    alert("✅ Funding request posted!");
+                    // List equity on V4 via ops wallet
+                    try {
+                        const listResp = await fetch('/api/admin-list-equity', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer nqvate-internal-2026`
+                            },
+                            body: JSON.stringify({
+                                listingId: listingIdStr,
+                                companyId: selectedFundingProjectId,
+                                seller: connectedAddress,
+                                units: equityUnits,
+                                pricePerUnit
+                            })
+                        });
+                        const listResult = await listResp.json();
+                        if (listResult.success) {
+                            await db.collection('equityListings').doc(listingIdStr).set({
+                                listingId: listingIdStr,
+                                companyId: selectedFundingProjectId,
+                                seller: connectedAddress.toLowerCase(),
+                                sellerUid: currentUser.uid,
+                                units: equityUnits,
+                                pricePerUnit,
+                                totalAsk: askNum,
+                                txHash: listResult.txHash,
+                                active: true,
+                                isFundingRequest: true,
+                                fundingRequestId: fundingRef.id,
+                                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                            await fundingRef.update({ equityListingId: listingIdStr, equityListed: true });
+                        }
+                    } catch(listErr) {
+                        console.warn('Equity listing failed (non-fatal):', listErr.message);
+                    }
+
+                    alert("✅ Funding request posted! Investors can now make offers on your equity stake.");
                     hidePostFundingModal();
                     loadMarketplace();
                     refreshProjectDetailModal();
@@ -14821,6 +14892,20 @@ async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk) {
         const acceptResult = await acceptResp.json();
         if (!acceptResult.success) throw new Error(acceptResult.error || 'Auto-accept failed');
 
+        // Save offer to Firestore for funding request offer enumeration
+        await db.collection('equityOffers').add({
+            offerId: offerIdStr,
+            listingId,
+            buyerAddress: connectedAddress.toLowerCase(),
+            buyerUid: currentUser?.uid || null,
+            units,
+            pricePerUnit: parseFloat(askPricePerUnit),
+            totalPrice: parseFloat(totalAsk),
+            active: true,
+            status: 'pending',
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        }).catch(e => console.warn('Failed to save offer:', e.message));
+
         // Mark listing as sold in Firestore
         await db.collection('equityListings').doc(listingId).update({
             active: false,
@@ -14990,6 +15075,96 @@ async function counterOfferOnChain(offerId) {
     return alert('Counter offers are not available in this version. Please reject and make a new offer.');
 }
 
+
+async function makeFundingOffer(projectId, listingId, units) {
+    if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
+    const amountStr = (document.getElementById('funding-offer-amount')?.value || '').replace(/[^0-9.]/g, '');
+    const totalOffer = parseFloat(amountStr);
+    if (isNaN(totalOffer) || totalOffer <= 0) return alert('Please enter a valid offer amount in USDC.');
+    const pricePerUnit = totalOffer / units;
+    await makeOfferOnChain(listingId, units, pricePerUnit.toFixed(6), totalOffer.toFixed(2));
+}
+
+async function loadFundingOffers(listingId, isPoster) {
+    const container = document.getElementById('funding-offers-list');
+    if (!container) return;
+    container.innerHTML = '<p class="text-zinc-500 text-sm">Loading offers...</p>';
+    try {
+        const offersSnap = await db.collection('equityOffers')
+            .where('listingId', '==', listingId)
+            .where('active', '==', true)
+            .orderBy('createdAt', 'desc')
+            .get();
+
+        if (offersSnap.empty) {
+            container.innerHTML = '<p class="text-zinc-500 text-sm mt-2">No investment offers yet.</p>';
+            return;
+        }
+
+        let html = '<div class="space-y-3 mt-2">';
+        for (const doc of offersSnap.docs) {
+            const o = doc.data();
+            const total = (o.units * o.pricePerUnit).toFixed(2);
+            const pct = (o.units / 100).toFixed(2);
+            html += `
+                <div class="bg-zinc-800 rounded-2xl p-4">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <p class="font-medium text-sm">$${total} USDC for ${pct}% equity</p>
+                            <p class="text-xs text-zinc-400">$${parseFloat(o.pricePerUnit).toFixed(4)}/unit · ${o.buyerAddress ? o.buyerAddress.slice(0,6)+'...'+o.buyerAddress.slice(-4) : 'Unknown'}</p>
+                        </div>
+                        <span class="text-xs text-amber-400 px-2 py-1 bg-amber-500/10 rounded-lg">Pending</span>
+                    </div>
+                    ${isPoster ? `
+                    <div class="flex gap-2 mt-3">
+                        <button onclick="acceptFundingOffer('${doc.id}', '${o.offerId}')"
+                                class="flex-1 py-2 bg-emerald-500 text-black text-sm font-semibold rounded-xl">Accept</button>
+                        <button onclick="rejectFundingOffer('${o.offerId}', '${doc.id}')"
+                                class="flex-1 py-2 border border-zinc-600 text-sm rounded-xl">Reject</button>
+                    </div>` : ''}
+                </div>`;
+        }
+        html += '</div>';
+        container.innerHTML = html;
+    } catch(e) {
+        container.innerHTML = '<p class="text-zinc-500 text-sm">Could not load offers.</p>';
+        console.warn('loadFundingOffers error:', e.message);
+    }
+}
+
+async function acceptFundingOffer(firestoreOfferId, offerId) {
+    if (!confirm('Accept this investment offer? Equity will transfer to investor, USDC sent to your wallet.')) return;
+    try {
+        const acceptResp = await fetch('/api/accept-offer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer nqvate-internal-2026` },
+            body: JSON.stringify({ offerId })
+        });
+        const result = await acceptResp.json();
+        if (!result.success) throw new Error(result.error);
+        await db.collection('equityOffers').doc(firestoreOfferId).update({ active: false, status: 'accepted' }).catch(() => {});
+        alert(`✅ Investment accepted! Equity transferred.\nTx: https://arbiscan.io/tx/${result.txHash}`);
+        hideProjectDetailModal();
+        loadMarketplace();
+        loadProfileData();
+    } catch(e) {
+        alert('Failed: ' + e.message);
+    }
+}
+
+async function rejectFundingOffer(offerId, firestoreOfferId) {
+    if (!confirm('Reject this offer? USDC will be refunded to the investor.')) return;
+    try {
+        const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
+        const tx = await equityContract.rejectOffer(toBytes32(offerId));
+        await tx.wait();
+        await db.collection('equityOffers').doc(firestoreOfferId).update({ active: false, status: 'rejected' }).catch(() => {});
+        alert('✅ Offer rejected. Investor refunded.');
+        loadFundingOffers(offerId.split('_')[0], true);
+    } catch(e) {
+        if (!handleWalletError(e)) alert('Failed: ' + e.message);
+    }
+}
 
 async function cancelListingOnChain(listingId) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
