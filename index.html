@@ -4568,8 +4568,19 @@ async function claimVoucher(txHash, purpose) {
     return d.voucher;
 }
 
-// Record a failed API call so silent failures surface in the daily digest.
-async function logApiFailure(endpoint, status, message) {
+// Minimum length for any user-submitted free-text field.
+// Returns true and alerts if the text is too short.
+const MIN_TEXT_LENGTH = 10;
+function tooShort(text, fieldLabel, min = MIN_TEXT_LENGTH) {
+    const t = (text || '').trim();
+    if (t.length < min) {
+        alert(`${fieldLabel} must be at least ${min} characters.\n\nYou entered ${t.length}.`);
+        return true;
+    }
+    return false;
+}
+
+// Record a failed API call so silent failures surface in the daily digest.async function logApiFailure(endpoint, status, message) {
     try {
         await db.collection('errorLog').add({
             kind:      'api_failure',
@@ -12586,6 +12597,8 @@ async function submitBountyPosting() {
     }
 
     if (!title || !desc || !category || !compensation) return alert("Please fill in all fields");
+    if (tooShort(title, 'Title')) return;
+    if (tooShort(desc, 'Description', 40)) return;
 
     if (selectedBountyCompType !== 'cash') {
         const projectSnap = await db.collection("companies").doc(selectedBountyProjectId).get();
