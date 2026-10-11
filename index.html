@@ -9170,8 +9170,15 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                 const escrowId = await escrowContract.projectToEscrow(ethers.utils.keccak256(ethers.utils.toUtf8Bytes(currentProjectId)));
                 const hasEscrow = escrowId !== '0x0000000000000000000000000000000000000000000000000000000000000000';
 
-                // ── Equity reservation path — approve work, equity releases at review ──
-                if (currentProject.equityReserved && currentProject.companyId) {
+                // ── Equity-ONLY path — approve work, equity releases at review ──
+                // A MIXED bounty must NOT come through here: it also has a USDC
+                // escrow, and this branch returns without releasing it, leaving
+                // the cash locked forever. Mixed falls through to the hasEscrow
+                // path below, which releases the escrow, records the fee, and
+                // then completes the equity.
+                const _isEquityOnlyBounty = currentProject.compensationType === 'equity' ||
+                                            currentProject.escrowType === 'equity';
+                if (currentProject.equityReserved && currentProject.companyId && _isEquityOnlyBounty) {
                     const projectRef = db.collection('subprojects').doc(currentProjectId);
                     const updatedSubmissions = [...currentProject.submissions];
                     updatedSubmissions[submissionIndex].status = 'accepted';
