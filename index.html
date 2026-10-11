@@ -9475,6 +9475,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                             const completeTxHash = completeResult.txHash;
 
                             await db.collection('subprojects').doc(currentReviewProjectId).update({
+                                equityTransferred: true,
                                 equityTransferTxHash: completeTxHash,
                                 equityUnitsTransferred: proj.equityUnits,
                                 paidAt: firebase.firestore.FieldValue.serverTimestamp()
