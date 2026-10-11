@@ -7,13 +7,12 @@
 // Auto-completes the reservation in the builder's favor.
 
 import { ethers } from 'ethers';
-import { initializeApp, getApps } from 'firebase-admin/app';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { credential } from 'firebase-admin';
 
 if (!getApps().length) {
     initializeApp({
-        credential: credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
+        credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
     });
 }
 const db = getFirestore();
@@ -26,7 +25,8 @@ const AUTO_RELEASE_DAYS       = parseInt(process.env.AUTO_RELEASE_DAYS || '7');
 
 const EQUITY_ABI = [
     "function completeReservation(bytes32 companyId, bytes32 bountyId, address platformWallet, uint256 feeBps) external",
-    "function reservations(bytes32 companyId, bytes32 bountyId) external view returns (address founder, address beneficiary, uint128 units, bool active)"
+    "function reservations(bytes32 companyId, bytes32 bountyId) external view returns (address founder, address beneficiary, uint128 units, bool active)",
+    "function balances(bytes32 companyId, address wallet) external view returns (uint256)"
 ];
 
 function toBytes32(str) {
@@ -119,50 +119,37 @@ export default async function handler(req, res) {
                     autoReleaseReason:      `Founder did not respond within ${AUTO_RELEASE_DAYS} days of submission`
                 });
 
-                // Update equityHolders index
+                // Sync equityHolders from chain. Absolute balances, never
+                // increments, so this is idempotent and repairs prior drift.
                 const workerWallet = reservation.beneficiary;
-                if (workerWallet && workerWallet !== ethers.constants.AddressZero) {
-                    const builderSnap = await db.collection('equityHolders')
-                        .where('projectId', '==', project.companyId)
-                        .where('wallet', '==', workerWallet.toLowerCase())
-                        .limit(1).get();
-                    if (builderSnap.empty) {
-                        await db.collection('equityHolders').add({
-                            projectId: project.companyId,
-                            wallet: workerWallet.toLowerCase(),
-                            units: workerUnits,
-                            isFounder: false,
-                            earnedViaBuilding: true,
-                            autoReleased: true,
-                            addedAt: new Date()
-                        });
-                    } else {
-                        const existing = builderSnap.docs[0].data().units || 0;
-                        await db.collection('equityHolders').doc(builderSnap.docs[0].id).update({
-                            units: existing + workerUnits
-                        });
-                    }
+                try {
+                    const _founderLc = (reservation.founder || '').toLowerCase();
+                    const _workerLc  = (workerWallet || '').toLowerCase();
+                    const _opsLc     = PLATFORM_WALLET.toLowerCase();
 
-                    // Upsert ops wallet entry
-                    const opsSnap = await db.collection('equityHolders')
-                        .where('projectId', '==', project.companyId)
-                        .where('wallet', '==', PLATFORM_WALLET.toLowerCase())
-                        .limit(1).get();
-                    if (opsSnap.empty) {
-                        await db.collection('equityHolders').add({
+                    const _addrs = [...new Set(
+                        [_founderLc, _workerLc, _opsLc]
+                            .filter(a => a && a.length === 42 && a !== ethers.constants.AddressZero.toLowerCase())
+                    )];
+
+                    for (const _a of _addrs) {
+                        const _units = (await equityContract.balances(companyIdBytes, _a)).toNumber();
+                        const _rec = {
                             projectId: project.companyId,
-                            wallet: PLATFORM_WALLET.toLowerCase(),
-                            units: platformUnits,
-                            isFounder: false,
-                            isPlatformFee: true,
-                            addedAt: new Date()
-                        });
-                    } else {
-                        const existing = opsSnap.docs[0].data().units || 0;
-                        await db.collection('equityHolders').doc(opsSnap.docs[0].id).update({
-                            units: existing + platformUnits
-                        });
+                            wallet: _a,
+                            units: _units,
+                            isFounder: _a === _founderLc,
+                            lastSyncedAt: new Date()
+                        };
+                        if (_a === _workerLc) { _rec.earnedViaBuilding = true; _rec.autoReleased = true; }
+                        if (_a === _opsLc)      _rec.isPlatformFee     = true;
+
+                        await db.collection('equityHolders')
+                            .doc(`${project.companyId}_${_a}`)
+                            .set(_rec, { merge: true });
                     }
+                } catch (capErr) {
+                    console.warn('Cap table sync failed (non-fatal, chain is authoritative):', capErr.message);
                 }
 
                 // Notify both parties
