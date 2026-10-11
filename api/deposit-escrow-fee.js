@@ -5,6 +5,7 @@
 // distributed to NQV8 holders in the monthly rewards run.
 
 import { ethers } from 'ethers';
+import { verifyCaller } from './_auth.js';
 
 const REWARDS_CONTRACT_ADDRESS = '0x045aD6C2889ABCe6Bd8ef52D621706c44e4f1266';
 const USDC_ADDRESS             = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
@@ -28,11 +29,8 @@ export default async function handler(req, res) {
     }
 
     // Verify request is from our own frontend using a shared secret
-    const authHeader = req.headers['authorization'];
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}` &&
-        authHeader !== `Bearer ${process.env.INTERNAL_API_SECRET}`) {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
+    const caller = await verifyCaller(req);
+    if (!caller) return res.status(401).json({ error: 'Unauthorized' });
 
     const { bountyAmountUSDC, escrowTxHash, subprojectId } = req.body;
 
