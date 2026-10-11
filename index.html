@@ -4508,6 +4508,77 @@ let nqv8Contract = null;
 let usdcContract = null;
 
 // ============================================================
+// TRANSACTION BUTTON LOCK
+// Disables every button in open modals while a wallet signature
+// or transaction is pending, then restores the exact prior state.
+// ============================================================
+let _txLockDepth = 0;
+
+function lockTxButtons(exceptModalId) {
+    _txLockDepth++;
+    document.querySelectorAll('div[id$="-modal"]').forEach(m => {
+        if (exceptModalId && m.id === exceptModalId) return;
+        if (m.classList.contains('hidden')) return;
+        m.querySelectorAll('button').forEach(b => {
+            if (b.dataset.txLock) return;
+            b.dataset.txLock = b.disabled ? 'keep' : 'free';
+            if (b.dataset.txLock === 'free') {
+                b.disabled = true;
+                b.classList.add('opacity-40', 'cursor-not-allowed');
+            }
+        });
+    });
+}
+
+function unlockTxButtons(force) {
+    if (force) _txLockDepth = 0;
+    else _txLockDepth = Math.max(0, _txLockDepth - 1);
+    if (_txLockDepth > 0) return;
+    document.querySelectorAll('button[data-tx-lock]').forEach(b => {
+        if (b.dataset.txLock === 'free') {
+            b.disabled = false;
+            b.classList.remove('opacity-40', 'cursor-not-allowed');
+        }
+        delete b.dataset.txLock;
+    });
+}
+
+// Restores posting buttons and their in-progress flags after a cancel
+function resetPostingButtons() {
+    try { _fundingPostInProgress = false; } catch(e) {}
+    try { _listingInProgress = false; } catch(e) {}
+    const b1 = document.querySelector('#post-funding-modal button[onclick="submitFundingPosting()"]');
+    if (b1) { b1.disabled = false; b1.textContent = 'Post ($1.00 in NQV8)'; }
+    const b2 = document.querySelector('#post-bounty-modal button[onclick="submitBountyPosting()"]');
+    if (b2) { b2.disabled = false; b2.textContent = 'Post ($1.00 in NQV8)'; }
+}
+
+function closePaymentPicker() {
+    document.getElementById('payment-picker-modal')?.remove();
+    unlockTxButtons(true);
+    resetPostingButtons();
+}
+
+// Universal hook — every signature/transaction request from any wallet
+// (MetaMask, Coinbase, WalletConnect) goes through Web3Provider.send
+(function installTxLock() {
+    if (!window.ethers?.providers?.Web3Provider) return;
+    const WALLET_METHODS = [
+        'eth_sendTransaction', 'eth_signTransaction', 'eth_sign', 'personal_sign',
+        'eth_signTypedData', 'eth_signTypedData_v3', 'eth_signTypedData_v4'
+    ];
+    const origSend = ethers.providers.Web3Provider.prototype.send;
+    ethers.providers.Web3Provider.prototype.send = function(method, params) {
+        if (!WALLET_METHODS.includes(method)) return origSend.call(this, method, params);
+        lockTxButtons();
+        return origSend.call(this, method, params).then(
+            r => { unlockTxButtons(); return r; },
+            e => { unlockTxButtons(); throw e; }
+        );
+    };
+})();
+
+// ============================================================
 // CONNECT WALLET — supports MetaMask, Coinbase, WalletConnect,
 // Ledger, Trezor, Rainbow, Trust, any EIP-1193 wallet
 // ============================================================
@@ -5081,7 +5152,7 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
             <div id="insufficient-banner" class="hidden mb-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
                 <p class="text-amber-400 text-sm font-semibold mb-1">⚠️ Insufficient NQV8</p>
                 <p class="text-zinc-400 text-xs mb-3">You need ${nqv8Amount} NQV8 (≈ $${usdAmount.toFixed(2)}) to continue.</p>
-                <button onclick="document.getElementById('payment-picker-modal').remove(); showBuyNQV8Modal()"
+                <button onclick="closePaymentPicker(); showBuyNQV8Modal()"
                         class="w-full py-2 bg-gradient-to-r from-amber-400 to-cyan-400 text-black text-sm font-semibold rounded-xl">
                     Buy NQV8 from Treasury
                 </button>
@@ -5092,13 +5163,14 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
                 Pay ${nqv8Amount} NQV8
             </button>
 
-            <button onclick="document.getElementById('payment-picker-modal').remove()"
+            <button onclick="closePaymentPicker()"
                     class="w-full py-3 text-zinc-500 hover:text-zinc-300 text-sm">
                 Cancel
             </button>
         </div>
     `;
     document.body.appendChild(modal);
+    lockTxButtons('payment-picker-modal');
 
     const statusEl = modal.querySelector('#payment-status');
     const payBtn   = modal.querySelector('#pay-nqv8-btn');
@@ -5178,6 +5250,7 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
             ]);
             await recordProtocolFee(usdAmount, 'fee', txHash);
             modal.remove();
+            unlockTxButtons(true);
             onSuccess(txHash);
         } catch(e) {
             payBtn.disabled = false;
@@ -5186,6 +5259,8 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
             console.error('Payment debug error:', e.message);
             if (handleWalletError(e)) {
                 modal.remove();
+                unlockTxButtons(true);
+                resetPostingButtons();
                 return;
             }
             setStatus('❌ ' + parsePaymentError(e));
@@ -13509,7 +13584,11 @@ function showImproveSuggestionsModal(original, improved, changes, onConfirm) {
     modal.className = 'fixed inset-0 bg-black/95 flex items-center justify-center z-[999999] overflow-auto';
     // Close on click outside
     modal.addEventListener('click', (e) => {
-        if (e.target === modal) document.getElementById('improve-suggestions-modal')?.remove();
+        if (e.target === modal) {
+            document.getElementById('improve-suggestions-modal')?.remove();
+            unlockTxButtons(true);
+            resetPostingButtons();
+        }
     });
 
     modal.innerHTML = `
@@ -13519,7 +13598,7 @@ function showImproveSuggestionsModal(original, improved, changes, onConfirm) {
                     <span class="text-3xl">✨</span>
                     <h3 class="text-2xl font-bold">Claude Suggested Improvements</h3>
                 </div>
-                <button onclick="document.getElementById('improve-suggestions-modal')?.remove()" class="text-zinc-500 hover:text-white text-2xl leading-none">×</button>
+                <button onclick="document.getElementById('improve-suggestions-modal')?.remove(); unlockTxButtons(true); resetPostingButtons();" class="text-zinc-500 hover:text-white text-2xl leading-none">×</button>
             </div>
             <p class="text-zinc-400 text-sm mb-6">Your posting was reviewed for clarity and concrete deliverables. Choose which version to use — you must select one to continue.</p>
 
