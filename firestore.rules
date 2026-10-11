@@ -115,9 +115,6 @@ service cloud.firestore {
         && resource.data.get('buyerUid', '') == request.auth.uid;
     }
 
-    // EQUITY HOLDERS — derived cap-table index. The chain is the source of
-    // truth; this exists for fast reads. Written by both parties to a trade.
-    // TODO: move these writes server-side so this can be locked down.
     // EQUITY HOLDERS — cap table index. Public read (cap tables are public).
     // The chain is authoritative: the display reads balances() on V4 and only
     // uses this collection to know WHICH wallets to look up. Writes are
