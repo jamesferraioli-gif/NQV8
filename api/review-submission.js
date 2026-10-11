@@ -126,8 +126,33 @@ export default async function handler(req, res) {
         }
 
         const rawText = claudeData.content.filter(b => b.type === 'text').map(b => b.text).join('');
-        const clean   = rawText.replace(/```json|```/g, '').trim();
-        const result  = JSON.parse(clean);
+
+        // Claude occasionally prefixes the JSON with prose or a markdown heading,
+        // especially when the submission contains a document. Extract the object
+        // rather than trusting the whole response.
+        let result;
+        try {
+            const clean = rawText.replace(/```json|```/g, '').trim();
+            const start = clean.indexOf('{');
+            const end   = clean.lastIndexOf('}');
+            if (start === -1 || end === -1 || end <= start) {
+                throw new Error('No JSON object found in response');
+            }
+            result = JSON.parse(clean.slice(start, end + 1));
+        } catch (parseErr) {
+            console.error('review-submission could not parse Claude response:', parseErr.message);
+            console.error('Raw response (first 500 chars):', rawText.slice(0, 500));
+            throw new Error(`Could not parse review response: ${parseErr.message}`);
+        }
+
+        // Normalise so a malformed-but-parseable response cannot break the caller
+        result.contentFlagged    = result.contentFlagged === true;
+        result.contentFlagReason = result.contentFlagReason || '';
+        result.summary           = result.summary || 'Review completed.';
+        result.missingItems      = Array.isArray(result.missingItems) ? result.missingItems : [];
+        result.recommendation    = ['approve','request_changes','reject'].includes(result.recommendation)
+            ? result.recommendation : 'approve';
+        result.confidence        = result.confidence || 'low';
 
         if (result.contentFlagged) {
             console.error('🚨 CONTENT FLAGGED by Claude', {
@@ -264,7 +289,12 @@ Only reach this if Check 1 passes. Assess:
 - What seems missing or incomplete?
 - Is the GitHub repo (if provided) consistent with the project requirements?
 
-Respond ONLY with valid JSON, no markdown backticks:
+Your entire response must be a single JSON object and nothing else. Do not write any
+heading, preamble, explanation or markdown before or after it. Do not summarise the
+submission outside the JSON. Begin your response with { and end it with }.
+
+Respond with exactly this shape:
+
 {
   "contentFlagged": false,
   "contentFlagReason": "",
