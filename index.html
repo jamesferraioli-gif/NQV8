@@ -4665,6 +4665,9 @@ function lockTxButtons(exceptModalId) {
         if (m.classList.contains('hidden')) return;
         m.querySelectorAll('button').forEach(b => {
             if (b.dataset.txLock) return;
+            // Cancel/close controls must never be locked — a failed tx would
+            // otherwise leave the user trapped in the modal with no way out.
+            if (b.dataset.noLock !== undefined) return;
             // Remember whether this button was already disabled before we locked it
             b.dataset.txLock = b.disabled ? 'keep' : 'free';
             b.disabled = true;
@@ -5376,7 +5379,7 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
                 Pay ${nqv8Amount} NQV8
             </button>
 
-            <button onclick="closePaymentPicker()"
+            <button onclick="closePaymentPicker()" data-no-lock id="payment-cancel-btn"
                     class="w-full py-3 text-zinc-500 hover:text-zinc-300 text-sm">
                 Cancel
             </button>
@@ -5444,8 +5447,21 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
         delete payBtn.dataset.txDim;
     };
 
+    // Cancel is exempt from the blanket lock (data-no-lock) so a FAILED tx can
+    // never trap the user. It is disabled explicitly only while a transaction
+    // is actually in flight — closing mid-flight would strand a real payment.
+    const cancelBtn = modal.querySelector('#payment-cancel-btn');
+    const setCancelEnabled = (on) => {
+        if (!cancelBtn) return;
+        cancelBtn.disabled = !on;
+        cancelBtn.classList.toggle('opacity-40', !on);
+        cancelBtn.classList.toggle('cursor-not-allowed', !on);
+        cancelBtn.textContent = on ? 'Cancel' : 'Payment in progress…';
+    };
+
     payBtn.addEventListener('click', async () => {
         if (payBtn.disabled) return;
+        setCancelEnabled(false);
         setPayBtn('⏳ Confirm in your wallet...');
         setStatus('⏳ Confirm in your wallet...');
         try {
@@ -5483,6 +5499,12 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
             onSuccess(txHash);
         } catch(e) {
             resetPayBtn();
+            setCancelEnabled(true);
+            // The wrapper's lock was never released (depth never hit 0), so the
+            // modal's own controls stay dead. Reset to a clean state, then
+            // re-lock the background while this modal remains open.
+            unlockTxButtons(true);
+            lockTxButtons('payment-picker-modal');
             console.error('Payment error:', e.message, e.code);
             window._lastPaymentError = e.message;
             console.error('Payment debug error:', e.message);
