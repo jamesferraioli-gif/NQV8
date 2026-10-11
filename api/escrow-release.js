@@ -5,6 +5,7 @@
 // The escrow contract splits automatically: 96.5% to worker, 3.5% to platform.
 
 import { ethers } from 'ethers';
+import { verifyCaller } from './_auth.js';
 
 const ESCROW_CONTRACT_ADDRESS = '0x19E9E191e5F277053Db4373FAbb8fBdEa8A30761';
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
@@ -21,10 +22,8 @@ export default async function handler(req, res) {
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    const auth = req.headers['authorization'];
-    if (auth !== `Bearer ${process.env.INTERNAL_API_SECRET}`) {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
+    const caller = await verifyCaller(req);
+    if (!caller) return res.status(401).json({ error: 'Unauthorized' });
 
     const { projectId } = req.body;
     if (!projectId) return res.status(400).json({ error: 'Missing projectId' });
