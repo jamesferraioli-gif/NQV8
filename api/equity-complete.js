@@ -4,7 +4,7 @@
 // splitting 3.5% to the platform and 96.5% to the builder.
 
 import { ethers } from 'ethers';
-import { verifyCaller } from './_auth.js';
+import { verifyCaller, assertCompanyOwner } from './_auth.js';
 
 const EQUITY_REGISTRY_ADDRESS = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2';
 const PLATFORM_WALLET         = '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D';
@@ -31,6 +31,9 @@ export default async function handler(req, res) {
     if (!companyId || !bountyId) {
         return res.status(400).json({ error: 'Missing companyId or bountyId' });
     }
+
+    const denied = await assertCompanyOwner(caller, companyId);
+    if (denied) return res.status(denied.status).json({ error: denied.error });
 
     try {
         const provider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
