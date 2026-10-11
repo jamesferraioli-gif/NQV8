@@ -4717,14 +4717,76 @@ function closePaymentPicker() {
         'eth_sendTransaction', 'eth_signTransaction', 'eth_sign', 'personal_sign',
         'eth_signTypedData', 'eth_signTypedData_v3', 'eth_signTypedData_v4'
     ];
+    // Only these actually move funds — gate them on the network.
+    const SIGNING_METHODS = ['eth_sendTransaction', 'eth_signTransaction'];
     const origSend = ethers.providers.Web3Provider.prototype.send;
-    ethers.providers.Web3Provider.prototype.send = function(method, params) {
+
+    // Wallets return chainId as a hex string, a decimal string, or a number.
+    // parseInt(42161, 16) === 271713, so never assume hex.
+    function toChainId(v) {
+        if (typeof v === 'number') return v;
+        if (v && typeof v === 'object' && v.chainId !== undefined) return toChainId(v.chainId);
+        const s = String(v).trim();
+        return /^0x/i.test(s) ? parseInt(s, 16) : parseInt(s, 10);
+    }
+
+    // Hard network gate. Runs through the PROVIDER, not window.ethereum, so it
+    // works for WalletConnect/mobile as well as injected wallets. On a non-Arbitrum
+    // chain our contract addresses have no code, so a call would SUCCEED as a plain
+    // 0-value transfer and look like a paid fee.
+    async function assertArbitrum(self) {
+        let raw;
+        try {
+            raw = await origSend.call(self, 'eth_chainId', []);
+        } catch (e) {
+            throw new Error('Could not read your wallet network. Please reconnect your wallet.');
+        }
+        if (toChainId(raw) === ARBITRUM_CHAIN_ID) return;
+
+        try {
+            await origSend.call(self, 'wallet_switchEthereumChain', [{ chainId: ARBITRUM_CHAIN_HEX }]);
+        } catch (switchErr) {
+            if (switchErr && switchErr.code === 4902) {
+                await origSend.call(self, 'wallet_addEthereumChain', [{
+                    chainId: ARBITRUM_CHAIN_HEX,
+                    chainName: 'Arbitrum One',
+                    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+                    rpcUrls: [ARBITRUM_RPC],
+                    blockExplorerUrls: ['https://arbiscan.io']
+                }]);
+            } else {
+                throw new Error('WRONG_NETWORK');
+            }
+        }
+
+        // Never trust the switch — confirm it actually took.
+        const after = await origSend.call(self, 'eth_chainId', []);
+        if (toChainId(after) !== ARBITRUM_CHAIN_ID) throw new Error('WRONG_NETWORK');
+    }
+
+    ethers.providers.Web3Provider.prototype.send = async function(method, params) {
         if (!WALLET_METHODS.includes(method)) return origSend.call(this, method, params);
+
+        if (SIGNING_METHODS.includes(method)) {
+            try {
+                await assertArbitrum(this);
+            } catch (e) {
+                alert(e.message === 'WRONG_NETWORK'
+                    ? '❌ Wrong network\n\nNQVate runs on Arbitrum One. Please switch your wallet to Arbitrum One and try again.\n\nNetwork: Arbitrum One\nChain ID: 42161'
+                    : e.message);
+                throw e;
+            }
+        }
+
         lockTxButtons();
-        return origSend.call(this, method, params).then(
-            r => { unlockTxButtons(); return r; },
-            e => { unlockTxButtons(); throw e; }
-        );
+        try {
+            const r = await origSend.call(this, method, params);
+            unlockTxButtons();
+            return r;
+        } catch (e) {
+            unlockTxButtons();
+            throw e;
+        }
     };
 })();
 
