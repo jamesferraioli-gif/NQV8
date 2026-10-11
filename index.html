@@ -4396,9 +4396,23 @@ const ESCROW_CONTRACT_ADDRESS = '0x19E9E191e5F277053Db4373FAbb8fBdEa8A30761';
 // NQVate Equity Registry — deployed on Arbitrum One
 const EQUITY_REGISTRY_ADDRESS = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2'
 // Convert string ID to bytes32 for V4 contract calls
-function toBytes32(str) {
-    return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(str));
+// Waits for a receipt by polling Arbitrum directly instead of through the
+// wallet provider. On mobile, Safari suspends the page while the wallet app
+// is in the foreground, and WalletConnect frequently never resolves
+// eth_getTransactionReceipt on return — hanging tx.wait() forever even though
+// the transaction landed. This never invents success: it returns only once the
+// chain confirms, and throws if the transaction reverted.
+async function confirmTx(tx) {
+    if (!tx) throw new Error('No transaction to confirm');
+    const hash = typeof tx === 'string' ? tx : tx.hash;
+    if (!hash) throw new Error('Transaction did not return a hash');
+    const ro = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+    const receipt = await ro.waitForTransaction(hash, 1);
+    if (!receipt || receipt.status === 0) throw new Error('Transaction reverted on-chain');
+    return receipt;
 }
+
+function toBytes32(str) {
 
 const EQUITY_REGISTRY_ABI = [
     "function registerCompany(bytes32 companyId, address founder) external",
