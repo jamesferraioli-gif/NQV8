@@ -10,7 +10,7 @@
             "use": "@vercel/static"
         },
         {
-            "src": "favicon.svg",
+            "src": "favicon.SVG",
             "use": "@vercel/static"
         },
         {
@@ -166,8 +166,8 @@
             "dest": "/manifest.json"
         },
         {
-            "src": "/favicon.svg",
-            "dest": "/favicon.svg"
+            "src": "/favicon.(svg|SVG)",
+            "dest": "/favicon.SVG"
         },
         {
             "src": "/terms",
@@ -178,12 +178,12 @@
             "dest": "/privacy.html"
         },
         {
-            "src": "/(.*)",
-            "dest": "/index.html"
-        },
-        {
             "src": "/api/error-digest",
             "dest": "/api/error-digest.js"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/index.html"
         }
     ],
     "crons": [
