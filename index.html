@@ -13763,7 +13763,11 @@ async function checkAndImprovePosting(title, description, category, compensation
             body: JSON.stringify({ title, description, category, compensationType, postingType })
         });
 
-        if (!response.ok) throw new Error('API failed');
+        if (!response.ok) {
+            const detail = await response.text().catch(() => '');
+            console.warn(`improve-posting ${response.status}:`, detail.slice(0, 200));
+            throw new Error(`API failed (${response.status})`);
+        }
         const data = await response.json();
 
         hideImproveLoadingModal();
