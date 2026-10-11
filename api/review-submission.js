@@ -123,16 +123,15 @@ export default async function handler(req, res) {
             body: JSON.stringify({
                 model: 'claude-sonnet-5',
                 max_tokens: 1500,
-                messages: [
-                    { role: 'user', content: messageContent },
-                    // Prefill forces the reply to continue a JSON object rather
-                    // than describing an attached image, which it otherwise does
-                    // when the last thing in the prompt is a chart or screenshot.
-                    { role: 'assistant', content: '{' }
-                ]
+                messages: [{ role: 'user', content: messageContent }]
             })
         });
 
+        if (!claudeResponse.ok) {
+            const errBody = await claudeResponse.text().catch(() => '');
+            console.error(`Claude API ${claudeResponse.status}:`, errBody.slice(0, 600));
+            throw new Error(`Claude API ${claudeResponse.status}: ${errBody.slice(0, 200)}`);
+        }
         const claudeData = await claudeResponse.json();
         if (!claudeData.content || claudeData.error) {
             throw new Error(`Claude API error: ${claudeData.error?.message || 'Unknown error'}`);
@@ -145,9 +144,7 @@ export default async function handler(req, res) {
         // rather than trusting the whole response.
         let result;
         try {
-            let clean = rawText.replace(/```json|```/g, '').trim();
-            // The assistant turn was prefilled with '{', so the reply continues it
-            if (!clean.startsWith('{')) clean = '{' + clean;
+            const clean = rawText.replace(/```json|```/g, '').trim();
             const start = clean.indexOf('{');
             const end   = clean.lastIndexOf('}');
             if (start === -1 || end === -1 || end <= start) {
