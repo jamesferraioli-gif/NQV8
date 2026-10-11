@@ -4133,7 +4133,7 @@ async function submitMetricsVerification() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer nqvate-internal-2026`
+                    'Authorization': `Bearer ${_idToken || 'nqvate-internal-2026'}`
                 },
                 body: JSON.stringify({
                     recipientAddress: connectedAddress,
@@ -4537,6 +4537,24 @@ const TREASURY_ABI = [
     "event PegEnded(uint256 timestamp)",
     "function totalBonusClaimed() external view returns (uint256)"
 ];
+
+// ---- Firebase ID token cache ----
+// Kept fresh so API calls can send a real user token instead of a shared secret.
+let _idToken = null;
+
+async function refreshIdToken(force = false) {
+    try {
+        const u = firebase.auth().currentUser;
+        _idToken = u ? await u.getIdToken(force) : null;
+    } catch (e) {
+        console.warn('Could not refresh ID token:', e.message);
+        _idToken = null;
+    }
+    return _idToken;
+}
+
+firebase.auth().onAuthStateChanged(() => { refreshIdToken(true); });
+setInterval(() => { refreshIdToken(true); }, 30 * 60 * 1000); // tokens expire hourly
 
 // ---- Wallet state ----
 let provider = null;       // ethers.js Web3Provider
@@ -6142,7 +6160,10 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                         btn.innerHTML = '⏳ Registering equity on-chain...';
                         const equityResponse = await fetch('/api/register-equity', {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${_idToken || 'nqvate-internal-2026'}`
+                            },
                             body: JSON.stringify({
                                 projectId: verificationCompanyId,
                                 companyName: company.name,
@@ -8273,7 +8294,7 @@ function hideEditPostingModal() {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
-                                'Authorization': `Bearer nqvate-internal-2026`
+                                'Authorization': `Bearer ${_idToken || 'nqvate-internal-2026'}`
                             },
                             body: JSON.stringify({
                                 companyId: project.companyId,
@@ -8980,7 +9001,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                         method: 'POST',
                         headers: {
                             'Content-Type': 'application/json',
-                            'Authorization': `Bearer nqvate-internal-2026`
+                            'Authorization': `Bearer ${_idToken || 'nqvate-internal-2026'}`
                         },
                         body: JSON.stringify({ projectId: currentProjectId })
                     });
@@ -9006,7 +9027,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                                     method: 'POST',
                                     headers: {
                                         'Content-Type': 'application/json',
-                                        'Authorization': `Bearer nqvate-internal-2026`
+                                        'Authorization': `Bearer ${_idToken || 'nqvate-internal-2026'}`
                                     },
                                     body: JSON.stringify({
                                         bountyAmountUSDC: compensationNum,
@@ -9050,7 +9071,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                                     method: 'POST',
                                     headers: {
                                         'Content-Type': 'application/json',
-                                        'Authorization': `Bearer nqvate-internal-2026`
+                                        'Authorization': `Bearer ${_idToken || 'nqvate-internal-2026'}`
                                     },
                                     body: JSON.stringify({
                                         companyId: currentProject.companyId,
@@ -9079,7 +9100,10 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                                 if (founderWallet && workerWallet) {
                                     const equityResponse = await fetch('/api/transfer-equity', {
                                         method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
+                                        headers: {
+                                            'Content-Type': 'application/json',
+                                            'Authorization': `Bearer ${_idToken || 'nqvate-internal-2026'}`
+                                        },
                                         body: JSON.stringify({
                                             projectId:     currentProject.companyId,
                                             founderWallet,
@@ -9299,7 +9323,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                                 method: 'POST',
                                 headers: {
                                     'Content-Type': 'application/json',
-                                    'Authorization': `Bearer nqvate-internal-2026`
+                                    'Authorization': `Bearer ${_idToken || 'nqvate-internal-2026'}`
                                 },
                                 body: JSON.stringify({
                                     companyId: proj.companyId,
@@ -12897,7 +12921,7 @@ async function submitFundingPosting() {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
-                                'Authorization': `Bearer nqvate-internal-2026`
+                                'Authorization': `Bearer ${_idToken || 'nqvate-internal-2026'}`
                             },
                             body: JSON.stringify({
                                 listingId: listingIdStr,
@@ -14127,7 +14151,7 @@ async function submitEquityListingModal(companyId, availableUnits) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer nqvate-internal-2026`
+                'Authorization': `Bearer ${_idToken || 'nqvate-internal-2026'}`
             },
             body: JSON.stringify({
                 listingId: listingIdStr,
@@ -15016,7 +15040,10 @@ async function claimReferralBonus() {
     try {
         const response = await fetch('/api/claim-referral-bonus', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${_idToken || 'nqvate-internal-2026'}`
+            },
             body: JSON.stringify({ uid: currentUser.uid })
         });
 
@@ -15317,7 +15344,7 @@ async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk, ski
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer nqvate-internal-2026`
+                'Authorization': `Bearer ${_idToken || 'nqvate-internal-2026'}`
             },
             body: JSON.stringify({ offerId: offerIdStr, listingId })
         });
@@ -15591,7 +15618,7 @@ async function acceptFundingOffer(firestoreOfferId, offerId) {
     try {
         const acceptResp = await fetch('/api/accept-offer', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer nqvate-internal-2026` },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken || 'nqvate-internal-2026'}` },
             body: JSON.stringify({ offerId })
         });
         const result = await acceptResp.json();
@@ -15644,7 +15671,7 @@ async function cancelListingOnChain(listingId) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer nqvate-internal-2026`
+                'Authorization': `Bearer ${_idToken || 'nqvate-internal-2026'}`
             },
             body: JSON.stringify({ listingId, callerAddress: connectedAddress })
         });
@@ -15855,7 +15882,10 @@ async function fileProjectDispute(projectId) {
         // Auto-trigger Claude resolution immediately — fire and forget
         fetch('/api/resolve-dispute', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${_idToken || 'nqvate-internal-2026'}`
+            },
             body: JSON.stringify({ projectId })
         }).then(r => r.json()).then(result => {
             if (result.success) {
@@ -15981,7 +16011,7 @@ async function claimEscrowRefund(projectId) {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer nqvate-internal-2026`
+                        'Authorization': `Bearer ${_idToken || 'nqvate-internal-2026'}`
                     },
                     body: JSON.stringify({
                         companyId: project.companyId,
