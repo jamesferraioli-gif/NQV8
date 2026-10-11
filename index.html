@@ -3282,7 +3282,7 @@ async function submitNewCampaign() {
 
             const reviewResponse = await fetch('/api/review-submission', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
                     body: JSON.stringify({
                         projectTitle: currentProject?.title || '',
                         projectDescription: currentProject?.description || '',
@@ -4026,7 +4026,7 @@ async function submitMetricsVerification() {
         // Call API
         const response = await fetch('/api/verify-metrics', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
             body: JSON.stringify({
                 revenueBase64,
                 revenueMediaType: revenueDoc?.type || null,
@@ -6077,7 +6077,7 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                 // Send to Claude
                 const verifyResponse = await fetch('/api/verify-docs', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
                     body: JSON.stringify({
                         incorporationBase64,
                         incorporationMediaType: docIncorporation.type || 'application/pdf',
@@ -6109,7 +6109,7 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                 const scanFile = async (file, base64) => {
                     const reviewResponse = await fetch('/api/review-submission', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
                         body: JSON.stringify({
                             projectTitle: 'Company Verification Document',
                             projectDescription: 'Founder uploading a company verification document.',
@@ -8385,7 +8385,7 @@ function hideEditPostingModal() {
                             // Alert ops team
                             fetch('/api/send-email', {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
                                 body: JSON.stringify({
                                     to: 'james.ferraioli@gmail.com',
                                     subject: '🚨 NQVate: Operations Wallet Low — equity-reserve failed',
@@ -8681,7 +8681,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
 
         const reviewResponse = await fetch('/api/review-submission', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
             body: JSON.stringify({
                 projectTitle: currentProject?.title || '',
                 projectDescription: currentProject?.description || '',
@@ -8787,7 +8787,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
         if (attachments.length > 0) {
             fetch('/api/virus-scan', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
                 body: JSON.stringify({
                     projectId: currentSubmitProjectId,
                     submissionIndex: (currentProject?.submissions?.length ?? 0),
@@ -8898,7 +8898,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             try {
                 await fetch('/api/virus-scan', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
                     body: JSON.stringify({ projectId, submissionIndex, attachments: [] })
                 });
                 alert('🔍 Security scan started — results will update automatically.');
@@ -9178,7 +9178,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                     alert("⚠️ We're experiencing a temporary technical issue. Please try again in a few minutes or contact NQVate support.");
                     fetch('/api/send-email', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
                         body: JSON.stringify({
                             to: 'james.ferraioli@gmail.com',
                             subject: '🚨 NQVate: Operations Wallet Low — escrow-release failed',
@@ -9410,7 +9410,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                             alert('⚠️ We\'re experiencing a temporary technical issue. Please try again in a few minutes or contact NQVate support.');
                             fetch('/api/send-email', {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
                                 body: JSON.stringify({
                                     to: 'james.ferraioli@gmail.com',
                                     subject: '🚨 NQVate: Operations Wallet Low — equity-complete failed',
@@ -9724,7 +9724,7 @@ async function startVideoCall() {
                 // Create a Daily.co room via our backend
                 const response = await fetch('/api/create-room', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
                     body: JSON.stringify({ chatId: currentChatId })
                 });
 
@@ -9850,7 +9850,7 @@ async function startVideoCall() {
 
                 const reviewResponse = await fetch('/api/review-submission', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
                     body: JSON.stringify({
                         projectTitle: 'Profile Picture Upload',
                         projectDescription: 'User uploading a profile picture.',
@@ -12133,7 +12133,7 @@ function showUploadToDataRoomModal(companyId) {
 
             const reviewResponse = await fetch('/api/review-submission', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
                 body: JSON.stringify({
                     projectTitle: 'Data Room Upload',
                     projectDescription: 'Private investor document upload',
@@ -12956,7 +12956,7 @@ async function submitFundingPosting() {
                             alert('⚠️ We\'re experiencing a temporary technical issue. Your funding request was posted but equity listing failed. Please try again in a few minutes.');
                             fetch('/api/send-email', {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
                                 body: JSON.stringify({
                                     to: 'james.ferraioli@gmail.com',
                                     subject: '🚨 NQVate: Operations Wallet Low — admin-list-equity failed',
@@ -13488,7 +13488,7 @@ async function claimSignupBonus() {
             try {
                 const response = await fetch('/api/moderate', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
                     body: JSON.stringify({ text, contentType })
                 });
                 if (!response.ok) {
@@ -13704,7 +13704,7 @@ async function checkAndImprovePosting(title, description, category, compensation
     try {
         const response = await fetch('/api/improve-posting', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
             body: JSON.stringify({ title, description, category, compensationType, postingType })
         });
 
@@ -14406,7 +14406,7 @@ async function loadEquityValuation(listingId, projectId) {
     try {
         const response = await fetch('/api/valuate-equity', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
             body: JSON.stringify({ projectId })
         });
 
@@ -14487,7 +14487,7 @@ async function triggerEquityRevaluation(projectId) {
     try {
         await fetch('/api/valuate-equity', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
             body: JSON.stringify({ projectId, forceRefresh: true })
         });
         console.log('Revaluation triggered for', projectId);
@@ -14755,7 +14755,7 @@ async function loadEquityValuationForStake(projectId, btn) {
     try {
         const response = await fetch('/api/valuate-equity', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
             body: JSON.stringify({ projectId })
         });
         if (!response.ok) throw new Error('Valuation unavailable');
@@ -15692,7 +15692,7 @@ async function sendEmail(type, toEmail, data) {
     try {
         await fetch('/api/send-email', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
             body: JSON.stringify({ type, to: toEmail, data })
         });
     } catch(e) {
@@ -16626,7 +16626,7 @@ async function submitNewFlowMap(useAI = false) {
 
             const response = await fetch('/api/generate-flowmap', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
                 body: JSON.stringify({ name: companyName, description, stack })
             });
             if (!response.ok) throw new Error('AI generation failed. Please try again.');
