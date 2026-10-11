@@ -118,9 +118,16 @@ service cloud.firestore {
     // EQUITY HOLDERS — derived cap-table index. The chain is the source of
     // truth; this exists for fast reads. Written by both parties to a trade.
     // TODO: move these writes server-side so this can be locked down.
+    // EQUITY HOLDERS — cap table index. Public read (cap tables are public).
+    // The chain is authoritative: the display reads balances() on V4 and only
+    // uses this collection to know WHICH wallets to look up. Writes are
+    // therefore low-value to an attacker, but deletes would hide real holders,
+    // so deletes are admin-only.
     match /equityHolders/{docId} {
       allow read: if true;
-      allow write: if request.auth != null;
+      allow create, update: if request.auth != null;
+      allow delete: if request.auth != null
+        && request.auth.uid == '5t0gD2wVnqXXPAQEzfoahx3EIPp2';
     }
 
     // VOUCHERS — server-only. Burns a payment txHash so it cannot be reused.
