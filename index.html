@@ -136,12 +136,12 @@
                                 <p class="font-semibold" id="dropdown-name">User</p>
                                 <p class="text-xs text-zinc-500" id="dropdown-username"></p>
                             </div>
-                            <button onclick="toggleProfileMenu(); viewProfile()" class="w-full text-left px-6 py-3 hover:bg-zinc-800 flex items-center gap-3">👤 View Profile</button>
-                            <button onclick="toggleProfileMenu(); showSupportModal()" class="w-full text-left px-6 py-3 hover:bg-zinc-800 flex items-center gap-3">🎫 Submit Support Ticket</button>
+                            <button data-requires-auth onclick="toggleProfileMenu(); viewProfile()" class="w-full text-left px-6 py-3 hover:bg-zinc-800 flex items-center gap-3">👤 View Profile</button>
+                            <button data-requires-auth onclick="toggleProfileMenu(); showSupportModal()" class="w-full text-left px-6 py-3 hover:bg-zinc-800 flex items-center gap-3">🎫 Submit Support Ticket</button>
                             <button id="dropdown-wallet-btn" onclick="toggleProfileMenu(); connectedAddress ? disconnectWallet() : connectWallet()" class="w-full text-left px-6 py-3 text-amber-400 hover:bg-zinc-800 flex items-center gap-3">
                                 <i class="fa-solid fa-wallet"></i> <span id="dropdown-wallet-label">Connect Wallet</span>
                             </button>
-                            <button onclick="toggleProfileMenu(); logout()" class="w-full text-left px-6 py-3 text-red-400 hover:bg-zinc-800">Logout</button>
+                            <button id="dropdown-auth-btn" onclick="toggleProfileMenu(); currentUser ? logout() : showAuthModal()" class="w-full text-left px-6 py-3 text-red-400 hover:bg-zinc-800"><span id="dropdown-auth-label">Logout</span></button>
                         </div>
                     </div>
 
@@ -6413,7 +6413,31 @@ function navigateTo(page) {
         function closeMobileMenu() {
             document.getElementById('mobile-menu')?.classList.add('hidden');
         }
+        // Keeps the profile dropdown in sync with auth state, the same way
+        // the wallet button switches between Connect and Disconnect.
+        function updateAuthMenuUI() {
+            const label    = document.getElementById('dropdown-auth-label');
+            const authBtn  = document.getElementById('dropdown-auth-btn');
+            const nameEl   = document.getElementById('dropdown-name');
+            const userEl   = document.getElementById('dropdown-username');
+            const loggedIn = !!currentUser;
+
+            if (label)   label.textContent = loggedIn ? 'Logout' : 'Login';
+            if (authBtn) {
+                authBtn.classList.toggle('text-red-400',  loggedIn);
+                authBtn.classList.toggle('text-cyan-400', !loggedIn);
+            }
+            if (!loggedIn) {
+                if (nameEl) nameEl.textContent = 'Not signed in';
+                if (userEl) userEl.textContent = '';
+            }
+            // Hide actions that require an account
+            document.querySelectorAll('#profile-dropdown [data-requires-auth]')
+                .forEach(el => el.classList.toggle('hidden', !loggedIn));
+        }
+
         function updateProfileUI() {
+            updateAuthMenuUI();
             if (!currentUser) return;
             const initials = (currentUser.firstName?.[0] || '') + (currentUser.lastName?.[0] || '');
 
