@@ -8692,6 +8692,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
     const filesInput = document.getElementById('submit-files');
 
     if (!desc) return alert("Please provide a description or agreement text");
+    if (tooShort(desc, 'Submission description')) { _submitWorkInProgress = false; return; }
 
     const reviewBtn = document.querySelector('#submit-work-modal button[onclick="submitWork()"]');
     if (reviewBtn) { reviewBtn.textContent = '⏳ Scanning files...'; reviewBtn.disabled = true; }
@@ -9337,6 +9338,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             const text = document.getElementById('review-text').value.trim();
             if (currentReviewRating === 0) return alert("Please give a star rating");
             if (!text) return alert("Please write a review");
+            if (tooShort(text, 'Review')) return;
 
             try {
                 const projectRef = db.collection("subprojects").doc(currentReviewProjectId);
@@ -10425,6 +10427,8 @@ async function startVideoCall() {
             const compensation = document.getElementById('new-sub-comp').value.trim();
         
             if (!title || !desc || !category || !compensation) return alert("Please fill in all fields");
+            if (tooShort(title, 'Title')) return;
+            if (tooShort(desc, 'Description', 40)) return;
         
             // Enforce $20 minimum for USDC and mixed bounties
             if (selectedBountyCompType === 'cash' || selectedBountyCompType === 'mixed') {
@@ -10915,6 +10919,8 @@ async function viewUserProfile(uid) {
             // Validation
             if (!isNews && !title) return alert("Please enter a title");
             if (!desc) return alert("Please add a comment or description");
+            if (!isNews && tooShort(title, 'Title')) return;
+            if (tooShort(desc, 'Description')) return;
             if ((type === 'news' || type === 'project') && !link) {
                 return alert("Please paste a link for this post type");
             }
@@ -13419,6 +13425,7 @@ function renderComments(post) {
             const input = document.getElementById(`reply-text-${commentIdx}`);
             const text = input?.value.trim();
             if (!text) return;
+            if (tooShort(text, 'Reply')) return;
 
             const modResult = await moderateContent(text, 'comment');
             if (!modResult.approved) return alert(`❌ ${modResult.reason}`);
@@ -13449,6 +13456,7 @@ function renderComments(post) {
             if (!currentUser) return alert("Please log in first");
             const text = document.getElementById('new-comment').value.trim();
             if (!text) return alert("Please write a comment");
+            if (tooShort(text, 'Comment')) return;
 
             const modResult = await moderateContent(text, 'comment');
             if (!modResult.approved) {
@@ -16427,6 +16435,7 @@ async function addFlowNode() {
     if (!currentStudioProjectId) return alert('Select a project first.');
     const title = prompt('Node title:');
     if (!title?.trim()) return;
+    if (tooShort(title, 'Node title')) return;
     const desc = prompt('Brief description (optional):') || '';
 
     try {
@@ -17138,6 +17147,8 @@ async function submitSupportTicket() {
     const description = document.getElementById('support-description').value.trim();
 
     if (!subject || !description) return alert('Please fill in both subject and description.');
+    if (tooShort(subject, 'Subject')) return;
+    if (tooShort(description, 'Description', 20)) return;
 
     try {
         await db.collection('supportTickets').add({
