@@ -4799,8 +4799,21 @@ function closePaymentPicker() {
 // ============================================================
 function handleWalletError(e) {
     const msg = e.message || '';
-    
-    if (msg.includes('user rejected') || e.code === 4001) {
+    const low = msg.toLowerCase();
+
+    // Rejection shapes differ by wallet:
+    //   MetaMask injected : code 4001, "User denied transaction signature"
+    //   WalletConnect v2  : code 5000, "User rejected."   <-- capital U
+    //   Coinbase / others : "User denied account authorization"
+    // The old check was case-sensitive and 4001-only, so mobile cancels fell
+    // through and left the payment modal open with no way out.
+    if (e.code === 4001 || e.code === 5000 ||
+        low.includes('user rejected') ||
+        low.includes('user denied') ||
+        low.includes('rejected the request') ||
+        low.includes('denied transaction') ||
+        low.includes('user disapproved') ||
+        low.includes('request reset')) {
         alert('Transaction cancelled.');
         return true;
     }
