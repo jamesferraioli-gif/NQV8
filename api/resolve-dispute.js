@@ -8,7 +8,8 @@
 //   - Mixed      → BOTH legs are resolved in the same run
 //
 // Equity cannot be split by percentage: V4 reservations are all-or-nothing,
-// so a ruling of 50% or more awards the full stake to the builder.
+// so a ruling at or above EQUITY_TRANSFER_THRESHOLD awards the full stake to
+// the builder; anything below returns it entirely to the founder.
 
 import { ethers } from 'ethers';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
@@ -27,6 +28,10 @@ const EQUITY_REGISTRY_ADDRESS  = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2'; /
 const PLATFORM_WALLET          = '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D';
 const PLATFORM_FEE_BPS         = 350;
 const ARBITRUM_RPC             = 'https://arb1.arbitrum.io/rpc';
+// Equity reservations are all-or-nothing in V4 — there is no partial completion.
+// Equity only transfers to the builder on a clear win; ambiguous rulings return
+// the stake to the founder. Keep this in sync with the arbitration prompt below.
+const EQUITY_TRANSFER_THRESHOLD = 75;
 const ZERO_BYTES32             = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
 const ESCROW_ABI = [
@@ -123,7 +128,11 @@ Submission ${i + 1}:
         const isEquityOnly = !isMixed && (project.escrowType === 'equity' || project.compensationType === 'equity');
 
         const equityNote = hasEquity
-            ? `\nNOTE ON EQUITY: This bounty includes ${project.equityUnits || 0} equity units (${((project.equityUnits || 0) / 100).toFixed(2)}%). Equity cannot be split proportionally — a ruling of 50% or above transfers the FULL stake to the worker, below 50% returns it entirely to the founder. Weigh this when choosing a percentage.`
+            ? `\nNOTE ON EQUITY: This bounty includes ${project.equityUnits || 0} equity units (${((project.equityUnits || 0) / 100).toFixed(2)}%) of permanent company ownership.
+
+Equity cannot be split proportionally. A ruling of ${EQUITY_TRANSFER_THRESHOLD}% or above transfers the FULL stake to the worker. Anything below ${EQUITY_TRANSFER_THRESHOLD}% returns it entirely to the founder. Any cash portion still splits by your exact percentage.
+
+Because ownership is permanent and cannot be reversed, only award ${EQUITY_TRANSFER_THRESHOLD}%+ when the worker's delivery is clearly satisfactory. If the outcome is genuinely ambiguous, a percentage below ${EQUITY_TRANSFER_THRESHOLD}% is the safer ruling — the worker still receives that share of any cash.`
             : '';
 
         const prompt = `You are Claude, an impartial AI arbitrator for NQVate — a fully decentralized freelance marketplace. You are the SOLE arbitrator for this dispute. Your ruling is BINDING and will be executed on-chain immediately with no human review. There is no appeals process.
@@ -241,7 +250,7 @@ workerPct + posterPct MUST equal exactly 100.`;
         const provider  = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
         const opsWallet = new ethers.Wallet(process.env.OPERATIONS_PRIVATE_KEY, provider);
 
-        const workerWins = ruling.workerPct >= 50;
+        const workerWins = ruling.workerPct >= EQUITY_TRANSFER_THRESHOLD;
         let equityTxHash = null;
         let escrowTxHash = null;
 
