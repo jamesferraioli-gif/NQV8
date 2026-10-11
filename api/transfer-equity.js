@@ -1,55 +1,75 @@
 // api/transfer-equity.js
-// Called when a poster accepts a submission on an equity-compensated bounty.
-// Uses the Operations wallet (owner of EquityRegistry) to call adminTransferEquity().
-// This is the only way to transfer equity automatically — the contract requires onlyOwner.
+// Manual / fallback equity transfer. Uses the Operations wallet (owner of
+// NQVateEquityRegistryV4) to call transferEquity() — the contract requires onlyOwner.
+//
+// Normal bounty payouts go through equity-reserve.js → equity-complete.js.
+// This endpoint is the direct-transfer path used for corrections and manual
+// founder-initiated grants from the Studio cap table.
+//
+// V4 notes:
+//   - All IDs are bytes32 — keccak256 of the Firestore document ID
+//   - transferEquity(bytes32 companyId, address from, address to, uint256 units)
+//   - V4 takes no on-chain `reason`; it is stored in Firestore only
+//   - Company lookup is companies(bytes32) → (founder, registeredAt, registered, paused)
 
 import { ethers } from 'ethers';
-import { initializeApp, getApps } from 'firebase-admin/app';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { credential } from 'firebase-admin';
+import { verifyCaller } from './_auth.js';
 
-const EQUITY_REGISTRY_ADDRESS = '0x74aA0020E84d485AeE9eEAE9bd584A8A12276a9D';
+const EQUITY_REGISTRY_ADDRESS = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2'; // V4
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
 
 const EQUITY_REGISTRY_ABI = [
-    "function adminTransferEquity(string projectId, address from, address to, uint256 units, string reason) external",
-    "function balances(string projectId, address wallet) external view returns (uint256)",
-    "function projects(string projectId) external view returns (tuple(string projectId, string name, address founder, bool exists, uint256 createdAt, uint256 lastSalePricePerUnit, uint256 lastSaleAt, uint256 totalTradeVolume, bytes32 metricsHash, uint256 metricsUpdatedAt))"
+    "function transferEquity(bytes32 companyId, address from, address to, uint256 units) external",
+    "function balances(bytes32 companyId, address holder) external view returns (uint256)",
+    "function availableBalance(bytes32 companyId, address holder) external view returns (uint256)",
+    "function companies(bytes32 companyId) external view returns (address founder, uint64 registeredAt, bool registered, bool paused)"
 ];
 
 if (!getApps().length) {
     initializeApp({
-        credential: credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
+        credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
     });
 }
 const db = getFirestore();
+
+function toBytes32(str) {
+    return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(str));
+}
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
+    const caller = await verifyCaller(req);
+    if (!caller) return res.status(401).json({ error: 'Unauthorized' });
+
     const {
-        projectId,      // Firestore company/project ID (used as equity registry project ID)
-        founderWallet,  // address to transfer FROM (founder holds 100% initially)
-        workerWallet,   // address to transfer TO (worker who completed the bounty)
-        units,          // number of equity units to transfer (1 unit = 0.01%)
-        reason,         // human readable reason stored on-chain
-        bountyTitle,    // for logging only
-        callerUid       // Firebase UID of the poster — for basic auth
+        projectId,      // Firestore company document ID
+        founderWallet,  // address to transfer FROM
+        workerWallet,   // address to transfer TO
+        units,          // equity units (1 unit = 0.01%)
+        reason,         // stored in Firestore only — V4 has no on-chain reason
+        bountyTitle     // for logging and the Firestore audit record
     } = req.body;
 
-    // ── Basic validation ──────────────────────────────────────────────────
+    // Trust the verified token uid over anything in the body
+    const effectiveUid = caller.uid || req.body.callerUid || null;
+
+    // ── Validation ────────────────────────────────────────────────────────
     if (!projectId || !founderWallet || !workerWallet || !units || !reason) {
         return res.status(400).json({ error: 'Missing required fields' });
     }
-
     if (!ethers.utils.isAddress(founderWallet)) {
         return res.status(400).json({ error: 'Invalid founder wallet address' });
     }
-
     if (!ethers.utils.isAddress(workerWallet)) {
         return res.status(400).json({ error: 'Invalid worker wallet address' });
+    }
+    if (founderWallet.toLowerCase() === workerWallet.toLowerCase()) {
+        return res.status(400).json({ error: 'Sender and recipient must be different wallets' });
     }
 
     const unitsNum = parseInt(units);
@@ -66,86 +86,102 @@ export default async function handler(req, res) {
         const opsWallet      = new ethers.Wallet(process.env.OPERATIONS_PRIVATE_KEY, provider);
         const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, opsWallet);
 
-        // ── 1. Verify project exists in registry ──────────────────────────
-        const project = await equityContract.projects(projectId);
-        if (!project.exists) {
+        const companyIdBytes = toBytes32(projectId);
+
+        // ── 1. Company must be registered and not paused ──────────────────
+        const company = await equityContract.companies(companyIdBytes);
+        if (!company.registered) {
             return res.status(400).json({
-                error: 'Project not registered in equity registry. Has the business been verified?'
+                error: 'Company not registered in the equity registry. Has the business been verified?'
+            });
+        }
+        if (company.paused) {
+            return res.status(400).json({
+                error: 'This company is paused — equity transfers are frozen pending dispute resolution.'
             });
         }
 
-        // ── 2. Verify founder has enough units ────────────────────────────
-        const founderUnits = await equityContract.balances(projectId, founderWallet);
-        if (founderUnits.lt(unitsNum)) {
+        // ── 2. Caller must own the company, unless this is a service call ──
+        if (!caller.service && effectiveUid) {
+            const companyDoc = await db.collection('companies').doc(projectId).get();
+            if (!companyDoc.exists) {
+                return res.status(404).json({ error: 'Company not found' });
+            }
+            if (companyDoc.data().ownerUid !== effectiveUid) {
+                return res.status(403).json({ error: 'Only the company owner can transfer equity' });
+            }
+        }
+
+        // ── 3. Sender must hold enough unreserved equity ───────────────────
+        // availableBalance excludes units locked in reservations or listings
+        const available = await equityContract.availableBalance(companyIdBytes, founderWallet);
+        if (available.lt(unitsNum)) {
             return res.status(400).json({
-                error: `Founder only has ${founderUnits.toString()} units but transfer requires ${unitsNum} units.`
+                error: `Only ${available.toString()} units available but ${unitsNum} requested. Some equity may be reserved for active bounties or listings.`
             });
         }
 
-        // ── 3. Execute on-chain transfer ──────────────────────────────────
-        const tx = await equityContract.adminTransferEquity(
-            projectId,
+        // ── 4. Execute on-chain transfer ───────────────────────────────────
+        const tx = await equityContract.transferEquity(
+            companyIdBytes,
             founderWallet,
             workerWallet,
-            unitsNum,
-            reason
+            unitsNum
         );
-
         await tx.wait();
 
         const percentage = (unitsNum / 10000 * 100).toFixed(2);
 
-        // ── 4. Index this transfer to Firestore for cap table reconstruction ──
+        // ── 5. Index to Firestore for cap table reconstruction ─────────────
         try {
             await db.collection('equityTransfers').add({
                 projectId,
-                from: founderWallet.toLowerCase(),
-                to: workerWallet.toLowerCase(),
-                toUid: callerUid ? null : null, // resolved client-side via wallet lookup
-                units: unitsNum,
+                companyIdBytes,
+                from:        founderWallet.toLowerCase(),
+                to:          workerWallet.toLowerCase(),
+                initiatedBy: effectiveUid,
+                units:       unitsNum,
                 reason,
                 bountyTitle: bountyTitle || null,
-                txHash: tx.hash,
-                createdAt: FieldValue.serverTimestamp()
+                txHash:      tx.hash,
+                createdAt:   FieldValue.serverTimestamp()
             });
 
-            // Upsert a holder record keyed by projectId_wallet for fast cap table reads
             const holderRef = db.collection('equityHolders').doc(`${projectId}_${workerWallet.toLowerCase()}`);
             await holderRef.set({
                 projectId,
-                wallet: workerWallet.toLowerCase(),
-                units: FieldValue.increment(unitsNum),
+                wallet:     workerWallet.toLowerCase(),
+                units:      FieldValue.increment(unitsNum),
                 lastTxHash: tx.hash,
-                updatedAt: FieldValue.serverTimestamp()
+                updatedAt:  FieldValue.serverTimestamp()
             }, { merge: true });
 
             const founderRef = db.collection('equityHolders').doc(`${projectId}_${founderWallet.toLowerCase()}`);
             await founderRef.set({
                 projectId,
-                wallet: founderWallet.toLowerCase(),
-                units: FieldValue.increment(-unitsNum),
+                wallet:     founderWallet.toLowerCase(),
+                units:      FieldValue.increment(-unitsNum),
                 lastTxHash: tx.hash,
-                updatedAt: FieldValue.serverTimestamp()
+                updatedAt:  FieldValue.serverTimestamp()
             }, { merge: true });
         } catch(indexErr) {
             console.warn('Cap table indexing failed (non-fatal):', indexErr.message);
         }
 
-        console.log(`✅ Equity transferred: ${unitsNum} units (${percentage}%) in ${project.name}`);
+        console.log(`✅ Equity transferred: ${unitsNum} units (${percentage}%) for company ${projectId}`);
         console.log(`   From: ${founderWallet}`);
         console.log(`   To:   ${workerWallet}`);
         console.log(`   Reason: ${reason}`);
         console.log(`   Tx: ${tx.hash}`);
 
         return res.json({
-            success:    true,
-            txHash:     tx.hash,
+            success:     true,
+            txHash:      tx.hash,
             projectId,
-            projectName: project.name,
-            units:      unitsNum,
+            units:       unitsNum,
             percentage,
-            from:       founderWallet,
-            to:         workerWallet,
+            from:        founderWallet,
+            to:          workerWallet,
             reason,
             arbiscanUrl: `https://arbiscan.io/tx/${tx.hash}`
         });
@@ -153,13 +189,23 @@ export default async function handler(req, res) {
     } catch(e) {
         console.error('transfer-equity failed:', e.message);
 
-        // Return meaningful errors
         const msg = e.message || '';
+        if (msg.includes('UNPREDICTABLE_GAS_LIMIT') ||
+            msg.includes('insufficient funds') ||
+            msg.includes('gas required exceeds allowance')) {
+            return res.status(500).json({ error: 'PLATFORM_GAS_ERROR' });
+        }
         if (msg.includes('Insufficient balance')) {
             return res.status(400).json({ error: 'Insufficient equity balance for transfer.' });
         }
-        if (msg.includes('Project not registered')) {
-            return res.status(400).json({ error: 'Project not found in equity registry.' });
+        if (msg.includes('Company not registered')) {
+            return res.status(400).json({ error: 'Company not found in the equity registry.' });
+        }
+        if (msg.includes('Company paused')) {
+            return res.status(400).json({ error: 'Equity transfers are frozen for this company.' });
+        }
+        if (msg.includes('Invalid recipient')) {
+            return res.status(400).json({ error: 'Invalid recipient address.' });
         }
 
         return res.status(500).json({ error: e.message });
