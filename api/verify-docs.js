@@ -1,7 +1,7 @@
 export const config = { runtime: 'edge' };
 
 import { verifyCallerEdge, unauthorizedEdge } from './_auth-edge.js';
-
+import { verifyVoucher } from './_voucher.js';
 
 export default async function handler(req) {
     if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
@@ -10,7 +10,16 @@ export default async function handler(req) {
     if (!caller) return unauthorizedEdge();
 
     try {
-        const { incorporationBase64, incorporationMediaType, einBase64, einMediaType, idBase64, idMediaType, companyName, entityType } = await req.json();
+        const body = await req.json();
+        const { incorporationBase64, incorporationMediaType, einBase64, einMediaType, idBase64, idMediaType, companyName, entityType } = body;
+
+        // Proof of payment — issued by claim-voucher.js after on-chain verification
+        if (!caller.service) {
+            const v = await verifyVoucher(body.voucher, 'verify-docs', caller.uid);
+            if (!v) return new Response(JSON.stringify({ error: 'Payment required or voucher expired' }), {
+                status: 402, headers: { 'Content-Type': 'application/json' }
+            });
+        }
 
         const makeBlock = (base64, mediaType) => {
             if (mediaType === 'application/pdf') {
