@@ -4024,10 +4024,12 @@ async function submitMetricsVerification() {
         const optionalBase64 = optionalDoc ? await toBase64(optionalDoc) : null;
 
         // Call API
+        const _voucherMetrics = await claimVoucher(_txHash1, 'verify-metrics');
         const response = await fetch('/api/verify-metrics', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
             body: JSON.stringify({
+                voucher: _voucherMetrics,
                 revenueBase64,
                 revenueMediaType: revenueDoc?.type || null,
                 usersBase64,
@@ -4555,6 +4557,19 @@ async function refreshIdToken(force = false) {
 
 firebase.auth().onAuthStateChanged(() => { refreshIdToken(true); });
 setInterval(() => { refreshIdToken(true); }, 30 * 60 * 1000); // tokens expire hourly
+
+// Exchange a paid fee transaction for a short-lived voucher that the
+// Edge endpoints accept as proof of payment.
+async function claimVoucher(txHash, purpose) {
+    const r = await fetch('/api/claim-voucher', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+        body: JSON.stringify({ txHash, purpose })
+    });
+    const d = await r.json();
+    if (!d.success) throw new Error(d.error || 'Could not verify your payment');
+    return d.voucher;
+}
 
 // Record a failed API call so silent failures surface in the daily digest.
 async function logApiFailure(endpoint, status, message) {
@@ -6131,10 +6146,12 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                 console.log('Doc types:', docIncorporation.type, docEin.type, docId.type);
 
                 // Send to Claude
+                const _voucherDocs = await claimVoucher(txHash, 'verify-docs');
                 const verifyResponse = await fetch('/api/verify-docs', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
                     body: JSON.stringify({
+                        voucher: _voucherDocs,
                         incorporationBase64,
                         incorporationMediaType: docIncorporation.type || 'application/pdf',
                         einBase64,
@@ -16680,10 +16697,11 @@ async function submitNewFlowMap(useAI = false) {
             const compDoc = await db.collection('companies').doc(selectedFlowmapProjectId).get();
             const companyName = compDoc.data()?.name || '';
 
+            const _voucherFlow = await claimVoucher(_txHash10, 'generate-flowmap');
             const response = await fetch('/api/generate-flowmap', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
-                body: JSON.stringify({ name: companyName, description, stack })
+                body: JSON.stringify({ voucher: _voucherFlow, name: companyName, description, stack })
             });
             if (!response.ok) throw new Error('AI generation failed. Please try again.');
             const parsed = await response.json();
