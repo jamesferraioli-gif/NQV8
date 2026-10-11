@@ -4,6 +4,7 @@
 // transaction goes directly to the contract without MetaMask interference.
 
 import { ethers } from 'ethers';
+import { verifyCaller } from './_auth.js';
 
 const EQUITY_REGISTRY_ADDRESS = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2';
 const ARBITRUM_RPC = 'https://arb1.arbitrum.io/rpc';
@@ -22,10 +23,8 @@ function toBytes32(str) {
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    const auth = req.headers['authorization'];
-    if (auth !== `Bearer ${process.env.INTERNAL_API_SECRET}`) {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
+    const caller = await verifyCaller(req);
+    if (!caller) return res.status(401).json({ error: 'Unauthorized' });
 
     const { companyId, bountyId, beneficiaryWallet, equityUnits, founderWallet } = req.body;
 
