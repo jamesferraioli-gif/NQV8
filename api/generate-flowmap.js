@@ -2,6 +2,7 @@
 export const config = { runtime: 'edge' };
 
 import { verifyCallerEdge, unauthorizedEdge } from './_auth-edge.js';
+import { verifyVoucher } from './_voucher.js';
 
 export default async function handler(req) {
     if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
@@ -10,7 +11,15 @@ export default async function handler(req) {
     if (!caller) return unauthorizedEdge();
 
     try {
-        const { name, description, stack } = await req.json();
+        const body = await req.json();
+        const { name, description, stack } = body;
+
+        if (!caller.service) {
+            const v = await verifyVoucher(body.voucher, 'generate-flowmap', caller.uid);
+            if (!v) return new Response(JSON.stringify({ error: 'Payment required or voucher expired' }), {
+                status: 402, headers: { 'Content-Type': 'application/json' }
+            });
+        }
 
         const response = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
