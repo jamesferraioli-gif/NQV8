@@ -4754,12 +4754,18 @@ function closePaymentPicker() {
     // chain our contract addresses have no code, so a call would SUCCEED as a plain
     // 0-value transfer and look like a paid fee.
     async function assertArbitrum(self) {
+        // Fast path: trust the cached chain id. Querying the wallet before every
+        // signature adds a WalletConnect round trip, and on mobile that extra
+        // deep-link disrupts the eth_sendTransaction handoff.
+        if (window._walletChainId === ARBITRUM_CHAIN_ID) return;
+
         let raw;
         try {
             raw = await origSend.call(self, 'eth_chainId', []);
         } catch (e) {
             throw new Error('Could not read your wallet network. Please reconnect your wallet.');
         }
+        window._walletChainId = toChainId(raw);
         if (toChainId(raw) === ARBITRUM_CHAIN_ID) return;
 
         try {
@@ -5091,6 +5097,19 @@ async function connectWalletConnect() {
 // is the real safety net — this is for a better prompt up front.
 async function ensureArbitrum() {
     const network = await provider.getNetwork();
+    window._walletChainId = network.chainId;
+    // Keep the cache honest — EIP-1193 wallets must emit this on a switch.
+    try {
+        const eip = provider.provider;
+        if (eip && eip.on && !eip._nqvChainWatch) {
+            eip._nqvChainWatch = true;
+            eip.on('chainChanged', (cid) => {
+                const s = String(cid);
+                window._walletChainId = /^0x/i.test(s) ? parseInt(s, 16) : parseInt(s, 10);
+            });
+            eip.on('disconnect', () => { window._walletChainId = null; });
+        }
+    } catch (e) {}
     if (network.chainId === ARBITRUM_CHAIN_ID) return;
 
     try {
