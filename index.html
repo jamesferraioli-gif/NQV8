@@ -4413,6 +4413,8 @@ async function confirmTx(tx) {
 }
 
 function toBytes32(str) {
+    return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(str));
+}
 
 const EQUITY_REGISTRY_ABI = [
     "function registerCompany(bytes32 companyId, address founder) external",
