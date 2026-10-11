@@ -105,7 +105,14 @@ export default async function handler(req, res) {
             }
         }
 
-        // ── 3. Call Claude ────────────────────────────────────────────────────
+        // Final reminder after the attachments — the JSON requirement must be
+        // the most recent instruction, otherwise an image dominates the reply.
+        messageContent.push({
+            type: 'text',
+            text: `\nNow respond. Output a single JSON object and nothing else — no heading, no summary of the attachments, no markdown. Keys: contentFlagged, contentFlagReason, blockedBy, summary, missingItems, recommendation, confidence.`
+        });
+
+        // ── 3. Call Claude ────────────────────────────────────────────────
         const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
             headers: {
@@ -116,7 +123,13 @@ export default async function handler(req, res) {
             body: JSON.stringify({
                 model: 'claude-sonnet-5',
                 max_tokens: 1500,
-                messages: [{ role: 'user', content: messageContent }]
+                messages: [
+                    { role: 'user', content: messageContent },
+                    // Prefill forces the reply to continue a JSON object rather
+                    // than describing an attached image, which it otherwise does
+                    // when the last thing in the prompt is a chart or screenshot.
+                    { role: 'assistant', content: '{' }
+                ]
             })
         });
 
@@ -132,7 +145,9 @@ export default async function handler(req, res) {
         // rather than trusting the whole response.
         let result;
         try {
-            const clean = rawText.replace(/```json|```/g, '').trim();
+            let clean = rawText.replace(/```json|```/g, '').trim();
+            // The assistant turn was prefilled with '{', so the reply continues it
+            if (!clean.startsWith('{')) clean = '{' + clean;
             const start = clean.indexOf('{');
             const end   = clean.lastIndexOf('}');
             if (start === -1 || end === -1 || end <= start) {
