@@ -29,7 +29,8 @@ export default async function handler(req, res) {
 
     // Verify request is from our own frontend using a shared secret
     const authHeader = req.headers['authorization'];
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    if (authHeader !== `Bearer ${process.env.CRON_SECRET}` &&
+        authHeader !== `Bearer ${process.env.INTERNAL_API_SECRET}`) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
 
