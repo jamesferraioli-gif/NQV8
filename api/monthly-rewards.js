@@ -149,22 +149,13 @@ export default async function handler(req, res) {
         let nqv8DepositTxHash = null;
         const nqv8Deposit = ethers.BigNumber.from(0);
 
-        // ── 6. Deposit 20% of USDC fees ───────────────────────────────────
+        // ── 6. USDC pool is already funded on-chain ──────────────────────
+        // deposit-escrow-fee.js calls payUSDCFee() after every escrow release,
+        // which splits 80/20 and credits usdcRewardPool directly. Depositing
+        // again here would pay out ~40% of fees instead of the intended 20%.
+        // The Firestore verification above is kept purely as an audit trail.
         let usdcDepositTxHash = null;
-        const usdcDeposit = totalUSDCFees.mul(REWARD_PCT).div(10000);
-        if (usdcDeposit.gt(0)) {
-            const bal = await usdcContract.balanceOf(wallet.address);
-            if (bal.gte(usdcDeposit)) {
-                const approveTx = await usdcContract.approve(REWARDS_CONTRACT_ADDRESS, usdcDeposit);
-                await approveTx.wait();
-                const depositTx = await rewardsContract.depositUSDCRewards(usdcDeposit);
-                await depositTx.wait();
-                usdcDepositTxHash = depositTx.hash;
-                console.log(`✅ Deposited $${ethers.utils.formatUnits(usdcDeposit, USDC_DECIMALS)} USDC. Tx: ${depositTx.hash}`);
-            } else {
-                console.warn('Insufficient USDC in ops wallet');
-            }
-        }
+        const usdcDeposit = ethers.BigNumber.from(0);
 
         // ── 7. Check pools ────────────────────────────────────────────────
         const stats         = await rewardsContract.getCurrentMonthStats();
