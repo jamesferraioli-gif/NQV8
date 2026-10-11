@@ -122,16 +122,16 @@ service cloud.firestore {
       allow read: if true;
       allow create: if request.auth != null;
       allow update: if request.auth != null && (
-        resource.data.get('authorUid', '') == request.auth.uid ||
-        resource.data.get('ownerUid', '')  == request.auth.uid ||
+        // Author may edit their own post
+        resource.data.get('posterUid', '') == request.auth.uid ||
+        // Anyone signed in may like, comment, or sponsor-boost
         request.resource.data.diff(resource.data).affectedKeys().hasOnly([
-          'likes', 'likedBy', 'comments', 'commentCount', 'views'
+          'likes', 'likedBy', 'comments',
+          'isSponsoredBoost', 'sponsoredBoostUntil', 'lastBoostedAt'
         ])
       );
-      allow delete: if request.auth != null && (
-        resource.data.get('authorUid', '') == request.auth.uid ||
-        resource.data.get('ownerUid', '')  == request.auth.uid
-      );
+      allow delete: if request.auth != null
+        && resource.data.get('posterUid', '') == request.auth.uid;
     }
 
     // PLATFORM STATS — public read, server-written only
