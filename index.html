@@ -10816,6 +10816,7 @@ async function viewUserProfile(uid) {
                             // Firebase Auth user exists but no Firestore doc
                             // Show auth modal so they can complete signup
                             currentUser = null;
+                            updateAuthMenuUI();
                             safeClassList('auth-modal', 'show');
                             safeClassList('guest-bar', 'hide');
                         }
@@ -10823,6 +10824,7 @@ async function viewUserProfile(uid) {
                         console.error('Error loading user:', err);
                         // On error fall back to guest mode so site doesn't freeze
                         currentUser = null;
+                        updateAuthMenuUI();
                         safeClassList('auth-modal', 'hide');
                         safeClassList('guest-bar', 'show');
                         navigateTo('marketplace');
@@ -10832,6 +10834,7 @@ async function viewUserProfile(uid) {
                     currentUser = null;
                     safeClassList('auth-modal', 'hide');
                     safeClassList('guest-bar', 'show');
+                    updateAuthMenuUI();
                     navigateTo('marketplace');
                     setTimeout(showWelcomeModal, 500);
 
