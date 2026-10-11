@@ -722,6 +722,12 @@
             <button onclick="startFundingVerification()" class="mt-3 px-4 py-2 bg-violet-600 text-white text-xs rounded-xl">Submit Verification Docs</button>
         </div>
 
+        <div id="funding-deck-notice" class="hidden bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-4">
+            <p class="text-amber-400 text-sm font-medium">📄 Investor Deck Required</p>
+            <p class="text-zinc-400 text-xs mt-1">This project has no investor deck yet. Investors need something to evaluate before committing capital, so a deck is required before you can post a funding request.</p>
+            <button onclick="startFundingDeckGeneration()" class="mt-3 px-4 py-2 bg-amber-500 text-black text-xs font-semibold rounded-xl">Generate Investor Deck</button>
+        </div>
+
         <input id="funding-ask" type="text" placeholder="e.g. $50,000.00 USDC"
                oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
                onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : '$' + n.toFixed(2) + ' USDC'; }"
@@ -737,8 +743,39 @@
         </div>
         <p id="funding-units-preview" class="text-xs text-zinc-500 mb-4 -mt-2"></p>
 
-        <textarea id="funding-desc" placeholder="Describe the funding round, what it's for, and what you're offering investors..." rows="4"
-                  class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-4"></textarea>
+        <p class="text-sm text-zinc-400 mb-2">Round stage</p>
+        <select id="funding-stage" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
+            <option value="">Select stage</option>
+            <option value="Pre-seed">Pre-seed</option>
+            <option value="Seed">Seed</option>
+            <option value="Series A">Series A</option>
+            <option value="Bridge / Extension">Bridge / Extension</option>
+            <option value="Revenue-based">Revenue-based</option>
+            <option value="Other">Other</option>
+        </select>
+
+        <p class="text-sm text-zinc-400 mb-2">Use of funds <span class="text-red-400">*</span></p>
+        <textarea id="funding-use" rows="3"
+                  placeholder="Break down exactly where the capital goes — e.g. $30k engineering (2 devs, 6 months), $15k smart contract audit, $5k legal and entity costs"
+                  class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-4 outline-none mb-4"></textarea>
+
+        <p class="text-sm text-zinc-400 mb-2">What this funding unlocks <span class="text-red-400">*</span></p>
+        <textarea id="funding-milestones" rows="3"
+                  placeholder="Concrete milestones — e.g. ship V2 contracts, reach 1,000 active users, complete security audit before mainnet"
+                  class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-4 outline-none mb-4"></textarea>
+
+        <p class="text-sm text-zinc-400 mb-2">Traction so far <span class="text-zinc-600">(optional)</span></p>
+        <textarea id="funding-traction" rows="2"
+                  placeholder="e.g. 400 waitlist signups, $2k MRR, 3 pilot customers"
+                  class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-4 outline-none mb-4"></textarea>
+
+        <p class="text-sm text-zinc-400 mb-2">Target close date <span class="text-zinc-600">(optional)</span></p>
+        <input id="funding-timeline" type="text" placeholder="e.g. December 2026"
+               class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
+
+        <textarea id="funding-desc" rows="3"
+                  placeholder="Anything else investors should know (optional)"
+                  class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-4 outline-none mb-4"></textarea>
 
 
         <div class="flex gap-3">
@@ -4313,7 +4350,8 @@ async function saveDeckEdits() {
 
     try {
         await db.collection('companies').doc(companyId).update({
-            investorDeck: updated
+            investorDeck: updated,
+            deckUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
         });
 
         modal.dataset.editing = 'false';
@@ -7254,11 +7292,17 @@ async function loadTotalFundingReceivedStat() {
 
         ${project.category ? `<p class="text-sm text-violet-400 mb-4">Category: ${project.category}</p>` : ''}
 
-        <div class="bg-zinc-800 rounded-3xl p-6 mb-8">
+        <div class="bg-zinc-800 rounded-3xl p-6 mb-4">
             <p class="text-sm text-zinc-400">${project.type === 'fund' ? 'Funding Ask' : 'Compensation'}</p>
             <p class="text-xl font-semibold text-cyan-400">${project.compensation}</p>
             ${project.type === 'fund' && project.equityPct ? `<p class="text-sm text-zinc-400 mt-1">Equity offered: ${project.equityPct}%</p>` : ''}
         </div>
+
+        ${project.type === 'fund' && project.companyId ? `
+        <button onclick="loadAndShowDeck('${project.companyId}')"
+                class="w-full py-4 border border-violet-400 text-violet-400 font-semibold rounded-3xl mb-8 hover:bg-violet-500/10 transition-colors">
+            📄 View Investor Deck
+        </button>` : `<div class="mb-4"></div>`}
 
         <p class="text-sm text-zinc-400 mb-2">
             Posted by 
@@ -7450,6 +7494,7 @@ async function loadTotalFundingReceivedStat() {
                 const isPosterCheck = currentUser && (project.posterUid === currentUser.uid || project.ownerUid === currentUser.uid);
                 loadFundingOffers(project.listingId, isPosterCheck);
             }
+            renderListingDeckSlot(project.companyId);
         }
 
         function showSubprojectDetail(id, data) {
@@ -12553,6 +12598,11 @@ async function showPostFundingModal() {
     document.getElementById('funding-equity-pct').value = '';
     document.getElementById('funding-units-preview').textContent = '';
     document.getElementById('funding-desc').value = '';
+    document.getElementById('funding-stage').value = '';
+    document.getElementById('funding-use').value = '';
+    document.getElementById('funding-milestones').value = '';
+    document.getElementById('funding-traction').value = '';
+    document.getElementById('funding-timeline').value = '';
     document.getElementById('funding-project-picker-section').classList.remove('hidden');
     await populateFundingProjectList();
 }
@@ -12569,7 +12619,13 @@ async function showPostFundingModalForProject(companyId, companyName, isVerified
     document.getElementById('funding-verif-notice').classList.toggle('hidden', isVerified);
     document.getElementById('funding-ask').value = '';
     document.getElementById('funding-desc').value = '';
+    document.getElementById('funding-stage').value = '';
+    document.getElementById('funding-use').value = '';
+    document.getElementById('funding-milestones').value = '';
+    document.getElementById('funding-traction').value = '';
+    document.getElementById('funding-timeline').value = '';
     initTagsPicker('funding-tags-picker', _fundingSelectedTags);
+    await refreshFundingDeckNotice(companyId);
 
     // Show which project this is for, since the picker is hidden
     const label = document.getElementById('funding-project-label');
@@ -12628,9 +12684,38 @@ async function populateFundingProjectList() {
 
             // Show verification notice if not verified
             document.getElementById('funding-verif-notice').classList.toggle('hidden', !!p.equityUnlocked);
+            // Show deck notice if no investor deck exists
+            await refreshFundingDeckNotice(doc.id);
         };
         list.appendChild(div);
     });
+}
+
+// Shows/hides the "deck required" notice and returns whether a deck exists
+async function refreshFundingDeckNotice(companyId) {
+    const notice = document.getElementById('funding-deck-notice');
+    if (!companyId) { notice?.classList.add('hidden'); return false; }
+    try {
+        const snap = await db.collection('companies').doc(companyId).get();
+        const hasDeck = !!snap.data()?.investorDeck;
+        notice?.classList.toggle('hidden', hasDeck);
+        return hasDeck;
+    } catch(e) {
+        notice?.classList.add('hidden');
+        return true; // don't block on a read failure
+    }
+}
+
+async function startFundingDeckGeneration() {
+    if (!selectedFundingProjectId) return;
+    try {
+        const snap = await db.collection('companies').doc(selectedFundingProjectId).get();
+        if (!snap.exists) return alert('Company not found.');
+        hidePostFundingModal();
+        showVerifyMetricsModal(selectedFundingProjectId, { id: snap.id, ...snap.data() });
+    } catch(e) {
+        alert('Could not open deck generation: ' + e.message);
+    }
 }
 
 function startFundingVerification() {
@@ -12658,17 +12743,58 @@ async function submitFundingPosting() {
     if (postBtn) { postBtn.disabled = true; postBtn.textContent = '⏳ Posting...'; }
     _fundingPostInProgress = true;
 
-    const ask = document.getElementById('funding-ask').value.trim();
-    const equityPctStr = document.getElementById('funding-equity-pct').value.trim();
-    const desc = document.getElementById('funding-desc').value.trim();
+    // Resets the button and flag on any early exit
+    const failPost = (msg) => {
+        _fundingPostInProgress = false;
+        if (postBtn) { postBtn.disabled = false; postBtn.textContent = 'Post ($1.00 in NQV8)'; }
+        alert(msg);
+        return null;
+    };
 
-    if (!ask || !equityPctStr || !desc) return alert("Please fill in funding amount, equity offered, and description");
+    const ask          = document.getElementById('funding-ask').value.trim();
+    const equityPctStr = document.getElementById('funding-equity-pct').value.trim();
+    const stage        = document.getElementById('funding-stage').value;
+    const useOfFunds   = document.getElementById('funding-use').value.trim();
+    const milestones   = document.getElementById('funding-milestones').value.trim();
+    const traction     = document.getElementById('funding-traction').value.trim();
+    const timeline     = document.getElementById('funding-timeline').value.trim();
+    const extraNotes   = document.getElementById('funding-desc').value.trim();
+
+    if (!ask || !equityPctStr) return failPost("Please fill in the funding amount and equity offered.");
+    if (!useOfFunds) return failPost("Please describe exactly what the capital will be spent on. Investors need to know where their money goes.");
+    if (!milestones) return failPost("Please describe what this funding will let you achieve.");
+
+    // Investor deck is required for funding requests
+    try {
+        const companySnap = await db.collection('companies').doc(selectedFundingProjectId).get();
+        if (!companySnap.data()?.investorDeck) {
+            document.getElementById('funding-deck-notice')?.classList.remove('hidden');
+            return failPost("📄 An investor deck is required before posting a funding request.\n\nGenerate one from Studio → Grow → Verify Metrics, or use the button in this form.");
+        }
+    } catch(e) {
+        console.warn('Deck check failed:', e.message);
+    }
 
     const equityPct = parseFloat(equityPctStr);
     if (isNaN(equityPct) || equityPct <= 0 || equityPct > 100) {
-        return alert("Equity offered must be between 0.01% and 100%.");
+        return failPost("Equity offered must be between 0.01% and 100%.");
     }
     const equityUnits = Math.round(equityPct * 100); // 1% = 100 units (10,000 = 100%)
+
+    // Compose a structured description for Claude review and the public listing
+    const desc = [
+        stage ? `Round: ${stage}` : null,
+        `Raising ${ask} for ${equityPct}% equity.`,
+        ``,
+        `USE OF FUNDS`,
+        useOfFunds,
+        ``,
+        `WHAT THIS UNLOCKS`,
+        milestones,
+        traction ? `\nTRACTION\n${traction}` : null,
+        timeline ? `\nTarget close: ${timeline}` : null,
+        extraNotes ? `\nADDITIONAL NOTES\n${extraNotes}` : null
+    ].filter(l => l !== null).join('\n').trim();
 
     // Check for existing active funding request for this project
     const existing = await db.collection("subprojects")
@@ -12678,7 +12804,7 @@ async function submitFundingPosting() {
         .get();
 
     if (!existing.empty) {
-        return alert("❌ You already have an active funding request for this project. Close or complete it before posting a new one.");
+        return failPost("❌ You already have an active funding request for this project. Close or complete it before posting a new one.");
     }
 
     await checkAndImprovePosting('Funding Request', desc, 'Funding', 'fund', 'fund', async (finalDesc) => {
@@ -14985,16 +15111,21 @@ async function showEquityDetailOnChain(listingId, listing, project) {
             <p class="text-zinc-400 text-xs mt-1">NQVate is not a broker or party to this transaction. Always do your own due diligence before purchasing equity. Claude valuations are estimates only.</p>
         </div>
 
-        ${!isOwner && connectedAddress ? `
+        <div id="listing-deck-slot" class="mb-4"></div>
+
         <div class="space-y-3 mb-4">
-            <button onclick="loadAndShowDeck('${listing.projectId}')"
-                    class="w-full py-4 border border-violet-400 text-violet-400 font-semibold rounded-3xl">
-                📄 View Investor Deck
-            </button>
+            <div id="listing-deck-slot"></div>
+            ${!isOwner && connectedAddress ? `
             <button onclick="makeOfferOnChain('${listingId}', ${unitsNum}, '${askPriceUSDC}', '${totalAsk}')"
                     class="w-full py-5 bg-white text-black font-semibold rounded-3xl">
                 ✅ Buy Now — $${totalAsk.toLocaleString(undefined,{maximumFractionDigits:2})} USDC
-        </div>` : ''}
+            </button>` : ''}
+            ${!isOwner && !connectedAddress ? `
+            <button onclick="connectWallet()"
+                    class="w-full py-5 border border-cyan-400 text-cyan-400 font-semibold rounded-3xl">
+                Connect Wallet to Purchase
+            </button>` : ''}
+        </div>
 
         ${isOwner ? `
         <div class="space-y-3 mb-4">
@@ -15013,11 +15144,82 @@ async function showEquityDetailOnChain(listingId, listing, project) {
     `;
 
     modal.classList.remove('hidden');
+    renderListingDeckSlot(listing.projectId);
 }
 
 
+// Renders the active investor deck card, or a "no deck" disclosure
+async function renderListingDeckSlot(companyId) {
+    const slot = document.getElementById('listing-deck-slot');
+    if (!slot || !companyId) return;
+
+    try {
+        const snap = await db.collection('companies').doc(companyId).get();
+        const c = snap.data();
+
+        if (!c?.investorDeck) {
+            slot.innerHTML = `
+                <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
+                    <p class="text-amber-400 text-sm font-medium">📄 No investor deck available</p>
+                    <p class="text-zinc-400 text-xs mt-1">This company has not published an investor deck. You would be purchasing this stake without a disclosure document. Do your own due diligence.</p>
+                </div>`;
+            return;
+        }
+
+        const toDate = (v) => v?.toDate ? v.toDate() : (v ? new Date(v) : null);
+        const verifiedOn = toDate(c.metricsVerifiedAt);
+        const editedOn   = toDate(c.deckUpdatedAt);
+        const newest     = (editedOn && verifiedOn) ? (editedOn > verifiedOn ? editedOn : verifiedOn) : (editedOn || verifiedOn);
+        const ageDays    = newest ? Math.floor((Date.now() - newest.getTime()) / 86400000) : null;
+        const isStale    = ageDays !== null && ageDays > 180;
+
+        const revBadge  = c.revenueBucket ? `<span class="px-2.5 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-xs">💰 ${c.revenueBucket}</span>` : '';
+        const userBadge = c.usersBucket   ? `<span class="px-2.5 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-xs">👥 ${c.usersBucket}</span>` : '';
+        const confBadge = c.metricsConfidence ? `<span class="px-2.5 py-1 bg-zinc-700 text-zinc-300 rounded-full text-xs">Confidence: ${c.metricsConfidence}</span>` : '';
+        const tagline   = c.investorDeck.tagline || '';
+
+        const histCount = Array.isArray(c.deckHistory) ? c.deckHistory.length : 0;
+
+        slot.innerHTML = `
+            <div class="bg-gradient-to-br from-violet-500/10 to-cyan-500/10 border border-violet-500/30 rounded-3xl p-5">
+                <div class="flex items-start justify-between gap-3 mb-3">
+                    <div class="min-w-0">
+                        <p class="text-violet-300 text-sm font-semibold">📄 Investor Deck Available</p>
+                        ${tagline ? `<p class="text-zinc-300 text-xs mt-1 leading-relaxed">${tagline}</p>` : ''}
+                    </div>
+                    <span class="flex-shrink-0 text-[10px] px-2 py-1 rounded-full ${isStale ? 'bg-amber-500/20 text-amber-400' : 'bg-emerald-500/20 text-emerald-400'}">
+                        ${isStale ? 'Dated' : 'Current'}
+                    </span>
+                </div>
+
+                ${(revBadge || userBadge || confBadge) ? `
+                <div class="flex flex-wrap gap-2 mb-3">
+                    ${revBadge}${userBadge}${confBadge}
+                </div>` : ''}
+
+                <div class="text-[11px] text-zinc-500 space-y-0.5 mb-4">
+                    ${verifiedOn ? `<p>Metrics verified: ${verifiedOn.toLocaleDateString()}</p>` : ''}
+                    ${editedOn ? `<p>Deck last edited: ${editedOn.toLocaleDateString()}</p>` : ''}
+                    ${histCount > 0 ? `<p>${histCount} earlier version${histCount === 1 ? '' : 's'} archived</p>` : ''}
+                </div>
+
+                ${isStale ? `
+                <div class="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 mb-4">
+                    <p class="text-amber-400 text-xs">⚠️ This deck is ${ageDays} days old. The metrics may no longer reflect the company's current position.</p>
+                </div>` : ''}
+
+                <button onclick="loadAndShowDeck('${companyId}')"
+                        class="w-full py-3 bg-violet-600 hover:bg-violet-500 text-white font-semibold rounded-2xl text-sm transition-colors">
+                    Open Investor Deck →
+                </button>
+            </div>`;
+    } catch(e) {
+        console.warn('renderListingDeckSlot error:', e.message);
+        slot.innerHTML = '';
+    }
+}
+
 async function loadAndShowDeck(companyId) {
-    if (!connectedAddress) return alert("Please connect your wallet to view investor decks.");
     try {
         const doc = await db.collection('companies').doc(companyId).get();
         if (!doc.exists) return alert("Company not found.");
