@@ -5378,25 +5378,25 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
             if (allowance.lt(amountRaw)) {
                 setPayBtn('⏳ Approve NQV8...');
                 setStatus('⏳ Approve NQV8 in wallet...');
-                try {
-                    await Promise.race([
-                        _rw2.approve(REWARDS_CONTRACT_ADDRESS, ethers.constants.MaxUint256).then(tx => tx.wait()),
-                        new Promise(resolve => setTimeout(resolve, 15000))
-                    ]);
-                } catch(approveErr) {
-                    console.warn('Approve failed or timed out:', approveErr?.message);
-                }
+                const approveTx = await _rw2.approve(REWARDS_CONTRACT_ADDRESS, ethers.constants.MaxUint256);
+                await approveTx.wait();
             }
 
-            setPayBtn('⏳ Processing payment...');
-            setStatus('⏳ Processing payment...');
+            setPayBtn('⏳ Confirm in your wallet...');
+            setStatus('⏳ Confirm in your wallet...');
             const rewardsContractRW2 = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
-            let txHash = null;
-            await Promise.race([
-                rewardsContractRW2.payNQV8Fee(connectedAddress, amountRaw)
-                    .then(tx => tx.wait().then(() => { txHash = tx.hash; })),
-                new Promise(resolve => setTimeout(resolve, 15000))
-            ]);
+
+            // No timeout race here — a payment must actually confirm on-chain.
+            // Racing a timer caused onSuccess to fire with a null txHash,
+            // letting anyone skip the fee by waiting out the timer.
+            const feeTx = await rewardsContractRW2.payNQV8Fee(connectedAddress, amountRaw);
+            setPayBtn('⏳ Processing payment...');
+            setStatus('⏳ Confirming on Arbitrum...');
+            await feeTx.wait();
+
+            if (!feeTx.hash) throw new Error('Payment did not return a transaction hash');
+            const txHash = feeTx.hash;
+
             await recordProtocolFee(nqv8Amount, 'fee', txHash, 'NQV8');
             modal.remove();
             unlockTxButtons(true);
