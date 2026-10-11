@@ -1,5 +1,7 @@
 export const config = { runtime: 'edge' };
 
+import { verifyCallerEdge, unauthorizedEdge } from './_auth-edge.js';
+
 const EQUITY_REGISTRY_ADDRESS = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2';
 const ARBITRUM_RPC = 'https://arb1.arbitrum.io/rpc';
 const TOTAL_UNITS = 10_000;
@@ -8,6 +10,9 @@ export default async function handler(req) {
     if (req.method !== 'POST' && req.method !== 'GET') {
         return new Response('Method not allowed', { status: 405 });
     }
+
+    const caller = await verifyCallerEdge(req);
+    if (!caller) return unauthorizedEdge();
 
     let projectId, forceRefresh;
     try {
