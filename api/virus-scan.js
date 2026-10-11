@@ -82,12 +82,22 @@ async function updateSubmission(projectId, submissionIndex, fields) {
     if (!snap.exists) return;
 
     const submissions = snap.data().submissions || [];
-    const idx = submissionIndex !== null && submissionIndex !== undefined
+    if (submissions.length === 0) {
+        console.warn(`virus-scan: ${projectId} has no submissions to update`);
+        return;
+    }
+
+    let idx = (submissionIndex !== null && submissionIndex !== undefined)
         ? submissionIndex
         : submissions.length - 1;
 
-    if (submissions[idx]) {
-        Object.assign(submissions[idx], fields);
-        await projectRef.update({ submissions });
+    // A caller-supplied index that is out of range used to silently no-op.
+    if (!submissions[idx]) {
+        console.warn(`virus-scan: index ${idx} out of range for ${projectId} (${submissions.length} submissions) — falling back to the latest`);
+        idx = submissions.length - 1;
     }
+
+    Object.assign(submissions[idx], fields);
+    await projectRef.update({ submissions });
+    console.log(`virus-scan: updated submission ${idx} of ${projectId} → ${fields.virusScanStatus}`);
 }
