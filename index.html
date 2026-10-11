@@ -3984,7 +3984,7 @@ async function submitMetricsVerification() {
 
         if (nqv8Bal < metricsNQV8Amount) {
             btn.disabled = false;
-            btn.textContent = 'Pay $5.00 in NQV8 & Verify';
+            btn.textContent = 'Pay $1.00 in NQV8 & Verify';
             return alert(`❌ Insufficient NQV8. You need ${metricsNQV8Amount} NQV8 (≈ $1.00).`);
         }
 
@@ -4007,7 +4007,7 @@ async function submitMetricsVerification() {
             rewardsContractRW1.payNQV8Fee(connectedAddress, amountRaw).then(tx => tx.wait().then(() => { _txHash1 = tx.hash; })),
             new Promise(resolve => setTimeout(resolve, 15000))
         ]);
-        await recordProtocolFee(5, 'metrics-verification', _txHash1);
+        await recordProtocolFee(1, 'metrics-verification', _txHash1);
 
         // Convert to base64
         btn.textContent = '⏳ Analyzing with Claude AI...';
@@ -4124,7 +4124,7 @@ async function submitMetricsVerification() {
 
     } catch(e) {
         btn.disabled = false;
-        btn.textContent = 'Pay $5.00 in NQV8 & Verify';
+        btn.textContent = 'Pay $1.00 in NQV8 & Verify';
 
         // Auto-refund on technical errors
         try {
@@ -4559,9 +4559,12 @@ function lockTxButtons(exceptModalId) {
         if (m.classList.contains('hidden')) return;
         m.querySelectorAll('button').forEach(b => {
             if (b.dataset.txLock) return;
+            // Remember whether this button was already disabled before we locked it
             b.dataset.txLock = b.disabled ? 'keep' : 'free';
-            if (b.dataset.txLock === 'free') {
-                b.disabled = true;
+            b.disabled = true;
+            // Dim it unless it is already dimmed, and remember that we dimmed it
+            if (!b.classList.contains('opacity-40')) {
+                b.dataset.txDim = '1';
                 b.classList.add('opacity-40', 'cursor-not-allowed');
             }
         });
@@ -4573,9 +4576,12 @@ function unlockTxButtons(force) {
     else _txLockDepth = Math.max(0, _txLockDepth - 1);
     if (_txLockDepth > 0) return;
     document.querySelectorAll('button[data-tx-lock]').forEach(b => {
-        if (b.dataset.txLock === 'free') {
-            b.disabled = false;
+        // Only re-enable buttons that were enabled before the lock
+        if (b.dataset.txLock === 'free') b.disabled = false;
+        // Only remove styling we added ourselves
+        if (b.dataset.txDim) {
             b.classList.remove('opacity-40', 'cursor-not-allowed');
+            delete b.dataset.txDim;
         }
         delete b.dataset.txLock;
     });
@@ -5255,9 +5261,23 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
     // Debug — log all errors
     window._lastPaymentError = null;
     // Pay handler
+    const payBtnLabel = payBtn.textContent;
+    const setPayBtn = (text) => {
+        payBtn.textContent = text;
+        payBtn.disabled = true;
+        payBtn.classList.add('opacity-40', 'cursor-not-allowed');
+    };
+    const resetPayBtn = () => {
+        payBtn.textContent = payBtnLabel;
+        payBtn.disabled = false;
+        payBtn.classList.remove('opacity-40', 'cursor-not-allowed');
+        delete payBtn.dataset.txLock;
+        delete payBtn.dataset.txDim;
+    };
+
     payBtn.addEventListener('click', async () => {
         if (payBtn.disabled) return;
-        payBtn.disabled = true;
+        setPayBtn('⏳ Confirm in your wallet...');
         setStatus('⏳ Confirm in your wallet...');
         try {
             const rewardsContract = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
@@ -5267,6 +5287,7 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
             const _rw2 = new ethers.Contract(NQV8_TOKEN_ADDRESS, ['function allowance(address,address) view returns (uint256)', 'function approve(address,uint256) returns (bool)'], signer);
             const allowance = await _ro2.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
             if (allowance.lt(amountRaw)) {
+                setPayBtn('⏳ Approve NQV8...');
                 setStatus('⏳ Approve NQV8 in wallet...');
                 try {
                     await Promise.race([
@@ -5278,6 +5299,7 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
                 }
             }
 
+            setPayBtn('⏳ Processing payment...');
             setStatus('⏳ Processing payment...');
             const rewardsContractRW2 = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
             let txHash = null;
@@ -5291,7 +5313,7 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
             unlockTxButtons(true);
             onSuccess(txHash);
         } catch(e) {
-            payBtn.disabled = false;
+            resetPayBtn();
             console.error('Payment error:', e.message, e.code);
             window._lastPaymentError = e.message;
             console.error('Payment debug error:', e.message);
