@@ -1,140 +1,85 @@
-// api/claim-voucher.js
-// Node runtime. Verifies on-chain that the caller actually paid a platform fee,
-// then issues a short-lived single-use voucher the Edge endpoints can check.
+// api/_voucher.js
+// HMAC-signed, single-use, short-lived proof that a user paid for a paid feature.
 //
-// Why: verify-docs, verify-metrics and generate-flowmap run on Edge and cannot
-// read the chain or Firestore. Without this, any logged-in user could call them
-// directly and skip the fee entirely.
+// Uses WebCrypto only, so the same module works on both Node and Edge runtimes.
+// Issued by claim-voucher.js (Node — can read the chain and Firestore).
+// Verified by the paid Edge endpoints, which can do neither.
 //
-// Trust model: the on-chain FeesReceived event is the only source of truth.
-// The protocolFees Firestore doc is client-written and is NOT trusted here.
+// Format:  base64url(JSON payload) + "." + base64url(HMAC-SHA256)
+// Payload: { uid, purpose, txHash, exp }
 
-import { ethers } from 'ethers';
-import { initializeApp, getApps, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
-import { verifyCaller } from './_auth.js';
-import { issueVoucher } from './_voucher.js';
+const ENC = new TextEncoder();
 
-if (!getApps().length) {
-    initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
-}
-const db = getFirestore();
-
-const REWARDS_CONTRACT_ADDRESS = '0x045aD6C2889ABCe6Bd8ef52D621706c44e4f1266';
-const ARBITRUM_RPC             = 'https://arb1.arbitrum.io/rpc';
-const NQV8_DECIMALS            = 18;
-
-// USD price of each paid feature. The NQV8 amount is derived at claim time
-// from the live price, so this stays correct as NQV8 moves.
-const PURPOSE_PRICE_USD = {
-    'verify-docs':      10.00,
-    'verify-metrics':    1.00,
-    'generate-flowmap':  5.00
-};
-
-// Accept slightly less than the quoted amount — the frontend quotes a price,
-// the user confirms seconds later, and NQV8 may have ticked up in between.
-const PRICE_TOLERANCE = 0.80;
-
-const FEES_RECEIVED_TOPIC = ethers.utils.id('FeesReceived(address,uint256,uint256,uint256)');
-
-async function getNQV8PriceUSD() {
-    try {
-        const res  = await fetch(`https://api.dexscreener.com/latest/dex/tokens/0x02b3EF81d6577507114BB26F91F1a8d0A7bB1B67`);
-        const data = await res.json();
-        const p    = parseFloat(data.pairs?.[0]?.priceUsd);
-        if (p && p > 0) return p;
-    } catch (e) { /* fall through to peg */ }
-    return 0.01; // peg fallback, same as the frontend
+function b64urlEncode(bytes) {
+    let bin = '';
+    const arr = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+    for (let i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]);
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
-export default async function handler(req, res) {
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+function b64urlToBytes(s) {
+    const pad = s.length % 4 === 0 ? '' : '='.repeat(4 - (s.length % 4));
+    const bin = atob(s.replace(/-/g, '+').replace(/_/g, '/') + pad);
+    const arr = new Uint8Array(bin.length);
+    for (let i = 0; i < bin.length; i++) arr[i] = bin.charCodeAt(i);
+    return arr;
+}
 
-    const caller = await verifyCaller(req);
-    if (!caller) return res.status(401).json({ error: 'Unauthorized' });
-    if (!caller.uid) return res.status(403).json({ error: 'A signed-in user is required' });
+function b64urlDecodeToString(s) {
+    return new TextDecoder().decode(b64urlToBytes(s));
+}
 
-    const { txHash, purpose } = req.body || {};
-    if (!txHash || !purpose) return res.status(400).json({ error: 'txHash and purpose are required' });
-    if (!PURPOSE_PRICE_USD[purpose]) return res.status(400).json({ error: `Unknown purpose: ${purpose}` });
-    if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) return res.status(400).json({ error: 'Malformed txHash' });
+async function hmacKey() {
+    const secret = process.env.VOUCHER_SECRET;
+    if (!secret) throw new Error('VOUCHER_SECRET not configured');
+    return crypto.subtle.importKey(
+        'raw', ENC.encode(secret),
+        { name: 'HMAC', hash: 'SHA-256' },
+        false, ['sign', 'verify']
+    );
+}
 
+/** Mint a voucher. ttlSeconds defaults to 10 minutes. */
+export async function issueVoucher({ uid, purpose, txHash, ttlSeconds = 600 }) {
+    const payload = {
+        uid,
+        purpose,
+        txHash,
+        exp: Math.floor(Date.now() / 1000) + ttlSeconds
+    };
+    const payloadB64 = b64urlEncode(ENC.encode(JSON.stringify(payload)));
+    const key        = await hmacKey();
+    const sig        = await crypto.subtle.sign('HMAC', key, ENC.encode(payloadB64));
+    return `${payloadB64}.${b64urlEncode(sig)}`;
+}
+
+/**
+ * Verify a voucher against an expected purpose, and optionally a uid.
+ * @returns {Promise<{uid,purpose,txHash,exp}|null>} null if invalid
+ */
+export async function verifyVoucher(voucher, expectedPurpose, expectedUid = null) {
     try {
-        // ── 1. Single use — reserve the hash before doing anything else ───
-        const voucherRef = db.collection('vouchers').doc(txHash.toLowerCase());
-        const existing   = await voucherRef.get();
-        if (existing.exists) {
-            return res.status(409).json({
-                error: 'This payment has already been used.',
-                usedFor: existing.data().purpose,
-                usedAt:  existing.data().claimedAt || null
-            });
-        }
+        if (!voucher || typeof voucher !== 'string') return null;
+        const [payloadB64, sigB64] = voucher.split('.');
+        if (!payloadB64 || !sigB64) return null;
 
-        // ── 2. Which wallet does this user own? ───────────────────────────
-        const userDoc = await db.collection('users').doc(caller.uid).get();
-        const wallet  = (userDoc.data()?.walletAddress || '').toLowerCase();
-        if (!wallet) return res.status(400).json({ error: 'No wallet on file for this account' });
-
-        // ── 3. The chain is the source of truth ───────────────────────────
-        const provider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
-        const receipt  = await provider.getTransactionReceipt(txHash);
-
-        if (!receipt)                 return res.status(404).json({ error: 'Transaction not found. It may still be pending.' });
-        if (receipt.status !== 1)     return res.status(400).json({ error: 'That transaction failed on-chain' });
-        if (receipt.from.toLowerCase() !== wallet) {
-            return res.status(403).json({ error: 'That payment was made from a different wallet' });
-        }
-        if ((receipt.to || '').toLowerCase() !== REWARDS_CONTRACT_ADDRESS.toLowerCase()) {
-            return res.status(400).json({ error: 'That transaction is not a platform fee payment' });
-        }
-
-        // ── 4. Read the amount straight out of the FeesReceived event ─────
-        const feeLog = receipt.logs.find(l =>
-            l.address.toLowerCase() === REWARDS_CONTRACT_ADDRESS.toLowerCase() &&
-            l.topics[0] === FEES_RECEIVED_TOPIC
+        const key = await hmacKey();
+        const ok  = await crypto.subtle.verify(
+            'HMAC', key,
+            b64urlToBytes(sigB64),
+            ENC.encode(payloadB64)
         );
-        if (!feeLog) return res.status(400).json({ error: 'No fee payment found in that transaction' });
+        if (!ok) return null;
 
-        // FeesReceived(address indexed payer, uint256 nqv8Amount, uint256 toOps, uint256 toPool)
-        const decoded   = ethers.utils.defaultAbiCoder.decode(['uint256','uint256','uint256'], feeLog.data);
-        const paidNQV8  = parseFloat(ethers.utils.formatUnits(decoded[0], NQV8_DECIMALS));
+        const p = JSON.parse(b64urlDecodeToString(payloadB64));
 
-        const price      = await getNQV8PriceUSD();
-        const paidUSD    = paidNQV8 * price;
-        const requiredUSD = PURPOSE_PRICE_USD[purpose] * PRICE_TOLERANCE;
+        if (p.purpose !== expectedPurpose) return null;
+        if (expectedUid && p.uid !== expectedUid) return null;
+        if (typeof p.exp !== 'number' || p.exp <= Math.floor(Date.now() / 1000)) return null;
 
-        if (paidUSD < requiredUSD) {
-            return res.status(402).json({
-                error: `Payment too small for ${purpose}. Paid ~$${paidUSD.toFixed(2)}, required $${PURPOSE_PRICE_USD[purpose].toFixed(2)}.`
-            });
-        }
-
-        // ── 5. Burn the hash, then mint the voucher ───────────────────────
-        try {
-            await voucherRef.create({
-                txHash:     txHash.toLowerCase(),
-                uid:        caller.uid,
-                wallet,
-                purpose,
-                paidNQV8,
-                paidUSD,
-                nqv8Price:  price,
-                claimedAt:  new Date()
-            });
-        } catch (raceErr) {
-            // create() fails if the doc appeared between our read and write
-            return res.status(409).json({ error: 'This payment has already been used.' });
-        }
-
-        const voucher = await issueVoucher({ uid: caller.uid, purpose, txHash });
-
-        console.log(`🎟️ Voucher issued: ${purpose} for ${caller.uid} (~$${paidUSD.toFixed(2)})`);
-        return res.status(200).json({ success: true, voucher });
-
+        return p;
     } catch (e) {
-        console.error('claim-voucher error:', e.message);
-        return res.status(500).json({ error: e.message });
+        console.warn('Voucher verification failed:', e.message);
+        return null;
     }
 }
