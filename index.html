@@ -9491,48 +9491,41 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                                 });
                             }
 
-                            // Add/update equityHolders for cap table
-                            if (workerWallet) {
-                                // Builder — check if existing record
-                                const builderSnap = await db.collection('equityHolders')
-                                    .where('projectId', '==', proj.companyId)
-                                    .where('wallet', '==', workerWallet)
-                                    .limit(1).get();
-                                if (builderSnap.empty) {
-                                    await db.collection('equityHolders').add({
-                                        projectId: proj.companyId,
-                                        wallet: workerWallet,
-                                        units: workerUnits,
-                                        isFounder: false,
-                                        earnedViaBuilding: true,
-                                        addedAt: firebase.firestore.FieldValue.serverTimestamp()
-                                    });
-                                } else {
-                                    await db.collection('equityHolders').doc(builderSnap.docs[0].id).update({
-                                        units: firebase.firestore.FieldValue.increment(workerUnits)
-                                    });
-                                }
+                            // Sync equityHolders from chain. The chain is authoritative:
+                            // we write absolute balances, never increments, so this is
+                            // idempotent and repairs any prior drift on every completion.
+                            try {
+                                const OPS_WALLET = '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D';
+                                const _capProv = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+                                const _capEq   = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, _capProv);
+                                const _capCid  = toBytes32(proj.companyId);
+                                const _capCo   = await _capEq.companies(_capCid);
+                                const _founderLc = (_capCo.founder || '').toLowerCase();
+                                const _workerLc  = (workerWallet || '').toLowerCase();
+                                const _opsLc     = OPS_WALLET.toLowerCase();
 
-                                // Ops wallet — check if existing record
-                                const opsWallet = '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D';
-                                const opsSnap = await db.collection('equityHolders')
-                                    .where('projectId', '==', proj.companyId)
-                                    .where('wallet', '==', opsWallet)
-                                    .limit(1).get();
-                                if (opsSnap.empty) {
-                                    await db.collection('equityHolders').add({
+                                const _capAddrs = [...new Set(
+                                    [_founderLc, _workerLc, _opsLc].filter(a => a && a.length === 42)
+                                )];
+
+                                for (const _a of _capAddrs) {
+                                    const _units = (await _capEq.balances(_capCid, _a)).toNumber();
+                                    const _rec = {
                                         projectId: proj.companyId,
-                                        wallet: opsWallet,
-                                        units: platformUnits,
-                                        isFounder: false,
-                                        isPlatformFee: true,
-                                        addedAt: firebase.firestore.FieldValue.serverTimestamp()
-                                    });
-                                } else {
-                                    await db.collection('equityHolders').doc(opsSnap.docs[0].id).update({
-                                        units: firebase.firestore.FieldValue.increment(platformUnits)
-                                    });
+                                        wallet: _a,
+                                        units: _units,
+                                        isFounder: _a === _founderLc,
+                                        lastSyncedAt: firebase.firestore.FieldValue.serverTimestamp()
+                                    };
+                                    if (_a === _workerLc) _rec.earnedViaBuilding = true;
+                                    if (_a === _opsLc)    _rec.isPlatformFee     = true;
+
+                                    await db.collection('equityHolders')
+                                        .doc(`${proj.companyId}_${_a}`)
+                                        .set(_rec, { merge: true });
                                 }
+                            } catch (capErr) {
+                                console.warn('Cap table sync failed (non-fatal, chain remains authoritative):', capErr.message);
                             }
 
                             alert(`✅ Review submitted!\n\n📈 Equity released on-chain:\n• Builder: ${(workerUnits/100).toFixed(4)}% (${workerUnits} units)\n• NQVate: ${(platformUnits/100).toFixed(4)}% (${platformUnits} units)\n\nTx: https://arbiscan.io/tx/${completeTxHash}`);
