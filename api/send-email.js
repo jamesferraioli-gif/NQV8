@@ -164,18 +164,34 @@ export default async function handler(req) {
     if (!caller) return unauthorizedEdge();
 
     try {
-        const { type, to, data } = await req.json();
+        const payload = await req.json();
+        const { type, to, data } = payload;
 
-        if (!type || !to || !data) {
-            return new Response(JSON.stringify({ error: 'Missing type, to, or data' }), { status: 400 });
+        if (!to) {
+            return new Response(JSON.stringify({ error: 'Missing recipient' }), { status: 400 });
         }
 
-        const template = templates[type];
-        if (!template) {
-            return new Response(JSON.stringify({ error: `Unknown template: ${type}` }), { status: 400 });
-        }
+        let subject, html;
 
-        const { subject, html } = template(data);
+        if (type) {
+            // Templated email
+            const template = templates[type];
+            if (!template) {
+                return new Response(JSON.stringify({ error: `Unknown template: ${type}` }), { status: 400 });
+            }
+            if (!data) {
+                return new Response(JSON.stringify({ error: 'Missing data for template' }), { status: 400 });
+            }
+            ({ subject, html } = template(data));
+        } else if (payload.subject && payload.body) {
+            // Plain alert — used by ops-wallet warnings and the error digest
+            const esc = (s) => String(s)
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+            subject = payload.subject;
+            html = `<pre style="font-family:ui-monospace,Menlo,monospace;font-size:13px;line-height:1.5;white-space:pre-wrap">${esc(payload.body)}</pre>`;
+        } else {
+            return new Response(JSON.stringify({ error: 'Provide either a template type with data, or subject and body' }), { status: 400 });
+        }
 
         const res = await fetch('https://api.resend.com/emails', {
             method: 'POST',
