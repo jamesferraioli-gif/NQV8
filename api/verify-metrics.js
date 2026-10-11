@@ -23,7 +23,7 @@ export default async function handler(req) {
             optionalBase64, optionalMediaType,
             companyName, entityType, description, website,
             claimedRevenue, claimedUsers
-        } = await req.json();
+        } = _body;
 
         const apiKey = process.env.ANTHROPIC_API_KEY;
         const hasDocuments = !!(revenueBase64 || usersBase64);
