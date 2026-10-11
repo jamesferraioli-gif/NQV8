@@ -154,8 +154,16 @@ service cloud.firestore {
     }
     match /equityOffers/{offerId} {
       allow read: if true;
-      allow create: if request.auth != null;
-      allow update: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.buyerUid == request.auth.uid;
+
+      // Only the buyer who made the offer, or the seller who owns the listing,
+      // may change it. Status transitions are written server-side via Admin SDK.
+      allow update: if request.auth != null && (
+        resource.data.buyerUid == request.auth.uid ||
+        get(/databases/$(database)/documents/equityListings/$(resource.data.listingId)).data.sellerUid == request.auth.uid
+      );
+
       allow delete: if request.auth != null && resource.data.buyerUid == request.auth.uid;
     }
     // SUPPORT TICKETS — users read/write their own, admin reads all
