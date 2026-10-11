@@ -4,6 +4,7 @@
 // technical error, etc.). NOT used for user-initiated reversals.
 
 import { ethers } from 'ethers';
+import { verifyCaller } from './_auth.js';
 
 const NQV8_ADDRESS    = '0x02b3EF81d6577507114BB26F91F1a8d0A7bB1B67';
 const ARBITRUM_RPC    = 'https://arb1.arbitrum.io/rpc';
@@ -18,10 +19,8 @@ export default async function handler(req, res) {
         return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const authHeader = req.headers['authorization'];
-    if (authHeader !== `Bearer ${process.env.INTERNAL_API_SECRET}`) {
-        return res.status(401).json({ error: 'Unauthorized' });
-    }
+    const caller = await verifyCaller(req);
+    if (!caller) return res.status(401).json({ error: 'Unauthorized' });
 
     const { recipientAddress, nqv8Amount, reason } = req.body;
 
