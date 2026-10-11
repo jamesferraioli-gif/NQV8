@@ -16,6 +16,9 @@ const VIRUSTOTAL_API_KEY = process.env.VIRUSTOTAL_API_KEY;
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+    const caller = await verifyCaller(req);
+    if (!caller) return res.status(401).json({ error: 'Unauthorized' });
+
     const { projectId, submissionIndex, attachments = [] } = req.body;
     if (!projectId) return res.status(400).json({ error: 'Missing projectId' });
 
