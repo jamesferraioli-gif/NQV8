@@ -152,6 +152,11 @@ service cloud.firestore {
       allow create: if request.auth != null;
       allow update: if request.auth != null && resource.data.advertiserUid == request.auth.uid;
     }
+	// ERROR LOG — clients may write, nobody may read from the client
+    match /errorLog/{docId} {
+      allow create: if request.auth != null;
+      allow read, update, delete: if false;
+    }
     match /equityOffers/{offerId} {
       allow read: if true;
       allow create: if request.auth != null
