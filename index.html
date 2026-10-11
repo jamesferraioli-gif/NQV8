@@ -4556,6 +4556,62 @@ async function refreshIdToken(force = false) {
 firebase.auth().onAuthStateChanged(() => { refreshIdToken(true); });
 setInterval(() => { refreshIdToken(true); }, 30 * 60 * 1000); // tokens expire hourly
 
+// Record a failed API call so silent failures surface in the daily digest.
+async function logApiFailure(endpoint, status, message) {
+    try {
+        await db.collection('errorLog').add({
+            kind:      'api_failure',
+            endpoint,
+            status:    status || null,
+            message:   String(message || '').slice(0, 500),
+            uid:       firebase.auth().currentUser?.uid || null,
+            userAgent: navigator.userAgent.slice(0, 200),
+            page:      location.pathname,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+    } catch (e) { /* never let logging break the app */ }
+}
+
+// Wraps fetch to (a) repair a cold token cache and (b) capture API failures.
+const _origFetch = window.fetch.bind(window);
+window.fetch = async function(input, init) {
+    const url = typeof input === 'string' ? input : input?.url;
+    const isApi = url && url.includes('/api/');
+
+    if (isApi && init && init.headers) {
+        const h = init.headers;
+        if (h['Authorization'] === 'Bearer null' || h['Authorization'] === 'Bearer undefined') {
+            const fresh = await refreshIdToken(false);
+            if (fresh) h['Authorization'] = `Bearer ${fresh}`;
+        }
+    }
+
+    try {
+        const res = await _origFetch(input, init);
+        if (isApi && !res.ok) {
+            let detail = '';
+            try { detail = (await res.clone().text()).slice(0, 300); } catch (e) {}
+            console.error(`API ${res.status} on ${url}`, detail);
+            logApiFailure(url, res.status, detail);
+        }
+        return res;
+    } catch (netErr) {
+        if (isApi) {
+            console.error(`API network error on ${url}`, netErr.message);
+            logApiFailure(url, 0, netErr.message);
+        }
+        throw netErr;
+    }
+};
+
+// Catch uncaught exceptions and unhandled promise rejections too
+window.addEventListener('error', (e) => {
+    logApiFailure('window.onerror', null, `${e.message} @ ${e.filename}:${e.lineno}`);
+});
+window.addEventListener('unhandledrejection', (e) => {
+    logApiFailure('unhandledrejection', null, e.reason?.message || String(e.reason));
+});
+
 // ---- Wallet state ----
 let provider = null;       // ethers.js Web3Provider
 let signer = null;         // ethers.js Signer
