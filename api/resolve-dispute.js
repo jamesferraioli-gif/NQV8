@@ -1,34 +1,38 @@
 // api/resolve-dispute.js
 // Fully automated dispute resolution — no human in the loop.
-// Called automatically when a dispute is filed.
-// Claude reads all evidence, issues a binding ruling, and executes on-chain immediately.
+// Claude reads all evidence, issues a binding ruling, and executes on-chain.
+//
+// Handles three bounty types:
+//   - USDC only  → escrow.resolveDispute() splits funds by percentage
+//   - Equity only → completeReservation() or releaseReservation() (all-or-nothing)
+//   - Mixed      → BOTH legs are resolved in the same run
+//
+// Equity cannot be split by percentage: V4 reservations are all-or-nothing,
+// so a ruling of 50% or more awards the full stake to the builder.
 
 import { ethers } from 'ethers';
-import { initializeApp, getApps } from 'firebase-admin/app';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { credential } from 'firebase-admin';
+import { verifyCaller } from './_auth.js';
 
 if (!getApps().length) {
     initializeApp({
-        credential: credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
+        credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT))
     });
 }
 const db = getFirestore();
 
-const ESCROW_CONTRACT_ADDRESS  = '0x19E9E191e5F277053Db4373FAbb8fBdEa8A30761';
-const EQUITY_REGISTRY_ADDRESS  = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2';
+const ESCROW_CONTRACT_ADDRESS  = '0x19E9E191e5F277053Db4373FAbb8fBdEa8A30761'; // V3
+const EQUITY_REGISTRY_ADDRESS  = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2'; // V4
 const PLATFORM_WALLET          = '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D';
 const PLATFORM_FEE_BPS         = 350;
 const ARBITRUM_RPC             = 'https://arb1.arbitrum.io/rpc';
+const ZERO_BYTES32             = '0x0000000000000000000000000000000000000000000000000000000000000000';
 
 const ESCROW_ABI = [
     "function resolveDispute(bytes32 escrowId, uint256 workerPct, uint256 posterPct, string claudeRuling) external",
     "function projectToEscrow(bytes32 projectKey) external view returns (bytes32)"
 ];
-
-function toBytes32(str) {
-    return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(str));
-}
 
 const EQUITY_ABI = [
     "function completeReservation(bytes32 companyId, bytes32 bountyId, address platformWallet, uint256 feeBps) external",
@@ -36,20 +40,52 @@ const EQUITY_ABI = [
     "function reservations(bytes32 companyId, bytes32 bountyId) external view returns (address founder, address beneficiary, uint128 units, bool active)"
 ];
 
+function toBytes32(str) {
+    return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(str));
+}
+
+// Firestore Timestamps, JS Dates and ISO strings all arrive here — normalise them
+function fmtDate(v) {
+    if (!v) return 'Unknown';
+    try {
+        if (typeof v.toDate === 'function') return v.toDate().toISOString();
+        const d = new Date(v);
+        return isNaN(d.getTime()) ? 'Unknown' : d.toISOString();
+    } catch { return 'Unknown'; }
+}
+
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
+    const caller = await verifyCaller(req);
+    if (!caller) return res.status(401).json({ error: 'Unauthorized' });
+
     const { projectId } = req.body;
     if (!projectId) return res.status(400).json({ error: 'projectId required' });
+
+    if (!process.env.ANTHROPIC_API_KEY) {
+        return res.status(500).json({ error: 'Arbitration unavailable — ANTHROPIC_API_KEY not configured' });
+    }
+    if (!process.env.OPERATIONS_PRIVATE_KEY) {
+        return res.status(500).json({ error: 'Operations key not configured' });
+    }
 
     try {
         const projectDoc = await db.collection('subprojects').doc(projectId).get();
         if (!projectDoc.exists) return res.status(404).json({ error: 'Project not found' });
         const project = projectDoc.data();
 
-        if (!project.disputeFiled)   return res.status(400).json({ error: 'No dispute filed' });
-        if (project.disputeResolved) return res.status(400).json({ error: 'Already resolved' });
+        if (!project.disputeFiled)     return res.status(400).json({ error: 'No dispute filed' });
+        if (project.disputeResolved)   return res.status(400).json({ error: 'Already resolved' });
         if (project.disputeProcessing) return res.status(400).json({ error: 'Already processing' });
+
+        // Only a party to the dispute may trigger resolution (service calls exempt)
+        if (!caller.service && caller.uid) {
+            const posterUid = project.ownerUid || project.posterUid;
+            if (caller.uid !== posterUid && caller.uid !== project.acceptedBidderUid) {
+                return res.status(403).json({ error: 'Only a party to this bounty can trigger resolution' });
+            }
+        }
 
         await db.collection('subprojects').doc(projectId).update({
             disputeProcessing: true,
@@ -70,15 +106,25 @@ Submission ${i + 1}:
   Description: ${s.description || 'None provided'}
   Link: ${s.link || 'None'}
   Files attached: ${s.files?.length || 0}
+  Security scan: ${s.virusScanStatus || 'not scanned'}
   Status: ${s.status}
   Poster feedback: ${s.feedback || 'None'}
-  Submitted: ${s.submittedAt ? new Date(s.submittedAt).toISOString() : 'Unknown'}
+  Submitted: ${fmtDate(s.submittedAt)}
             `.trim()).join('\n\n')
             : 'NO SUBMISSIONS — worker never submitted any deliverables';
 
         const filedBy = project.disputeFiledBy === (project.ownerUid || project.posterUid)
             ? 'POSTER (project owner)'
             : 'WORKER (assigned builder)';
+
+        // Work out what is actually at stake before prompting
+        const hasEquity = !!(project.equityReserved && project.companyId && !project.equityTransferred);
+        const isMixed   = project.compensationType === 'mixed' || project.escrowType === 'mixed';
+        const isEquityOnly = !isMixed && (project.escrowType === 'equity' || project.compensationType === 'equity');
+
+        const equityNote = hasEquity
+            ? `\nNOTE ON EQUITY: This bounty includes ${project.equityUnits || 0} equity units (${((project.equityUnits || 0) / 100).toFixed(2)}%). Equity cannot be split proportionally — a ruling of 50% or above transfers the FULL stake to the worker, below 50% returns it entirely to the founder. Weigh this when choosing a percentage.`
+            : '';
 
         const prompt = `You are Claude, an impartial AI arbitrator for NQVate — a fully decentralized freelance marketplace. You are the SOLE arbitrator for this dispute. Your ruling is BINDING and will be executed on-chain immediately with no human review. There is no appeals process.
 
@@ -90,6 +136,7 @@ PROJECT TITLE: "${project.title}"
 PROJECT DESCRIPTION: ${project.description}
 CATEGORY: ${project.category || 'Not specified'}
 AGREED COMPENSATION: ${project.compensation}
+COMPENSATION TYPE: ${project.compensationType || 'unknown'}
 DEADLINE: ${project.deadline || 'Not specified'}
 DISPUTE FILED BY: ${filedBy}
 
@@ -97,12 +144,13 @@ POSTER: @${poster.username || 'unknown'}
 WORKER: @${worker.username || 'unknown'}
 
 === TIMELINE ===
-Project posted: ${project.createdAt?.toDate?.()?.toISOString?.() || 'Unknown'}
-Bid accepted / escrow locked: ${project.acceptedAt?.toDate?.()?.toISOString?.() || 'Unknown'}
-Dispute filed: ${project.disputeFiledAt?.toDate?.()?.toISOString?.() || 'Unknown'}
+Project posted: ${fmtDate(project.createdAt)}
+Bid accepted / escrow locked: ${fmtDate(project.acceptedAt)}
+Dispute filed: ${fmtDate(project.disputeFiledAt)}
 
 === SUBMISSION EVIDENCE ===
 ${evidenceSummary}
+${equityNote}
 
 === ARBITRATION GUIDELINES ===
 
@@ -133,9 +181,14 @@ Respond ONLY with valid JSON, no markdown:
 
 workerPct + posterPct MUST equal exactly 100.`;
 
+        // ── Call Claude ───────────────────────────────────────────────────
         const claudeResponse = await fetch('https://api.anthropic.com/v1/messages', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type':      'application/json',
+                'x-api-key':         process.env.ANTHROPIC_API_KEY,
+                'anthropic-version': '2023-06-01'
+            },
             body: JSON.stringify({
                 model:      'claude-sonnet-5',
                 max_tokens: 1000,
@@ -143,13 +196,34 @@ workerPct + posterPct MUST equal exactly 100.`;
             })
         });
 
-        const claudeData = await claudeResponse.json();
-        const rawText    = claudeData.content.filter(b => b.type === 'text').map(b => b.text).join('');
-        const ruling     = JSON.parse(rawText.replace(/```json|```/g, '').trim());
-
-        if (ruling.workerPct + ruling.posterPct !== 100) {
-            ruling.posterPct = 100 - ruling.workerPct;
+        if (!claudeResponse.ok) {
+            const errBody = await claudeResponse.text().catch(() => '');
+            throw new Error(`Claude API ${claudeResponse.status}: ${errBody.slice(0, 300)}`);
         }
+
+        const claudeData = await claudeResponse.json();
+        if (!claudeData.content || claudeData.error) {
+            throw new Error(`Claude API error: ${claudeData.error?.message || 'No content returned'}`);
+        }
+
+        const rawText = claudeData.content.filter(b => b.type === 'text').map(b => b.text).join('');
+        let ruling;
+        try {
+            ruling = JSON.parse(rawText.replace(/```json|```/g, '').trim());
+        } catch (parseErr) {
+            throw new Error(`Could not parse arbitration ruling: ${rawText.slice(0, 200)}`);
+        }
+
+        // Sanitise the ruling before anything touches the chain
+        ruling.workerPct = Math.max(0, Math.min(100, parseInt(ruling.workerPct)));
+        if (isNaN(ruling.workerPct)) throw new Error('Arbitration returned an invalid workerPct');
+        ruling.posterPct = 100 - ruling.workerPct;
+        if (!ruling.ruling || typeof ruling.ruling !== 'string') {
+            ruling.ruling = `Ruling: ${ruling.workerPct}% worker / ${ruling.posterPct}% poster.`;
+        }
+        ruling.keyFindings  = Array.isArray(ruling.keyFindings)  ? ruling.keyFindings  : [];
+        ruling.warningFlags = Array.isArray(ruling.warningFlags) ? ruling.warningFlags : [];
+        ruling.confidence   = ruling.confidence || 'unknown';
 
         console.log(`⚖️ Claude ruling for ${projectId}: ${ruling.workerPct}% worker / ${ruling.posterPct}% poster`);
 
@@ -163,75 +237,86 @@ workerPct + posterPct MUST equal exactly 100.`;
             claudeRuledAt:      new Date()
         });
 
-        // Execute on-chain
-        const provider       = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
-        const opsWallet      = new ethers.Wallet(process.env.OPERATIONS_PRIVATE_KEY, provider);
+        // ── Execute on-chain ──────────────────────────────────────────────
+        const provider  = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const opsWallet = new ethers.Wallet(process.env.OPERATIONS_PRIVATE_KEY, provider);
 
-        const isEquityBounty = project.escrowType === 'equity' || project.compensationType === 'equity';
-        let tx;
+        const workerWins = ruling.workerPct >= 50;
+        let equityTxHash = null;
+        let escrowTxHash = null;
 
-        if (isEquityBounty && project.equityReserved && project.companyId) {
-            // ── Equity dispute resolution ─────────────────────────────
+        // ── Equity leg (equity-only AND mixed bounties) ───────────────────
+        if (hasEquity) {
             const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_ABI, opsWallet);
             const companyIdBytes = toBytes32(project.companyId);
             const bountyIdBytes  = toBytes32(projectId);
             const reservation    = await equityContract.reservations(companyIdBytes, bountyIdBytes);
 
             if (!reservation.active) {
-                throw new Error('No active equity reservation found for this project');
-            }
-
-            if (ruling.workerPct >= 50) {
-                tx = await equityContract.completeReservation(
-                    companyIdBytes,
-                    bountyIdBytes,
-                    PLATFORM_WALLET,
-                    PLATFORM_FEE_BPS
-                );
+                console.warn(`⚠️ ${projectId}: equity reservation not active — skipping equity leg`);
             } else {
-                tx = await equityContract.releaseReservation(
-                    companyIdBytes,
-                    bountyIdBytes
-                );
+                const eqTx = workerWins
+                    ? await equityContract.completeReservation(companyIdBytes, bountyIdBytes, PLATFORM_WALLET, PLATFORM_FEE_BPS)
+                    : await equityContract.releaseReservation(companyIdBytes, bountyIdBytes);
+                await eqTx.wait();
+                equityTxHash = eqTx.hash;
+                console.log(`✅ Equity leg resolved (${workerWins ? 'transferred to builder' : 'released to founder'}). Tx: ${eqTx.hash}`);
             }
-            await tx.wait();
-            console.log(`✅ Equity dispute resolved on-chain (${ruling.workerPct >= 50 ? 'transferred to builder' : 'released to founder'}). Tx: ${tx.hash}`);
+        }
 
-        } else {
-            // ── USDC escrow dispute resolution ────────────────────────
+        // ── USDC leg (cash-only AND mixed bounties) ───────────────────────
+        if (!isEquityOnly) {
             const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, opsWallet);
-            const escrowId       = await escrowContract.projectToEscrow(ethers.utils.keccak256(ethers.utils.toUtf8Bytes(projectId)));
-            
-            if (escrowId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
-                throw new Error('No escrow found for this project');
-            }
+            const escrowId       = await escrowContract.projectToEscrow(toBytes32(projectId));
 
-            tx = await escrowContract.resolveDispute(
-                escrowId,
-                ruling.workerPct,
-                ruling.posterPct,
-                ruling.ruling
-            );
-            await tx.wait();
-            console.log(`✅ USDC dispute resolved on-chain. Tx: ${tx.hash}`);
+            if (escrowId === ZERO_BYTES32) {
+                if (!hasEquity) throw new Error('No escrow found for this project');
+                console.warn(`⚠️ ${projectId}: no USDC escrow found — equity leg only`);
+            } else {
+                const escTx = await escrowContract.resolveDispute(
+                    escrowId,
+                    ruling.workerPct,
+                    ruling.posterPct,
+                    ruling.ruling
+                );
+                await escTx.wait();
+                escrowTxHash = escTx.hash;
+                console.log(`✅ USDC leg resolved. Tx: ${escTx.hash}`);
+            }
+        }
+
+        if (!equityTxHash && !escrowTxHash) {
+            throw new Error('Nothing to resolve — no active escrow or equity reservation found');
         }
 
         await db.collection('subprojects').doc(projectId).update({
-            status:            'completed',
-            disputeResolved:   true,
-            disputeProcessing: false,
-            disputeResolveTx:  tx.hash,
-            disputeResolvedAt: new Date(),
-            completedAt:       new Date()
+            status:              'completed',
+            disputeResolved:     true,
+            disputeProcessing:   false,
+            disputeResolveTx:    escrowTxHash || equityTxHash,
+            disputeEquityTx:     equityTxHash,
+            disputeEscrowTx:     escrowTxHash,
+            disputeResolvedAt:   new Date(),
+            completedAt:         new Date(),
+            ...(equityTxHash && workerWins ? {
+                equityTransferred:      true,
+                equityTransferTxHash:   equityTxHash,
+                equityUnitsTransferred: project.equityUnits || 0
+            } : {})
         });
 
-        // Notify both parties
-        const workerMsg = isEquityBounty
-            ? `⚖️ Dispute resolved on "${project.title}". ${ruling.workerPct >= 50 ? 'Equity transferred to your wallet.' : 'Equity returned to founder.'} Ruling: ${ruling.ruling}`
-            : `⚖️ Dispute resolved on "${project.title}". ${ruling.workerPct > 0 ? `You receive ${ruling.workerPct}% of escrowed funds.` : 'No funds awarded to you.'} Ruling: ${ruling.ruling}`;
-        const posterMsg = isEquityBounty
-            ? `⚖️ Dispute resolved on "${project.title}". ${ruling.workerPct >= 50 ? 'Equity transferred to builder.' : 'Equity reservation released back to you.'} Ruling: ${ruling.ruling}`
-            : `⚖️ Dispute resolved on "${project.title}". ${ruling.posterPct > 0 ? `You are refunded ${ruling.posterPct}% of escrowed funds.` : 'No refund issued.'} Ruling: ${ruling.ruling}`;
+        // ── Notify both parties ───────────────────────────────────────────
+        const parts = [];
+        if (escrowTxHash) {
+            parts.push(`USDC split ${ruling.workerPct}% builder / ${ruling.posterPct}% poster`);
+        }
+        if (equityTxHash) {
+            parts.push(workerWins ? 'equity transferred to builder' : 'equity returned to founder');
+        }
+        const outcome = parts.join(' · ');
+
+        const workerMsg = `⚖️ Dispute resolved on "${project.title}". Outcome: ${outcome}. Ruling: ${ruling.ruling}`;
+        const posterMsg = `⚖️ Dispute resolved on "${project.title}". Outcome: ${outcome}. Ruling: ${ruling.ruling}`;
 
         const batch = db.batch();
         batch.set(db.collection('notifications').doc(), {
@@ -250,13 +335,24 @@ workerPct + posterPct MUST equal exactly 100.`;
             posterPct:   ruling.posterPct,
             ruling:      ruling.ruling,
             confidence:  ruling.confidence,
-            txHash:      tx.hash,
-            arbiscanUrl: `https://arbiscan.io/tx/${tx.hash}`
+            equityTxHash,
+            escrowTxHash,
+            txHash:      escrowTxHash || equityTxHash,
+            arbiscanUrl: `https://arbiscan.io/tx/${escrowTxHash || equityTxHash}`
         });
 
     } catch(e) {
         console.error('resolve-dispute error:', e);
-        await db.collection('subprojects').doc(projectId).update({ disputeProcessing: false }).catch(() => {});
+        await db.collection('subprojects').doc(projectId)
+            .update({ disputeProcessing: false, disputeLastError: e.message })
+            .catch(() => {});
+
+        const msg = e.message || '';
+        if (msg.includes('UNPREDICTABLE_GAS_LIMIT') ||
+            msg.includes('insufficient funds') ||
+            msg.includes('gas required exceeds allowance')) {
+            return res.status(500).json({ error: 'PLATFORM_GAS_ERROR' });
+        }
         return res.status(500).json({ error: e.message });
     }
 }
