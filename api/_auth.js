@@ -9,6 +9,7 @@
 
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
+import { getFirestore } from 'firebase-admin/firestore';
 
 function ensureApp() {
     if (!getApps().length) {
@@ -36,5 +37,29 @@ export async function verifyCaller(req, opts = {}) {
     } catch (e) {
         console.warn('Token verification failed:', e.message);
         return null;
+    }
+}
+
+// Confirms the caller owns the company before acting on its equity.
+// Service callers (crons, internal jobs) bypass the check.
+// Returns null when authorized, or { status, error } to send back.
+// Fails CLOSED — any error denies rather than allows.
+export async function assertCompanyOwner(caller, companyId) {
+    if (!caller)        return { status: 401, error: 'Unauthorized' };
+    if (caller.service) return null;
+    if (!caller.uid)    return { status: 403, error: 'Forbidden' };
+    if (!companyId)     return { status: 400, error: 'Missing companyId' };
+
+    try {
+        ensureApp();
+        const doc = await getFirestore().collection('companies').doc(companyId).get();
+        if (!doc.exists) return { status: 404, error: 'Company not found' };
+        if (doc.data().ownerUid !== caller.uid) {
+            return { status: 403, error: 'Only the company owner can perform this action' };
+        }
+        return null;
+    } catch (e) {
+        console.error('Ownership check failed:', e.message);
+        return { status: 500, error: 'Could not verify company ownership' };
     }
 }
