@@ -4007,7 +4007,7 @@ async function submitMetricsVerification() {
             rewardsContractRW1.payNQV8Fee(connectedAddress, amountRaw).then(tx => tx.wait().then(() => { _txHash1 = tx.hash; })),
             new Promise(resolve => setTimeout(resolve, 15000))
         ]);
-        await recordProtocolFee(1, 'metrics-verification', _txHash1);
+        await recordProtocolFee(metricsNQV8Amount, 'metrics-verification', _txHash1, 'NQV8');
 
         // Convert to base64
         btn.textContent = '⏳ Analyzing with Claude AI...';
@@ -5308,7 +5308,7 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
                     .then(tx => tx.wait().then(() => { txHash = tx.hash; })),
                 new Promise(resolve => setTimeout(resolve, 15000))
             ]);
-            await recordProtocolFee(usdAmount, 'fee', txHash);
+            await recordProtocolFee(nqv8Amount, 'fee', txHash, 'NQV8');
             modal.remove();
             unlockTxButtons(true);
             onSuccess(txHash);
@@ -6033,7 +6033,7 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                     rewardsContractRW3.payNQV8Fee(connectedAddress, verifAmountRaw).then(tx => tx.wait().then(() => { txHash = tx.hash; })),
                     new Promise(resolve => setTimeout(resolve, 15000))
                 ]);
-                await recordProtocolFee(10, 'verification', txHash);
+                await recordProtocolFee(verifNQV8Amount, 'verification', txHash, 'NQV8');
 
                 console.log('✅ Payment done:', txHash);
 
@@ -16585,7 +16585,7 @@ async function submitNewFlowMap(useAI = false) {
                 rewardsContractRW7.payNQV8Fee(connectedAddress, amountRaw).then(tx => tx.wait().then(() => { _txHash10 = tx.hash; })),
                 new Promise(resolve => setTimeout(resolve, 15000))
             ]);
-            await recordProtocolFee(5, 'flow-map-generation', _txHash10);
+            await recordProtocolFee(nqv8Amount, 'flow-map-generation', _txHash10, 'NQV8');
 
             setStatus('🤖 Claude is generating your plan...');
             if (btnAI) btnAI.textContent = '⏳ Generating...';
