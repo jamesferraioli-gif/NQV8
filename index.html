@@ -3996,12 +3996,12 @@ async function submitMetricsVerification() {
         if (allowance.lt(amountRaw)) {
             btn.textContent = '⏳ Approve NQV8...';
             const _approve1 = await _rw1.approve(REWARDS_CONTRACT_ADDRESS, ethers.constants.MaxUint256);
-            await _approve1.wait();
+            await confirmTx(_approve1);
         }
         btn.textContent = '⏳ Paying...';
         const rewardsContractRW1 = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
         const _feeTx1 = await rewardsContractRW1.payNQV8Fee(connectedAddress, amountRaw);
-        await _feeTx1.wait();
+        await confirmTx(_feeTx1);
         const _txHash1 = _feeTx1.hash;
         if (!_txHash1) throw new Error('Payment did not confirm');
         await recordProtocolFee(metricsNQV8Amount, 'metrics-verification', _txHash1, 'NQV8');
@@ -4093,7 +4093,7 @@ async function submitMetricsVerification() {
                         // updateMetrics removed in V4 — metrics stored in Firestore only
                     console.log('Metrics hash (Firestore only):', metricsHash);
                     const tx = { hash: '0x0' }; // placeholder
-                    await tx.wait();
+                    await confirmTx(tx);
                 } catch(e) {
                     console.warn('On-chain metrics timestamp failed:', e.message);
                 }
@@ -5504,7 +5504,7 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
                 setPayBtn('⏳ Approve NQV8...');
                 setStatus('⏳ Approve NQV8 in wallet...');
                 const approveTx = await _rw2.approve(REWARDS_CONTRACT_ADDRESS, ethers.constants.MaxUint256);
-                await approveTx.wait();
+                await confirmTx(approveTx);
             }
 
             setPayBtn('⏳ Confirm in your wallet...');
@@ -5517,7 +5517,7 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
             const feeTx = await rewardsContractRW2.payNQV8Fee(connectedAddress, amountRaw);
             setPayBtn('⏳ Processing payment...');
             setStatus('⏳ Confirming on Arbitrum...');
-            await feeTx.wait();
+            await confirmTx(feeTx);
 
             if (!feeTx.hash) throw new Error('Payment did not return a transaction hash');
             const txHash = feeTx.hash;
@@ -6242,12 +6242,12 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                 if (allowance.lt(verifAmountRaw)) {
                     btn.innerHTML = '⏳ Approve NQV8 in wallet...';
                     const _approve3 = await _rw3.approve(REWARDS_CONTRACT_ADDRESS, ethers.constants.MaxUint256);
-                    await _approve3.wait();
+                    await confirmTx(_approve3);
                 }
                 btn.innerHTML = `⏳ Paying ${verifNQV8Amount} NQV8...`;
                 const rewardsContractRW3 = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
                 const _feeTx3 = await rewardsContractRW3.payNQV8Fee(connectedAddress, verifAmountRaw);
-                await _feeTx3.wait();
+                await confirmTx(_feeTx3);
                 const txHash = _feeTx3.hash;
                 if (!txHash) throw new Error('Payment did not confirm');
                 await recordProtocolFee(verifNQV8Amount, 'verification', txHash, 'NQV8');
@@ -8546,11 +8546,11 @@ function hideEditPostingModal() {
                             const allowance3m = await _ro3m.allowance(connectedAddress, ESCROW_CONTRACT_ADDRESS);
                             if (allowance3m.lt(cashRaw)) {
                                 const _approve3m = await _rw3m.approve(ESCROW_CONTRACT_ADDRESS, cashRaw);
-                                await _approve3m.wait();
+                                await confirmTx(_approve3m);
                             }
                             const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
                             const _escTx3m = await escrowContract.createEscrow(currentProjectId, workerWallet, cashRaw, deadlineTs);
-                            await _escTx3m.wait();
+                            await confirmTx(_escTx3m);
                             if (!_escTx3m.hash) throw new Error('Escrow was not created');
                             escrowTxHash = _escTx3m.hash;
                         }
@@ -8662,7 +8662,7 @@ function hideEditPostingModal() {
                     if (allowance.lt(amountRaw)) {
                         if (btn) btn.textContent = '⏳ Waiting for approval...';
                         const _approve4 = await _rw4.approve(ESCROW_CONTRACT_ADDRESS, amountRaw);
-                        await _approve4.wait();
+                        await confirmTx(_approve4);
                     }
                 } else {
                     const amountRaw = ethers.utils.parseUnits(amountNum.toFixed(6), 6);
@@ -8672,7 +8672,7 @@ function hideEditPostingModal() {
                     if (allowance.lt(amountRaw)) {
                         if (btn) btn.textContent = '⏳ Waiting for approval...';
                         const _approve5 = await _rw5.approve(ESCROW_CONTRACT_ADDRESS, amountRaw);
-                        await _approve5.wait();
+                        await confirmTx(_approve5);
                     }
                 }
 
@@ -8684,7 +8684,7 @@ function hideEditPostingModal() {
 
                 const escrowContractFresh = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
                 const _escTx4 = await escrowContractFresh.createEscrow(currentProjectId, workerWallet, amountRaw, deadlineTs);
-                await _escTx4.wait();
+                await confirmTx(_escTx4);
                 if (!_escTx4.hash) throw new Error('Escrow was not created');
                 const escrowTx = { hash: _escTx4.hash };
 
@@ -13702,7 +13702,7 @@ async function claimSignupBonus() {
 
         // ── 4. Call claimSignupBonus on contract ──────────────────
         const claimTx = await treasuryContract.claimSignupBonus();
-        await claimTx.wait();
+        await confirmTx(claimTx);
 
         // ── 5. Update Firestore ───────────────────────────────────
         await db.collection('users').doc(currentUser.uid).update({
@@ -13909,7 +13909,7 @@ async function buyNQV8() {
             const _rw5b = new ethers.Contract(USDC_ADDRESS, ['function approve(address,uint256) returns (bool)'], signer);
             setBtn('⏳ Waiting for approval...', true);
             const _approve5b = await _rw5b.approve(TREASURY_CONTRACT_ADDRESS, usdcAmountRaw);
-            await _approve5b.wait();
+            await confirmTx(_approve5b);
         }
 
         // ── 5. Call buyNQV8 on Treasury contract ─────────────────
@@ -13918,7 +13918,7 @@ async function buyNQV8() {
         const buyTx = await treasuryContract.buyNQV8(usdcAmountRaw);
 
         setBtn('⏳ Processing transaction...', true);
-        await buyTx.wait();
+        await confirmTx(buyTx);
 
         // ── 6. Success ────────────────────────────────────────────
         setBtn('Confirm Purchase', false);
@@ -15590,7 +15590,7 @@ async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk, ski
 
         const offerIdStr = `${listingId}_${connectedAddress}_${Date.now()}`;
         const offerTx = await equityContract.makeOffer(toBytes32(offerIdStr), toBytes32(listingId), units, priceRaw);
-        await offerTx.wait();
+        await confirmTx(offerTx);
         if (!offerTx.hash) throw new Error('makeOffer transaction failed');
         const tx = { hash: offerTx.hash };
 
@@ -16106,11 +16106,11 @@ async function fileProjectDispute(projectId) {
         const allowance = await _ro6.allowance(connectedAddress, ESCROW_CONTRACT_ADDRESS);
         if (allowance.lt(disputeFeeRaw)) {
             const _approve6 = await _rw6.approve(ESCROW_CONTRACT_ADDRESS, disputeFeeRaw);
-            await _approve6.wait();
+            await confirmTx(_approve6);
         }
 
         const _dispTx = await escrowContract.fileDispute(escrowId);
-        await _dispTx.wait();
+        await confirmTx(_dispTx);
         if (!_dispTx.hash) throw new Error('Dispute was not filed on-chain');
         const disputeTx = { hash: _dispTx.hash };
 
@@ -16865,11 +16865,11 @@ async function submitNewFlowMap(useAI = false) {
             if (allowance.lt(amountRaw)) {
                 if (btnAI) btnAI.textContent = '⏳ Approving...';
                 const _approve7 = await _rw7.approve(REWARDS_CONTRACT_ADDRESS, ethers.constants.MaxUint256);
-                await _approve7.wait();
+                await confirmTx(_approve7);
             }
             const rewardsContractRW7 = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
             const _feeTx7 = await rewardsContractRW7.payNQV8Fee(connectedAddress, amountRaw);
-            await _feeTx7.wait();
+            await confirmTx(_feeTx7);
             const _txHash10 = _feeTx7.hash;
             if (!_txHash10) throw new Error('Payment did not confirm');
             await recordProtocolFee(nqv8Amount, 'flow-map-generation', _txHash10, 'NQV8');
