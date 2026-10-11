@@ -7,6 +7,7 @@ import { ethers } from 'ethers';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { credential } from 'firebase-admin';
+import { verifyCaller } from './_auth.js';
 
 if (!getApps().length) {
     initializeApp({
@@ -29,7 +30,11 @@ const ERC20_ABI = [
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    const { uid } = req.body;
+    const caller = await verifyCaller(req);
+    if (!caller) return res.status(401).json({ error: 'Unauthorized' });
+
+    // Use the verified uid — nobody may claim a bonus on another account
+    const uid = caller.uid || req.body.uid;
     if (!uid) return res.status(400).json({ error: 'uid required' });
 
     try {
