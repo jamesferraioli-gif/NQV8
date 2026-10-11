@@ -4580,7 +4580,8 @@ function tooShort(text, fieldLabel, min = MIN_TEXT_LENGTH) {
     return false;
 }
 
-// Record a failed API call so silent failures surface in the daily digest.async function logApiFailure(endpoint, status, message) {
+// Record a failed API call so silent failures surface in the daily digest.
+async function logApiFailure(endpoint, status, message) {
     try {
         await db.collection('errorLog').add({
             kind:      'api_failure',
