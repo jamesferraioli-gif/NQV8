@@ -6,6 +6,7 @@ import { ethers } from 'ethers';
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { credential } from 'firebase-admin';
+import { verifyCaller } from './_auth.js';
 
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
 const EQUITY_REGISTRY_ADDRESS = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2';
@@ -29,7 +30,11 @@ const db = getFirestore();
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
-    const { projectId, companyName, founderWallet, callerUid } = req.body;
+    const caller = await verifyCaller(req);
+    if (!caller) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { projectId, companyName, founderWallet } = req.body;
+    const callerUid = caller.uid || req.body.callerUid;
 
     if (!projectId || !companyName || !founderWallet) {
         return res.status(400).json({ error: 'Missing required fields' });
