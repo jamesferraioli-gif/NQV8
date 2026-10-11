@@ -5514,13 +5514,22 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
             // No timeout race here — a payment must actually confirm on-chain.
             // Racing a timer caused onSuccess to fire with a null txHash,
             // letting anyone skip the fee by waiting out the timer.
-            const feeTx = await rewardsContractRW2.payNQV8Fee(connectedAddress, amountRaw);
+            // sendUncheckedTransaction returns the hash immediately. The normal
+            // contract call instead polls eth_getTransactionByHash through the
+            // wallet provider to build a response object, and on mobile that
+            // poll never resolves after returning from the wallet app — so the
+            // await never finishes even though the tx confirmed on-chain.
+            const _feeData = rewardsContractRW2.interface.encodeFunctionData(
+                'payNQV8Fee', [connectedAddress, amountRaw]);
+            const txHash = await signer.sendUncheckedTransaction({
+                to: REWARDS_CONTRACT_ADDRESS,
+                data: _feeData
+            });
+            if (!txHash) throw new Error('Payment did not return a transaction hash');
+
             setPayBtn('⏳ Processing payment...');
             setStatus('⏳ Confirming on Arbitrum...');
-            await confirmTx(feeTx);
-
-            if (!feeTx.hash) throw new Error('Payment did not return a transaction hash');
-            const txHash = feeTx.hash;
+            await confirmTx(txHash);
 
             await recordProtocolFee(nqv8Amount, 'fee', txHash, 'NQV8');
             modal.remove();
