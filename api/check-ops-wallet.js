@@ -132,9 +132,11 @@ Bridge ETH to Arbitrum at: https://bridge.arbitrum.io/
             `.trim();
 
             await fetch(`https://www.nqvate.com/api/send-email`, {
-                headers: { 'Authorization': `Bearer ${process.env.INTERNAL_API_SECRET}` },
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${process.env.INTERNAL_API_SECRET}`
+                },
                 body: JSON.stringify({
                     to: 'james.ferraioli@gmail.com',
                     subject: `⚠️ NQVate Ops Wallet: ${report.runwayDays} days ETH remaining`,
