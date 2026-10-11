@@ -182,6 +182,10 @@
             "dest": "/api/error-digest.js"
         },
         {
+            "src": "/api/claim-voucher",
+            "dest": "/api/claim-voucher.js"
+        },
+        {
             "src": "/(.*)",
             "dest": "/index.html"
         }
