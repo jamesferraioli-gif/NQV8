@@ -1,7 +1,13 @@
 export const config = { runtime: 'edge' };
 
+import { verifyCallerEdge, unauthorizedEdge } from './_auth-edge.js';
+
+
 export default async function handler(req) {
     if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+
+    const caller = await verifyCallerEdge(req);
+    if (!caller) return unauthorizedEdge();
 
     try {
         const { incorporationBase64, incorporationMediaType, einBase64, einMediaType, idBase64, idMediaType, companyName, entityType } = await req.json();
