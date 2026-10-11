@@ -132,6 +132,7 @@ Bridge ETH to Arbitrum at: https://bridge.arbitrum.io/
             `.trim();
 
             await fetch(`https://www.nqvate.com/api/send-email`, {
+                headers: { 'Authorization': `Bearer ${process.env.INTERNAL_API_SECRET}` },
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
