@@ -5048,37 +5048,38 @@ async function connectWalletConnect() {
     connectedAddress = await signer.getAddress();
     localStorage.setItem('nqvate_wc_address', connectedAddress);
     localStorage.setItem('nqvate_wc_connected', 'true');
+    try { await ensureArbitrum(); } catch (e) { console.warn('Network switch at connect failed:', e.message); }
     await onWalletConnected();
     // Small delay for mobile — ensures provider is ready before balance fetch
     setTimeout(() => refreshOnChainBalances(), 1500);
 }
+// Prompts a switch to Arbitrum at connect time. Goes through the provider
+// rather than window.ethereum so it works on mobile/WalletConnect, where
+// window.ethereum does not exist. The per-transaction gate in installTxLock
+// is the real safety net — this is for a better prompt up front.
 async function ensureArbitrum() {
     const network = await provider.getNetwork();
-    if (network.chainId !== ARBITRUM_CHAIN_ID) {
-        try {
-            await window.ethereum.request({
-                method: 'wallet_switchEthereumChain',
-                params: [{ chainId: ARBITRUM_CHAIN_HEX }]
-            });
-        } catch (switchError) {
-            // Chain not added yet — add it
-            if (switchError.code === 4902) {
-                await window.ethereum.request({
-                    method: 'wallet_addEthereumChain',
-                    params: [{
-                        chainId: ARBITRUM_CHAIN_HEX,
-                        chainName: 'Arbitrum One',
-                        nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-                        rpcUrls: [ARBITRUM_RPC],
-                        blockExplorerUrls: ['https://arbiscan.io']
-                    }]
-                });
-            } else throw switchError;
-        }
-        // Re-init provider after switch
-        provider = new ethers.providers.Web3Provider(window.ethereum, 'any');
-        signer = provider.getSigner();
+    if (network.chainId === ARBITRUM_CHAIN_ID) return;
+
+    try {
+        await provider.send('wallet_switchEthereumChain', [{ chainId: ARBITRUM_CHAIN_HEX }]);
+    } catch (switchError) {
+        // Chain not added yet — add it
+        if (switchError && switchError.code === 4902) {
+            await provider.send('wallet_addEthereumChain', [{
+                chainId: ARBITRUM_CHAIN_HEX,
+                chainName: 'Arbitrum One',
+                nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+                rpcUrls: [ARBITRUM_RPC],
+                blockExplorerUrls: ['https://arbiscan.io']
+            }]);
+        } else throw switchError;
     }
+
+    // Re-init from the SAME underlying provider — never window.ethereum,
+    // which would destroy a WalletConnect session.
+    provider = new ethers.providers.Web3Provider(provider.provider, 'any');
+    signer = provider.getSigner();
 }
 
 async function onWalletConnected() {
