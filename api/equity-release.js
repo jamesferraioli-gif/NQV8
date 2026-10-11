@@ -4,7 +4,7 @@
 // returning the reserved units to the founder's available balance.
 
 import { ethers } from 'ethers';
-import { verifyCaller } from './_auth.js';
+import { verifyCaller, assertCompanyOwner } from './_auth.js';
 
 const EQUITY_REGISTRY_ADDRESS = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2';
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
@@ -29,6 +29,9 @@ export default async function handler(req, res) {
     if (!companyId || !bountyId) {
         return res.status(400).json({ error: 'Missing companyId or bountyId' });
     }
+
+    const denied = await assertCompanyOwner(caller, companyId);
+    if (denied) return res.status(denied.status).json({ error: denied.error });
 
     try {
         const provider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
