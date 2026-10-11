@@ -9052,6 +9052,27 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                         completedAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
                     notifySubmissionApproved(currentProject);
+
+                    // In-app notification — notifySubmissionApproved only sends email
+                    await db.collection('notifications').add({
+                        recipientUid: currentProject.acceptedBidderUid,
+                        type: 'leave_review',
+                        message: `✅ Your work on "${currentProject.title}" was approved and payment has been released. Please leave a review for @${currentUser.username}.`,
+                        projectId: currentProjectId,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        read: false
+                    }).catch(e => console.warn('Notification failed:', e.message));         
+                    notifySubmissionApproved(currentProject);
+
+                    await db.collection('notifications').add({
+                        recipientUid: currentProject.acceptedBidderUid,
+                        type: 'leave_review',
+                        message: `✅ Your work on "${currentProject.title}" was approved. Please leave a review for @${currentUser.username}.`,
+                        projectId: currentProjectId,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        read: false
+                    }).catch(e => console.warn('Notification failed:', e.message));
+
                     // Update plan node
                     db.collection('subprojects')
                         .where('marketplacePostId', '==', currentProjectId)
@@ -9130,6 +9151,16 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                         escrowReleaseTxHash: releaseTx.hash,
                         escrowReleased: true
                     }).catch(e => console.error('Firestore update failed after escrow release:', e));
+
+                    // In-app notification — notifySubmissionApproved only sends email
+                    await db.collection('notifications').add({
+                        recipientUid: currentProject.acceptedBidderUid,
+                        type: 'leave_review',
+                        message: `✅ Your work on "${currentProject.title}" was approved and payment has been released. Please leave a review for @${currentUser.username}.`,
+                        projectId: currentProjectId,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+                        read: false
+                    }).catch(e => console.warn('Notification failed:', e.message));
 
                     // ── Auto-transfer equity if bounty includes equity compensation ──
                     const hasEquity = currentProject.compensationType === 'equity' ||
