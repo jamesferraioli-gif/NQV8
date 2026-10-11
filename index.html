@@ -5213,7 +5213,7 @@ async function sendUSDC(toAddress, amountHuman) {
     usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, signer);
     const amount = ethers.utils.parseUnits(String(amountHuman), USDC_DECIMALS);
     const tx = await usdcContract.transfer(toAddress, amount);
-    await tx.wait();
+    await confirmTx(tx);
     return tx.hash;
 }
 
@@ -5223,7 +5223,7 @@ async function sendNQV8(toAddress, amountHuman) {
     nqv8Contract = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, signer);
     const amount = ethers.utils.parseUnits(String(amountHuman), NQV8_DECIMALS);
     const tx = await nqv8Contract.transfer(toAddress, amount);
-    await tx.wait();
+    await confirmTx(tx);
     return tx.hash;
 }
 
@@ -7797,7 +7797,7 @@ async function deletePosting(projectId) {
                         try {
                             const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
                             const tx = await equityContract.cancelListing(toBytes32(project.listingId));
-                            await tx.wait();
+                            await confirmTx(tx);
                             // Mark equityListings doc as inactive
                             await db.collection('equityListings').doc(project.listingId).update({ active: false, status: 'cancelled' }).catch(() => {});
                         } catch(cancelErr) {
@@ -14304,7 +14304,7 @@ async function submitMetricsOnChain(companyId) {
         // updateMetrics removed in V4 — metrics stored in Firestore only
         console.log('Metrics hash (Firestore only):', metricsHash);
         const tx = { hash: '0x' + Date.now().toString(16) }; // placeholder
-        await tx.wait();
+        await confirmTx(tx);
         alert(`✅ Metrics saved and timestamped on-chain!\nHash: ${metricsHash}\nTx: https://arbiscan.io/tx/${tx.hash}`);
         hideProjectDetailModal();
         loadProfileData();
@@ -15578,7 +15578,7 @@ async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk, ski
         if (allowance7b.lt(totalWithFeeRaw)) {
             try {
                 const approveTx = await _rw7b.approve(EQUITY_REGISTRY_ADDRESS, totalWithFeeRaw);
-                await approveTx.wait();
+                await confirmTx(approveTx);
             } catch(e) {
                 if (e.code === 4001 || e.message?.includes('user rejected')) {
                     return alert('❌ Transaction cancelled. USDC approval is required to purchase equity.');
@@ -15909,7 +15909,7 @@ async function rejectFundingOffer(offerId, firestoreOfferId) {
     try {
         const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
         const tx = await equityContract.rejectOffer(toBytes32(offerId));
-        await tx.wait();
+        await confirmTx(tx);
         await db.collection('equityOffers').doc(firestoreOfferId).update({ active: false, status: 'rejected' }).catch(() => {});
 
         // Notify investor
@@ -16239,7 +16239,7 @@ async function claimAutoReleaseEscrow(projectId) {
         const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
         const escrowId = await escrowContract.projectToEscrow(ethers.utils.keccak256(ethers.utils.toUtf8Bytes(projectId)));
         const tx = await escrowContract.claimAutoRelease(escrowId);
-        await tx.wait();
+        await confirmTx(tx);
         await db.collection("subprojects").doc(projectId).update({ status: "completed", completedAt: firebase.firestore.FieldValue.serverTimestamp(), escrowAutoReleased: true });
         alert(`✅ Funds released!\nTx: https://arbiscan.io/tx/${tx.hash}`);
         hideProjectDetailModal();
@@ -16261,7 +16261,7 @@ async function claimEscrowRefund(projectId) {
         const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
         const escrowId = await escrowContract.projectToEscrow(ethers.utils.keccak256(ethers.utils.toUtf8Bytes(projectId)));
         const tx = await escrowContract.claimRefund(escrowId);
-        await tx.wait();
+        await confirmTx(tx);
 
         // Release equity reservation if one exists
         if (project?.equityReserved && project?.companyId) {
@@ -17604,7 +17604,7 @@ async function founderRelease() {
     try {
         const lockup = new ethers.Contract(FOUNDER_LOCKUP_ADDRESS, FOUNDER_LOCKUP_ABI, signer);
         const tx = await lockup.sell(FOUNDER_WALLET, amountWei);
-        await tx.wait();
+        await confirmTx(tx);
 
         alert(`✅ ${amount.toLocaleString()} NQV8 released to your wallet.\nTx: https://arbiscan.io/tx/${tx.hash}`);
         document.getElementById('fc-amount-input').value = '';
