@@ -1,5 +1,7 @@
 export const config = { runtime: 'edge' };
 
+import { verifyCallerEdge, unauthorizedEdge } from './_auth-edge.js';
+
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM = 'NQVate <noreply@nqvate.com>';
 const BASE_URL = 'https://www.nqvate.com';
@@ -157,6 +159,9 @@ const templates = {
 
 export default async function handler(req) {
     if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+
+    const caller = await verifyCallerEdge(req);
+    if (!caller) return unauthorizedEdge();
 
     try {
         const { type, to, data } = await req.json();
