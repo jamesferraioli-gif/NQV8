@@ -8860,7 +8860,9 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
                 body: JSON.stringify({
                     projectId: currentSubmitProjectId,
-                    submissionIndex: (currentProject?.submissions?.length ?? 0),
+                    // No index — the server targets the most recent submission.
+                    // Computing it here raced the Firestore listener and pointed
+                    // one past the end, so the write silently did nothing.
                     attachments
                 })
             }).catch(e => console.warn('Virus scan failed to start:', e.message));
