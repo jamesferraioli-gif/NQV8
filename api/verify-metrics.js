@@ -1,6 +1,7 @@
 export const config = { runtime: 'edge' };
 
 import { verifyCallerEdge, unauthorizedEdge } from './_auth-edge.js';
+import { verifyVoucher } from './_voucher.js';
 
 export default async function handler(req) {
     if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
@@ -9,6 +10,13 @@ export default async function handler(req) {
     if (!caller) return unauthorizedEdge();
 
     try {
+        const _body = await req.json();
+        if (!caller.service) {
+            const v = await verifyVoucher(_body.voucher, 'verify-metrics', caller.uid);
+            if (!v) return new Response(JSON.stringify({ error: 'Payment required or voucher expired' }), {
+                status: 402, headers: { 'Content-Type': 'application/json' }
+            });
+        }
         const {
             revenueBase64, revenueMediaType,
             usersBase64, usersMediaType,
