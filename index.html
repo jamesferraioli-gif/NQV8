@@ -9137,11 +9137,17 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
 
                     // Deposit USDC platform fee into Rewards contract + record in Firestore
                     try {
+                        // Base the fee on the ACCEPTED BID (what was actually escrowed),
+                        // and parse only the USDC portion — a mixed string like
+                        // "$1.00 USDC + 1% equity" must not collapse to "1.001".
+                        const _feeSrc = currentProject.acceptedBid?.amount || currentProject.compensation || '';
+                        const _cashMatch = _feeSrc.match(/\$?([\d,]+(?:\.\d+)?)\s*usdc/i);
                         const isUSDC = currentProject.compensationType === 'usdc' ||
                                        currentProject.compensationType === 'cash' ||
-                                       (currentProject.compensation || '').toLowerCase().includes('usdc');
+                                       currentProject.compensationType === 'mixed' ||
+                                       !!_cashMatch;
                         if (isUSDC) {
-                            const compensationNum = parseFloat((currentProject.compensation || '0').replace(/[^0-9.]/g, '')) || 0;
+                            const compensationNum = _cashMatch ? parseFloat(_cashMatch[1].replace(/,/g, '')) : 0;
                             if (compensationNum > 0) {
                                 const platformFeeUSDC = compensationNum * 0.035;
 
