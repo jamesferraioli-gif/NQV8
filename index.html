@@ -8456,7 +8456,7 @@ function hideEditPostingModal() {
                         const btn = document.getElementById('accept-bid-btn');
                         if (btn) { btn.textContent = 'Accept Bid'; btn.disabled = false; }
                         if (equityErr.message === 'PLATFORM_GAS_ERROR') {
-                            alert('⚠️ We\'re experiencing a temporary technical issue. Please try again in a few minutes or contact NQVate support.');
+                            alert('⚠️ We couldn\'t complete this right now due to a platform issue on our side.\n\nNothing has been lost — your funds and this bounty are unaffected. Our team has been notified automatically. Please try again shortly.');       
                             // Alert ops team
                             fetch('/api/send-email', {
                                 method: 'POST',
