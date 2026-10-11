@@ -141,22 +141,13 @@ export default async function handler(req, res) {
 
         console.log(`💵 USDC fees verified: $${ethers.utils.formatUnits(totalUSDCFees, USDC_DECIMALS)} (${usdcVerified} verified, ${usdcRejected} rejected)`);
 
-        // ── 5. Deposit 20% of NQV8 fees ──────────────────────────────────
+        // ── 5. NQV8 pool is already funded on-chain by payNQV8Fee ────────
+        // payNQV8Fee splits 80/20 at payment time and credits nqv8RewardPool
+        // directly. No deposit needed here — depositing again would pay out
+        // roughly 36% of fees instead of the intended 20%.
+        // The Firestore verification above is kept purely as an audit trail.
         let nqv8DepositTxHash = null;
-        const nqv8Deposit = totalNQV8Fees.mul(REWARD_PCT).div(10000);
-        if (nqv8Deposit.gt(0)) {
-            const bal = await nqv8Contract.balanceOf(wallet.address);
-            if (bal.gte(nqv8Deposit)) {
-                const approveTx = await nqv8Contract.approve(REWARDS_CONTRACT_ADDRESS, nqv8Deposit);
-                await approveTx.wait();
-                const depositTx = await rewardsContract.depositNQV8Rewards(nqv8Deposit);
-                await depositTx.wait();
-                nqv8DepositTxHash = depositTx.hash;
-                console.log(`✅ Deposited ${ethers.utils.formatUnits(nqv8Deposit, NQV8_DECIMALS)} NQV8. Tx: ${depositTx.hash}`);
-            } else {
-                console.warn('Insufficient NQV8 in ops wallet');
-            }
-        }
+        const nqv8Deposit = ethers.BigNumber.from(0);
 
         // ── 6. Deposit 20% of USDC fees ───────────────────────────────────
         let usdcDepositTxHash = null;
