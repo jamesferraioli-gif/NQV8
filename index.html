@@ -8971,7 +8971,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                 await fetch('/api/virus-scan', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
-                    body: JSON.stringify({ projectId, submissionIndex, attachments: [] })
+                    body: JSON.stringify({ projectId, submissionIndex })
                 });
                 alert('🔍 Security scan started — results will update automatically.');
             } catch(e) {
