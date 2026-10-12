@@ -178,7 +178,7 @@ export default async function handler(req, res) {
         }
 
         // ── 8. Distribute ─────────────────────────────────────────────────
-        const distributeTx = await rewardsContract.distribute(monthStr);
+        const distributeTx = await rewardsContract.distribute(monthStr, await gasOverrides(provider));
         const receipt      = await distributeTx.wait();
         console.log(`✅ Distribution complete. Tx: ${distributeTx.hash}`);
 
