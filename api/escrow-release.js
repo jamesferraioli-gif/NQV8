@@ -57,7 +57,11 @@ export default async function handler(req, res) {
 
         let userMessage = e.message;
         if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') || e.message.includes('gas required exceeds allowance') || e.message.includes('INSUFFICIENT_FUNDS')) {
-            userMessage = 'Transaction failed — insufficient ETH for gas fees. Please add more ETH to your wallet on Arbitrum One and try again.';
+            // The OPS wallet pays this gas, not the user's. Hand back the
+            // sentinel so the frontend shows the platform-issue message and
+            // emails ops, instead of telling the founder to fund a wallet
+            // they do not control.
+            userMessage = 'PLATFORM_GAS_ERROR';
         } else if (e.message.includes('Not poster')) {
             userMessage = 'Only the posting founder can release escrow.';
         } else if (e.message.includes('Already released') || e.message.includes('Invalid status')) {
