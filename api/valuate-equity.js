@@ -2,7 +2,7 @@ export const config = { runtime: 'edge' };
 
 import { verifyCallerEdge, unauthorizedEdge } from './_auth-edge.js';
 
-const EQUITY_REGISTRY_ADDRESS = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2';
+const EQUITY_REGISTRY_ADDRESS = '0x726a5EEa94C6d3117bbCd05336A0Cfdaf3c9327a';
 const ARBITRUM_RPC = 'https://arb1.arbitrum.io/rpc';
 const TOTAL_UNITS = 10_000;
 
