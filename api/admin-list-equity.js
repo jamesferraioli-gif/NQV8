@@ -4,8 +4,15 @@
 // MetaMask Delegation Manager interference.
 
 import { ethers } from 'ethers';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 import { verifyCaller } from './_auth.js';
 import { gasOverrides } from './_gas.js';
+
+if (!getApps().length) {
+    initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
+}
+const db = getFirestore();
 
 const EQUITY_REGISTRY_ADDRESS = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2';
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
@@ -13,7 +20,9 @@ const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
 const EQUITY_ABI = [
     "function adminListEquity(bytes32 listingId, bytes32 companyId, address seller, uint256 units, uint256 pricePerUnit) external",
     "function balances(bytes32 companyId, address wallet) external view returns (uint256)",
-    "function availableBalance(bytes32 companyId, address holder) external view returns (uint256)"
+    "function availableBalance(bytes32 companyId, address holder) external view returns (uint256)",
+    "function listings(bytes32 listingId) external view returns (bytes32 companyId, address seller, uint128 units, uint128 pricePerUnit, bool active)"
+];
 ];
 
 function toBytes32(str) {
@@ -54,6 +63,34 @@ export default async function handler(req, res) {
         if (available.lt(ethers.BigNumber.from(units))) {
             return res.status(400).json({
                 error: `Insufficient available equity. Seller has ${available.toNumber()} units available, requested ${units}.`
+            });
+        }
+
+        // V4 does NOT encumber a balance when equity is listed — availableBalance
+        // and the contract's own _availableForListing both subtract reservations
+        // only, and nothing tracks listed units. Without this check the same units
+        // can be listed repeatedly; each extra buyer's USDC then sits locked in the
+        // contract until the 7-day expiry, because acceptOffer reverts on
+        // "Insufficient equity" once the first sale drains the balance.
+        const activeSnap = await db.collection('equityListings')
+            .where('companyId', '==', companyId)
+            .where('seller', '==', seller.toLowerCase())
+            .where('active', '==', true)
+            .get();
+
+        let alreadyListed = 0;
+        for (const d of activeSnap.docs) {
+            const row = d.data();
+            try {
+                const onChain = await equity.listings(toBytes32(row.listingId || d.id));
+                if (onChain.active) alreadyListed += onChain.units.toNumber();
+            } catch (e) { /* unreadable row — do not count it */ }
+        }
+
+        const sellable = available.toNumber() - alreadyListed;
+        if (sellable < Number(units)) {
+            return res.status(400).json({
+                error: `Only ${sellable} units can be listed. You hold ${available.toNumber()} and already have ${alreadyListed} listed.`
             });
         }
 
