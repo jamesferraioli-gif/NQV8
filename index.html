@@ -9303,8 +9303,12 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                                 // 1. Record in Firestore for distribution tracking
                                 await recordProtocolFee(platformFeeUSDC, 'escrow-release', releaseTx.hash);
 
-                                // 2. Deposit into on-chain Rewards contract pool
-                                fetch('/api/deposit-escrow-fee', {
+                                // 2. Deposit into on-chain Rewards contract pool.
+                                // AWAITED deliberately: equity-complete runs right after
+                                // this and also sends from the ops wallet. Fired without
+                                // await, both transactions leave at once, collide on nonce,
+                                // and one fails with what looks like a gas error.
+                                await fetch('/api/deposit-escrow-fee', {
                                     method: 'POST',
                                     headers: {
                                         'Content-Type': 'application/json',
@@ -16246,7 +16250,10 @@ async function loadEscrowActions(projectId, project) {
                     <span class="text-xs px-3 py-1 rounded-full ${status === 'Released' ? 'bg-emerald-500/20 text-emerald-400' : status === 'Disputed' ? 'bg-red-500/20 text-red-400' : status === 'Submitted' ? 'bg-amber-500/20 text-amber-400' : 'bg-cyan-500/20 text-cyan-400'}">${status}</span>
                 </div>
                 <p class="text-zinc-400 text-sm">Locked: <span class="text-white font-medium">${amountFormatted}</span></p>
-            </div>`;
+                ${project.equityReserved && project.equityUnits ? `
+                <p class="text-zinc-400 text-sm mt-1">Equity reserved: <span class="text-white font-medium">${(project.equityUnits / 100).toFixed(2)}%</span>
+                    <span class="text-zinc-500">(${project.equityUnits} units${project.equityTransferred ? ' — transferred' : ' — releases on approval'})</span></p>` : ''}            
+                </div>`;
 
         if (isPoster && (status === 'Active' || status === 'Submitted')) {
             if (status === 'Submitted') {
