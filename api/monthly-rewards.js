@@ -11,6 +11,7 @@
 import { ethers } from 'ethers';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { gasOverrides } from './_gas.js';
 
 function getAdminDb() {
     if (!getApps().length) {
