@@ -10,7 +10,7 @@ import { verifyCaller } from './_auth.js';
 import { gasOverrides } from './_gas.js';
 
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
-const EQUITY_REGISTRY_ADDRESS = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2';
+const EQUITY_REGISTRY_ADDRESS = '0x726a5EEa94C6d3117bbCd05336A0Cfdaf3c9327a';
 
 const EQUITY_REGISTRY_ABI = [
     "function registerCompany(bytes32 companyId, address founder) external",
