@@ -6,6 +6,7 @@
 
 import { ethers } from 'ethers';
 import { verifyCaller } from './_auth.js';
+import { gasOverrides } from './_gas.js';
 
 const ESCROW_CONTRACT_ADDRESS = '0x19E9E191e5F277053Db4373FAbb8fBdEa8A30761';
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
