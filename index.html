@@ -9681,9 +9681,11 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                                     await db.collection('equityHolders')
                                         .doc(`${proj.companyId}_${_a}`)
                                         .set(_rec, { merge: true });
-                                } catch (capErr) {
+                                }
+                            } catch (capErr) {
                                 console.warn('Cap table sync failed (non-fatal, chain remains authoritative):', capErr.message);
                             }
+
                             _releaseOk = true;
                             alert(`✅ Review submitted!\n\n📈 Equity released on-chain:\n• Builder: ${(workerUnits/100).toFixed(4)}% (${workerUnits} units)\n• NQVate: ${(platformUnits/100).toFixed(4)}% (${platformUnits} units)\n\nTx: https://arbiscan.io/tx/${completeTxHash}`);
                         } else if (!isEquityOnly && workerWallet && proj.acceptedBid?.amount) {
