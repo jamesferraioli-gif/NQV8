@@ -5,6 +5,7 @@
 // Buyer must have pre-approved USDC to the V4 contract address.
 
 import { ethers } from 'ethers';
+import { gasOverrides } from './_gas.js';
 
 const EQUITY_REGISTRY_ADDRESS = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2';
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
