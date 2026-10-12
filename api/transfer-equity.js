@@ -16,6 +16,7 @@ import { ethers } from 'ethers';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { verifyCaller } from './_auth.js';
+import { gasOverrides } from './_gas.js';
 
 const EQUITY_REGISTRY_ADDRESS = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2'; // V4
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
