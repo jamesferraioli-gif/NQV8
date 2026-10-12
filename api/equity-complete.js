@@ -53,7 +53,7 @@ export default async function handler(req, res) {
         const platformUnits = Math.floor(totalUnits * PLATFORM_FEE_BPS / 10000);
         const workerUnits   = totalUnits - platformUnits;
 
-        const tx = await equity.completeReservation(companyIdBytes, bountyIdBytes, PLATFORM_WALLET, PLATFORM_FEE_BPS);
+        const tx = await equity.completeReservation(companyIdBytes, bountyIdBytes, PLATFORM_WALLET, PLATFORM_FEE_BPS, await gasOverrides(provider));
         await tx.wait();
 
         console.log(`✅ Completed reservation for bounty ${bountyId}`);
