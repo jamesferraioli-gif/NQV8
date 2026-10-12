@@ -18,7 +18,7 @@ if (!getApps().length) {
 }
 const db = getFirestore();
 
-const EQUITY_REGISTRY_ADDRESS = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2';
+const EQUITY_REGISTRY_ADDRESS = '0x726a5EEa94C6d3117bbCd05336A0Cfdaf3c9327a';
 const PLATFORM_WALLET         = '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D';
 const PLATFORM_FEE_BPS        = 350;
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
