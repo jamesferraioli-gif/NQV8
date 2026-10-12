@@ -48,7 +48,7 @@ export default async function handler(req, res) {
             return res.status(403).json({ error: 'Only the seller can cancel this listing' });
         }
 
-        const tx = await equity.cancelListing(listingIdBytes);
+        const tx = await equity.cancelListing(listingIdBytes, await gasOverrides(provider));
         await tx.wait();
 
         console.log(`✅ Listing cancelled: ${listingId} | Tx: ${tx.hash}`);
