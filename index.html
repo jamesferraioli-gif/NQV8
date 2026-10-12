@@ -9598,7 +9598,9 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                         createdAt: new Date()
                     })
                 });
-                // Release payment / equity when POSTER submits their review
+                // Release payment / equity when POSTER submits their review.
+                // null = nothing attempted, true = released, false = failed
+                let _releaseOk = null;
                 if (isReviewerPoster) {
                     try {
                         const proj = (await db.collection('subprojects').doc(currentReviewProjectId).get()).data();
@@ -9679,11 +9681,10 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                                     await db.collection('equityHolders')
                                         .doc(`${proj.companyId}_${_a}`)
                                         .set(_rec, { merge: true });
-                                }
-                            } catch (capErr) {
+                                } catch (capErr) {
                                 console.warn('Cap table sync failed (non-fatal, chain remains authoritative):', capErr.message);
                             }
-
+                            _releaseOk = true;
                             alert(`✅ Review submitted!\n\n📈 Equity released on-chain:\n• Builder: ${(workerUnits/100).toFixed(4)}% (${workerUnits} units)\n• NQVate: ${(platformUnits/100).toFixed(4)}% (${platformUnits} units)\n\nTx: https://arbiscan.io/tx/${completeTxHash}`);
                         } else if (!isEquityOnly && workerWallet && proj.acceptedBid?.amount) {
                             // USDC/NQV8 already released via escrow contract (adminRelease)
@@ -9691,6 +9692,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                             console.log('USDC escrow already released via adminRelease — skipping manual payment');
                         }
                     } catch (payErr) {
+                        _releaseOk = false;
                         console.error('Payment release failed:', payErr);
                         if (payErr.message === 'PLATFORM_GAS_ERROR') {
                                 alert('⚠️ We couldn\'t complete this right now due to a platform issue on our side.\n\nNothing has been lost — your funds and this bounty are unaffected. Our team has been notified automatically. Please try again shortly.');                            fetch('/api/send-email', {
@@ -9705,10 +9707,22 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                         } else {
                             alert('⚠️ Review saved but on-chain payment failed: ' + payErr.message + '\nPlease transfer equity manually from Studio → Grow → Cap Table.');
                         }
+                        // Record it so a pending release is recoverable rather than lost.
+                        try {
+                            await db.collection('subprojects').doc(currentReviewProjectId).update({
+                                equityReleasePending:   true,
+                                equityReleaseLastError: String(payErr.message || payErr),
+                                equityReleaseFailedAt:  firebase.firestore.FieldValue.serverTimestamp()
+                            });
+                        } catch (e2) {}
                     }
                 }
 
-                alert("✅ Review submitted! Thank you.");
+                // Only claim success when nothing failed. true/false already
+                // alerted with specifics; saying "✅ Review submitted!" after a
+                // FAILED release tells the founder the bounty is complete when
+                // the equity never moved — which is what happened tonight.
+                if (_releaseOk === null) alert("✅ Review submitted! Thank you.");
                 document.getElementById('review-modal').classList.add('hidden');
                 hideProjectDetailModal();
                 loadProfileData();
