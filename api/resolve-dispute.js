@@ -15,6 +15,7 @@ import { ethers } from 'ethers';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { verifyCaller } from './_auth.js';
+import { gasOverrides } from './_gas.js';
 
 if (!getApps().length) {
     initializeApp({
