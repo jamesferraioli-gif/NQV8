@@ -7,7 +7,7 @@
 import { ethers } from 'ethers';
 import { gasOverrides } from './_gas.js';
 
-const EQUITY_REGISTRY_ADDRESS = '0xc640185Dab975D2D3dAEE360Bd3599B7eC45A4f2';
+const EQUITY_REGISTRY_ADDRESS = '0x726a5EEa94C6d3117bbCd05336A0Cfdaf3c9327a';
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
 const USDC_ADDRESS            = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
 const PLATFORM_FEE_BPS        = 350;
