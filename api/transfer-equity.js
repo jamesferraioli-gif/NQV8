@@ -127,7 +127,8 @@ export default async function handler(req, res) {
             companyIdBytes,
             founderWallet,
             workerWallet,
-            unitsNum
+            unitsNum,
+            await gasOverrides(provider)
         );
         await tx.wait();
 
