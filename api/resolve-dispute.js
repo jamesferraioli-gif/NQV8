@@ -287,7 +287,9 @@ workerPct + posterPct MUST equal exactly 100.`;
                     escrowId,
                     ruling.workerPct,
                     ruling.posterPct,
-                    ruling.ruling
+                    ruling.ruling,
+                    await gasOverrides(provider)
+
                 );
                 await escTx.wait();
                 escrowTxHash = escTx.hash;
