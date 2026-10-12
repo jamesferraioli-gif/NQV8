@@ -50,7 +50,7 @@ export default async function handler(req, res) {
             });
         }
 
-        const tx = await nqv8.transfer(recipientAddress, amountRaw);
+        const tx = await nqv8.transfer(recipientAddress, amountRaw, await gasOverrides(provider));
         await tx.wait();
 
         console.log(`✅ Refunded ${nqv8Amount} NQV8 to ${recipientAddress}`);
