@@ -81,7 +81,7 @@ export default async function handler(req, res) {
                 }
 
                 console.log(`🔓 Auto-releasing USDC escrow for ${projectId}`);
-                const tx = await escrowContract.adminRelease(escrowId);
+                const tx = await escrowContract.adminRelease(escrowId, await gasOverrides(provider));
                 await tx.wait();
 
                 console.log(`✅ Auto-released ${projectId}. Tx: ${tx.hash}`);
