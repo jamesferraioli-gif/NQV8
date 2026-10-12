@@ -9379,7 +9379,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                                 });
 
                                 const escrowMsg = releaseTx ? `\n\nFunds released from escrow.\nTx: https://arbiscan.io/tx/${releaseTx.hash}` : '';
-                                alert(`✅ Submission accepted!\n\n📈 ${(currentProject.equityUnits / 100).toFixed(2)}% equity transferred on-chain.\nTx: https://arbiscan.io/tx/${completeTx.hash}${escrowMsg}`);
+                                alert(`✅ Submission accepted!\n\n📈 ${(currentProject.equityUnits / 100).toFixed(2)}% equity transferred on-chain.\nTx: https://arbiscan.io/tx/${completeResult.txHash}${escrowMsg}`);
 
                             } else {
                                 // Legacy V1 path
