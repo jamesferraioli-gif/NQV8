@@ -6,10 +6,14 @@
 //
 // Spread these overrides into EVERY ops-signed contract call.
 
-export async function gasOverrides(provider, bufferPct = 25) {
+export async function gasOverrides(provider, bufferPct = 200) {
     try {
-        const base = await provider.getGasPrice();              // ~0.02 gwei on Arbitrum
-        return { gasPrice: base.mul(100 + bufferPct).div(100) }; // headroom if the floor moves
+        const base = await provider.getGasPrice();               // ~0.02 gwei on Arbitrum
+        // 3x the current price. Arbitrum's floor is adjustable between 0.01 and
+        // 0.10 gwei without a DAO vote, and a tx priced under the floor hangs
+        // pending forever. At these prices 3x costs ~$0.015 instead of ~$0.005 —
+        // cheap insurance against a stuck ops transaction.
+        return { gasPrice: base.mul(100 + bufferPct).div(100) };
     } catch (e) {
         console.warn('gasOverrides: falling back to node defaults —', e.message);
         return {};
