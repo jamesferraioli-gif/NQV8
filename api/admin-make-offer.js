@@ -79,7 +79,7 @@ export default async function handler(req, res) {
             });
         }
 
-        const tx = await equity.adminMakeOffer(offerIdBytes, listingIdBytes, buyer, units, priceRaw);
+        const tx = await equity.adminMakeOffer(offerIdBytes, listingIdBytes, buyer, units, priceRaw, await gasOverrides(provider));
         await tx.wait();
 
         console.log(`✅ Offer made: ${units} units at ${pricePerUnit} USDC/unit`);
