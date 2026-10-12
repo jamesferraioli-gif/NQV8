@@ -266,8 +266,8 @@ workerPct + posterPct MUST equal exactly 100.`;
                 console.warn(`⚠️ ${projectId}: equity reservation not active — skipping equity leg`);
             } else {
                 const eqTx = workerWins
-                    ? await equityContract.completeReservation(companyIdBytes, bountyIdBytes, PLATFORM_WALLET, PLATFORM_FEE_BPS)
-                    : await equityContract.releaseReservation(companyIdBytes, bountyIdBytes);
+                    ? await equityContract.completeReservation(companyIdBytes, bountyIdBytes, PLATFORM_WALLET, PLATFORM_FEE_BPS, await gasOverrides(provider))
+                    : await equityContract.releaseReservation(companyIdBytes, bountyIdBytes, await gasOverrides(provider));
                 await eqTx.wait();
                 equityTxHash = eqTx.hash;
                 console.log(`✅ Equity leg resolved (${workerWins ? 'transferred to builder' : 'released to founder'}). Tx: ${eqTx.hash}`);
