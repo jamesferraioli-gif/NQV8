@@ -57,7 +57,7 @@ export default async function handler(req, res) {
             });
         }
 
-        const tx = await equity.adminListEquity(listingIdBytes, companyIdBytes, seller, units, priceRaw);
+        const tx = await equity.adminListEquity(listingIdBytes, companyIdBytes, seller, units, priceRaw, await gasOverrides(provider));
         await tx.wait();
 
         console.log(`✅ Listed ${units} units of ${companyId} for seller ${seller}`);
