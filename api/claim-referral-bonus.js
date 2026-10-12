@@ -91,7 +91,7 @@ export default async function handler(req, res) {
 
         // ── 4. Send NQV8 to user wallet ───────────────────────────────────
         // Send from ops wallet (which holds NQV8 from treasury fees)
-        const tx = await nqv8.transfer(user.walletAddress, bonusRaw);
+        const tx = await nqv8.transfer(user.walletAddress, bonusRaw, await gasOverrides(provider));
         await tx.wait();
 
         // ── 5. Update Firestore ───────────────────────────────────────────
