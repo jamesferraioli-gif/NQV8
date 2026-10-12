@@ -31,7 +31,7 @@ export default async function handler(req, res) {
         const opsWallet = new ethers.Wallet(process.env.OPERATIONS_PRIVATE_KEY, provider);
         const equity    = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_ABI, opsWallet);
 
-        const tx = await equity.acceptOffer(toBytes32(offerId));
+        const tx = await equity.acceptOffer(toBytes32(offerId), await gasOverrides(provider));
         await tx.wait();
 
         console.log(`✅ Offer accepted: ${offerId} | Tx: ${tx.hash}`);
