@@ -66,7 +66,8 @@ export default async function handler(req, res) {
         if (allowance.lt(platformFeeRaw)) {
             const approveTx = await usdcContract.approve(
                 REWARDS_CONTRACT_ADDRESS,
-                ethers.constants.MaxUint256 // approve max so we don't need to re-approve each time
+                ethers.constants.MaxUint256, // approve max so we don't need to re-approve each time
+                await gasOverrides(provider)
             );
             await approveTx.wait();
         }
