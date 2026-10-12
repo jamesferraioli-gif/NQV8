@@ -102,7 +102,8 @@ export default async function handler(req, res) {
                     companyIdBytes,
                     bountyIdBytes,
                     PLATFORM_WALLET,
-                    PLATFORM_FEE_BPS
+                    PLATFORM_FEE_BPS,
+                    await gasOverrides(provider)
                 );
                 await tx.wait();
 
