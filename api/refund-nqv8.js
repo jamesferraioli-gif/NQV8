@@ -5,6 +5,7 @@
 
 import { ethers } from 'ethers';
 import { verifyCaller } from './_auth.js';
+import { gasOverrides } from './_gas.js';
 
 const NQV8_ADDRESS    = '0x02b3EF81d6577507114BB26F91F1a8d0A7bB1B67';
 const ARBITRUM_RPC    = 'https://arb1.arbitrum.io/rpc';
