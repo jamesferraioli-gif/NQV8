@@ -23,7 +23,6 @@ const EQUITY_ABI = [
     "function availableBalance(bytes32 companyId, address holder) external view returns (uint256)",
     "function listings(bytes32 listingId) external view returns (bytes32 companyId, address seller, uint128 units, uint128 pricePerUnit, bool active)"
 ];
-];
 
 function toBytes32(str) {
     return ethers.utils.keccak256(ethers.utils.toUtf8Bytes(str));
