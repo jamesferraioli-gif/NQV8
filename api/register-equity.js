@@ -69,7 +69,7 @@ export default async function handler(req, res) {
             });
         }
 
-        const tx      = await equityContract.registerCompany(companyIdBytes, founderWallet);
+        const tx      = await equityContract.registerCompany(companyIdBytes, founderWallet, await gasOverrides(provider));
         const receipt = await tx.wait();
 
         console.log(`✅ Company registered on V4: ${projectId} → ${founderWallet}`);
