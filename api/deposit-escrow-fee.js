@@ -74,10 +74,10 @@ export default async function handler(req, res) {
         // Fall back to depositUSDCRewards if payUSDCFee doesn't exist
         let depositTx;
         try {
-            depositTx = await rewardsContract.payUSDCFee(platformFeeRaw);
+            depositTx = await rewardsContract.payUSDCFee(platformFeeRaw, await gasOverrides(provider));
         } catch(e) {
             // payUSDCFee failed — try depositUSDCRewards
-            depositTx = await rewardsContract.depositUSDCRewards(platformFeeRaw);
+            depositTx = await rewardsContract.depositUSDCRewards(platformFeeRaw, await gasOverrides(provider));
         }
         await depositTx.wait();
 
