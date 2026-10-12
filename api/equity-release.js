@@ -52,7 +52,7 @@ export default async function handler(req, res) {
         }
 
         const units = reservation.units.toNumber();
-        const tx = await equity.releaseReservation(companyIdBytes, bountyIdBytes);
+        const tx = await equity.releaseReservation(companyIdBytes, bountyIdBytes, await gasOverrides(provider));
         await tx.wait();
 
         console.log(`✅ Released ${units} units for bounty ${bountyId}`);
