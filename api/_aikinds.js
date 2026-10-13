@@ -23,7 +23,11 @@ export const AI_KINDS = {
             }
 
             const parsed = await callAnthropicJSON({
-                maxTokens: 4000,
+                // Each node carries a description, multi-sentence instructions,
+                // 3-5 best practices, 2-4 pitfalls and a tools list — roughly
+                // 350 tokens. Sixteen of those needs far more than the 4000
+                // this started with, which truncated mid-node.
+                maxTokens: 16000,
                 messages: [{
                     role: 'user',
                     content: `You are a senior software architect and product manager. Generate a detailed development flow map for the following project.
