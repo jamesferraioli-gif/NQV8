@@ -20,7 +20,7 @@ if (!getApps().length) {
 }
 const db = getFirestore();
 
-const REWARDS_CONTRACT_ADDRESS = '0x045aD6C2889ABCe6Bd8ef52D621706c44e4f1266';
+const REWARDS_CONTRACT_ADDRESS = '0xBfB1301819Ea548E05Ae88611761Db3Fe5bD7C2D';
 const ARBITRUM_RPC             = 'https://arb1.arbitrum.io/rpc';
 const NQV8_DECIMALS            = 18;
 
