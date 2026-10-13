@@ -111,7 +111,7 @@ export default async function handler(req, res) {
                 await completeJob(doc.id, result);
                 actions.push({ jobId: doc.id, action: 'completed', attempt: claimed.attempts });
             } catch (e) {
-                const terminal = !isRetryableAIError(e.message);
+                const terminal = !isRetryableAIError(e);
                 await failJob(doc.id, e.message, { terminal });
                 actions.push({
                     jobId: doc.id,
