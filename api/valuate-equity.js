@@ -1,181 +1,99 @@
-export const config = { runtime: 'edge' };
+// api/valuate-equity.js
+//
+// Converted from Edge to Node. Two reasons:
+//   1. Edge caps the initial response at 25s, the same cliff that broke
+//      generate-flowmap. This endpoint also feeds the nightly
+//      revaluate-equity cron, so a timeout here failed silently every night.
+//   2. Edge cannot run firebase-admin, which is why this file carried ~45
+//      lines of hand-rolled RS256 JWT signing to reach Firestore over REST.
+//      On Node that is one import.
+//
+// The HTTP contract is unchanged — three frontend call sites and the
+// revaluate-equity cron depend on it.
 
-import { verifyCallerEdge, unauthorizedEdge } from './_auth-edge.js';
+export const config = { maxDuration: 300 };
 
-const EQUITY_REGISTRY_ADDRESS = '0x726a5EEa94C6d3117bbCd05336A0Cfdaf3c9327a';
-const ARBITRUM_RPC = 'https://arb1.arbitrum.io/rpc';
-const TOTAL_UNITS = 10_000;
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+import { verifyCaller } from './_auth.js';
+import { callAnthropicJSON } from './_ai.js';
 
-export default async function handler(req) {
+if (!getApps().length) {
+    initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
+}
+const db = getFirestore();
+
+export default async function handler(req, res) {
     if (req.method !== 'POST' && req.method !== 'GET') {
-        return new Response('Method not allowed', { status: 405 });
+        return res.status(405).json({ error: 'Method not allowed' });
     }
 
-    const caller = await verifyCallerEdge(req);
-    if (!caller) return unauthorizedEdge();
+    const caller = await verifyCaller(req);
+    if (!caller) return res.status(401).json({ error: 'Unauthorized' });
 
-    let projectId, forceRefresh;
-    try {
-        const body = await req.json();
-        projectId = body.projectId;
-        forceRefresh = body.forceRefresh;
-    } catch(e) {
-        const url = new URL(req.url);
-        projectId = url.searchParams.get('projectId');
-        forceRefresh = url.searchParams.get('forceRefresh') === 'true';
-    }
+    const body       = req.body || {};
+    const projectId  = body.projectId  ?? req.query?.projectId;
 
-    if (!projectId) {
-        return new Response(JSON.stringify({ error: 'projectId required' }), { status: 400, headers: { 'Content-Type': 'application/json' } });
-    }
+    if (!projectId) return res.status(400).json({ error: 'projectId required' });
 
     try {
-        // Fetch Firestore data via REST API
-        const firestoreData = await fetchFirestoreData(projectId);
+        const f = await fetchCompany(projectId);
 
-        // Build valuation prompt with available data
-        const prompt = buildPrompt(projectId, firestoreData);
-
-        // Call Claude
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': process.env.ANTHROPIC_API_KEY,
-                'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify({
-                model: 'claude-sonnet-5',
-                max_tokens: 1500,
-                messages: [{ role: 'user', content: prompt }]
-            })
+        const result = await callAnthropicJSON({
+            maxTokens: 1500,
+            messages: [{ role: 'user', content: buildPrompt(projectId, f) }]
         });
 
-        const data = await response.json();
-        const rawText = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('');
-        const clean = rawText.replace(/```json|```/g, '').trim();
-
-        let result;
-        try {
-            result = JSON.parse(clean);
-        } catch(e) {
-            result = {
-                valuationRange: { low: 0.001, mid: 0.005, high: 0.01 },
-                impliedValuation: { low: 10, mid: 50, high: 100 },
-                suggestedAskPerUnit: 0.005,
-                methodology: 'Insufficient data for precise valuation. Defaulting to minimal early-stage range.',
-                keyFactors: [{ factor: 'Limited on-chain and platform data available', impact: 'negative' }],
-                comparablesUsed: [],
-                confidence: 'low',
-                warnings: ['Very limited data available for this project']
-            };
+        // The previous version caught a parse failure and substituted an
+        // invented valuation — $0.005/unit, $50 implied — returned with HTTP
+        // 200 and no indication it was fabricated. Someone could have priced a
+        // real equity sale off a number the model never produced. A failure is
+        // now a failure.
+        if (!result?.valuationRange || typeof result.suggestedAskPerUnit !== 'number') {
+            throw new Error('Valuation response was missing its range or suggested ask');
         }
 
-        const final = {
+        return res.status(200).json({
             ...result,
             projectId,
-            projectName: firestoreData.name || projectId,
-            cachedAt: Date.now(),
-            fromCache: false
-        };
-
-        return new Response(JSON.stringify(final), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
+            projectName: f.name || projectId,
+            cachedAt:    Date.now(),
+            fromCache:   false
         });
 
-    } catch(e) {
-        console.error('valuate-equity error:', e.message);
-        return new Response(JSON.stringify({ error: e.message }), {
-            status: 500,
-            headers: { 'Content-Type': 'application/json' }
-        });
+    } catch (e) {
+        console.error('valuate-equity failed:', e.message);
+        return res.status(502).json({ error: e.message });
     }
 }
 
-async function fetchFirestoreData(projectId) {
+async function fetchCompany(projectId) {
     try {
-        const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-        const projectIdFirebase = serviceAccount.project_id;
-        const token = await getFirebaseToken(serviceAccount);
-
-        const url = `https://firestore.googleapis.com/v1/projects/${projectIdFirebase}/databases/(default)/documents/companies/${projectId}`;
-        const res = await fetch(url, {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-
-        if (!res.ok) return {};
-
-        const doc = await res.json();
-        const fields = doc.fields || {};
-
+        const doc = await db.collection('companies').doc(projectId).get();
+        if (!doc.exists) return {};
+        const d = doc.data() || {};
         return {
-            name: fields.name?.stringValue || '',
-            category: fields.category?.stringValue || '',
-            entityType: fields.entityType?.stringValue || '',
-            description: fields.description?.stringValue || '',
-            revenue: fields.revenue?.stringValue || '',
-            userCount: fields.userCount?.stringValue || '',
-            growthRate: fields.growthRate?.stringValue || '',
-            fundingRaised: fields.fundingRaised?.stringValue || '',
-            website: fields.website?.stringValue || '',
-            isActive: fields.isActive?.booleanValue || false,
-            metricsVerified: fields.metricsVerified?.booleanValue || false,
-            revenueBucket: fields.revenueBucket?.stringValue || '',
-            usersBucket: fields.usersBucket?.stringValue || '',
-            verifiedAt: fields.verifiedAt?.timestampValue || null,
-            statsUpdatedAt: fields.statsUpdatedAt?.stringValue || null,
+            name:            d.name            || '',
+            category:        d.category        || '',
+            entityType:      d.entityType      || '',
+            description:     d.description     || '',
+            revenue:         d.revenue         || '',
+            userCount:       d.userCount       || '',
+            growthRate:      d.growthRate      || '',
+            fundingRaised:   d.fundingRaised    || '',
+            website:         d.website         || '',
+            isActive:        !!d.isActive,
+            metricsVerified: !!d.metricsVerified,
+            revenueBucket:   d.revenueBucket   || '',
+            usersBucket:     d.usersBucket     || '',
+            statsUpdatedAt:  d.statsUpdatedAt  || null
         };
-    } catch(e) {
-        console.warn('Firestore fetch failed:', e.message);
+    } catch (e) {
+        // A missing company is not fatal — the prompt handles sparse data and
+        // says so in its confidence rating.
+        console.warn('company fetch failed:', e.message);
         return {};
     }
-}
-
-async function getFirebaseToken(serviceAccount) {
-    const header = btoa(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-    const now = Math.floor(Date.now() / 1000);
-    const payload = btoa(JSON.stringify({
-        iss: serviceAccount.client_email,
-        scope: 'https://www.googleapis.com/auth/datastore',
-        aud: 'https://oauth2.googleapis.com/token',
-        exp: now + 3600,
-        iat: now
-    }));
-
-    const signingInput = `${header}.${payload}`;
-    const privateKey = serviceAccount.private_key;
-
-    // Import key and sign
-    const keyData = privateKey
-        .replace('-----BEGIN PRIVATE KEY-----', '')
-        .replace('-----END PRIVATE KEY-----', '')
-        .replace(/\s/g, '');
-    const binaryKey = Uint8Array.from(atob(keyData), c => c.charCodeAt(0));
-
-    const cryptoKey = await crypto.subtle.importKey(
-        'pkcs8', binaryKey.buffer,
-        { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
-        false, ['sign']
-    );
-
-    const encoder = new TextEncoder();
-    const signature = await crypto.subtle.sign(
-        'RSASSA-PKCS1-v1_5', cryptoKey,
-        encoder.encode(signingInput)
-    );
-
-    const sig = btoa(String.fromCharCode(...new Uint8Array(signature)));
-    const jwt = `${signingInput}.${sig}`;
-
-    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `grant_type=urn:ietf:params:oauth:grant-type:jwt-bearer&assertion=${jwt}`
-    });
-
-    const tokenData = await tokenRes.json();
-    return tokenData.access_token;
 }
 
 function buildPrompt(projectId, f) {
