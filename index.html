@@ -4413,10 +4413,13 @@ const EQUITY_REGISTRY_ADDRESS = '0x726a5EEa94C6d3117bbCd05336A0Cfdaf3c9327a'
 async function runPaidAIJob({ kind, voucher, input, onProgress, timeoutMs = 300000 }) {
     const token = await authToken();
 
+    // No input on the create call. A verify-docs payload is several megabytes
+    // of base64 and sending it twice risks the serverless request body limit;
+    // ai-job-run persists it server-side when the kind supports retries.
     const createRes = await fetch('/api/ai-job', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify({ kind, voucher, wallet: connectedAddress, input })
+        body: JSON.stringify({ kind, voucher, wallet: connectedAddress })
     });
     if (!createRes.ok) throw new Error(await serverError(createRes, 'Could not start the job'));
     const { jobId, result: alreadyDone } = await createRes.json();
@@ -6350,11 +6353,13 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
 
                 // Send to Claude
                 const _voucherDocs = await claimVoucher(txHash, 'verify-docs');
-                const verifyResponse = await fetch('/api/verify-docs', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
-                    body: JSON.stringify({
-                        voucher: _voucherDocs,
+                // Runs through the job queue, so a timeout or an API failure
+                // refunds the 1,000 NQV8 instead of being shown to the user as
+                // a document rejection.
+                const result = await runPaidAIJob({
+                    kind:    'verify-docs',
+                    voucher: _voucherDocs,
+                    input: {
                         incorporationBase64,
                         incorporationMediaType: docIncorporation.type || 'application/pdf',
                         einBase64,
@@ -6363,20 +6368,14 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                         idMediaType: docId.type || 'image/jpeg',
                         companyName: company.name,
                         entityType: company.entityType || company.type || 'Unknown'
-                    })
+                    },
+                    onProgress: (s) => {
+                        // This flow reports through the button, not setStatus —
+                        // that is a local const inside showPaymentPicker.
+                        if (btn && s === 'running') btn.innerHTML = '🔍 Claude is reviewing your documents...';
+                        if (btn && s === 'pending') btn.innerHTML = '⏳ Queued — starting shortly...';
+                    }
                 });
-
-                const rawText = await verifyResponse.text();
-                console.log('VERIFY STATUS:', verifyResponse.status);
-                console.log('VERIFY RAW RESPONSE:', rawText);
-
-                let result;
-                try {
-                    result = JSON.parse(rawText);
-                } catch(parseErr) {
-                    console.error('JSON parse failed:', parseErr.message, 'Raw:', rawText);
-                    result = { approved: false, summary: 'Could not parse verification response. Please try again.' };
-                }
 
                 // Upload docs to Firebase Storage
                 // ── Security scan first — VirusTotal malware check via review-submission.
