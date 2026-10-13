@@ -3284,14 +3284,13 @@ async function submitNewCampaign() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
                     body: JSON.stringify({
-                        projectTitle: currentProject?.title || '',
-                        projectDescription: currentProject?.description || '',
-                        acceptedBidAmount: currentProject?.acceptedBid?.amount || '',
-                        submissionDescription: desc,
-                        submissionLink: link || '',
-                        attachments,
-                        projectId: currentSubmitProjectId || '',
-                        submissionIndex: currentProject?.submissions?.length ?? null
+                        projectTitle: 'Ad campaign creative',
+                        projectDescription: 'Advertiser uploading a banner image for a paid ad campaign.',
+                        submissionDescription: `Campaign headline: ${headline}`,
+                        submissionLink: targetUrl || '',
+                        attachments: [{ name: imageFile.name, type: imageFile.type, base64 }],
+                        projectId: '',
+                        submissionIndex: null
                     })
             });
 
@@ -4067,7 +4066,7 @@ async function submitMetricsVerification() {
             await db.collection('companies').doc(verifyMetricsCompanyId).update({
                 metricsVerified: true,
                 metricsVerifiedAt: firebase.firestore.FieldValue.serverTimestamp(),
-                metricsVerificationTxHash: payTx.hash,
+                metricsVerificationTxHash: _txHash1,
                 metricsConfidence: result.confidence,
                 revenueBucket: result.revenueBucket,
                 usersBucket: result.usersBucket,
@@ -6212,26 +6211,24 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                             createdAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
 
-                await db.collection("subprojects").add({
-                    projectId: selectedFundingProjectId,
-                    companyId: selectedFundingProjectId,
-                    ownerUid: currentUser.uid,
-                    ownerUsername: currentUser.username,
-                    posterName: currentUser.fullName || currentUser.username,
-                    title: `Funding Request: ${project.name}`,
-                    description: finalDesc,
-                    category: project.category || 'Other',
-                    tags: _fundingSelectedTags,
-                    compensation: ask,
-                    compensationType: 'fund',
-                    type: 'fund',
-                    bids: [],
-                    bidsOpen: true,
-                    status: 'open',
-                    postingCost: '100 NQV8',
-                    paymentTxHash: txHash,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
+                        await db.collection("subprojects").add({
+                            projectId: projectRef.id,
+                            companyId: selectedCompanyId,
+                            ownerUid: currentUser.uid,
+                            ownerUsername: currentUser.username,
+                            posterName: currentUser.fullName || currentUser.username,
+                            title: subTitle,
+                            description: subDesc,
+                            category: category,
+                            compensation: compensation,
+                            compensationType: selectedProjectType,
+                            bids: [],
+                            bidsOpen: true,
+                            status: 'open',
+                            postingCost: '100 NQV8',
+                            paymentTxHash: txHash,
+                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                        });
 
                         alert("✅ Project and first task posted!");
                         hidePostProjectModal();
@@ -15855,12 +15852,15 @@ async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk, ski
         hideProjectDetailModal();
         loadEquityListings();
         loadProfileData();
-        // Get offer's project ID for revaluation
+        // Revalue the company after a secondary sale. The old version read an
+        // offer off-chain by an offerId that is not in scope here, then used a
+        // projectId the Offer struct does not carry. The listing document
+        // already holds the companyId that triggerEquityRevaluation wants.
         try {
-            const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
-            const equityReadOnly = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, arbProvider);
-            const offer = await equityReadOnly.offers(toBytes32(offerId));
-            triggerEquityRevaluation(offer.projectId);
+            const _listingDoc = await db.collection('equityListings').doc(listingId).get();
+            const _companyId  = _listingDoc.data()?.companyId;
+            if (_companyId) triggerEquityRevaluation(_companyId);
+            else console.warn('No companyId on listing', listingId, '— revaluation skipped');
         } catch(e) { console.warn('Could not trigger revaluation:', e.message); }
     } catch(e) {
         const msg = e.message || '';
