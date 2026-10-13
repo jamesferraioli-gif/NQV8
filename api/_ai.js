@@ -16,20 +16,30 @@ const ANTHROPIC_VERSION = '2023-06-01';
 // snapshot for months precisely because it was declared locally.
 export const AI_MODEL = 'claude-sonnet-5';
 
-/** Errors worth another attempt. Anything else is a bug, not bad luck. */
-export function isRetryableAIError(message = '') {
-    const m = String(message).toLowerCase();
-    return m.includes('429')
-        || m.includes('rate limit')
+/**
+ * Errors worth another attempt. Anything else is a bug, not bad luck.
+ *
+ * Takes the thrown Error so it can read the status code we attached, rather
+ * than grepping the message for "500" — a message like "received 5041
+ * characters" or "truncated at the 4500-token limit" contains those digits and
+ * would be misclassified as a retryable server error.
+ */
+const RETRYABLE_STATUS = new Set([408, 409, 425, 429, 500, 502, 503, 504, 529]);
+
+export function isRetryableAIError(err) {
+    if (err && typeof err === 'object' && typeof err.status === 'number') {
+        return RETRYABLE_STATUS.has(err.status);
+    }
+    // Fallback for transport failures, which carry no status. Only distinctive
+    // phrases — never bare numbers.
+    const m = String(err?.message ?? err ?? '').toLowerCase();
+    return m.includes('rate limit')
         || m.includes('overloaded')
-        || m.includes('529')
-        || m.includes('500')
-        || m.includes('502')
-        || m.includes('503')
-        || m.includes('504')
-        || m.includes('timeout')
+        || m.includes('timed out')
         || m.includes('fetch failed')
-        || m.includes('econnreset');
+        || m.includes('econnreset')
+        || m.includes('socket hang up')
+        || m.includes('network');
 }
 
 /**
@@ -75,7 +85,9 @@ export async function callAnthropicText({ messages, system, maxTokens = 4000, mo
             const parsed = JSON.parse(raw);
             if (parsed?.error?.message) detail = parsed.error.message;
         } catch { /* keep the raw body */ }
-        throw new Error(`Anthropic API ${response.status}: ${detail}`);
+        const err = new Error(`Anthropic API ${response.status}: ${detail}`);
+        err.status = response.status;
+        throw err;
     }
 
     const data = await response.json();
@@ -83,6 +95,17 @@ export async function callAnthropicText({ messages, system, maxTokens = 4000, mo
 
     const text = data.content?.find(c => c.type === 'text')?.text || '';
     if (!text) throw new Error('Anthropic returned no text content');
+
+    // A completion cut off at the token ceiling is the single most confusing
+    // failure to debug, because the text that comes back looks fine until the
+    // parser reaches the end. Name it rather than letting it surface as
+    // "did not return valid JSON".
+    if (data.stop_reason === 'max_tokens') {
+        throw new Error(
+            `Response was truncated at the ${maxTokens}-token limit — raise maxTokens for this job kind ` +
+            `(received ${text.length} characters)`
+        );
+    }
 
     return text;
 }
