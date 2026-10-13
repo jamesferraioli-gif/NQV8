@@ -4402,6 +4402,17 @@ const EQUITY_REGISTRY_ADDRESS = '0x726a5EEa94C6d3117bbCd05336A0Cfdaf3c9327a'
 // eth_getTransactionReceipt on return — hanging tx.wait() forever even though
 // the transaction landed. This never invents success: it returns only once the
 // chain confirms, and throws if the transaction reverted.
+// Pull the server's own error message out of a failed response. Endpoints
+// return { error: "..." }; without this the UI replaced it with a hardcoded
+// string and every distinct server failure looked identical to the user.
+async function serverError(response, fallback) {
+    try {
+        const body = await response.json();
+        if (body && body.error) return body.error;
+    } catch (e) { /* non-JSON body */ }
+    return `${fallback} (HTTP ${response.status})`;
+}
+
 async function confirmTx(tx) {
     if (!tx) throw new Error('No transaction to confirm');
     const hash = typeof tx === 'string' ? tx : tx.hash;
@@ -10078,7 +10089,7 @@ async function startVideoCall() {
                     body: JSON.stringify({ chatId: currentChatId })
                 });
 
-                if (!response.ok) throw new Error('Could not create video room');
+                if (!response.ok) throw new Error(await serverError(response, 'Could not create video room'));
                 const { url } = await response.json();
 
                 // Save room URL to Firestore so partner can join
@@ -14772,7 +14783,7 @@ async function loadEquityValuation(listingId, projectId) {
             body: JSON.stringify({ projectId })
         });
 
-        if (!response.ok) throw new Error('Valuation service unavailable');
+        if (!response.ok) throw new Error(await serverError(response, 'Valuation service unavailable'));
         const v = await response.json();
 
         const confidenceColor = v.confidence === 'high' ? 'text-emerald-400' :
@@ -15166,7 +15177,7 @@ async function loadEquityValuationForStake(projectId, btn) {
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
             body: JSON.stringify({ projectId })
         });
-        if (!response.ok) throw new Error('Valuation unavailable');
+        if (!response.ok) throw new Error(await serverError(response, 'Valuation unavailable'));
         // Reload the whole section to show the new valuation
         await loadProfileEquityStakes();
     } catch(e) {
@@ -17034,7 +17045,7 @@ async function submitNewFlowMap(useAI = false) {
                 headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
                 body: JSON.stringify({ voucher: _voucherFlow, name: companyName, description, stack })
             });
-            if (!response.ok) throw new Error('AI generation failed. Please try again.');
+            if (!response.ok) throw new Error(await serverError(response, 'AI generation failed'));
             const parsed = await response.json();
             if (!parsed.nodes || !Array.isArray(parsed.nodes)) throw new Error('Invalid response. Please try again.');
             nodes = parsed.nodes;
