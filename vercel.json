@@ -43,10 +43,6 @@
             "dest": "/api/moderate.js"
         },
         {
-            "src": "/api/verify-docs",
-            "dest": "/api/verify-docs.js"
-        },
-        {
             "src": "/api/register-equity",
             "dest": "/api/register-equity.js"
         },
@@ -89,10 +85,6 @@
         {
             "src": "/api/claim-referral-bonus",
             "dest": "/api/claim-referral-bonus.js"
-        },
-        {
-            "src": "/api/generate-flowmap",
-            "dest": "/api/generate-flowmap.js"
         },
         {
             "src": "/api/send-email",
