@@ -1,4 +1,3 @@
-
 export const config = { runtime: 'edge' };
 
 import { verifyCallerEdge, unauthorizedEdge } from './_auth-edge.js';
@@ -29,7 +28,7 @@ export default async function handler(req) {
                 'anthropic-version': '2023-06-01'
             },
             body: JSON.stringify({
-                model: 'claude-sonnet-4-20250514',
+                model: 'claude-sonnet-5',
                 max_tokens: 4000,
                 messages: [{
                     role: 'user',
@@ -63,10 +62,31 @@ Generate 8-16 nodes ordered logically from foundation to launch. Each node shoul
             })
         });
 
+        // Surface the real failure. Previously an API error left data.content
+        // undefined, text became '', and JSON.parse('') threw — so every cause
+        // (bad model, missing key, rate limit, malformed output) reported the
+        // same useless parse error and the user just saw "AI generation failed".
+        if (!response.ok) {
+            const errText = await response.text().catch(() => '');
+            throw new Error(`Anthropic API ${response.status}: ${errText.slice(0, 300)}`);
+        }
+
         const data = await response.json();
+        if (data.error) throw new Error(`Anthropic API error: ${data.error.message || 'unknown'}`);
+
         const text = data.content?.find(c => c.type === 'text')?.text || '';
+        if (!text) throw new Error('Anthropic returned no text content');
+
         const clean = text.replace(/```json|```/g, '').trim();
-        const parsed = JSON.parse(clean);
+        let parsed;
+        try {
+            parsed = JSON.parse(clean);
+        } catch {
+            throw new Error(`Model did not return valid JSON: ${clean.slice(0, 200)}`);
+        }
+        if (!Array.isArray(parsed?.nodes) || parsed.nodes.length === 0) {
+            throw new Error('Model returned no flow map nodes');
+        }
 
         return new Response(JSON.stringify(parsed), {
             headers: { 'Content-Type': 'application/json' }
