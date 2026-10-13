@@ -22,9 +22,18 @@
         {
             "source": "/(.*)",
             "headers": [
-                { "key": "X-Content-Type-Options", "value": "nosniff" },
-                { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-                { "key": "X-XSS-Protection", "value": "1; mode=block" }
+                {
+                    "key": "X-Content-Type-Options",
+                    "value": "nosniff"
+                },
+                {
+                    "key": "X-Frame-Options",
+                    "value": "SAMEORIGIN"
+                },
+                {
+                    "key": "X-XSS-Protection",
+                    "value": "1; mode=block"
+                }
             ]
         }
     ],
@@ -186,6 +195,18 @@
             "dest": "/api/claim-voucher.js"
         },
         {
+            "src": "/api/ai-job",
+            "dest": "/api/ai-job.js"
+        },
+        {
+            "src": "/api/ai-job-run",
+            "dest": "/api/ai-job-run.js"
+        },
+        {
+            "src": "/api/ai-job-sweep",
+            "dest": "/api/ai-job-sweep.js"
+        },
+        {
             "src": "/(.*)",
             "dest": "/index.html"
         }
@@ -222,6 +243,10 @@
         {
             "path": "/api/virus-scan-poll",
             "schedule": "*/5 * * * *"
+        },
+        {
+            "path": "/api/ai-job-sweep",
+            "schedule": "* * * * *"
         }
     ]
 }
