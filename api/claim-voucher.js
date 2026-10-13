@@ -24,15 +24,13 @@ const REWARDS_CONTRACT_ADDRESS = '0x045aD6C2889ABCe6Bd8ef52D621706c44e4f1266';
 const ARBITRUM_RPC             = 'https://arb1.arbitrum.io/rpc';
 const NQV8_DECIMALS            = 18;
 
-// NQV8 cost of each paid feature. Fixed token amounts, not dollar amounts:
-// the fee does not change when the token price does. No tolerance window is
-// needed because there is no price drift between the quote and the payment.
-// Keep in sync with NQV8_FEE in index.html.
-const PURPOSE_PRICE_NQV8 = {
-    'verify-docs':      1000,
-    'verify-metrics':    100,
-    'generate-flowmap':  500
-};
+// Prices come from the job registry so there is one server-side source of
+// truth. Fixed token amounts, not dollar amounts: the fee does not change when
+// the token price does, and no tolerance window is needed because there is no
+// price drift between the quote and the payment.
+// The frontend's NQV8_FEE in index.html mirrors these by hand — a static page
+// cannot import from api/.
+import { PURPOSE_PRICE_NQV8 } from './_aikinds.js';
 
 const FEES_RECEIVED_TOPIC = ethers.utils.id('FeesReceived(address,uint256,uint256,uint256)');
 
