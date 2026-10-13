@@ -120,6 +120,15 @@ service cloud.firestore {
     // uses this collection to know WHICH wallets to look up. Writes are
     // therefore low-value to an attacker, but deletes would hide real holders,
     // so deletes are admin-only.
+    // Paid AI jobs. Written only by the server (admin SDK bypasses rules) —
+    // a client that could write here could mark its own job done, or flip a
+    // job to failed to trigger a refund it is not owed.
+    match /aiJobs/{jobId} {
+      allow read:  if request.auth != null
+                   && resource.data.uid == request.auth.uid;
+      allow write: if false;
+    }
+
     match /equityHolders/{docId} {
       allow read: if true;
       allow create, update: if request.auth != null;
