@@ -115,7 +115,7 @@ export default async function handler(req, res) {
 
         const voucher = await issueVoucher({ uid: caller.uid, purpose, txHash });
 
-        console.log(`🎟️ Voucher issued: ${purpose} for ${caller.uid} (~$${paidUSD.toFixed(2)})`);
+        console.log(`🎟️ Voucher issued: ${purpose} for ${caller.uid} (${paidNQV8} NQV8)`);
         return res.status(200).json({ success: true, voucher });
 
     } catch (e) {
