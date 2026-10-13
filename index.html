@@ -11805,7 +11805,7 @@ async function loadForYouFeed() {
                     <textarea id="new-comment" placeholder="Write a comment... ($0.01 NQV8)" 
                               class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-4" rows="3"></textarea>
                     <button onclick="postComment()" 
-                            class="w-full py-5 bg-white text-black font-semibold rounded-3xl">Post Comment ($0.01 in NQV8)</button>
+                            class="w-full py-5 bg-white text-black font-semibold rounded-3xl">Post Comment (1 NQV8)</button>
                 </div>
             `;
 
@@ -13572,7 +13572,7 @@ function renderGroupSelected() {
 function updateGroupCost() {
     const n = Object.keys(groupSelectedUsers).length;
     document.getElementById('group-count').textContent = n;
-    document.getElementById('group-total').textContent = `$${(n * 0.01).toFixed(2)} in NQV8`;
+    document.getElementById('group-total').textContent = `${n * NQV8_FEE.MICRO} NQV8`;
     document.getElementById('create-group-btn').disabled = n < 2;
 }
 
@@ -16348,13 +16348,13 @@ async function loadEscrowActions(projectId, project) {
             if (status === 'Submitted') {
                 html += `<button onclick="acceptSubmission(0)" class="w-full py-4 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-3xl mb-3">✅ Accept & Release Funds from Escrow</button>`;
             }
-            html += `<button onclick="fileProjectDispute('${projectId}')" class="w-full py-4 border border-red-500/50 text-red-400 hover:bg-red-500/10 font-medium rounded-3xl">⚖️ File Dispute — Claude Arbitrates ($10 in NQV8)</button>`;
+            html += `<button onclick="fileProjectDispute('${projectId}')" class="w-full py-4 border border-red-500/50 text-red-400 hover:bg-red-500/10 font-medium rounded-3xl">⚖️ File Dispute — Claude Arbitrates (1,000 NQV8)</button>`;
         }
 
         if (isWorker && status === 'Submitted') {
             const canRelease = await escrowReadOnly.canAutoRelease(escrowId);
             if (canRelease) html += `<button onclick="claimAutoReleaseEscrow('${projectId}')" class="w-full py-4 bg-cyan-500 text-black font-semibold rounded-3xl mt-3">⏱ Claim Auto-Release (7 days elapsed)</button>`;
-            html += `<button onclick="fileProjectDispute('${projectId}')" class="w-full py-4 border border-red-500/50 text-red-400 hover:bg-red-500/10 font-medium rounded-3xl">⚖️ File Dispute — Claude Arbitrates ($10 in NQV8)</button>`;
+            html += `<button onclick="fileProjectDispute('${projectId}')" class="w-full py-4 border border-red-500/50 text-red-400 hover:bg-red-500/10 font-medium rounded-3xl">⚖️ File Dispute — Claude Arbitrates (1,000 NQV8)</button>`;
         }
 
         if (isPoster && status === 'Active') {
