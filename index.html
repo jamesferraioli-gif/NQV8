@@ -446,7 +446,7 @@
             <button onclick="hidePostBountyModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
         </div>
         <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 mb-6">
-            <p class="text-amber-400 text-xs">💰 Cost: $1.00 (paid in NQV8)</p>
+            <p class="text-amber-400 text-xs">💰 Cost: 100 NQV8</p>
         </div>
 
         <!-- STEP 1: Pick project -->
@@ -575,7 +575,7 @@
 
             <div class="flex gap-3">
                 <button onclick="bountyGoToStep1()" class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">← Back</button>
-                <button onclick="submitBountyPosting()" class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Post ($1.00 in NQV8)</button>
+                <button onclick="submitBountyPosting()" class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Post (100 NQV8)</button>
             </div>
         </div>
     </div>
@@ -649,7 +649,7 @@
             </div>
             <p class="text-zinc-400 mb-2">Choose what you want to post.</p>
             <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 mb-6">
-                <p class="text-amber-400 text-xs font-medium">💰 Cost: $1.00 per posting (paid in NQV8)</p>
+                <p class="text-amber-400 text-xs font-medium">💰 Cost: 100 NQV8 per posting</p>
             </div>
     
             <div class="space-y-4">
@@ -700,7 +700,7 @@
             <button onclick="hidePostFundingModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
         </div>
         <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 mb-6">
-            <p class="text-amber-400 text-xs">💰 Cost: $1.00 (paid in NQV8) · Only list stakes you legitimately own</p>
+            <p class="text-amber-400 text-xs">💰 Cost: 100 NQV8 · Only list stakes you legitimately own</p>
         </div>
 
         <p id="funding-project-label" class="hidden text-sm font-semibold text-violet-400 mb-4"></p>
@@ -782,7 +782,7 @@
             <button onclick="hidePostFundingModal()"
                     class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
             <button onclick="submitFundingPosting()"
-                    class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Post ($1.00 in NQV8)</button>
+                    class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Post (100 NQV8)</button>
         </div>
     </div>
 </div>
@@ -822,23 +822,23 @@
                         <p class="text-sm text-zinc-400 mb-3">Fee Breakdown</p>
                         <div class="flex justify-between text-sm mb-2">
                             <span class="text-zinc-300">AI Document Verification</span>
-                            <span>$10.00 in NQV8</span>
+                            <span>1,000 NQV8</span>
                         </div>
                         <div class="border-t border-zinc-700 mt-3 pt-3 flex justify-between font-semibold">
                             <span>Total</span>
-                            <span class="text-cyan-400">$10.00 in NQV8</span>
+                            <span class="text-cyan-400">1,000 NQV8</span>
                         </div>
                         
                     </div>
 
                     <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 mb-4">
                         <p class="text-emerald-400 text-sm font-medium">⚡ Instant AI Verification</p>
-                        <p class="text-zinc-400 text-xs mt-1">Documents are reviewed instantly by Claude AI. Clear, matching documents are approved immediately. Edge cases are flagged for manual review. Fee paid in NQV8 at current market rate.</p>
+                        <p class="text-zinc-400 text-xs mt-1">Documents are reviewed instantly by Claude AI. Clear, matching documents are approved immediately. Edge cases are flagged for manual review.</p>
                     </div>
 
                     <div class="bg-red-500/10 border border-red-500/20 rounded-2xl p-4 mb-6">
                         <p class="text-red-400 text-sm font-semibold mb-1">⚠️ Fee is non-refundable</p>
-                        <p class="text-zinc-400 text-xs">$10.00 in NQV8 is charged at current market price regardless of outcome. If your documents are rejected you will need to resubmit and pay again. Make sure all three documents are clear, legible, and match the entity name exactly before submitting.</p>
+                        <p class="text-zinc-400 text-xs">The 1,000 NQV8 fee is charged regardless of outcome. If your documents are rejected you will need to resubmit and pay again. Make sure all three documents are clear, legible, and match the entity name exactly before submitting.</p>
                     </div>
             
                     <div class="flex gap-3">
@@ -846,7 +846,7 @@
                                 class="flex-1 py--4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
                         <button onclick="submitVerification()" 
                                 class="flex-1 py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-3xl">
-                                Pay $10.00 in NQV8 & Submit (non-refundable)
+                                Pay 1,000 NQV8 & Submit (non-refundable)
                         </button>
                     </div>
                 </div>
@@ -1021,7 +1021,7 @@
         
                 <div class="flex gap-3">
                     <button onclick="hidePostIdeaModal()" class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
-                    <button onclick="submitIdeaPost()" class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Post ($0.01 in NQV8)</button>
+                    <button onclick="submitIdeaPost()" class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">Post (1 NQV8)</button>
                 </div>
             </div>
         </div>
@@ -1610,7 +1610,7 @@
                 <h2 class="text-2xl font-bold">New Group Chat</h2>
                 <button onclick="hideGroupChatModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
             </div>
-            <p class="text-zinc-500 text-sm mb-5">$0.01 per person (paid in NQV8)</p>
+            <p class="text-zinc-500 text-sm mb-5">1 NQV8 per person</p>
     
             <input id="group-chat-name" type="text" placeholder="Group name (optional)"
                    class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 outline-none mb-4">
@@ -1629,11 +1629,11 @@
                 </div>
                 <div class="flex justify-between text-sm mb-1">
                     <span class="text-zinc-400">Cost per person</span>
-                    <span class="text-zinc-400">$0.01 in NQV8</span>
+                    <span class="text-zinc-400">1 NQV8 per person</span>
                 </div>
                 <div class="flex justify-between text-sm font-semibold border-t border-zinc-700 mt-2 pt-2">
                     <span>Total</span>
-                    <span id="group-total" class="text-cyan-400">$0.00 in NQV8</span>
+                    <span id="group-total" class="text-cyan-400">0 NQV8</span>
                 </div>
             </div>
     
@@ -1718,7 +1718,7 @@
         <div class="flex items-center justify-between mb-6">
             <div>
                 <h1 class="text-3xl md:text-5xl font-bold tracking-tighter mb-2">Explore</h1>
-                <p class="text-zinc-400 text-sm">Posts cost $0.01 NQV8 to keep the feed high quality.</p>
+                <p class="text-zinc-400 text-sm">Posts cost 1 NQV8 to keep the feed high quality.</p>
             </div>
             <button onclick="showPostIdeaModal()"
                     class="bg-white text-black font-semibold px-6 py-3 rounded-2xl flex items-center gap-2 hover:bg-cyan-400 flex-shrink-0">
@@ -2420,7 +2420,7 @@
             <button onclick="hidePostEquityModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
         </div>
         <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 mb-6">
-            <p class="text-amber-400 text-xs">💰 Cost: $1.00 USDC or 100 NQV8 · Only list stakes you legitimately own</p>
+            <p class="text-amber-400 text-xs">💰 Cost: 100 NQV8 · Only list stakes you legitimately own</p>
         </div>
 
         <p class="text-sm text-zinc-400 mb-2">Select a verified company to list a stake for</p>
@@ -2451,7 +2451,7 @@
                 <button onclick="hidePostEquityModal()"
                         class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
                 <button onclick="submitEquityListing()"
-                        class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">List Stake ($1.00 in NQV8)</button>
+                        class="flex-1 py-4 bg-white text-black font-semibold rounded-3xl">List Stake (100 NQV8)</button>
             </div>
         </div>
 
@@ -3977,15 +3977,15 @@ async function submitMetricsVerification() {
     btn.textContent = '⏳ Processing payment...';
 
     try {
-        // Pay $5 in NQV8
-        const metricsNQV8Amount = await usdToNQV8(1.00);
+        // Pay the metrics verification fee in NQV8
+        const metricsNQV8Amount = NQV8_FEE.VERIFY_METRICS;
         const nqv8Raw = await nqv8Contract.balanceOf(connectedAddress);
         const nqv8Bal = parseFloat(ethers.utils.formatUnits(nqv8Raw, 18));
 
         if (nqv8Bal < metricsNQV8Amount) {
             btn.disabled = false;
-            btn.textContent = 'Pay $1.00 in NQV8 & Verify';
-            return alert(`❌ Insufficient NQV8. You need ${metricsNQV8Amount} NQV8 (≈ $1.00).`);
+            btn.textContent = `Pay ${NQV8_FEE.VERIFY_METRICS} NQV8 & Verify`;
+            return alert(`❌ Insufficient NQV8. You need ${metricsNQV8Amount} NQV8.`);
         }
 
         const rewardsContract = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
@@ -4100,7 +4100,7 @@ async function submitMetricsVerification() {
             }
 
             btn.disabled = false;
-            btn.textContent = 'Pay $1.00 in NQV8 & Verify';
+            btn.textContent = `Pay ${NQV8_FEE.VERIFY_METRICS} NQV8 & Verify`;
             hideVerifyMetricsModal();
 
             // Fetch fresh company doc and auto-open the new deck
@@ -4113,21 +4113,21 @@ async function submitMetricsVerification() {
 
         } else if (result.metricsVerified && result.confidence === 'low') {
             btn.disabled = false;
-            btn.textContent = 'Pay $1.00 in NQV8 & Verify';
+            btn.textContent = `Pay ${NQV8_FEE.VERIFY_METRICS} NQV8 & Verify`;
             setBanner(`⚠️ Low confidence: ${result.summary}`, 'bg-amber-500/10 border border-amber-500/30 text-amber-400');
         } else {
             btn.disabled = false;
-            btn.textContent = 'Pay $1.00 in NQV8 & Verify';
+            btn.textContent = `Pay ${NQV8_FEE.VERIFY_METRICS} NQV8 & Verify`;
             setBanner(`❌ Verification failed: ${result.summary}${result.issues?.length ? '\n\nIssues: ' + result.issues.join(', ') : ''}`, 'bg-red-500/10 border border-red-500/30 text-red-400');
         }
 
     } catch(e) {
         btn.disabled = false;
-        btn.textContent = 'Pay $1.00 in NQV8 & Verify';
+        btn.textContent = `Pay ${NQV8_FEE.VERIFY_METRICS} NQV8 & Verify`;
 
         // Auto-refund on technical errors
         try {
-            const metricsNQV8Amount = await usdToNQV8(1.00);
+            const metricsNQV8Amount = NQV8_FEE.VERIFY_METRICS;
             fetch('/api/refund-nqv8', {
                 method: 'POST',
                 headers: {
@@ -4504,14 +4504,20 @@ async function getNQV8PriceUSD() {
     return 0.01; // peg fallback
 }
 
-// Convert a USD fee amount to NQV8 units required at current price.
-// Always rounds UP to nearest 0.0001 NQV8 so platform never under-collects.
-async function usdToNQV8(usdAmount) {
-    const price = await getNQV8PriceUSD();
-    const raw   = usdAmount / price;
-    // Round up to 4 decimal places
-    return Math.ceil(raw * 10000) / 10000;
-}
+// ── NQV8 Fee Schedule ─────────────────────────────────────────────────────────
+// Platform interaction fees are denominated in NQV8, not dollars. The $0.01 peg
+// is a launch condition, not a unit of account: these amounts stay the same when
+// the peg lifts and the token floats. Percentage fees on bounty value and equity
+// sale price stay value-denominated — those settle in USDC.
+// Keep in sync with PURPOSE_PRICE_NQV8 in api/claim-voucher.js.
+const NQV8_FEE = {
+    MICRO:             1,   // bids, explore posts, comments, chats, deletes
+    POST:            100,   // bounties, build requests, funding requests, equity listings
+    VERIFY_METRICS:  100,   // metrics verification + investor deck
+    FLOWMAP:         500,   // AI flow map generation
+    VERIFY_DOCS:    1000,   // entity verification
+    DISPUTE:        1000    // dispute filing
+};
 
 function deadlineToTimestamp(deadlineStr) {
     const now = Math.floor(Date.now() / 1000);
@@ -4717,9 +4723,9 @@ function resetPostingButtons() {
     try { _fundingPostInProgress = false; } catch(e) {}
     try { _listingInProgress = false; } catch(e) {}
     const b1 = document.querySelector('#post-funding-modal button[onclick="submitFundingPosting()"]');
-    if (b1) { b1.disabled = false; b1.textContent = 'Post ($1.00 in NQV8)'; }
+    if (b1) { b1.disabled = false; b1.textContent = 'Post (100 NQV8)'; }
     const b2 = document.querySelector('#post-bounty-modal button[onclick="submitBountyPosting()"]');
-    if (b2) { b2.disabled = false; b2.textContent = 'Post ($1.00 in NQV8)'; }
+    if (b2) { b2.disabled = false; b2.textContent = 'Post (100 NQV8)'; }
 }
 
 function closePaymentPicker() {
@@ -5287,7 +5293,7 @@ async function payPostingFee(preferNQV8 = false) {
     }
 }
 
-// Pay micro fee ($0.01 NQV8) — bids, posts, deletes, chat
+// Pay micro fee (1 NQV8) — bids, posts, deletes, chat
 async function payMicroFee(preferNQV8 = false) {
     if (!connectedAddress) {
         await connectWallet();
@@ -5329,14 +5335,14 @@ function parsePaymentError(e) {
 // Shows USDC / NQV8 choice, checks balance, executes tx, then
 // calls onSuccess(txHash) so the calling function can proceed.
 // ============================================================
-// showPaymentPicker — NQV8 only, amount computed dynamically from USD fee + live price
-// usdAmount: the fee in USD (e.g. 1.00, 0.01, 10.00)
-// nqv8Amount param kept for backwards compat but ignored — computed fresh every call
-async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
+// showPaymentPicker — NQV8 only. nqv8Amount is a fixed token amount from NQV8_FEE
+// (or a computed token amount for per-unit fees such as group chat). No price
+// lookup and no USD conversion: the fee is the token amount.
+async function showPaymentPicker(label, nqv8Amount, onSuccess) {
     if (!connectedAddress) {
         if (confirm("You need to connect a wallet to pay fees.\n\nConnect now?")) {
             connectWallet().then(() => {
-                if (connectedAddress) showPaymentPicker(label, usdAmount, _ignored, onSuccess);
+                if (connectedAddress) showPaymentPicker(label, nqv8Amount, onSuccess);
             });
         }
         return;
@@ -5353,36 +5359,13 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
         localStorage.removeItem('nqvate_wc_address');
         if (confirm("Your wallet session has expired. Reconnect now?")) {
             connectWallet().then(() => {
-                if (connectedAddress) showPaymentPicker(label, usdAmount, _ignored, onSuccess);
+                if (connectedAddress) showPaymentPicker(label, nqv8Amount, onSuccess);
             });
         }
         return;
     }
 
     document.getElementById('payment-picker-modal')?.remove();
-
-    // Show loading modal while we fetch price
-    const loadingModal = document.createElement('div');
-    loadingModal.id = 'payment-picker-modal';
-    loadingModal.className = 'fixed inset-0 bg-black/95 flex items-center justify-center z-[999999]';
-    loadingModal.innerHTML = `
-        <div class="bg-zinc-900 border border-zinc-700 rounded-3xl p-8 w-full max-w-sm mx-4 text-center">
-            <p class="text-zinc-400 animate-pulse">Fetching NQV8 price...</p>
-        </div>
-    `;
-    document.body.appendChild(loadingModal);
-
-    // Fetch live price and compute NQV8 amount
-    let nqv8Amount, nqv8Price;
-    try {
-        nqv8Price  = await getNQV8PriceUSD();
-        nqv8Amount = await usdToNQV8(usdAmount);
-    } catch(e) {
-        nqv8Price  = 0.01;
-        nqv8Amount = Math.ceil((usdAmount / 0.01) * 10000) / 10000;
-    }
-
-    loadingModal.remove();
 
     const modal = document.createElement('div');
     modal.id = 'payment-picker-modal';
@@ -5402,20 +5385,14 @@ async function showPaymentPicker(label, usdAmount, _ignored, onSuccess) {
                 </div>
                 <div class="text-right">
                     <p class="text-cyan-400 font-bold text-xl">${nqv8Amount} NQV8</p>
-                    <p class="text-xs text-zinc-500">≈ $${usdAmount.toFixed(2)} USD</p>
                 </div>
             </div>
-
-            <p class="text-xs text-zinc-600 mb-4 text-right">
-                NQV8 price: $${nqv8Price < 0.001 ? nqv8Price.toFixed(6) : nqv8Price.toFixed(4)}
-                ${nqv8Price === 0.01 ? '(pegged)' : '(live)'}
-            </p>
 
             <div id="payment-status" class="hidden mb-4 p-3 bg-zinc-800 rounded-2xl text-sm text-center text-zinc-300"></div>
 
             <div id="insufficient-banner" class="hidden mb-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
                 <p class="text-amber-400 text-sm font-semibold mb-1">⚠️ Insufficient NQV8</p>
-                <p class="text-zinc-400 text-xs mb-3">You need ${nqv8Amount} NQV8 (≈ $${usdAmount.toFixed(2)}) to continue.</p>
+                <p class="text-zinc-400 text-xs mb-3">You need ${nqv8Amount} NQV8 to continue.</p>
                 <button onclick="closePaymentPicker(); showBuyNQV8Modal()"
                         class="w-full py-2 bg-gradient-to-r from-amber-400 to-cyan-400 text-black text-sm font-semibold rounded-xl">
                     Buy NQV8 from Treasury
@@ -6145,8 +6122,8 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
             }
 
             showPaymentPicker(
-                'Post project & first task — $1.00 fee',
-                1.00, 100,
+                'Post project & first task — 100 NQV8',
+                NQV8_FEE.POST,
                 async (txHash) => {
                     try {
                         const projectRef = await db.collection("projects").add({
@@ -6177,7 +6154,7 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                     bids: [],
                     bidsOpen: true,
                     status: 'open',
-                    postingCost: '$1.00 USDC',
+                    postingCost: '100 NQV8',
                     paymentTxHash: txHash,
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
@@ -6230,7 +6207,7 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
 
             if (!confirm(
                 `⚠️ Non-Refundable Fee Confirmation\n\n` +
-                `You are about to pay $10.00 in NQV8 for entity verification.\n\n` +
+                `You are about to pay ${NQV8_FEE.VERIFY_DOCS} NQV8 for entity verification.\n\n` +
                 `This fee is NON-REFUNDABLE regardless of outcome:\n` +
                 `• If approved → equity features unlocked ✅\n` +
                 `• If rejected → fee is lost, must resubmit and pay again ❌\n\n` +
@@ -6250,15 +6227,14 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
             btn.disabled = true;
 
             try {
-                btn.innerHTML = '⏳ Fetching NQV8 price...';
-                const verifNQV8Amount = await usdToNQV8(10.00);
+                const verifNQV8Amount = NQV8_FEE.VERIFY_DOCS;
 
                 const nqv8Raw = await nqv8Contract.balanceOf(connectedAddress);
                 const nqv8Bal = parseFloat(ethers.utils.formatUnits(nqv8Raw, 18));
                 if (nqv8Bal < verifNQV8Amount) {
                     btn.innerHTML = originalText;
                     btn.disabled = false;
-                    return alert(`❌ Insufficient NQV8. You have ${nqv8Bal.toLocaleString(undefined,{maximumFractionDigits:4})} NQV8 but need ${verifNQV8Amount} NQV8 (≈ $10.00) for verification.`);
+                    return alert(`❌ Insufficient NQV8. You have ${nqv8Bal.toLocaleString(undefined,{maximumFractionDigits:4})} NQV8 but need ${verifNQV8Amount} NQV8 for verification.`);
                 }
 
                 btn.innerHTML = `⏳ Confirm ${verifNQV8Amount} NQV8 in wallet...`;
@@ -6460,7 +6436,7 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                                 ${result.recommendation ? `
                                 <p class="text-amber-400 text-xs font-semibold mb-1">What to fix:</p>
                                 <p class="text-zinc-300 text-xs">${result.recommendation}</p>` : ''}
-                                <p class="text-zinc-500 text-xs mt-3">The $10.00 NQV8 fee is non-refundable. Correct the issues above and resubmit.</p>
+                                <p class="text-zinc-500 text-xs mt-3">The 1,000 NQV8 fee is non-refundable. Correct the issues above and resubmit.</p>
                             `;
                         }
                     }
@@ -7699,7 +7675,7 @@ async function loadTotalFundingReceivedStat() {
             </div>
             <button onclick="placeBid('${projectId}', '${project.compensationType || 'cash'}')"
                     class="w-full py-5 bg-white text-black font-semibold rounded-3xl">
-                Place Bid ($0.01 NQV8)
+                Place Bid (1 NQV8)
             </button>
         </div>` : ''}
 
@@ -7863,8 +7839,8 @@ async function deletePosting(projectId) {
                 await doDelete();
             } else {
                 showPaymentPicker(
-                    `Delete posting: \"${project.title}\" — $0.01 NQV8 fee`,
-                    0.01, 1,
+                    `Delete posting: \"${project.title}\" — ${NQV8_FEE.MICRO} NQV8`,
+                    NQV8_FEE.MICRO,
                     doDelete
                 );
             }
@@ -8238,8 +8214,8 @@ function hideEditPostingModal() {
                 }
     
             showPaymentPicker(
-                    `Place a bid on "${project.title}" — $0.01 fee`,
-                    0.01, 1,
+                    `Place a bid on "${project.title}" — ${NQV8_FEE.MICRO} NQV8`,
+                    NQV8_FEE.MICRO,
                     async (txHash) => {
                         try {
                             const newBid = {
@@ -9897,8 +9873,8 @@ async function loadChatList(searchTerm = "") {
 
                 // Create new chat — charge micro fee
                 showPaymentPicker(
-                    `Start a chat with @${partnerData.username || partnerData.fullName} — $0.01 fee`,
-                    0.01, 1,
+                    `Start a chat with @${partnerData.username || partnerData.fullName} — ${NQV8_FEE.MICRO} NQV8`,
+                    NQV8_FEE.MICRO,
                     async (txHash) => {
                         try {
                             const chatData = {
@@ -11180,8 +11156,8 @@ async function viewUserProfile(uid) {
             }
 
             showPaymentPicker(
-                'Post to Explore — $0.01 fee',
-                0.01, 1,
+                'Post to Explore — 1 NQV8',
+                NQV8_FEE.MICRO,
                 async (txHash) => {
                     try {
                         const docRef = await db.collection("posts").add({
@@ -12862,8 +12838,8 @@ async function submitBountyPosting() {
         if (!modResult.approved) return alert(`❌ Post rejected: ${modResult.reason}`);
 
         showPaymentPicker(
-            'Post a Build Request — $1.00 fee',
-            1.00, 100,
+            'Post a Build Request — 100 NQV8',
+            NQV8_FEE.POST,
             async (txHash) => {
                 try {
                     const projectSnap = await db.collection("companies").doc(selectedBountyProjectId).get();
@@ -12900,7 +12876,7 @@ async function submitBountyPosting() {
                         preferredBuilderUid: _preferredBuilderUid || null,
                         preferredBuilderUsername: _preferredBuilderUsername || null,
                         invitedUids: _preferredBuilderUid ? [_preferredBuilderUid] : [],
-                        postingCost: '$1.00 USDC',
+                        postingCost: '100 NQV8',
                         paymentTxHash: txHash,
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
@@ -13000,7 +12976,7 @@ function hidePostFundingModal() {
     selectedFundingProjectId = null;
     _fundingPostInProgress = false;
     const postBtn = document.querySelector('#post-funding-modal button[onclick="submitFundingPosting()"]');
-    if (postBtn) { postBtn.disabled = false; postBtn.textContent = 'Post ($1.00 in NQV8)'; }
+    if (postBtn) { postBtn.disabled = false; postBtn.textContent = 'Post (100 NQV8)'; }
 }
 
 async function populateFundingProjectList() {
@@ -13106,7 +13082,7 @@ async function submitFundingPosting() {
     // Resets the button and flag on any early exit
     const failPost = (msg) => {
         _fundingPostInProgress = false;
-        if (postBtn) { postBtn.disabled = false; postBtn.textContent = 'Post ($1.00 in NQV8)'; }
+        if (postBtn) { postBtn.disabled = false; postBtn.textContent = 'Post (100 NQV8)'; }
         alert(msg);
         return null;
     };
@@ -13172,8 +13148,8 @@ async function submitFundingPosting() {
         if (!modResult.approved) return alert(`❌ Post rejected: ${modResult.reason}`);
 
         showPaymentPicker(
-            'Post a Funding Request — $1.00 fee',
-            1.00, 100,
+            'Post a Funding Request — 100 NQV8',
+            NQV8_FEE.POST,
             async (txHash) => {
                 try {
                     const projectSnap = await db.collection("companies").doc(selectedFundingProjectId).get();
@@ -13204,7 +13180,7 @@ async function submitFundingPosting() {
                         bids: [],
                         bidsOpen: true,
                         status: 'open',
-                        postingCost: '$1.00 USDC',
+                        postingCost: '100 NQV8',
                         paymentTxHash: txHash,
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
@@ -13289,7 +13265,7 @@ async function submitFundingPosting() {
                     alert("Payment succeeded but failed to post: " + e.message);
                 } finally {
                     _fundingPostInProgress = false;
-                    if (postBtn) { postBtn.disabled = false; postBtn.textContent = 'Post ($1.00 in NQV8)'; }
+                    if (postBtn) { postBtn.disabled = false; postBtn.textContent = 'Post (100 NQV8)'; }
                 }
             }
         );
@@ -13412,8 +13388,8 @@ async function submitEquityListing() {
         }
 
         showPaymentPicker(
-            'List an Equity Stake — $1.00 fee',
-            1.00, 100,
+            'List an Equity Stake — 100 NQV8',
+            NQV8_FEE.POST,
         async (txHash) => {
             try {
                 await db.collection("equityListings").add({
@@ -13537,12 +13513,11 @@ async function createGroupChat() {
 
     const nameInput = document.getElementById('group-chat-name').value.trim();
     const groupName = nameInput || Object.values(groupSelectedUsers).map(u => u.username).join(', ');
-    const usdcCost = parseFloat((members.length * 0.01).toFixed(2));
-    const nqv8Cost = members.length;
+    const nqv8Cost = members.length * NQV8_FEE.MICRO;
 
     showPaymentPicker(
-        `Create group chat with ${members.length} people — $${usdcCost.toFixed(2)} fee`,
-        usdcCost, nqv8Cost,
+        `Create group chat with ${members.length} people — ${nqv8Cost} NQV8`,
+        nqv8Cost,
         async (txHash) => {
             try {
                 const participants = [currentUser.uid, ...members].sort();
@@ -13668,7 +13643,7 @@ function renderComments(post) {
             const modResult = await moderateContent(text, 'comment');
             if (!modResult.approved) return alert(`❌ ${modResult.reason}`);
 
-            showPaymentPicker('Reply to comment — $0.01 fee', 0.01, 1, async () => {
+            showPaymentPicker('Reply to comment — 1 NQV8', NQV8_FEE.MICRO, async () => {
                 try {
                     const reply = {
                         uid:       currentUser.uid,
@@ -13702,8 +13677,8 @@ function renderComments(post) {
             }
 
             showPaymentPicker(
-                'Post a comment — $0.01 fee',
-                0.01, 1,
+                'Post a comment — 1 NQV8',
+                NQV8_FEE.MICRO,
                 async (txHash) => {
                     try {
                         const comment = {
@@ -16183,16 +16158,15 @@ async function notifyMatchingBuilders(posting, tags, category) {
 async function fileProjectDispute(projectId) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
 
-    // Calculate $10 in NQV8 at current price
-    const disputeNQV8Amount = await usdToNQV8(10.00);
+    const disputeNQV8Amount = NQV8_FEE.DISPUTE;
     const nqv8Raw = await nqv8Contract.balanceOf(connectedAddress);
     const nqv8Bal = parseFloat(ethers.utils.formatUnits(nqv8Raw, 18));
 
     if (nqv8Bal < disputeNQV8Amount) {
-        return alert(`You need ${disputeNQV8Amount} NQV8 (≈ $10.00) to file a dispute.\nYour balance: ${nqv8Bal.toLocaleString(undefined,{maximumFractionDigits:4})} NQV8\n\nBuy NQV8 from the Treasury on the Tokenomics page.`);
+        return alert(`You need ${disputeNQV8Amount} NQV8 to file a dispute.\nYour balance: ${nqv8Bal.toLocaleString(undefined,{maximumFractionDigits:4})} NQV8\n\nBuy NQV8 from the Treasury on the Tokenomics page.`);
     }
 
-    if (!confirm(`File a Dispute\n\n⚖️ How it works:\n• Claude AI reviews all evidence immediately\n• Claude issues a binding ruling — no human review\n• Funds are split on-chain automatically\n• There is no appeals process\n\n💡 NQVate is NOT a party to this dispute. Claude acts as sole arbitrator.\n\nFee: ${disputeNQV8Amount} NQV8 ≈ $10.00 (non-refundable, even if you lose)\n\nContinue?`)) return;
+    if (!confirm(`File a Dispute\n\n⚖️ How it works:\n• Claude AI reviews all evidence immediately\n• Claude issues a binding ruling — no human review\n• Funds are split on-chain automatically\n• There is no appeals process\n\n💡 NQVate is NOT a party to this dispute. Claude acts as sole arbitrator.\n\nFee: ${disputeNQV8Amount} NQV8 (non-refundable, even if you lose)\n\nContinue?`)) return;
 
     try {
         const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
@@ -16955,11 +16929,11 @@ async function submitNewFlowMap(useAI = false) {
         if (useAI) {
             // Pay $5 NQV8
             if (btnAI) btnAI.textContent = '⏳ Paying...';
-            const nqv8Amount = await usdToNQV8(5.00);
+            const nqv8Amount = NQV8_FEE.FLOWMAP;
             const nqv8Raw = await nqv8Contract.balanceOf(connectedAddress);
             const nqv8Bal = parseFloat(ethers.utils.formatUnits(nqv8Raw, 18));
             if (nqv8Bal < nqv8Amount) {
-                return alert(`❌ Insufficient NQV8. You need ${nqv8Amount} NQV8 (≈ $5.00).`);
+                return alert(`❌ Insufficient NQV8. You need ${nqv8Amount} NQV8.`);
             }
             const rewardsContract = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
             const amountRaw = ethers.utils.parseUnits(String(nqv8Amount), 18);
@@ -17915,7 +17889,7 @@ async function founderRelease() {
         <p class="text-zinc-400 text-sm mb-6">Upload proof of your revenue and user metrics. Documents are reviewed by Claude AI and immediately deleted — only the verified ranges are stored.</p>
 
         <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 mb-6">
-            <p class="text-amber-400 text-xs">💰 Cost: $1.00 in NQV8 · Includes metric verification + investor deck generation · Automatically refunded on technical errors</p>
+            <p class="text-amber-400 text-xs">💰 Cost: 100 NQV8 · Includes metric verification + investor deck generation · Automatically refunded on technical errors</p>
         </div>
 
         <div class="space-y-4 mb-6">
@@ -17966,7 +17940,7 @@ async function founderRelease() {
             <button onclick="hideVerifyMetricsModal()" class="flex-1 py-4 border border-zinc-700 rounded-3xl font-medium">Cancel</button>
             <button onclick="submitMetricsVerification()" id="verify-metrics-btn"
                     class="flex-1 py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-3xl">
-                Pay $1.00 in NQV8 & Verify
+                Pay 100 NQV8 & Verify
             </button>
         </div>
     </div>
@@ -18342,7 +18316,7 @@ async function founderRelease() {
                 </div>
                 <div class="bg-violet-500/10 border border-violet-500/20 rounded-2xl p-4">
                     <p class="text-violet-400 text-sm font-semibold mb-1">✨ AI-powered planning</p>
-                    <p class="text-zinc-400 text-sm">For $5 in NQV8, Claude generates a complete node-by-node development plan tailored to your project — including tech stack recommendations, time estimates, common pitfalls, and best practices for each step.</p>
+                    <p class="text-zinc-400 text-sm">For 500 NQV8, Claude generates a complete node-by-node development plan tailored to your project — including tech stack recommendations, time estimates, common pitfalls, and best practices for each step.</p>
                 </div>
             </div>
 
@@ -18353,7 +18327,7 @@ async function founderRelease() {
                         <div class="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center text-xl flex-shrink-0">🔎</div>
                         <h3 class="text-lg font-bold mt-1">Explore</h3>
                     </div>
-                    <p class="text-zinc-400 text-sm leading-relaxed">Share ideas, news, and projects with the community. Upvote, comment, and discover what builders are working on. Each post costs $0.01 in NQV8 to keep the feed high quality.</p>
+                    <p class="text-zinc-400 text-sm leading-relaxed">Share ideas, news, and projects with the community. Upvote, comment, and discover what builders are working on. Each post costs 1 NQV8 to keep the feed high quality.</p>
                 </div>
                 <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800">
                     <div class="flex items-start gap-3 mb-4">
@@ -18375,7 +18349,7 @@ async function founderRelease() {
                 </div>
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
-                        <p class="text-zinc-300 leading-relaxed text-sm mb-4">NQV8 is used for all platform fees — posting bounties, submitting bids, verifying your entity, generating AI flow maps, and more. Fees are kept low (most actions cost $0.01–$5.00 equivalent) to make the platform accessible to everyone.</p>
+                        <p class="text-zinc-300 leading-relaxed text-sm mb-4">NQV8 is used for all platform fees — posting bounties, submitting bids, verifying your entity, generating AI flow maps, and more. Fees are fixed in NQV8 (most actions cost 1–500 NQV8), so they do not change when the token price does.</p>
                         <p class="text-zinc-300 leading-relaxed text-sm">Every month, 20% of all platform fees are redistributed back to active NQV8 users, proportional to their on-chain activity. The more you use the platform, the more you earn back.</p>
                     </div>
                     <div class="space-y-3">
@@ -18718,27 +18692,27 @@ async function founderRelease() {
                     <div class="mt-4 space-y-2">
                         <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
                             <span class="text-zinc-400">Post a bounty or funding request</span>
-                            <span class="text-white">$1.00 in NQV8</span>
+                            <span class="text-white">100 NQV8</span>
                         </div>
                         <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
                             <span class="text-zinc-400">Place a bid</span>
-                            <span class="text-white">$0.01 in NQV8</span>
+                            <span class="text-white">1 NQV8</span>
                         </div>
                         <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
                             <span class="text-zinc-400">Post to Explore / comment</span>
-                            <span class="text-white">$0.01 in NQV8</span>
+                            <span class="text-white">1 NQV8</span>
                         </div>
                         <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
                             <span class="text-zinc-400">Entity verification</span>
-                            <span class="text-white">$10.00 in NQV8</span>
+                            <span class="text-white">1,000 NQV8</span>
                         </div>
                         <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
                             <span class="text-zinc-400">Metrics verification + investor deck</span>
-                            <span class="text-white">$5.00 in NQV8</span>
+                            <span class="text-white">100 NQV8</span>
                         </div>
                         <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
                             <span class="text-zinc-400">AI flow map generation</span>
-                            <span class="text-white">$5.00 in NQV8</span>
+                            <span class="text-white">500 NQV8</span>
                         </div>
                         <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
                             <span class="text-zinc-400">Escrow release (bounty completion)</span>
@@ -18750,7 +18724,7 @@ async function founderRelease() {
                         </div>
                         <div class="flex justify-between text-sm">
                             <span class="text-zinc-400">Dispute filing</span>
-                            <span class="text-white">$10.00 in NQV8</span>
+                            <span class="text-white">1,000 NQV8</span>
                         </div>
                     </div>
                 </details>
@@ -18766,7 +18740,7 @@ async function founderRelease() {
                         What happens if there's a dispute?
                         <span class="text-zinc-400 group-open:rotate-180 transition-transform">▾</span>
                     </summary>
-                    <p class="text-zinc-400 text-sm mt-4 leading-relaxed">Either party can file a dispute for $10 in NQV8. Claude AI immediately reviews the project description, the accepted bid, all submitted deliverables, and any evidence provided by both parties. Claude issues a binding ruling, splitting the escrow funds proportionally — typically within minutes. There is no appeals process and NQVate is not involved. This keeps things fast and unbiased.</p>
+                    <p class="text-zinc-400 text-sm mt-4 leading-relaxed">Either party can file a dispute for 1,000 NQV8. Claude AI immediately reviews the project description, the accepted bid, all submitted deliverables, and any evidence provided by both parties. Claude issues a binding ruling, splitting the escrow funds proportionally — typically within minutes. There is no appeals process and NQVate is not involved. This keeps things fast and unbiased.</p>
                 </details>
             </div>
         </div>
