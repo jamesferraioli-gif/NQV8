@@ -80,7 +80,7 @@ export default async function handler(req, res) {
         } catch (e) {
             // A rate limit or an overloaded upstream deserves another attempt.
             // A malformed prompt or a bad model string does not.
-            const terminal = !isRetryableAIError(e.message);
+            const terminal = !isRetryableAIError(e);
             await failJob(jobId, e.message, { terminal });
             console.error(`❌ ${job.kind} job ${jobId} attempt ${job.attempts} failed (${terminal ? 'terminal' : 'will retry'}): ${e.message}`);
             return res.status(500).json({ status: terminal ? 'failed' : 'pending', error: e.message });
