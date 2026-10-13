@@ -63,12 +63,22 @@ export default async function handler(req, res) {
             });
         }
 
-        // Stored input for retryable kinds; for the rest it has to arrive with
-        // this request, because it was too large to persist.
-        const payload = job.retryable ? (job.input || {}) : (input || {});
-        if (!job.retryable && (!input || Object.keys(input).length === 0)) {
-            await failJob(jobId, 'Input was not supplied and this job kind cannot store it', { terminal: true });
-            return res.status(400).json({ error: 'Input required for this job kind' });
+        // Input travels with THIS request, not with the create call — a
+        // verify-docs payload is several megabytes of base64 and uploading it
+        // twice risks the serverless body limit.
+        //
+        // For a retryable kind we persist it on first run so the sweep can
+        // retry after a dead worker; for the rest it is used and discarded.
+        let payload = input && Object.keys(input).length ? input : (job.input || {});
+
+        if (!payload || Object.keys(payload).length === 0) {
+            await failJob(jobId, 'No input was supplied for this job', { terminal: true });
+            return res.status(400).json({ error: 'Input required' });
+        }
+
+        if (job.retryable && (!job.input || Object.keys(job.input).length === 0)) {
+            await jobRef(jobId).update({ input: payload }).catch(e =>
+                console.warn(`could not persist input for ${jobId}, retries unavailable:`, e.message));
         }
 
         const started = Date.now();
