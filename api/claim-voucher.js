@@ -24,29 +24,17 @@ const REWARDS_CONTRACT_ADDRESS = '0x045aD6C2889ABCe6Bd8ef52D621706c44e4f1266';
 const ARBITRUM_RPC             = 'https://arb1.arbitrum.io/rpc';
 const NQV8_DECIMALS            = 18;
 
-// USD price of each paid feature. The NQV8 amount is derived at claim time
-// from the live price, so this stays correct as NQV8 moves.
-const PURPOSE_PRICE_USD = {
-    'verify-docs':      10.00,
-    'verify-metrics':    1.00,
-    'generate-flowmap':  5.00
+// NQV8 cost of each paid feature. Fixed token amounts, not dollar amounts:
+// the fee does not change when the token price does. No tolerance window is
+// needed because there is no price drift between the quote and the payment.
+// Keep in sync with NQV8_FEE in index.html.
+const PURPOSE_PRICE_NQV8 = {
+    'verify-docs':      1000,
+    'verify-metrics':    100,
+    'generate-flowmap':  500
 };
 
-// Accept slightly less than the quoted amount — the frontend quotes a price,
-// the user confirms seconds later, and NQV8 may have ticked up in between.
-const PRICE_TOLERANCE = 0.80;
-
 const FEES_RECEIVED_TOPIC = ethers.utils.id('FeesReceived(address,uint256,uint256,uint256)');
-
-async function getNQV8PriceUSD() {
-    try {
-        const res  = await fetch(`https://api.dexscreener.com/latest/dex/tokens/0x02b3EF81d6577507114BB26F91F1a8d0A7bB1B67`);
-        const data = await res.json();
-        const p    = parseFloat(data.pairs?.[0]?.priceUsd);
-        if (p && p > 0) return p;
-    } catch (e) { /* fall through to peg */ }
-    return 0.01; // peg fallback, same as the frontend
-}
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -57,7 +45,7 @@ export default async function handler(req, res) {
 
     const { txHash, purpose } = req.body || {};
     if (!txHash || !purpose) return res.status(400).json({ error: 'txHash and purpose are required' });
-    if (!PURPOSE_PRICE_USD[purpose]) return res.status(400).json({ error: `Unknown purpose: ${purpose}` });
+    if (!PURPOSE_PRICE_NQV8[purpose]) return res.status(400).json({ error: `Unknown purpose: ${purpose}` });
     if (!/^0x[0-9a-fA-F]{64}$/.test(txHash)) return res.status(400).json({ error: 'Malformed txHash' });
 
     try {
@@ -101,13 +89,11 @@ export default async function handler(req, res) {
         const decoded   = ethers.utils.defaultAbiCoder.decode(['uint256','uint256','uint256'], feeLog.data);
         const paidNQV8  = parseFloat(ethers.utils.formatUnits(decoded[0], NQV8_DECIMALS));
 
-        const price      = await getNQV8PriceUSD();
-        const paidUSD    = paidNQV8 * price;
-        const requiredUSD = PURPOSE_PRICE_USD[purpose] * PRICE_TOLERANCE;
+        const requiredNQV8 = PURPOSE_PRICE_NQV8[purpose];
 
-        if (paidUSD < requiredUSD) {
+        if (paidNQV8 < requiredNQV8) {
             return res.status(402).json({
-                error: `Payment too small for ${purpose}. Paid ~$${paidUSD.toFixed(2)}, required $${PURPOSE_PRICE_USD[purpose].toFixed(2)}.`
+                error: `Payment too small for ${purpose}. Paid ${paidNQV8} NQV8, required ${requiredNQV8} NQV8.`
             });
         }
 
@@ -119,8 +105,7 @@ export default async function handler(req, res) {
                 wallet,
                 purpose,
                 paidNQV8,
-                paidUSD,
-                nqv8Price:  price,
+                requiredNQV8,
                 claimedAt:  new Date()
             });
         } catch (raceErr) {
