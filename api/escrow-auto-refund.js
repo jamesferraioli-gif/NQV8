@@ -81,13 +81,18 @@ export default async function handler(req, res) {
             const projectId = doc.id;
 
             try {
-                // Check if deadline has passed
-                if (!deadlineExpired(project)) continue;
-
-                // Check if any submission was accepted
+                // ── Never refund against delivered work ───────────────────
+                // A submission that has not been REJECTED means the builder
+                // delivered and the work is either accepted or still sitting
+                // unreviewed. Refunding here hands the money back to a poster
+                // who simply never clicked accept. Those escrows belong in
+                // dispute or auto-release, never in a refund.
                 const submissions = project.submissions || [];
-                const hasAccepted = submissions.some(s => s.status === 'accepted');
-                if (hasAccepted) continue;
+                const hasUnrejected = submissions.some(s => s.status !== 'rejected');
+                if (hasUnrejected) {
+                    console.log(`⏸ ${projectId}: ${submissions.length} submission(s) not rejected — will not refund`);
+                    continue;
+                }
 
                 // Get escrow ID
                 const projectKey = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(projectId));
@@ -101,6 +106,19 @@ export default async function handler(req, res) {
                 const escrow = await escrowContract.escrows(escrowId);
                 if (escrow.status !== 0) {
                     console.log(`⚠️ ${projectId}: escrow status ${escrow.status}, skipping`);
+                    continue;
+                }
+
+                // ── Honour the contract's own refund window ───────────────
+                // claimRefund() requires deadline + AUTO_REFUND_GRACE (3 days).
+                // adminRefund() has no timestamp check, so without this the cron
+                // refunds three days earlier than the poster could themselves.
+                // Read the deadline off the escrow rather than recomputing it
+                // from acceptedAt — the chain is the source of truth.
+                const AUTO_REFUND_GRACE = 3 * 24 * 60 * 60;
+                const refundableAt = Number(escrow.deadline) + AUTO_REFUND_GRACE;
+                if (Math.floor(Date.now() / 1000) < refundableAt) {
+                    console.log(`⏳ ${projectId}: refundable at ${new Date(refundableAt * 1000).toISOString()}`);
                     continue;
                 }
 
