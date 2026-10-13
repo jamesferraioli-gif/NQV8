@@ -4402,6 +4402,66 @@ const EQUITY_REGISTRY_ADDRESS = '0x726a5EEa94C6d3117bbCd05336A0Cfdaf3c9327a'
 // eth_getTransactionReceipt on return — hanging tx.wait() forever even though
 // the transaction landed. This never invents success: it returns only once the
 // chain confirms, and throws if the transaction reverted.
+// ── Paid AI jobs ──────────────────────────────────────────────────────────
+// A paid generation is created as a durable job BEFORE the model is called,
+// then watched on its Firestore document. The request that starts the work can
+// time out, the tab can be closed, the worker can die — the outcome still
+// lands on the job doc, and ai-job-sweep retries or refunds. Previously a slow
+// generation simply lost the user's NQV8.
+//
+// onProgress(status) is called as the job moves: pending -> running -> done.
+async function runPaidAIJob({ kind, voucher, input, onProgress, timeoutMs = 300000 }) {
+    const token = await authToken();
+
+    const createRes = await fetch('/api/ai-job', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ kind, voucher, wallet: connectedAddress, input })
+    });
+    if (!createRes.ok) throw new Error(await serverError(createRes, 'Could not start the job'));
+    const { jobId, result: alreadyDone } = await createRes.json();
+    if (alreadyDone) return alreadyDone;   // replayed payment, work already done
+
+    // Kick off the worker. Deliberately not awaited for its body: this request
+    // may run for minutes and we do not want the UI bound to it. For a kind
+    // whose input is too large to persist, it has to travel with this call.
+    fetch('/api/ai-job-run', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ jobId, input })
+    }).catch(e => console.warn('ai-job-run dispatch failed, sweep will pick it up:', e.message));
+
+    // Watch the job document.
+    return await new Promise((resolve, reject) => {
+        let settled = false;
+        const finish = (fn, arg) => {
+            if (settled) return;
+            settled = true;
+            try { unsub && unsub(); } catch (e) {}
+            clearTimeout(timer);
+            fn(arg);
+        };
+
+        const timer = setTimeout(() => finish(reject, new Error(
+            'Still generating. Your payment is safe — the result will appear here once it finishes.'
+        )), timeoutMs);
+
+        const unsub = db.collection('aiJobs').doc(String(jobId).toLowerCase())
+            .onSnapshot(snap => {
+                const job = snap.data();
+                if (!job) return;
+                if (onProgress) onProgress(job.status);
+                if (job.status === 'done')     return finish(resolve, job.result);
+                if (job.status === 'refunded') return finish(reject, new Error(
+                    `${job.error || 'Generation failed'} — your ${job.priceNQV8} NQV8 has been refunded.`
+                ));
+                if (job.status === 'failed')   return finish(reject, new Error(
+                    `${job.error || 'Generation failed'} — your ${job.priceNQV8} NQV8 is being refunded.`
+                ));
+            }, err => finish(reject, new Error(`Lost connection to the job: ${err.message}`)));
+    });
+}
+
 // Pull the server's own error message out of a failed response. Endpoints
 // return { error: "..." }; without this the UI replaced it with a hardcoded
 // string and every distinct server failure looked identical to the user.
@@ -17040,13 +17100,15 @@ async function submitNewFlowMap(useAI = false) {
             const companyName = compDoc.data()?.name || '';
 
             const _voucherFlow = await claimVoucher(_txHash10, 'generate-flowmap');
-            const response = await fetch('/api/generate-flowmap', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
-                body: JSON.stringify({ voucher: _voucherFlow, name: companyName, description, stack })
+            const parsed = await runPaidAIJob({
+                kind:    'generate-flowmap',
+                voucher: _voucherFlow,
+                input:   { name: companyName, description, stack },
+                onProgress: (s) => {
+                    if (s === 'running') setStatus('🤖 Claude is generating your plan...');
+                    if (s === 'pending') setStatus('⏳ Queued — starting shortly...');
+                }
             });
-            if (!response.ok) throw new Error(await serverError(response, 'AI generation failed'));
-            const parsed = await response.json();
             if (!parsed.nodes || !Array.isArray(parsed.nodes)) throw new Error('Invalid response. Please try again.');
             nodes = parsed.nodes;
 
