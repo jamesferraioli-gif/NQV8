@@ -4545,16 +4545,23 @@ const ESCROW_ABI = [
 ];
 
 // NQVate Rewards Distribution — deployed on Arbitrum One
-const REWARDS_CONTRACT_ADDRESS = '0x045aD6C2889ABCe6Bd8ef52D621706c44e4f1266';
+const REWARDS_CONTRACT_ADDRESS = '0xBfB1301819Ea548E05Ae88611761Db3Fe5bD7C2D';
+const STAKING_CONTRACT_ADDRESS = '0xdC021eEEB4d0F6AFE3187bdD428a2BF8a669FfD2';
 
 const REWARDS_ABI = [
     "function payNQV8Fee(address payer, uint256 amount) external",
     "function payUSDCFee(uint256 amount) external",
     "function previewReward(address wallet) external view returns (uint256 nqv8Reward, uint256 usdcReward, uint256 sharePercent, uint256 nqv8Paid)",
     "function getCurrentMonthStats() external view returns (uint256 feePayerCount, uint256 nqv8FeesCollected, uint256 usdcFeesCollected, uint256 nqv8Pool, uint256 usdcPool, uint256 lastDistribution)",
-    "function getDistributionHistory(string month) external view returns (tuple(string month, uint256 nqv8Distributed, uint256 usdcDistributed, uint256 recipientCount, uint256 timestamp, uint256 totalNQV8Fees, uint256 totalUSDCFees))",
-    "function getAllDistributionMonths() external view returns (string[])",
-    "function getStats() external view returns (uint256 totalNQV8Distributed, uint256 totalUSDCDistributed, uint256 totalRounds, uint256 lastDistribution, uint256 currentNQV8Pool, uint256 currentUSDCPool)",
+    "function getEpochByLabel(string label) external view returns (uint256 epochId, tuple(uint64 startedAt, uint64 endedAt, uint256 totalNQV8Fees, uint256 totalUSDCFees, uint256 nqv8Pool, uint256 usdcPool, uint256 nqv8Claimed, uint256 usdcClaimed, uint32 payerCount, uint32 claimantCount, bool closed, bool swept, string label) epoch)",
+    "function getAllLabels() external view returns (string[])",
+    "function getStats() external view returns (uint256 totalNQV8Distributed, uint256 totalUSDCDistributed, uint256 epochsClosed, uint256 lastCloseAt, uint256 openNQV8Pool, uint256 openUSDCPool)",
+    "function currentEpoch() external view returns (uint256)",
+    "function stakeRequirement(uint256 nqv8FeesPaidInEpoch) external view returns (uint256)",
+    "function claim(uint256 epochId) external",
+    "function claimStatus(uint256 epochId, address wallet) external view returns (bool closed, bool claimed, bool windowOpen, uint256 nqv8Paid, uint256 nqv8Share, uint256 usdcShare, uint256 stakeRequired, uint256 stakeHeld, bool eligible)",
+    "event RewardClaimed(address indexed wallet, uint256 indexed epochId, uint256 nqv8Amount, uint256 usdcAmount, uint256 shareBps)",
+    "event EpochClosed(uint256 indexed epochId, string label, uint256 nqv8Pool, uint256 usdcPool, uint256 totalNQV8Fees, uint32 payers)",
     "event RewardsDistributed(string month, uint256 nqv8Amount, uint256 usdcAmount, uint256 recipients)",
     "event RewardPaid(address indexed recipient, uint256 nqv8Amount, uint256 usdcAmount, uint256 sharePercent)"
 ];
@@ -14680,17 +14687,29 @@ async function loadRewards() {
         }
 
         // ── Distribution history ──────────────────────────────────────────
-        const months = await rewardsReadOnly.getAllDistributionMonths();
+        // RewardsV2 keeps closed periods as epochs and pays on claim rather
+        // than pushing to everyone, so "distributed" here means claimed.
+        const months = await rewardsReadOnly.getAllLabels();
 
         if (months.length === 0) {
             document.getElementById('rewards-history-grid').innerHTML =
-                '<p class="text-zinc-500 text-sm">No distributions yet — first one runs on the 1st of next month.</p>';
+                '<p class="text-zinc-500 text-sm">No reward periods closed yet — the first closes on the 1st of next month.</p>';
             return;
         }
 
-        // Fetch all month summaries in parallel
         const histories = await Promise.all(
-            months.map(m => rewardsReadOnly.getDistributionHistory(m).then(h => ({ month: m, ...h })))
+            months.map(m => rewardsReadOnly.getEpochByLabel(m).then(([epochId, e]) => ({
+                month:            m,
+                epochId,
+                nqv8Distributed:  e.nqv8Claimed,
+                usdcDistributed:  e.usdcClaimed,
+                recipientCount:   e.claimantCount,
+                timestamp:        e.endedAt,
+                totalNQV8Fees:    e.totalNQV8Fees,
+                totalUSDCFees:    e.totalUSDCFees,
+                nqv8Pool:         e.nqv8Pool,
+                usdcPool:         e.usdcPool
+            })))
         );
 
         // Sort newest first
