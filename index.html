@@ -1939,7 +1939,7 @@
                 </tbody>
             </table>
         </div>
-        <p class="text-zinc-500 text-xs mt-6">All payments are made in NQV8. Banner ads are reviewed by our team before going live — rejected campaigns are fully refunded.</p>
+        <p class="text-zinc-500 text-xs mt-6">All prices are fixed in NQV8. Banner ads are reviewed by our team before going live — rejected campaigns are fully refunded.</p>
     </div>
 
     <!-- ADMIN TAB -->
@@ -1984,11 +1984,11 @@
             <div>
                 <label class="text-sm text-zinc-400 block mb-2">Duration</label>
                 <div class="grid grid-cols-3 gap-2">
-                    ${[{d:3,p:50},{d:7,p:120},{d:30,p:400}].map(t => `
+                    ${[{d:3,p:5000},{d:7,p:12000},{d:30,p:40000}].map(t => `
                     <button onclick="selectBannerDuration(${t.d}, ${t.p})" id="banner-dur-${t.d}"
                             class="py-3 rounded-2xl border border-zinc-700 hover:border-violet-400 text-sm text-center transition-colors">
                         <p class="font-semibold">${t.d} days</p>
-                        <p class="text-zinc-400 text-xs">$${t.p}</p>
+                        <p class="text-zinc-400 text-xs">${t.p.toLocaleString()} NQV8</p>
                     </button>`).join('')}
                 </div>
             </div>
@@ -2671,7 +2671,7 @@ async function loadMyCampaigns() {
                     <div class="flex items-start justify-between mb-4 flex-wrap gap-2">
                         <div class="min-w-0">
                             <p class="font-semibold text-lg truncate">${c.creative?.headline || c.advertiserCompanyName || 'Campaign'}</p>
-                            <p class="text-zinc-500 text-sm">${typeLabels[c.placementType] || c.placementType} · ${c.days} days · $${c.pricePaidUSDC} in NQV8</p>
+                            <p class="text-zinc-500 text-sm">${typeLabels[c.placementType] || c.placementType} · ${c.days} days · ${(c.pricePaidNQV8 || 0).toLocaleString()} NQV8</p>
                         </div>
                         <div class="flex flex-col items-end gap-1">
                             <span class="px-3 py-1 rounded-full text-xs font-medium border ${statusClass}">${statusLabels[c.status] || c.status}</span>
@@ -2817,7 +2817,7 @@ async function loadAdminModerationQueue() {
                     <div class="flex items-start justify-between mb-3">
                         <div>
                             <p class="font-semibold">${c.creative?.headline || 'No headline'}</p>
-                            <p class="text-zinc-500 text-sm">${c.advertiserCompanyName || 'Unknown'} · ${c.placementType} · ${c.days} days · $${c.pricePaidUSDC}</p>
+                            <p class="text-zinc-500 text-sm">${c.advertiserCompanyName || 'Unknown'} · ${c.placementType} · ${c.days} days · ${(c.pricePaidNQV8 || 0).toLocaleString()} NQV8</p>
                         </div>
                     </div>
                     <p class="text-zinc-400 text-sm mb-2">${c.creative?.body || ''}</p>
@@ -2880,7 +2880,7 @@ async function submitBannerCampaign() {
 
     showPaymentPicker(
         `Banner Ad — ${_bannerDays} days`,
-        _bannerPrice, 100,
+        _bannerPrice,
         async (txHash) => {
             try {
                 // Auto-moderate via Claude before going live
@@ -2908,7 +2908,7 @@ async function submitBannerCampaign() {
                     advertiserCompanyName: company,
                     placementType: 'banner',
                     days: _bannerDays,
-                    pricePaidUSDC: _bannerPrice,
+                    pricePaidNQV8: _bannerPrice,
                     paymentTxHash: txHash,
                     creative: { headline, body },
                     targetUrl: url,
@@ -2957,14 +2957,14 @@ function showSponsorPostModal(postId, postTitle) {
             <p class="text-sm text-zinc-400 mb-3">Your post will appear highlighted in the Explore feed every 8 posts, clearly labeled "Sponsored."</p>
 
             <div class="space-y-3 mb-6">
-                ${[{days:3,price:30},{days:7,price:70},{days:30,price:250}].map(t => `
-                <button onclick="this.closest('.space-y-3').querySelectorAll('button').forEach(b=>b.classList.remove('border-amber-400','bg-amber-500/10')); this.classList.add('border-amber-400','bg-amber-500/10'); document.getElementById('sponsor-confirm-btn').disabled=false; document.getElementById('sponsor-confirm-btn').textContent='Sponsor for $${t.price} (${t.days} days)'; document.getElementById('sponsor-confirm-btn').dataset.days='${t.days}'; document.getElementById('sponsor-confirm-btn').dataset.price='${t.price}';"
+                ${[{days:3,price:3000},{days:7,price:7000},{days:30,price:25000}].map(t => `
+                <button onclick="this.closest('.space-y-3').querySelectorAll('button').forEach(b=>b.classList.remove('border-amber-400','bg-amber-500/10')); this.classList.add('border-amber-400','bg-amber-500/10'); document.getElementById('sponsor-confirm-btn').disabled=false; document.getElementById('sponsor-confirm-btn').textContent='Sponsor for ${t.price.toLocaleString()} NQV8 (${t.days} days)'; document.getElementById('sponsor-confirm-btn').dataset.days='${t.days}'; document.getElementById('sponsor-confirm-btn').dataset.price='${t.price}';"
                         class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors flex justify-between items-center">
                     <div>
                         <p class="font-semibold">${t.days} Days</p>
                         <p class="text-xs text-zinc-500">${t.days === 3 ? 'Quick boost' : t.days === 7 ? 'Most popular' : 'Maximum exposure'}</p>
                     </div>
-                    <p class="text-xl font-bold text-amber-400">$${t.price}</p>
+                    <p class="text-xl font-bold text-amber-400">${t.price.toLocaleString()} NQV8</p>
                 </button>`).join('')}
             </div>
 
@@ -2986,7 +2986,7 @@ async function confirmSponsorPost(btn) {
 
     showPaymentPicker(
         `Sponsor Explore post for ${days} days`,
-        price, 100,
+        price,
         async (txHash) => {
             try {
                 const now = Date.now();
@@ -3002,7 +3002,7 @@ async function confirmSponsorPost(btn) {
                     placementType: 'sponsored_post',
                     linkedPostId: postId,
                     days,
-                    pricePaidUSDC: price,
+                    pricePaidNQV8: price,
                     paymentTxHash: txHash,
                     creative: {
                         headline: post?.title || '',
@@ -3146,7 +3146,7 @@ async function confirmBoostExplorePost() {
 
     showPaymentPicker(
         `Boost Explore post for ${_boostDays} days`,
-        _boostPrice, 100,
+        _boostPrice,
         async (txHash) => {
             try {
                 const boostUntil = Date.now() + (_boostDays * 24 * 60 * 60 * 1000);
@@ -3163,7 +3163,7 @@ async function confirmBoostExplorePost() {
                     placementType: 'sponsored_explore',
                     linkedPostId: _boostPostId,
                     days: _boostDays,
-                    pricePaidUSDC: _boostPrice,
+                    pricePaidNQV8: _boostPrice,
                     paymentTxHash: txHash,
                     startDate: Date.now(),
                     endDate: boostUntil,
@@ -3282,7 +3282,7 @@ async function submitNewCampaign() {
 
             const reviewResponse = await fetch('/api/review-submission', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
                     body: JSON.stringify({
                         projectTitle: currentProject?.title || '',
                         projectDescription: currentProject?.description || '',
@@ -3314,7 +3314,7 @@ async function submitNewCampaign() {
 
         showPaymentPicker(
             `${_campaignPlacement === 'banner' ? 'Banner' : 'Sponsored Explore'} campaign — ${_campaignDays} days`,
-            _campaignPrice, 100,
+            _campaignPrice,
             async (txHash) => {
                 try {
                     const startDate = Date.now();
@@ -3328,7 +3328,7 @@ async function submitNewCampaign() {
                         creative: { headline, body, imageUrl },
                         targetUrl: targetUrl || null,
                         days: _campaignDays,
-                        pricePaidUSDC: _campaignPrice,
+                        pricePaidNQV8: _campaignPrice,
                         paymentTxHash: txHash,
                         startDate,
                         endDate,
@@ -3414,7 +3414,7 @@ async function loadAdvertiseDashboard() {
                     </div>
                     <p class="text-xs text-zinc-600 mt-4">
                         ${isActive ? `Ends ${new Date(c.endDate).toLocaleDateString()}` : `Ended ${new Date(c.endDate).toLocaleDateString()}`}
-                        · Paid $${c.pricePaidUSDC}
+                        · Paid ${(c.pricePaidNQV8 || 0).toLocaleString()} NQV8
                     </p>
                 </div>`;
         }).join('');
@@ -3536,7 +3536,7 @@ async function confirmPromoteListing() {
 
     showPaymentPicker(
         `Promote listing for ${_promoteDays} days`,
-        _promotePrice, 100,
+        _promotePrice,
         async (txHash) => {
             try {
                 const featuredUntil = Date.now() + (_promoteDays * 24 * 60 * 60 * 1000);
@@ -3552,7 +3552,7 @@ async function confirmPromoteListing() {
                     placementType: 'featured_listing',
                     linkedSubprojectId: _promoteListingId,
                     days: _promoteDays,
-                    pricePaidUSDC: _promotePrice,
+                    pricePaidNQV8: _promotePrice,
                     paymentTxHash: txHash,
                     startDate: Date.now(),
                     endDate: featuredUntil,
@@ -4024,7 +4024,7 @@ async function submitMetricsVerification() {
         const _voucherMetrics = await claimVoucher(_txHash1, 'verify-metrics');
         const response = await fetch('/api/verify-metrics', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
             body: JSON.stringify({
                 voucher: _voucherMetrics,
                 revenueBase64,
@@ -4589,7 +4589,7 @@ setInterval(() => { refreshIdToken(true); }, 30 * 60 * 1000); // tokens expire h
 async function claimVoucher(txHash, purpose) {
     const r = await fetch('/api/claim-voucher', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
         body: JSON.stringify({ txHash, purpose })
     });
     const d = await r.json();
@@ -6281,7 +6281,7 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                 const _voucherDocs = await claimVoucher(txHash, 'verify-docs');
                 const verifyResponse = await fetch('/api/verify-docs', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
                     body: JSON.stringify({
                         voucher: _voucherDocs,
                         incorporationBase64,
@@ -6314,7 +6314,7 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                 const scanFile = async (file, base64) => {
                     const reviewResponse = await fetch('/api/review-submission', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
                         body: JSON.stringify({
                             projectTitle: 'Company Verification Document',
                             projectDescription: 'Founder uploading a company verification document.',
@@ -8611,7 +8611,7 @@ function hideEditPostingModal() {
                             // Alert ops team
                             fetch('/api/send-email', {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
                                 body: JSON.stringify({
                                     to: 'james.ferraioli@gmail.com',
                                     subject: '🚨 NQVate: Operations Wallet Low — equity-reserve failed',
@@ -8834,6 +8834,50 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
         }
 
     let _submitWorkInProgress = false;
+    // ── Arm the on-chain delivery timestamp ────────────────────────────────
+    // EscrowV3.submitDeliverables() requires msg.sender == escrow.worker, so this
+    // can only be called from the builder's own wallet — ops cannot do it.
+    // It flips the escrow Active -> Submitted, which:
+    //   1. starts the 7-day AUTO_RELEASE_DAYS clock, arming claimAutoRelease(),
+    //   2. makes adminRefund() and claimRefund() revert ("Not active"), so the
+    //      poster can no longer reclaim the funds after work was delivered.
+    // Until this is called the escrow stays Active and a poster (or the
+    // auto-refund cron) can refund delivered work out from under the builder.
+    async function armEscrowSubmission(projectId) {
+        try {
+            if (!connectedAddress || !signer) {
+                await connectWallet();
+                if (!connectedAddress || !signer) return { ok: false, reason: 'wallet' };
+            }
+            const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
+            const escrowId = await escrowContract.projectToEscrow(
+                ethers.utils.keccak256(ethers.utils.toUtf8Bytes(projectId))
+            );
+            // Equity-only bounties have no USDC escrow — nothing to arm.
+            if (!escrowId || /^0x0+$/.test(escrowId)) return { ok: true, reason: 'no-escrow' };
+
+            const e = await escrowContract.escrows(escrowId);
+
+            // 0 = Active. Anything else means it is already submitted, released,
+            // refunded, disputed or resolved — a resubmission must not re-arm it.
+            if (e.status !== 0) return { ok: true, reason: 'already-armed' };
+
+            // The escrow was created against the wallet the builder held at
+            // acceptance time. If they have switched wallets since, the contract
+            // will reject the call, so say so plainly instead of reverting.
+            if (e.worker.toLowerCase() !== connectedAddress.toLowerCase()) {
+                return { ok: false, reason: 'wrong-wallet', expected: e.worker };
+            }
+
+            const tx = await escrowContract.submitDeliverables(escrowId);
+            await confirmTx(tx);
+            return { ok: true, txHash: tx.hash };
+        } catch (err) {
+            console.warn('armEscrowSubmission failed:', err.message);
+            return { ok: false, reason: err.message };
+        }
+    }
+
     async function submitWork() {
     if (!currentSubmitProjectId) return;
     if (_submitWorkInProgress) return;
@@ -8902,7 +8946,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
 
         const reviewResponse = await fetch('/api/review-submission', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
             body: JSON.stringify({
                 projectTitle: currentProject?.title || '',
                 projectDescription: currentProject?.description || '',
@@ -8993,6 +9037,31 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             status: 'in-progress'
         });
 
+        // ── Record the delivery on-chain ──────────────────────────────
+        // Firestore first, chain second: if this call fails the submission is
+        // still saved. The reverse order could arm an escrow with no record of
+        // what was delivered.
+        const _armed = await armEscrowSubmission(currentSubmitProjectId);
+        if (!_armed.ok) {
+            await projectRef.update({ escrowArmFailed: true, escrowArmError: _armed.reason || 'unknown' });
+            if (_armed.reason === 'wrong-wallet') {
+                alert('⚠️ Your work was submitted, but the delivery could not be recorded on-chain.\n\n'
+                    + 'This bounty\'s escrow is held against ' + _armed.expected.slice(0, 6) + '…' + _armed.expected.slice(-4)
+                    + ', not the wallet you have connected. Reconnect that wallet and submit again, '
+                    + 'or the poster can still refund the escrow after the deadline.');
+            } else {
+                alert('⚠️ Your work was submitted, but the delivery could not be recorded on-chain.\n\n'
+                    + 'Until it is, the poster can still refund the escrow after the deadline. '
+                    + 'Reconnect your wallet and submit again to protect the payment.');
+            }
+        } else if (_armed.txHash) {
+            await projectRef.update({
+                escrowSubmittedOnChain: true,
+                escrowSubmitTxHash:     _armed.txHash,
+                escrowArmFailed:        false
+            });
+        }
+
         // ── Notify poster that work was submitted ─────────────────────
         notifyWorkSubmitted(project);
 
@@ -9008,7 +9077,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
         if (attachments.length > 0) {
             fetch('/api/virus-scan', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
                 body: JSON.stringify({
                     projectId: currentSubmitProjectId,
                     // No index — the server targets the most recent submission.
@@ -9121,7 +9190,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             try {
                 await fetch('/api/virus-scan', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
                     body: JSON.stringify({ projectId, submissionIndex })
                 });
                 alert('🔍 Security scan started — results will update automatically.');
@@ -9449,7 +9518,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                     alert("⚠️ We're experiencing a temporary technical issue. Please try again in a few minutes or contact NQVate support.");
                     fetch('/api/send-email', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
                         body: JSON.stringify({
                             to: 'james.ferraioli@gmail.com',
                             subject: '🚨 NQVate: Operations Wallet Low — escrow-release failed',
@@ -9679,7 +9748,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                         if (payErr.message === 'PLATFORM_GAS_ERROR') {
                                 alert('⚠️ We couldn\'t complete this right now due to a platform issue on our side.\n\nNothing has been lost — your funds and this bounty are unaffected. Our team has been notified automatically. Please try again shortly.');                            fetch('/api/send-email', {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
                                 body: JSON.stringify({
                                     to: 'james.ferraioli@gmail.com',
                                     subject: '🚨 NQVate: Operations Wallet Low — equity-complete failed',
@@ -10005,7 +10074,7 @@ async function startVideoCall() {
                 // Create a Daily.co room via our backend
                 const response = await fetch('/api/create-room', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
                     body: JSON.stringify({ chatId: currentChatId })
                 });
 
@@ -10131,7 +10200,7 @@ async function startVideoCall() {
 
                 const reviewResponse = await fetch('/api/review-submission', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
                     body: JSON.stringify({
                         projectTitle: 'Profile Picture Upload',
                         projectDescription: 'User uploading a profile picture.',
@@ -12421,7 +12490,7 @@ function showUploadToDataRoomModal(companyId) {
 
             const reviewResponse = await fetch('/api/review-submission', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
                 body: JSON.stringify({
                     projectTitle: 'Data Room Upload',
                     projectDescription: 'Private investor document upload',
@@ -13246,7 +13315,7 @@ async function submitFundingPosting() {
                             alert('⚠️ We\'re experiencing a temporary technical issue. Your funding request was posted but equity listing failed. Please try again in a few minutes.');
                             fetch('/api/send-email', {
                                 method: 'POST',
-                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+                                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
                                 body: JSON.stringify({
                                     to: 'james.ferraioli@gmail.com',
                                     subject: '🚨 NQVate: Operations Wallet Low — admin-list-equity failed',
@@ -13779,7 +13848,7 @@ async function claimSignupBonus() {
             try {
                 const response = await fetch('/api/moderate', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
                     body: JSON.stringify({ text, contentType })
                 });
                 if (!response.ok) {
@@ -13993,7 +14062,7 @@ async function checkAndImprovePosting(title, description, category, compensation
     try {
         const response = await fetch('/api/improve-posting', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
             body: JSON.stringify({ title, description, category, compensationType, postingType })
         });
 
@@ -14699,7 +14768,7 @@ async function loadEquityValuation(listingId, projectId) {
     try {
         const response = await fetch('/api/valuate-equity', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
             body: JSON.stringify({ projectId })
         });
 
@@ -14780,7 +14849,7 @@ async function triggerEquityRevaluation(projectId) {
     try {
         await fetch('/api/valuate-equity', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
             body: JSON.stringify({ projectId, forceRefresh: true })
         });
         console.log('Revaluation triggered for', projectId);
@@ -15094,7 +15163,7 @@ async function loadEquityValuationForStake(projectId, btn) {
     try {
         const response = await fetch('/api/valuate-equity', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
             body: JSON.stringify({ projectId })
         });
         if (!response.ok) throw new Error('Valuation unavailable');
@@ -16031,7 +16100,7 @@ async function sendEmail(type, toEmail, data) {
     try {
         await fetch('/api/send-email', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
             body: JSON.stringify({ type, to: toEmail, data })
         });
     } catch(e) {
@@ -16962,7 +17031,7 @@ async function submitNewFlowMap(useAI = false) {
             const _voucherFlow = await claimVoucher(_txHash10, 'generate-flowmap');
             const response = await fetch('/api/generate-flowmap', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${_idToken}` },
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
                 body: JSON.stringify({ voucher: _voucherFlow, name: companyName, description, stack })
             });
             if (!response.ok) throw new Error('AI generation failed. Please try again.');
@@ -18910,31 +18979,31 @@ async function founderRelease() {
         <p class="text-zinc-400 text-sm mb-6">Featured postings appear at the top of the marketplace with a highlighted badge, increasing visibility to builders and investors.</p>
 
         <div class="space-y-3 mb-6">
-            <button onclick="selectPromoteTier(3, 25)" id="promote-tier-3" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
+            <button onclick="selectPromoteTier(3, 2500)" id="promote-tier-3" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
                 <div class="flex justify-between items-center">
                     <div>
                         <p class="font-semibold">3 Days</p>
                         <p class="text-xs text-zinc-500">Quick visibility boost</p>
                     </div>
-                    <p class="text-xl font-bold text-amber-400">$25</p>
+                    <p class="text-xl font-bold text-amber-400">2,500 NQV8</p>
                 </div>
             </button>
-            <button onclick="selectPromoteTier(7, 50)" id="promote-tier-7" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
+            <button onclick="selectPromoteTier(7, 5000)" id="promote-tier-7" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
                 <div class="flex justify-between items-center">
                     <div>
                         <p class="font-semibold">7 Days</p>
                         <p class="text-xs text-zinc-500">Most popular</p>
                     </div>
-                    <p class="text-xl font-bold text-amber-400">$50</p>
+                    <p class="text-xl font-bold text-amber-400">5,000 NQV8</p>
                 </div>
             </button>
-            <button onclick="selectPromoteTier(30, 150)" id="promote-tier-30" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
+            <button onclick="selectPromoteTier(30, 15000)" id="promote-tier-30" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
                 <div class="flex justify-between items-center">
                     <div>
                         <p class="font-semibold">30 Days</p>
                         <p class="text-xs text-zinc-500">Maximum exposure</p>
                     </div>
-                    <p class="text-xl font-bold text-amber-400">$150</p>
+                    <p class="text-xl font-bold text-amber-400">15,000 NQV8</p>
                 </div>
             </button>
         </div>
@@ -18956,31 +19025,31 @@ async function founderRelease() {
         <p class="text-zinc-400 text-sm mb-6">Boosted posts appear as sponsored cards throughout the Explore feed with a highlighted badge.</p>
 
         <div class="space-y-3 mb-6">
-            <button onclick="selectBoostTier(3, 10)" id="boost-tier-3" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
+            <button onclick="selectBoostTier(3, 1000)" id="boost-tier-3" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
                 <div class="flex justify-between items-center">
                     <div>
                         <p class="font-semibold">3 Days</p>
                         <p class="text-xs text-zinc-500">Quick visibility boost</p>
                     </div>
-                    <p class="text-xl font-bold text-amber-400">$10</p>
+                    <p class="text-xl font-bold text-amber-400">1,000 NQV8</p>
                 </div>
             </button>
-            <button onclick="selectBoostTier(7, 20)" id="boost-tier-7" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
+            <button onclick="selectBoostTier(7, 2000)" id="boost-tier-7" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
                 <div class="flex justify-between items-center">
                     <div>
                         <p class="font-semibold">7 Days</p>
                         <p class="text-xs text-zinc-500">Most popular</p>
                     </div>
-                    <p class="text-xl font-bold text-amber-400">$20</p>
+                    <p class="text-xl font-bold text-amber-400">2,000 NQV8</p>
                 </div>
             </button>
-            <button onclick="selectBoostTier(30, 60)" id="boost-tier-30" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
+            <button onclick="selectBoostTier(30, 6000)" id="boost-tier-30" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
                 <div class="flex justify-between items-center">
                     <div>
                         <p class="font-semibold">30 Days</p>
                         <p class="text-xs text-zinc-500">Maximum exposure</p>
                     </div>
-                    <p class="text-xl font-bold text-amber-400">$60</p>
+                    <p class="text-xl font-bold text-amber-400">6,000 NQV8</p>
                 </div>
             </button>
         </div>
@@ -19033,14 +19102,14 @@ async function founderRelease() {
         <div id="campaign-step-duration" class="hidden">
             <p class="text-sm font-semibold text-zinc-400 mb-3">3. Duration</p>
             <div class="space-y-3 mb-6">
-                <button onclick="selectCampaignDuration(3, 25)" id="camp-dur-3" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
-                    <div class="flex justify-between items-center"><p class="font-semibold">3 Days</p><p class="text-xl font-bold text-amber-400">$25</p></div>
+                <button onclick="selectCampaignDuration(3, 2500)" id="camp-dur-3" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
+                    <div class="flex justify-between items-center"><p class="font-semibold">3 Days</p><p class="text-xl font-bold text-amber-400">2,500 NQV8</p></div>
                 </button>
-                <button onclick="selectCampaignDuration(7, 50)" id="camp-dur-7" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
-                    <div class="flex justify-between items-center"><p class="font-semibold">7 Days</p><p class="text-xl font-bold text-amber-400">$50</p></div>
+                <button onclick="selectCampaignDuration(7, 5000)" id="camp-dur-7" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
+                    <div class="flex justify-between items-center"><p class="font-semibold">7 Days</p><p class="text-xl font-bold text-amber-400">5,000 NQV8</p></div>
                 </button>
-                <button onclick="selectCampaignDuration(30, 150)" id="camp-dur-30" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
-                    <div class="flex justify-between items-center"><p class="font-semibold">30 Days</p><p class="text-xl font-bold text-amber-400">$150</p></div>
+                <button onclick="selectCampaignDuration(30, 15000)" id="camp-dur-30" class="w-full p-4 rounded-2xl border border-zinc-700 hover:border-amber-400 text-left transition-colors">
+                    <div class="flex justify-between items-center"><p class="font-semibold">30 Days</p><p class="text-xl font-bold text-amber-400">15,000 NQV8</p></div>
                 </button>
             </div>
             <div class="flex gap-3">
