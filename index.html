@@ -3121,10 +3121,6 @@ function showBoostExplorePostModal(postId) {
     document.getElementById('boost-explore-modal').classList.remove('hidden');
 }
 
-function showSponsorPostModal(postId, title) {
-    showBoostExplorePostModal(postId);
-}
-
 function hideBoostExploreModal() {
     document.getElementById('boost-explore-modal').classList.add('hidden');
     _boostPostId = null;
@@ -6586,16 +6582,6 @@ function navigateTo(page) {
         function viewProfile() {
             document.getElementById('profile-dropdown')?.classList.add('hidden');
             navigateTo('profile');
-        }
-
-        // ====================== TIME AGO ======================
-        function timeAgo(date) {
-            if (!date) return '';
-            const seconds = Math.floor((new Date() - date) / 1000);
-            if (seconds < 60)   return 'just now';
-            if (seconds < 3600) return Math.floor(seconds / 60) + 'm ago';
-            if (seconds < 86400) return Math.floor(seconds / 3600) + 'h ago';
-            return Math.floor(seconds / 86400) + 'd ago';
         }
 
         function toggleMobileMenu() {
