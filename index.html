@@ -2122,7 +2122,7 @@
             <div class="flex items-start justify-between gap-4 mb-4">
                 <div>
                     <p class="text-sm font-semibold text-zinc-300">Staking</p>
-                    <p class="text-xs text-zinc-500 mt-1">Rewards require NQV8 staked for the whole month. Unstaking takes 30 days.</p>
+                    <p class="text-xs text-zinc-500 mt-1">Stake NQV8 to become eligible for the monthly fee rebate.</p>
                 </div>
                 <p id="stake-requirement-hint" class="text-xs text-zinc-500 text-right shrink-0"></p>
             </div>
@@ -2169,6 +2169,38 @@
                 </div>
             </div>
             <p id="stake-status" class="hidden text-xs text-zinc-400 mt-3"></p>
+
+            <div class="mt-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
+                <p class="text-amber-400 text-xs font-semibold mb-1">Stake before the month starts, not during it</p>
+                <p class="text-zinc-400 text-xs">Eligibility uses your <span class="text-zinc-200 font-semibold">lowest</span> balance at any point in the month — not your balance at the end. Stake mid-month and your lowest balance was zero, so that month pays nothing.</p>
+            </div>
+
+            <details class="mt-3 group">
+                <summary class="text-xs text-cyan-400 cursor-pointer hover:text-cyan-300 select-none">How staking works &amp; what it costs</summary>
+                <div class="mt-3 space-y-3 text-xs text-zinc-400 leading-relaxed">
+                    <div>
+                        <p class="text-zinc-300 font-semibold mb-1">Why stake</p>
+                        <p>Every month, 20% of all platform fees collected go back to the people who paid them, split in proportion to the NQV8 fees each wallet paid. Staking is what makes you eligible to collect your share. Pay fees without staking and the rebate goes unclaimed.</p>
+                    </div>
+                    <div>
+                        <p class="text-zinc-300 font-semibold mb-1">How much you need</p>
+                        <p>The greater of <span class="text-zinc-200">1,000 NQV8</span> or <span class="text-zinc-200">5&times; the NQV8 fees you paid that month</span>. Pay 400 NQV8 in fees and you need 2,000 staked; pay almost nothing and the 1,000 floor applies. Your signup bonus is 1,000 NQV8, so simply keeping it staked makes you eligible from day one. The figure at the top of this card is your current requirement, read live from the contract.</p>
+                    </div>
+                    <div>
+                        <p class="text-zinc-300 font-semibold mb-1">Unstaking takes 30 days</p>
+                        <p>Requesting an unstake starts a 30-day cooldown, and the amount stops counting toward rewards <span class="text-zinc-200">immediately</span> — including for the month in progress. Changed your mind? Cancel &amp; restake puts the whole amount back with no wait. The 30 days matches the reward period, so collecting every month means staying staked.</p>
+                    </div>
+                    <div>
+                        <p class="text-zinc-300 font-semibold mb-1">Rewards are claimed, not sent</p>
+                        <p>Nothing arrives automatically. When a month closes it appears under Claimable Rewards above with your share and a Claim button, and you have 90 days to take it. A month you were not eligible for shows you exactly what was required and what you actually held.</p>
+                    </div>
+                    <div>
+                        <p class="text-zinc-300 font-semibold mb-1">What "locked in bonds" means</p>
+                        <p>It reads zero today. Bonds are a planned use of staked NQV8: a deposit behind a specific commitment, such as a bid or an accepted job, which is returned on honest completion and forfeited to the other party on default. Stake committed to a bond cannot be unstaked until that commitment is settled. Nothing is bonded until that ships.</p>
+                    </div>
+                    <p class="text-zinc-500">Staking is non-custodial. Your NQV8 sits in the staking contract, which cannot pay it anywhere but back to you, and the contract's recovery function is barred from touching staked funds.</p>
+                </div>
+            </details>
         </div>
 
         <!-- Claimable rewards -->
@@ -15146,8 +15178,10 @@ async function loadRewards() {
 
         const totalNQV8 = parseFloat(ethers.utils.formatUnits(stats.totalNQV8Distributed, 18));
         const totalUSDC = parseFloat(ethers.utils.formatUnits(stats.totalUSDCDistributed, 6));
-        const rounds    = stats.totalRounds.toNumber();
-        const lastDist  = stats.lastDistribution.toNumber();
+        // V2 renamed these: a distribution round is now a closed epoch, and
+        // nothing is "distributed" on close because wallets claim instead.
+        const rounds    = stats.epochsClosed.toNumber();
+        const lastDist  = stats.lastCloseAt.toNumber();
 
         document.getElementById('rewards-total-nqv8').textContent   = totalNQV8.toLocaleString() + ' NQV8';
         document.getElementById('rewards-total-usdc').textContent   = '$' + totalUSDC.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -15224,9 +15258,14 @@ async function loadRewards() {
         renderRewardsHistory(histories, _rewardsViewMonths);
 
     } catch(e) {
-        console.warn('loadRewards failed:', e.message);
-        document.getElementById('rewards-history-grid').innerHTML =
-            '<p class="text-zinc-500 text-sm">Could not load reward history.</p>';
+        // Report what actually failed. This panel silently showed
+        // "Could not load reward history" for every cause, including a
+        // renamed contract field, which made it look like an RPC problem.
+        console.error('loadRewards failed:', e);
+        const grid = document.getElementById('rewards-history-grid');
+        if (grid) grid.innerHTML =
+            `<p class="text-zinc-500 text-sm">Could not load reward history.</p>
+             <p class="text-zinc-600 text-xs mt-1">${(e.message || String(e)).slice(0, 160)}</p>`;
     }
 }
 
