@@ -889,15 +889,17 @@
             </div>
             <!-- Deadline Selection -->
             <div class="mt-6">
-                <p class="text-sm text-zinc-400 mb-3">Project Deadline</p>
+                <p class="text-sm text-zinc-400 mb-3">Target timeframe</p>
                 <select id="project-deadline" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
-                    <option value="">Select Deadline</option>
-                    <option value="1day">1 Day</option>
-                    <option value="1week" selected>1 Week</option>
-                    <option value="1month">1 Month</option>
-                    <option value="3months">3 Months</option>
+                    <option value="1day">1 day</option>
+                    <option value="3days">3 days</option>
+                    <option value="1week" selected>1 week</option>
+                    <option value="2weeks">2 weeks</option>
+                    <option value="1month">1 month</option>
+                    <option value="2months">2 months</option>
+                    <option value="3months">3 months</option>
                 </select>
-                <p class="text-xs text-zinc-500 mt-2">Projects longer than 3 months should be broken into milestones.</p>
+                <p class="text-xs text-zinc-500 mt-2">What you're hoping for. Builders propose their own delivery time when they bid, and the accepted bid's timeframe is what sets the escrow deadline.</p>
             </div>
         </div>
     </div>
@@ -4658,15 +4660,87 @@ const NQV8_FEE = {
     DISPUTE:        1000    // dispute filing
 };
 
+// ── Delivery timeframes ──────────────────────────────────────────────────
+// The only durations the platform supports. Keep in step with VALID in
+// api/estimate-timeframe.js — the estimator's answer becomes an escrow
+// deadline, so it can only ever return one of these.
+const TIMEFRAME_OPTIONS = [
+    { value: '1day',    label: '1 day',    days: 1  },
+    { value: '3days',   label: '3 days',   days: 3  },
+    { value: '1week',   label: '1 week',   days: 7  },
+    { value: '2weeks',  label: '2 weeks',  days: 14 },
+    { value: '1month',  label: '1 month',  days: 30 },
+    { value: '2months', label: '2 months', days: 60 },
+    { value: '3months', label: '3 months', days: 90 }
+];
+
+function timeframeDays(v)  { return (TIMEFRAME_OPTIONS.find(o => o.value === v) || { days: 7 }).days; }
+function timeframeLabel(v) { return (TIMEFRAME_OPTIONS.find(o => o.value === v) || { label: '1 week' }).label; }
+function timeframeRank(v)  { const i = TIMEFRAME_OPTIONS.findIndex(o => o.value === v); return i === -1 ? 2 : i; }
+function timeframeSelectOptions(sel) {
+    return TIMEFRAME_OPTIONS.map(o =>
+        `<option value="${o.value}"${o.value === sel ? ' selected' : ''}>${o.label}</option>`).join('');
+}
+
 function deadlineToTimestamp(deadlineStr) {
-    const now = Math.floor(Date.now() / 1000);
-    const map = {
-        '1day':    now + 86400,
-        '1week':   now + 604800,
-        '1month':  now + 2592000,
-        '3months': now + 7776000
-    };
-    return map[deadlineStr] || (now + 604800);
+    return Math.floor(Date.now() / 1000) + timeframeDays(deadlineStr) * 86400;
+}
+
+// Claude's estimate, fetched once and cached on the project document so every
+// bidder sees the SAME figure. A number that moved per view would be unfair
+// input into a negotiation.
+async function ensureTimeframeEstimate(projectId, project) {
+    if (project && project.timeframeEstimate) return project.timeframeEstimate;
+    try {
+        const res = await fetch('/api/estimate-timeframe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
+            body: JSON.stringify({
+                title:            project && project.title,
+                description:      project && project.description,
+                category:         project && project.category,
+                compensation:     project && project.compensation,
+                compensationType: project && project.compensationType
+            })
+        });
+        if (!res.ok) return null;
+        const est = await res.json();
+        if (est.unavailable) return null;
+        await db.collection('subprojects').doc(projectId).update({ timeframeEstimate: est }).catch(() => {});
+        if (project) project.timeframeEstimate = est;
+        return est;
+    } catch (e) {
+        console.warn('timeframe estimate unavailable:', e.message);
+        return null;
+    }
+}
+
+function renderTimeframeEstimate(est, compareTo) {
+    if (!est) return '';
+    const optimistic = compareTo && timeframeRank(compareTo) < timeframeRank(est.low);
+    return `
+        <div class="bg-zinc-900 border ${optimistic ? 'border-amber-500/40' : 'border-zinc-700'} rounded-2xl p-4 mb-4">
+            <p class="text-xs ${optimistic ? 'text-amber-400' : 'text-cyan-400'} font-semibold mb-1">
+                Claude's estimate: ${timeframeLabel(est.recommended)}
+                <span class="text-zinc-500 font-normal">(${timeframeLabel(est.low)}\u2013${timeframeLabel(est.high)})</span>
+            </p>
+            <p class="text-xs text-zinc-400">${est.reasoning || ''}</p>
+            ${est.confidence === 'low' ? '<p class="text-xs text-zinc-500 mt-1">Low confidence \u2014 the description is thin, so treat this as a rough guide.</p>' : ''}
+            ${optimistic ? `<p class="text-xs text-amber-400 mt-2">\u26a0\ufe0f ${timeframeLabel(compareTo)} is faster than Claude thinks is realistic.</p>` : ''}
+            ${(est.scopeRisks || []).length ? `<ul class="text-xs text-zinc-500 mt-2 space-y-0.5">${est.scopeRisks.map(r => `<li>\u2022 ${r}</li>`).join('')}</ul>` : ''}
+        </div>`;
+}
+
+// Fill the estimate slot in the project detail modal after it renders.
+async function fillTimeframeEstimateSlot(projectId, project) {
+    const slot = document.getElementById('bid-estimate-slot');
+    if (!slot) return;
+    const est = await ensureTimeframeEstimate(projectId, project);
+    if (!est) return;
+    const chosen = document.getElementById('bid-timeframe')?.value;
+    slot.innerHTML = renderTimeframeEstimate(est, chosen);
+    const sel = document.getElementById('bid-timeframe');
+    if (sel) sel.onchange = () => { slot.innerHTML = renderTimeframeEstimate(est, sel.value); };
 }
 
 // Minimal ERC-20 ABI
@@ -7719,6 +7793,7 @@ async function loadTotalFundingReceivedStat() {
                         <div class=\"flex-1 min-w-0\">
                             <p class=\"font-medium\">@${bid.bidderName}</p>
                             <p class=\"text-cyan-400 text-sm\">${bid.amount}</p>
+                            ${bid.timeframe ? `<p class=\"text-xs mt-0.5 ${project.timeframeEstimate && timeframeRank(bid.timeframe) < timeframeRank(project.timeframeEstimate.low) ? 'text-amber-400' : 'text-zinc-400'}\">Delivers in ${timeframeLabel(bid.timeframe)}${project.timeframeEstimate && timeframeRank(bid.timeframe) < timeframeRank(project.timeframeEstimate.low) ? ' \u00b7 faster than Claude thinks is realistic' : ''}</p>` : ''}
                             ${bid.status === 'countered' && bid.counterOffer ? `
                             <p class=\"text-violet-400 text-xs mt-1\">↩️ Counter sent: ${bid.counterOffer.amount} · ${bid.counterOffer.status}</p>` : ''}
                         </div>
@@ -7779,6 +7854,19 @@ async function loadTotalFundingReceivedStat() {
             </div>
             <p class="text-xs text-zinc-500 mb-4">Poster offered: ${project.compensation || '—'}</p>
             ` : ''}
+
+            <!-- Delivery timeframe -->
+            <div class="mb-4">
+                <p class="text-xs text-zinc-400 mb-1">How long you need to deliver</p>
+                <select id="bid-timeframe" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
+                    ${timeframeSelectOptions(project.targetTimeframe || project.deadline || '1week')}
+                </select>
+                <p class="text-xs text-zinc-500 mt-2">
+                    The poster is hoping for ${timeframeLabel(project.targetTimeframe || project.deadline || '1week')}.
+                    If your bid is accepted this becomes the escrow deadline, and the clock starts immediately.
+                </p>
+            </div>
+            <div id="bid-estimate-slot"></div>
 
             <!-- Payment wallet -->
             <div class="mb-4 bg-zinc-800 border border-zinc-700 rounded-2xl p-4">
@@ -7882,6 +7970,10 @@ async function loadTotalFundingReceivedStat() {
 
             content.innerHTML = mainHTML;
             modal.classList.remove('hidden');
+
+            // Not awaited — the modal is already usable, and the estimate
+            // appears when it arrives.
+            fillTimeframeEstimateSlot(projectId, project).catch(() => {});
 
             if (isInProgress) renderSubmissions(project);
             if (isInProgress) loadEscrowActions(projectId, project);
@@ -8309,6 +8401,11 @@ function hideEditPostingModal() {
 
             if (!amount) return alert('Please enter your bid.');
 
+            const bidTimeframe = document.getElementById('bid-timeframe')?.value || '';
+            if (!bidTimeframe || !TIMEFRAME_OPTIONS.some(o => o.value === bidTimeframe)) {
+                return alert('Please choose how long you need to deliver.');
+            }
+
             // Get payment wallet
             const useCustomWallet = document.querySelector('input[name="payment-wallet-choice"]:checked')?.value === 'custom';
             const customWallet = document.getElementById('bid-payment-wallet')?.value.trim();
@@ -8345,6 +8442,9 @@ function hideEditPostingModal() {
                                 bidderUid: currentUser.uid,
                                 bidderName: currentUser.fullName || currentUser.username,
                                 amount,
+                                // The builder's own delivery commitment. This is
+                                // what sets the escrow deadline on acceptance.
+                                timeframe: bidTimeframe,
                                 timestamp: new Date(),
                                 paymentTxHash: txHash,
                                 paymentWallet: paymentWallet.toLowerCase()
@@ -8586,12 +8686,24 @@ function hideEditPostingModal() {
         async function acceptBid() {
             if (!currentProjectId || currentBidIndex === null) return;
 
-            const deadline = document.getElementById('project-deadline').value;
-            if (!deadline) return alert("Please select a project deadline.");
+            // The deadline comes from the bid being accepted, not from a form.
+            // This previously read #project-deadline — the POSTING form's
+            // select — at acceptance time, so when that modal was not open it
+            // returned whatever was last chosen there, defaulting to 1week
+            // regardless of what either party had agreed.
+            const _acceptingBid = currentProject && currentProject.bids && currentProject.bids[currentBidIndex];
+            if (!_acceptingBid) return alert("Could not find that bid. Close the project, reopen it and try again.");
+
+            const deadline = _acceptingBid.timeframe
+                          || currentProject.targetTimeframe
+                          || currentProject.deadline
+                          || '1week';
+            const _tfLabel = timeframeLabel(deadline);
+
             if (!connectedAddress) return alert("Please connect your wallet first.");
             if (!signer) return alert("Wallet not connected properly. Please reconnect.");
 
-            if (!confirm(`Accept this bid with a ${deadline} deadline?\n\nFunds will be locked in escrow immediately. This cannot be undone.`)) return;
+            if (!confirm(`Accept this bid?\n\nBuilder: @${_acceptingBid.bidderName}\nAmount: ${_acceptingBid.amount}\nDelivery: ${_tfLabel}${_acceptingBid.timeframe ? '' : ' (the builder did not state one, so your target is used)'}\n\nFunds lock in escrow immediately and the ${_tfLabel} clock starts now. This cannot be undone.`)) return;
 
             try {
                 const projectRef = db.collection("subprojects").doc(currentProjectId);
@@ -13068,6 +13180,9 @@ async function submitBountyPosting() {
                         preferredBuilderUid: _preferredBuilderUid || null,
                         preferredBuilderUsername: _preferredBuilderUsername || null,
                         invitedUids: _preferredBuilderUid ? [_preferredBuilderUid] : [],
+                        // What the poster is hoping for. Advisory only — the
+                        // accepted bid's own timeframe sets the escrow deadline.
+                        targetTimeframe: document.getElementById('project-deadline')?.value || '1week',
                         postingCost: '100 NQV8',
                         paymentTxHash: txHash,
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -13101,6 +13216,12 @@ async function submitBountyPosting() {
                         });
                     }
                     await recordProtocolFee(100, 'bounty-posting', txHash, 'NQV8').catch(() => {});
+
+                    // Deliberately not awaited: an estimator failure must never
+                    // hold up a posting that has already been paid for.
+                    ensureTimeframeEstimate(newPostingRef.id, {
+                        title, description: desc, category, compensation
+                    }).catch(() => {});
                     alert("✅ Build request posted!");
                     notifyMatchingBuilders({ title, compensation }, _bountySelectedTags, category);
                     hidePostBountyModal();
