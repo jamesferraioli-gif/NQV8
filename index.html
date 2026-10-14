@@ -2192,7 +2192,7 @@
                     </div>
                     <div>
                         <p class="text-zinc-300 font-semibold mb-1">Rewards are claimed, not sent</p>
-                        <p>Nothing arrives automatically. When a month closes it appears under Claimable Rewards above with your share and a Claim button, and you have 90 days to take it. A month you were not eligible for shows you exactly what was required and what you actually held.</p>
+                        <p>Nothing arrives automatically. When a month closes it appears under Claimable Rewards above with your share and a Claim button. <span class="text-zinc-200">There is no deadline</span> — a claim you have earned stays claimable indefinitely, so you can leave it sitting as long as you like. A month you were not eligible for shows you exactly what was required and what you actually held.</p>
                     </div>
                     <div>
                         <p class="text-zinc-300 font-semibold mb-1">What "locked in bonds" means</p>
@@ -4087,7 +4087,7 @@ async function submitMetricsVerification() {
         const allowance = await _ro1.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
         if (allowance.lt(amountRaw)) {
             btn.textContent = '⏳ Approve NQV8...';
-            const _approve1 = await _rw1.approve(REWARDS_CONTRACT_ADDRESS, ethers.constants.MaxUint256);
+            const _approve1 = await _rw1.approve(REWARDS_CONTRACT_ADDRESS, feeAllowance(amountRaw));
             await confirmTx(_approve1);
         }
         btn.textContent = '⏳ Paying...';
@@ -4712,6 +4712,24 @@ function timeframeRank(v)  { const i = TIMEFRAME_OPTIONS.findIndex(o => o.value 
 function timeframeSelectOptions(sel) {
     return TIMEFRAME_OPTIONS.map(o =>
         `<option value="${o.value}"${o.value === sel ? ' selected' : ''}>${o.label}</option>`).join('');
+}
+
+// How much to approve when a fee needs an allowance.
+//
+// Not MaxUint256. An "Unlimited" spending cap in the wallet reads as "this
+// site can take whatever it likes, whenever it likes" — technically wrong for
+// these contracts, but a reasonable thing for a user to conclude, and not
+// worth the trust it costs.
+//
+// Not the exact fee either: the allowance is spent on every payment, so exact
+// approvals mean an approve-and-pay pair for every 1 NQV8 bid or comment.
+// A bounded bucket shows a real number in the wallet and covers a long run of
+// actions before asking again.
+const FEE_ALLOWANCE_BUCKET = '2000';   // NQV8
+
+function feeAllowance(amountRaw) {
+    const bucket = ethers.utils.parseUnits(FEE_ALLOWANCE_BUCKET, 18);
+    return amountRaw.gt(bucket) ? amountRaw : bucket;
 }
 
 function deadlineToTimestamp(deadlineStr) {
@@ -5744,7 +5762,7 @@ async function showPaymentPicker(label, nqv8Amount, onSuccess) {
             if (allowance.lt(amountRaw)) {
                 setPayBtn('⏳ Approve NQV8...');
                 setStatus('⏳ Approve NQV8 in wallet...');
-                const approveTx = await _rw2.approve(REWARDS_CONTRACT_ADDRESS, ethers.constants.MaxUint256);
+                const approveTx = await _rw2.approve(REWARDS_CONTRACT_ADDRESS, feeAllowance(amountRaw));
                 await confirmTx(approveTx);
             }
 
@@ -6488,7 +6506,7 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                 const allowance = await _ro3.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
                 if (allowance.lt(verifAmountRaw)) {
                     btn.innerHTML = '⏳ Approve NQV8 in wallet...';
-                    const _approve3 = await _rw3.approve(REWARDS_CONTRACT_ADDRESS, ethers.constants.MaxUint256);
+                    const _approve3 = await _rw3.approve(REWARDS_CONTRACT_ADDRESS, feeAllowance(verifAmountRaw));
                     await confirmTx(_approve3);
                 }
                 btn.innerHTML = `⏳ Paying ${verifNQV8Amount} NQV8...`;
@@ -14951,7 +14969,7 @@ async function stakeNQV8() {
             _stakeStatus('Approve NQV8 in your wallet...');
             const ap = await new ethers.Contract(NQV8_TOKEN_ADDRESS,
                 ['function approve(address,uint256) returns (bool)'], signer)
-                .approve(STAKING_CONTRACT_ADDRESS, ethers.constants.MaxUint256);
+                .approve(STAKING_CONTRACT_ADDRESS, amountRaw);
             await confirmTx(ap);
         }
 
@@ -15104,8 +15122,8 @@ async function loadClaims() {
                 action = '<span class="text-emerald-400 text-sm font-semibold">✅ Claimed</span>';
                 note   = '';
             } else if (!r.windowOpen) {
-                action = '<span class="text-zinc-500 text-sm">Window closed</span>';
-                note   = 'The 90-day claim window for this month has passed.';
+                action = '<span class="text-zinc-500 text-sm">Unavailable</span>';
+                note   = 'This month is no longer claimable.';
             } else if (r.eligible) {
                 action = `<button onclick="claimEpoch(${r.id})" id="claim-btn-${r.id}"
                            class="px-5 py-2 bg-gradient-to-r from-amber-400 to-cyan-400 text-black text-sm font-semibold rounded-xl">Claim</button>`;
@@ -15157,8 +15175,9 @@ async function claimEpoch(epochId) {
         } else if (m.includes('Already claimed')) {
             alert('That month has already been claimed.');
             await loadClaims();
-        } else if (m.includes('Claim window')) {
-            alert('The 90-day claim window for that month has closed.');
+        } else if (m.includes('already swept')) {
+            alert('That month has been recycled and is no longer claimable.');
+            await loadClaims();
         } else if (!handleWalletError(e)) {
             alert('Claim failed: ' + m);
         }
@@ -17630,7 +17649,7 @@ async function submitNewFlowMap(useAI = false) {
             const allowance = await _ro7.allowance(connectedAddress, REWARDS_CONTRACT_ADDRESS);
             if (allowance.lt(amountRaw)) {
                 if (btnAI) btnAI.textContent = '⏳ Approving...';
-                const _approve7 = await _rw7.approve(REWARDS_CONTRACT_ADDRESS, ethers.constants.MaxUint256);
+                const _approve7 = await _rw7.approve(REWARDS_CONTRACT_ADDRESS, feeAllowance(amountRaw));
                 await confirmTx(_approve7);
             }
             const rewardsContractRW7 = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
