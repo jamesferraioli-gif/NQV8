@@ -1,52 +1,144 @@
-module.exports = async function handler(req, res) {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+// api/improve-posting.js
+//
+// Claude's review of a posting before it goes live. Returns three things:
+//   - improved  : a tighter description
+//   - changes   : what it changed, for the diff modal
+//   - timeframe : how long the work should realistically take
+//
+// The timeframe used to live in api/estimate-timeframe.js, called AFTER the
+// posting was written. That meant the founder — the one person who sets the
+// target — never saw it, and it cost a second Anthropic call per posting. It
+// belongs here: one call, at the moment the founder is deciding.
+//
+// estimate-timeframe.js stays as the fallback for postings made before this
+// change, and for a founder who somehow reaches submit without a review.
+//
+// Converted from CommonJS and off hand-rolled fetch onto _ai.js, which brings
+// retries on transient failures, status-aware error classification, and an
+// explicit throw on max_tokens truncation instead of a silent half-answer.
 
-    if (req.method === 'OPTIONS') return res.status(200).end();
-    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+export const config = { maxDuration: 60 };
 
-    const { verifyCaller } = await import('./_auth.js');
-    const caller = await verifyCaller(req);
-    if (!caller) return res.status(401).json({ error: 'Unauthorized' });
+import { verifyCaller } from './_auth.js';
+import { callAnthropicJSON } from './_ai.js';
 
-    const { title, description, category, compensationType, postingType } = req.body;
+// Must stay in step with TIMEFRAME_OPTIONS in index.html and VALID in
+// estimate-timeframe.js. These are the only durations the escrow can express.
+const VALID = ['1day', '3days', '1week', '2weeks', '1month', '2months', '3months'];
 
-    if (!description || description.trim().length < 10) {
-        return res.status(400).json({ error: 'Description too short' });
+/**
+ * Pull a usable timeframe out of the model's answer, or null.
+ *
+ * Returning null rather than throwing is deliberate: a posting that has
+ * already been paid for must never fail because the estimator was wrong about
+ * a duration string. The founder simply sees no estimate.
+ */
+function sanitizeTimeframe(t) {
+    if (!t || typeof t !== 'object') return null;
+
+    for (const k of ['low', 'recommended', 'high']) {
+        if (!VALID.includes(t[k])) return null;
+    }
+    // A range that runs backwards is nonsense, not a conservative guess.
+    if (VALID.indexOf(t.low) > VALID.indexOf(t.recommended) ||
+        VALID.indexOf(t.recommended) > VALID.indexOf(t.high)) {
+        return null;
     }
 
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    if (!apiKey) return res.status(500).json({ error: 'API key not configured' });
+    return {
+        low:         t.low,
+        recommended: t.recommended,
+        high:        t.high,
+        confidence:  ['high', 'medium', 'low'].includes(t.confidence) ? t.confidence : 'low',
+        reasoning:   String(t.reasoning || '').slice(0, 400),
+        scopeRisks:  Array.isArray(t.scopeRisks)
+                       ? t.scopeRisks.slice(0, 3).map(s => String(s).slice(0, 160))
+                       : [],
+        estimatedAt: new Date().toISOString(),
+        source:      'improve-posting'
+    };
+}
 
-    const systemPrompt = `You are a marketplace posting editor for NQVate, a decentralized marketplace for builders and ideas. 
-Your job is to improve project posting descriptions so they are clear, concrete, and attract quality bids.
+const SYSTEM_PROMPT = `You are a marketplace posting editor for NQVate, a decentralized marketplace for builders and ideas.
+
+You do two jobs in one pass:
+
+1. IMPROVE THE DESCRIPTION so it is clear, concrete, and attracts quality bids.
 
 A great posting must include:
 - Specific, measurable deliverables (not vague goals)
 - Clear scope boundaries (what is and isn't included)
 - Technical requirements or stack preferences if relevant
 - Success criteria — how will the poster know it's done?
-- Timeline expectation if possible
 
 Rules:
 - Keep the same intent and tone as the original
 - Do NOT invent requirements that weren't implied
 - Do NOT change the compensation or category
 - Keep it concise — no fluff, no filler sentences
-- Return ONLY a JSON object, no markdown, no explanation
+- Do NOT write a timeline into the description; the timeframe is a separate
+  structured field below and the platform handles it
 
-Return this exact JSON structure:
+2. ESTIMATE THE TIMEFRAME the work should realistically take.
+
+This estimate is shown to the founder as they set their target, and to every
+builder who bids. A builder who misses the agreed deadline forfeits a staked
+bond, so an unrealistically short estimate does real financial harm. Err
+toward what a competent professional would actually need, including review and
+revision cycles — not a best case with nothing going wrong.
+
+Judge the ORIGINAL description's scope, not how well it is written. Pick from
+exactly these options, the only durations the platform supports:
+1day, 3days, 1week, 2weeks, 1month, 2months, 3months
+
+- "low" is the fastest a strong, focused builder could finish it properly
+- "recommended" is what you would advise both parties agree to
+- "high" is a safe allowance if the scope is vaguer than it looks
+
+Consider: how much is genuinely specified versus left open, whether it needs
+design as well as build, integration with systems the builder cannot control,
+and review or feedback rounds. A vague description deserves a LONGER estimate,
+not a shorter one, and the reasoning should say so. If the description is too
+thin to judge, set "confidence" to "low", say so in "reasoning", and still
+give your best range.
+
+Return ONLY a JSON object, no markdown, no explanation:
 {
   "improved": "the improved description text here",
-  "changes": ["change 1", "change 2", "change 3"]
+  "changes": ["change 1", "change 2", "change 3"],
+  "timeframe": {
+    "low": "one of the options",
+    "recommended": "one of the options",
+    "high": "one of the options",
+    "confidence": "high" | "medium" | "low",
+    "reasoning": "1-2 sentences a non-technical founder would understand",
+    "scopeRisks": ["up to 3 short notes on what could make this take longer"]
+  }
 }`;
 
-    const userPrompt = `Improve this ${postingType === 'fund' ? 'funding request' : 'build request'} posting description.
+export default async function handler(req, res) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+
+    if (req.method === 'OPTIONS') return res.status(200).end();
+    if (req.method !== 'POST')    return res.status(405).json({ error: 'Method not allowed' });
+
+    const caller = await verifyCaller(req);
+    if (!caller) return res.status(401).json({ error: 'Unauthorized' });
+
+    const { title, description, category, compensation, compensationType, postingType } = req.body || {};
+
+    if (!description || description.trim().length < 10) {
+        return res.status(400).json({ error: 'Description too short' });
+    }
+
+    const userPrompt = `Improve this ${postingType === 'fund' ? 'funding request' : 'build request'} posting and estimate its timeframe.
 
 Title: ${title || 'Untitled'}
 Category: ${category || 'General'}
 Compensation Type: ${compensationType || 'cash'}
+Compensation offered: ${compensation || 'Not specified'}
 
 Original Description:
 ${description}
@@ -54,49 +146,34 @@ ${description}
 Return only the JSON object.`;
 
     try {
-        const response = await fetch('https://api.anthropic.com/v1/messages', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-api-key': apiKey,
-                'anthropic-version': '2023-06-01'
-            },
-            body: JSON.stringify({
-                model: 'claude-haiku-4-5-20251001',
-                max_tokens: 1000,
-                system: systemPrompt,
-                messages: [{ role: 'user', content: userPrompt }]
-            })
+        const parsed = await callAnthropicJSON({
+            maxTokens: 2000,
+            system:    SYSTEM_PROMPT,
+            messages:  [{ role: 'user', content: userPrompt }],
+            // Must stay UNDER maxDuration above. _ai.js defaults to 240s, which
+            // is longer than the function is allowed to live: Vercel would kill
+            // it at 60s and the browser would get an opaque 504 instead of the
+            // real reason. Aborting at 50s leaves room to return a 502 that
+            // says what happened — the same mistake that made the flowmap
+            // timeout so hard to diagnose.
+            timeoutMs: 50000
         });
 
-        if (!response.ok) {
-            const err = await response.text();
-            console.error('Claude API error:', err);
-            return res.status(500).json({ error: 'Claude API failed' });
-        }
-
-        const data = await response.json();
-        const text = data.content?.[0]?.text || '';
-        const clean = text.replace(/```json|```/g, '').trim();
-
-        let parsed;
-        try {
-            parsed = JSON.parse(clean);
-        } catch (e) {
-            return res.status(500).json({ error: 'Failed to parse Claude response' });
-        }
-
+        // The description half is the contract the posting flow depends on.
         if (!parsed.improved || !Array.isArray(parsed.changes)) {
-            return res.status(500).json({ error: 'Unexpected response format' });
+            return res.status(502).json({ error: 'Claude did not return a usable posting review' });
         }
 
         return res.status(200).json({
-            improved: parsed.improved.trim(),
-            changes: parsed.changes
+            improved:  String(parsed.improved).trim(),
+            changes:   parsed.changes.slice(0, 8).map(c => String(c).slice(0, 240)),
+            // null when the model returned something unusable — the caller
+            // shows no estimate rather than a fabricated one.
+            timeframe: sanitizeTimeframe(parsed.timeframe)
         });
 
     } catch (e) {
-        console.error('improve-posting error:', e.message);
-        return res.status(500).json({ error: 'Internal server error' });
+        console.error('improve-posting failed:', e.message);
+        return res.status(502).json({ error: e.message });
     }
-};
+}
