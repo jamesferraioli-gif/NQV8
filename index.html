@@ -2115,6 +2115,69 @@
             </div>
         </div>
 
+        <!-- Staking -->
+        <div class="bg-zinc-800 rounded-2xl p-5 mb-6">
+            <div class="flex items-start justify-between gap-4 mb-4">
+                <div>
+                    <p class="text-sm font-semibold text-zinc-300">Staking</p>
+                    <p class="text-xs text-zinc-500 mt-1">Rewards require NQV8 staked for the whole month. Unstaking takes 30 days.</p>
+                </div>
+                <p id="stake-requirement-hint" class="text-xs text-zinc-500 text-right shrink-0"></p>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-5">
+                <div>
+                    <p class="text-zinc-500 text-xs mb-1">Staked</p>
+                    <p id="stake-staked" class="font-semibold text-cyan-400">—</p>
+                </div>
+                <div>
+                    <p class="text-zinc-500 text-xs mb-1">Free to unstake</p>
+                    <p id="stake-free" class="font-semibold">—</p>
+                </div>
+                <div>
+                    <p class="text-zinc-500 text-xs mb-1">Locked in bonds</p>
+                    <p id="stake-bonded" class="font-semibold text-amber-400">—</p>
+                </div>
+                <div>
+                    <p class="text-zinc-500 text-xs mb-1">Unbonding</p>
+                    <p id="stake-unbonding" class="font-semibold text-zinc-400">—</p>
+                </div>
+            </div>
+
+            <div id="stake-cooldown" class="hidden mb-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
+                <p class="text-amber-400 text-sm font-semibold mb-1">⏳ Unstake in cooldown</p>
+                <p id="stake-cooldown-detail" class="text-zinc-400 text-xs"></p>
+                <div class="flex gap-2 mt-3">
+                    <button onclick="withdrawStake()" id="stake-withdraw-btn"
+                            class="flex-1 py-2 bg-cyan-500 hover:bg-cyan-400 text-black text-sm font-semibold rounded-xl transition-colors">Withdraw</button>
+                    <button onclick="cancelUnstakeNQV8()"
+                            class="flex-1 py-2 border border-zinc-600 hover:border-zinc-500 text-zinc-300 text-sm font-semibold rounded-xl transition-colors">Cancel &amp; restake</button>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row gap-2">
+                <input id="stake-amount" type="text" inputmode="decimal" placeholder="Amount in NQV8"
+                       oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
+                       class="flex-1 bg-zinc-900 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
+                <div class="flex gap-2">
+                    <button onclick="stakeNQV8()" id="stake-btn"
+                            class="flex-1 sm:flex-none px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-semibold rounded-2xl text-sm transition-colors">Stake</button>
+                    <button onclick="requestUnstakeNQV8()" id="unstake-btn"
+                            class="flex-1 sm:flex-none px-6 py-3 border border-zinc-600 hover:border-zinc-500 text-zinc-300 font-semibold rounded-2xl text-sm transition-colors">Unstake</button>
+                </div>
+            </div>
+            <p id="stake-status" class="hidden text-xs text-zinc-400 mt-3"></p>
+        </div>
+
+        <!-- Claimable rewards -->
+        <div class="bg-zinc-800 rounded-2xl p-5 mb-6">
+            <p class="text-sm font-semibold text-zinc-300 mb-1">Claimable Rewards</p>
+            <p class="text-xs text-zinc-500 mb-4">Closed months are claimed, not paid out automatically. Each needs the stake shown held across that whole month.</p>
+            <div id="claims-grid" class="space-y-3">
+                <p class="text-zinc-500 text-sm">Connect a wallet to see your claims.</p>
+            </div>
+        </div>
+
         <!-- Your rewards preview (if wallet connected) -->
         <div id="rewards-my-preview" class="hidden bg-cyan-500/10 border border-cyan-500/20 rounded-2xl p-5 mb-6">
             <p class="text-cyan-400 font-semibold mb-3">🎁 Your Estimated Reward This Month</p>
@@ -6551,7 +6614,7 @@ function navigateTo(page) {
             if (page === 'chat') loadChatList("");
             if (page === 'leaderboard') loadLeaderboard();
             if (page === 'ideas') switchExploreTab('all');
-            if (page === 'tokenomics') { loadTokenomics(); loadRewards(); }
+            if (page === 'tokenomics') { loadTokenomics(); loadRewards(); loadStaking(); loadClaims(); }
             if (page === 'studio') { switchStudioTab('plan'); }
             if (page === 'about') switchAboutTab('overview');
             if (page === 'advertise') loadAdvertisePage();
@@ -14626,6 +14689,327 @@ function setRewardsView(months) {
             : 'px-3 py-1 rounded-xl text-xs font-medium bg-zinc-700 text-zinc-300';
     });
     renderRewardsHistory(window._rewardsHistoryData || [], months);
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// STAKING  (NQVateStaking)
+// ══════════════════════════════════════════════════════════════════════
+const STAKING_ABI = [
+    "function stake(uint256 amount) external",
+    "function requestUnstake(uint256 amount) external",
+    "function cancelUnstake() external",
+    "function withdraw() external",
+    "function stakedOf(address) view returns (uint256)",
+    "function bondedOf(address) view returns (uint256)",
+    "function unbondingOf(address) view returns (uint256 amount, uint64 readyAt)",
+    "function availableToUnstake(address) view returns (uint256)",
+    "function minBalanceInWindow(address user, uint64 from, uint64 to) view returns (uint256)",
+    "function COOLDOWN() view returns (uint256)"
+];
+
+function _stakeStatus(msg) {
+    const el = document.getElementById('stake-status');
+    if (!el) return;
+    if (!msg) { el.classList.add('hidden'); return; }
+    el.classList.remove('hidden');
+    el.textContent = msg;
+}
+
+const _fmtNQV8 = (raw) =>
+    parseFloat(ethers.utils.formatUnits(raw, 18)).toLocaleString(undefined, { maximumFractionDigits: 4 });
+
+async function loadStaking() {
+    const ids = ['stake-staked','stake-free','stake-bonded','stake-unbonding'];
+    if (!connectedAddress) { ids.forEach(i => { const e=document.getElementById(i); if(e) e.textContent='—'; }); return; }
+    try {
+        const ro = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const st = new ethers.Contract(STAKING_CONTRACT_ADDRESS, STAKING_ABI, ro);
+
+        const [staked, bonded, unb, free] = await Promise.all([
+            st.stakedOf(connectedAddress),
+            st.bondedOf(connectedAddress),
+            st.unbondingOf(connectedAddress),
+            st.availableToUnstake(connectedAddress)
+        ]);
+
+        document.getElementById('stake-staked').textContent    = _fmtNQV8(staked) + ' NQV8';
+        document.getElementById('stake-free').textContent      = _fmtNQV8(free) + ' NQV8';
+        document.getElementById('stake-bonded').textContent    = _fmtNQV8(bonded) + ' NQV8';
+        document.getElementById('stake-unbonding').textContent = _fmtNQV8(unb.amount) + ' NQV8';
+
+        // Cooldown panel
+        const panel = document.getElementById('stake-cooldown');
+        if (unb.amount.gt(0)) {
+            const readyAt = new Date(Number(unb.readyAt) * 1000);
+            const ready   = Date.now() >= readyAt.getTime();
+            const btn     = document.getElementById('stake-withdraw-btn');
+            document.getElementById('stake-cooldown-detail').textContent = ready
+                ? `${_fmtNQV8(unb.amount)} NQV8 is ready to withdraw.`
+                : `${_fmtNQV8(unb.amount)} NQV8 unlocks ${readyAt.toLocaleDateString()} at ${readyAt.toLocaleTimeString()}.`;
+            btn.disabled = !ready;
+            btn.classList.toggle('opacity-40', !ready);
+            btn.classList.toggle('cursor-not-allowed', !ready);
+            panel.classList.remove('hidden');
+        } else {
+            panel.classList.add('hidden');
+        }
+
+        // What this wallet needs staked, based on fees paid in the open epoch
+        try {
+            const rw = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, ro);
+            const [, , , nqv8Paid] = await rw.previewReward(connectedAddress);
+            const required = await rw.stakeRequirement(nqv8Paid);
+            const hint = document.getElementById('stake-requirement-hint');
+            if (hint) hint.innerHTML = nqv8Paid.gt(0)
+                ? `Needs <span class="text-cyan-400 font-semibold">${_fmtNQV8(required)} NQV8</span> staked<br>to claim this month`
+                : `Minimum <span class="text-cyan-400 font-semibold">${_fmtNQV8(required)} NQV8</span> to claim`;
+        } catch(e) { /* hint is optional */ }
+
+    } catch(e) {
+        console.warn('loadStaking failed:', e.message);
+    }
+}
+
+async function stakeNQV8() {
+    if (!connectedAddress || !signer) return alert('Please connect your wallet first.');
+    const raw = (document.getElementById('stake-amount').value || '').trim();
+    const amt = parseFloat(raw);
+    if (!amt || amt <= 0) return alert('Enter an amount to stake.');
+
+    const btn = document.getElementById('stake-btn');
+    const orig = btn.textContent;
+    btn.disabled = true;
+    try {
+        const amountRaw = ethers.utils.parseUnits(String(amt), 18);
+        const ro = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+
+        const bal = await new ethers.Contract(NQV8_TOKEN_ADDRESS,
+            ['function balanceOf(address) view returns (uint256)'], ro).balanceOf(connectedAddress);
+        if (bal.lt(amountRaw)) {
+            return alert(`Not enough NQV8. You have ${_fmtNQV8(bal)} and tried to stake ${amt}.`);
+        }
+
+        const allowance = await new ethers.Contract(NQV8_TOKEN_ADDRESS,
+            ['function allowance(address,address) view returns (uint256)'], ro)
+            .allowance(connectedAddress, STAKING_CONTRACT_ADDRESS);
+
+        if (allowance.lt(amountRaw)) {
+            btn.textContent = '⏳ Approve...';
+            _stakeStatus('Approve NQV8 in your wallet...');
+            const ap = await new ethers.Contract(NQV8_TOKEN_ADDRESS,
+                ['function approve(address,uint256) returns (bool)'], signer)
+                .approve(STAKING_CONTRACT_ADDRESS, ethers.constants.MaxUint256);
+            await confirmTx(ap);
+        }
+
+        btn.textContent = '⏳ Staking...';
+        _stakeStatus('Confirm the stake in your wallet...');
+        const st = new ethers.Contract(STAKING_CONTRACT_ADDRESS, STAKING_ABI, signer);
+        const tx = await st.stake(amountRaw);
+        _stakeStatus('Confirming on Arbitrum...');
+        await confirmTx(tx);
+
+        document.getElementById('stake-amount').value = '';
+        _stakeStatus(`✅ Staked ${amt} NQV8.`);
+        await loadStaking();
+        await loadClaims();
+    } catch(e) {
+        _stakeStatus('');
+        if (!handleWalletError(e)) alert('Stake failed: ' + (e.message || e));
+    } finally {
+        btn.disabled = false;
+        btn.textContent = orig;
+    }
+}
+
+async function requestUnstakeNQV8() {
+    if (!connectedAddress || !signer) return alert('Please connect your wallet first.');
+    const raw = (document.getElementById('stake-amount').value || '').trim();
+    const amt = parseFloat(raw);
+    if (!amt || amt <= 0) return alert('Enter an amount to unstake.');
+
+    if (!confirm(`Unstake ${amt} NQV8?\n\nIt enters a 30-day cooldown and stops counting toward rewards immediately — including for the month in progress.`)) return;
+
+    const btn = document.getElementById('unstake-btn');
+    const orig = btn.textContent;
+    btn.disabled = true;
+    try {
+        const amountRaw = ethers.utils.parseUnits(String(amt), 18);
+        const st = new ethers.Contract(STAKING_CONTRACT_ADDRESS, STAKING_ABI, signer);
+        btn.textContent = '⏳ ...';
+        _stakeStatus('Confirm in your wallet...');
+        const tx = await st.requestUnstake(amountRaw);
+        await confirmTx(tx);
+        document.getElementById('stake-amount').value = '';
+        _stakeStatus('✅ Unstake requested — 30-day cooldown started.');
+        await loadStaking();
+        await loadClaims();
+    } catch(e) {
+        _stakeStatus('');
+        const m = e.message || '';
+        if (m.includes('Exceeds unbonded free balance')) {
+            alert('That is more than your free stake. Some of it is locked in an active bond.');
+        } else if (!handleWalletError(e)) {
+            alert('Unstake failed: ' + m);
+        }
+    } finally {
+        btn.disabled = false;
+        btn.textContent = orig;
+    }
+}
+
+async function cancelUnstakeNQV8() {
+    if (!connectedAddress || !signer) return alert('Please connect your wallet first.');
+    try {
+        const st = new ethers.Contract(STAKING_CONTRACT_ADDRESS, STAKING_ABI, signer);
+        _stakeStatus('Confirm in your wallet...');
+        await confirmTx(await st.cancelUnstake());
+        _stakeStatus('✅ Unstake cancelled — the full amount is staked again.');
+        await loadStaking();
+        await loadClaims();
+    } catch(e) {
+        _stakeStatus('');
+        if (!handleWalletError(e)) alert('Could not cancel: ' + (e.message || e));
+    }
+}
+
+async function withdrawStake() {
+    if (!connectedAddress || !signer) return alert('Please connect your wallet first.');
+    try {
+        const st = new ethers.Contract(STAKING_CONTRACT_ADDRESS, STAKING_ABI, signer);
+        _stakeStatus('Confirm the withdrawal in your wallet...');
+        await confirmTx(await st.withdraw());
+        _stakeStatus('✅ Withdrawn to your wallet.');
+        await loadStaking();
+    } catch(e) {
+        _stakeStatus('');
+        const m = e.message || '';
+        if (m.includes('Still in cooldown')) alert('The 30-day cooldown has not finished yet.');
+        else if (!handleWalletError(e)) alert('Withdrawal failed: ' + m);
+    }
+}
+
+// ══════════════════════════════════════════════════════════════════════
+// CLAIMS  (NQVateRewardsV2)
+// ══════════════════════════════════════════════════════════════════════
+
+async function loadClaims() {
+    const grid = document.getElementById('claims-grid');
+    if (!grid) return;
+    if (!connectedAddress) {
+        grid.innerHTML = '<p class="text-zinc-500 text-sm">Connect a wallet to see your claims.</p>';
+        return;
+    }
+    grid.innerHTML = '<p class="text-zinc-500 text-sm">Loading your claims...</p>';
+
+    try {
+        const ro = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const rw = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, ro);
+
+        // Labels are pushed in epoch order on close, so index i is epoch i.
+        const labels = await rw.getAllLabels();
+        if (labels.length === 0) {
+            grid.innerHTML = '<p class="text-zinc-500 text-sm">No months have closed yet. The first closes on the 1st.</p>';
+            return;
+        }
+
+        // Read the fields by name rather than spreading. An ethers Result is
+        // an Array subclass with named properties attached, and relying on
+        // spread to carry those across is the kind of assumption that breaks
+        // quietly on a library bump.
+        const rows = await Promise.all(labels.map(async (label, id) => {
+            const s = await rw.claimStatus(id, connectedAddress);
+            return {
+                id, label,
+                closed:        s.closed,
+                claimed:       s.claimed,
+                windowOpen:    s.windowOpen,
+                nqv8Paid:      s.nqv8Paid,
+                nqv8Share:     s.nqv8Share,
+                usdcShare:     s.usdcShare,
+                stakeRequired: s.stakeRequired,
+                stakeHeld:     s.stakeHeld,
+                eligible:      s.eligible
+            };
+        }));
+
+        const mine = rows.filter(r => r.nqv8Paid.gt(0));
+        if (mine.length === 0) {
+            grid.innerHTML = '<p class="text-zinc-500 text-sm">You have not paid NQV8 fees in any closed month, so there is nothing to claim.</p>';
+            return;
+        }
+
+        mine.reverse(); // newest first
+        grid.innerHTML = mine.map(r => {
+            const nq = _fmtNQV8(r.nqv8Share);
+            const us = parseFloat(ethers.utils.formatUnits(r.usdcShare, 6)).toFixed(2);
+            const req = _fmtNQV8(r.stakeRequired);
+            const held = _fmtNQV8(r.stakeHeld);
+
+            let action, note;
+            if (r.claimed) {
+                action = '<span class="text-emerald-400 text-sm font-semibold">✅ Claimed</span>';
+                note   = '';
+            } else if (!r.windowOpen) {
+                action = '<span class="text-zinc-500 text-sm">Window closed</span>';
+                note   = 'The 90-day claim window for this month has passed.';
+            } else if (r.eligible) {
+                action = `<button onclick="claimEpoch(${r.id})" id="claim-btn-${r.id}"
+                           class="px-5 py-2 bg-gradient-to-r from-amber-400 to-cyan-400 text-black text-sm font-semibold rounded-xl">Claim</button>`;
+                note   = '';
+            } else {
+                action = '<span class="text-amber-400 text-sm font-semibold">Not eligible</span>';
+                note   = `Needed ${req} NQV8 staked across this month — your lowest balance was ${held} NQV8.`;
+            }
+
+            return `
+            <div class="bg-zinc-900 rounded-2xl p-4 border border-zinc-700">
+                <div class="flex items-center justify-between gap-4 flex-wrap">
+                    <div>
+                        <p class="font-semibold">${r.label}</p>
+                        <p class="text-xs text-zinc-500 mt-1">You paid ${_fmtNQV8(r.nqv8Paid)} NQV8 in fees</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-cyan-400 font-bold">${nq} NQV8</p>
+                        <p class="text-emerald-400 text-sm">$${us} USDC</p>
+                    </div>
+                    <div class="shrink-0">${action}</div>
+                </div>
+                ${note ? `<p class="text-xs text-zinc-500 mt-3">${note}</p>` : ''}
+            </div>`;
+        }).join('');
+
+    } catch(e) {
+        console.warn('loadClaims failed:', e.message);
+        grid.innerHTML = '<p class="text-zinc-500 text-sm">Could not load your claims.</p>';
+    }
+}
+
+async function claimEpoch(epochId) {
+    if (!connectedAddress || !signer) return alert('Please connect your wallet first.');
+    const btn = document.getElementById(`claim-btn-${epochId}`);
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Claiming...'; }
+    try {
+        const rw = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
+        const tx = await rw.claim(epochId);
+        await confirmTx(tx);
+        alert(`✅ Reward claimed!\nTx: https://arbiscan.io/tx/${tx.hash}`);
+        await loadClaims();
+        await loadStaking();
+    } catch(e) {
+        const m = e.message || '';
+        if (btn) { btn.disabled = false; btn.textContent = 'Claim'; }
+        if (m.includes('Stake requirement not met')) {
+            alert('You did not hold the required stake for the whole of that month, so this reward cannot be claimed.');
+        } else if (m.includes('Already claimed')) {
+            alert('That month has already been claimed.');
+            await loadClaims();
+        } else if (m.includes('Claim window')) {
+            alert('The 90-day claim window for that month has closed.');
+        } else if (!handleWalletError(e)) {
+            alert('Claim failed: ' + m);
+        }
+    }
 }
 
 async function loadRewards() {
