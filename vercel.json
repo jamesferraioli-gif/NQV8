@@ -199,6 +199,10 @@
             "dest": "/api/ai-job-sweep.js"
         },
         {
+            "src": "/api/estimate-timeframe",
+            "dest": "/api/estimate-timeframe.js"
+        },
+        {
             "src": "/(.*)",
             "dest": "/index.html"
         }
