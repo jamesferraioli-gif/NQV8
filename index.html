@@ -542,6 +542,19 @@
                 <p class="text-xs text-zinc-500">Cash and equity both transfer automatically when work is approved.</p>
             </div>
 
+            <!-- Target timeframe -->
+            <p class="text-sm text-zinc-400 mb-2">Target Timeframe</p>
+            <select id="bounty-target-timeframe" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                <option value="1day">1 day</option>
+                <option value="3days">3 days</option>
+                <option value="1week" selected>1 week</option>
+                <option value="2weeks">2 weeks</option>
+                <option value="1month">1 month</option>
+                <option value="2months">2 months</option>
+                <option value="3months">3 months</option>
+            </select>
+            <p class="text-xs text-zinc-500 mt-2 mb-2">What you're hoping for. Builders propose their own delivery time when they bid, and the accepted bid's timeframe is what sets the escrow deadline.</p>
+            <div id="posting-estimate-slot" class="mb-6"></div>
             <p class="text-sm text-zinc-400 mb-2">Skills Required <span class="text-zinc-500">(optional — helps builders find your posting)</span></p>
             <div id="bounty-tags-picker" class="flex flex-wrap gap-2 mb-6"></div>
 
@@ -886,20 +899,6 @@
                         class="flex-1 py-5 bg-green-500 hover:bg-green-600 text-black font-semibold rounded-3xl">
                     Accept
                 </button>
-            </div>
-            <!-- Deadline Selection -->
-            <div class="mt-6">
-                <p class="text-sm text-zinc-400 mb-3">Target timeframe</p>
-                <select id="project-deadline" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
-                    <option value="1day">1 day</option>
-                    <option value="3days">3 days</option>
-                    <option value="1week" selected>1 week</option>
-                    <option value="2weeks">2 weeks</option>
-                    <option value="1month">1 month</option>
-                    <option value="2months">2 months</option>
-                    <option value="3months">3 months</option>
-                </select>
-                <p class="text-xs text-zinc-500 mt-2">What you're hoping for. Builders propose their own delivery time when they bid, and the accepted bid's timeframe is what sets the escrow deadline.</p>
             </div>
         </div>
     </div>
@@ -13232,7 +13231,12 @@ async function submitBountyPosting() {
                         invitedUids: _preferredBuilderUid ? [_preferredBuilderUid] : [],
                         // What the poster is hoping for. Advisory only — the
                         // accepted bid's own timeframe sets the escrow deadline.
-                        targetTimeframe: document.getElementById('project-deadline')?.value || '1week',
+                        targetTimeframe: document.getElementById('bounty-target-timeframe')?.value || '1week',
+                        // Claude's estimate from the posting review. Stored
+                        // so every bidder sees the same figure and no second
+                        // AI call is needed. null when the review produced
+                        // none, which the fallback below then covers.
+                        timeframeEstimate: window._postingTimeframeEstimate || null,
                         postingCost: '100 NQV8',
                         paymentTxHash: txHash,
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -13267,11 +13271,17 @@ async function submitBountyPosting() {
                     }
                     await recordProtocolFee(100, 'bounty-posting', txHash, 'NQV8').catch(() => {});
 
+                    // Normally the review already produced an estimate and it
+                    // was written above, so this does nothing. It only fires
+                    // when the review failed or was skipped.
                     // Deliberately not awaited: an estimator failure must never
                     // hold up a posting that has already been paid for.
-                    ensureTimeframeEstimate(newPostingRef.id, {
-                        title, description: desc, category, compensation
-                    }).catch(() => {});
+                    if (!window._postingTimeframeEstimate) {
+                        ensureTimeframeEstimate(newPostingRef.id, {
+                            title, description: desc, category, compensation
+                        }).catch(() => {});
+                    }
+                    window._postingTimeframeEstimate = null;
                     alert("✅ Build request posted!");
                     notifyMatchingBuilders({ title, compensation }, _bountySelectedTags, category);
                     hidePostBountyModal();
@@ -14369,18 +14379,27 @@ async function checkAndImprovePosting(title, description, category, compensation
 
         hideImproveLoadingModal();
 
-        // If Claude's version is basically the same, skip the modal
-        if (data.improved.trim() === description.trim()) {
+        // A funding request has no build timeframe.
+        const _tf = (postingType === 'fund') ? null : (data.timeframe || null);
+        window._postingTimeframeEstimate = _tf;
+
+        // If Claude's version is basically the same AND there is no estimate
+        // to show, there is nothing to decide — skip the modal. When an
+        // estimate exists the modal still opens, because the founder setting
+        // a target is the entire reason the estimate is produced.
+        if (data.improved.trim() === description.trim() && !_tf) {
             onConfirm(description);
             return;
         }
 
-        showImproveSuggestionsModal(description, data.improved, data.changes, onConfirm);
+        showImproveSuggestionsModal(description, data.improved, data.changes, onConfirm, _tf);
 
     } catch (e) {
         console.warn('Improve posting failed:', e.message);
         hideImproveLoadingModal();
-        // On failure, just proceed with original
+        // On failure, just proceed with original. Clear any estimate so a
+        // previous posting's figure cannot leak onto this one.
+        window._postingTimeframeEstimate = null;
         onConfirm(description);
     }
 }
@@ -14404,7 +14423,7 @@ function hideImproveLoadingModal() {
     document.getElementById('improve-loading-modal')?.remove();
 }
 
-function showImproveSuggestionsModal(original, improved, changes, onConfirm) {
+function showImproveSuggestionsModal(original, improved, changes, onConfirm, timeframe) {
     document.getElementById('improve-suggestions-modal')?.remove();
 
     const modal = document.createElement('div');
@@ -14437,6 +14456,23 @@ function showImproveSuggestionsModal(original, improved, changes, onConfirm) {
                     ${changes.map(c => `<li class="text-zinc-300 text-sm flex gap-2"><span class="text-emerald-400 flex-shrink-0">✓</span>${c}</li>`).join('')}
                 </ul>
             </div>
+
+            <!-- Claude's timeframe estimate -->
+            ${timeframe ? `
+            <div class="bg-violet-500/10 border border-violet-500/20 rounded-2xl p-4 mb-6">
+                <p class="text-violet-300 text-sm font-semibold mb-1">
+                    Suggested timeframe: ${timeframeLabel(timeframe.recommended)}
+                    <span class="text-zinc-500 font-normal">(${timeframeLabel(timeframe.low)}\u2013${timeframeLabel(timeframe.high)})</span>
+                </p>
+                <p class="text-zinc-400 text-xs mb-3">${timeframe.reasoning || ''}</p>
+                ${timeframe.confidence === 'low' ? '<p class="text-xs text-zinc-500 mb-3">Low confidence \u2014 the description is thin, so treat this as a rough guide.</p>' : ''}
+                ${(timeframe.scopeRisks || []).length ? `<ul class="text-xs text-zinc-500 mb-3 space-y-0.5">${timeframe.scopeRisks.map(r => `<li>\u2022 ${r}</li>`).join('')}</ul>` : ''}
+                <p class="text-xs text-zinc-400 mb-2">Your target timeframe:</p>
+                <select id="improve-timeframe-select" class="w-full bg-zinc-800 border border-zinc-600 rounded-2xl px-4 py-3 outline-none text-sm">
+                    ${timeframeSelectOptions(timeframe.recommended)}
+                </select>
+                <p id="improve-timeframe-warn" class="text-xs text-amber-400 mt-2 hidden"></p>
+            </div>` : ''}
 
             <!-- Side by side comparison -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
@@ -14488,6 +14524,24 @@ function showImproveSuggestionsModal(original, improved, changes, onConfirm) {
     window._postingVersions = { original, improved };
     window._selectedPostingVersion = null;
     window._onPostingConfirm = onConfirm;
+
+    // Flag a target faster than Claude thinks is feasible. Advisory only —
+    // they can still post it, but a builder who accepts an impossible
+    // deadline and misses it forfeits a bond, so the warning is earned.
+    const _tfSel = document.getElementById('improve-timeframe-select');
+    if (_tfSel && timeframe) {
+        const _warn = document.getElementById('improve-timeframe-warn');
+        const _checkTf = () => {
+            if (!_warn) return;
+            const optimistic = timeframeRank(_tfSel.value) < timeframeRank(timeframe.low);
+            _warn.textContent = optimistic
+                ? `\u26a0\ufe0f ${timeframeLabel(_tfSel.value)} is faster than Claude thinks is realistic. Builders may not bid, or may miss the deadline and lose their bond.`
+                : '';
+            _warn.classList.toggle('hidden', !optimistic);
+        };
+        _tfSel.onchange = _checkTf;
+        _checkTf();
+    }
 }
 
 function selectPostingVersion(version) {
@@ -14530,6 +14584,13 @@ function confirmPostingVersion() {
     } else {
         chosen = window._postingVersions.original;
     }
+
+    // Carry the chosen timeframe back to the posting form BEFORE the modal
+    // is removed — the select lives inside it. Absent on funding requests,
+    // which have no timeframe field, hence the guard.
+    const _tfPick = document.getElementById('improve-timeframe-select');
+    const _tfForm = document.getElementById('bounty-target-timeframe');
+    if (_tfPick && _tfForm) _tfForm.value = _tfPick.value;
 
     document.getElementById('improve-suggestions-modal')?.remove();
     window._onPostingConfirm(chosen);
