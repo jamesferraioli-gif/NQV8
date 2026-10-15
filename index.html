@@ -2144,7 +2144,7 @@
                 <p id="stake-requirement-hint" class="text-xs text-zinc-500 text-right shrink-0"></p>
             </div>
 
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm mb-5">
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm mb-5">
                 <div>
                     <p class="text-zinc-500 text-xs mb-1">Staked</p>
                     <p id="stake-staked" class="font-semibold text-cyan-400">—</p>
@@ -2161,6 +2161,19 @@
                     <p class="text-zinc-500 text-xs mb-1">Unbonding</p>
                     <p id="stake-unbonding" class="font-semibold text-zinc-400">—</p>
                 </div>
+                <div>
+                    <p class="text-zinc-500 text-xs mb-1">Instant release</p>
+                    <p id="stake-instant" class="font-semibold text-emerald-400">—</p>
+                </div>
+            </div>
+
+            <div id="stake-instant-panel" class="hidden mb-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4">
+                <p class="text-emerald-400 text-sm font-semibold mb-1">✅ Released from bids — no cooldown</p>
+                <p id="stake-instant-detail" class="text-zinc-400 text-xs"></p>
+                <button onclick="withdrawReleasedNQV8()" id="stake-instant-btn"
+                        class="w-full mt-3 py-2 bg-emerald-500 hover:bg-emerald-400 text-black text-sm font-semibold rounded-xl transition-colors">
+                    Withdraw now
+                </button>
             </div>
 
             <div id="stake-cooldown" class="hidden mb-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
@@ -4660,7 +4673,7 @@ const ESCROW_ABI = [
 
 // NQVate Rewards Distribution — deployed on Arbitrum One
 const REWARDS_CONTRACT_ADDRESS = '0xb88B4A44203c564Ac7ddBf4aE2703EA057461cC9';
-const STAKING_CONTRACT_ADDRESS = '0x6360074371a645c2E394a8d3B18d96aFB6C4ed7c';
+const STAKING_CONTRACT_ADDRESS = '0x5d430f7Faae867E0A8a02EcCcbE21eF40628937c';
 
 const REWARDS_ABI = [
     "function payNQV8Fee(address payer, uint256 amount) external",
@@ -8793,6 +8806,7 @@ function hideEditPostingModal() {
                 // necessarily where payment is sent.
                 const _bondNQV8 = Number(project.bondNQV8);
                 let _didStake = null;
+                let _stakeTxHash = null;
                 if (Number.isFinite(_bondNQV8) && _bondNQV8 > 0) {
                     try {
                         const ro      = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
@@ -8836,6 +8850,10 @@ function hideEditPostingModal() {
                             const stx = await new ethers.Contract(STAKING_CONTRACT_ADDRESS, STAKING_ABI, signer)
                                 .stake(shortRaw);
                             await stx.wait();
+                            // Proof of what was staked FOR this bid. Only this
+                            // much skips the 30-day cooldown when the bond is
+                            // released; stake they already held does not.
+                            _stakeTxHash = stx.hash;
                             // From here on, a failure leaves real NQV8 staked.
                             // Silence would make that look like money vanishing.
                             _didStake = shortTxt;
@@ -8852,7 +8870,7 @@ function hideEditPostingModal() {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json',
                                        'Authorization': `Bearer ${await authToken()}` },
-                            body: JSON.stringify({ projectId, holder: connectedAddress, issuedAt, signature: sig })
+                            body: JSON.stringify({ projectId, holder: connectedAddress, issuedAt, signature: sig, stakeTxHash: _stakeTxHash })
                         });
                         if (!lockRes.ok) {
                             return alert('❌ Could not lock your bid bond: ' + await serverError(lockRes, `HTTP ${lockRes.status}`)
@@ -15455,6 +15473,9 @@ const STAKING_ABI = [
     "function bondedOf(address) view returns (uint256)",
     "function unbondingOf(address) view returns (uint256 amount, uint64 readyAt)",
     "function availableToUnstake(address) view returns (uint256)",
+    "function withdrawableNow(address) view returns (uint256)",
+    "function releasedCredit(address) view returns (uint256)",
+    "function withdrawReleased(uint256 amount) external",
     "function minBalanceInWindow(address user, uint64 from, uint64 to) view returns (uint256)",
     "function COOLDOWN() view returns (uint256)"
 ];
@@ -15471,23 +15492,40 @@ const _fmtNQV8 = (raw) =>
     parseFloat(ethers.utils.formatUnits(raw, 18)).toLocaleString(undefined, { maximumFractionDigits: 4 });
 
 async function loadStaking() {
-    const ids = ['stake-staked','stake-free','stake-bonded','stake-unbonding'];
+    const ids = ['stake-staked','stake-free','stake-bonded','stake-unbonding','stake-instant'];
     if (!connectedAddress) { ids.forEach(i => { const e=document.getElementById(i); if(e) e.textContent='—'; }); return; }
     try {
         const ro = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
         const st = new ethers.Contract(STAKING_CONTRACT_ADDRESS, STAKING_ABI, ro);
 
-        const [staked, bonded, unb, free] = await Promise.all([
+        const [staked, bonded, unb, free, instant] = await Promise.all([
             st.stakedOf(connectedAddress),
             st.bondedOf(connectedAddress),
             st.unbondingOf(connectedAddress),
-            st.availableToUnstake(connectedAddress)
+            st.availableToUnstake(connectedAddress),
+            st.withdrawableNow(connectedAddress)
         ]);
 
         document.getElementById('stake-staked').textContent    = _fmtNQV8(staked) + ' NQV8';
         document.getElementById('stake-free').textContent      = _fmtNQV8(free) + ' NQV8';
         document.getElementById('stake-bonded').textContent    = _fmtNQV8(bonded) + ' NQV8';
         document.getElementById('stake-unbonding').textContent = _fmtNQV8(unb.amount) + ' NQV8';
+        document.getElementById('stake-instant').textContent   = _fmtNQV8(instant) + ' NQV8';
+
+        // Stake returned from a bid you did not win. It skips the cooldown
+        // because the protocol made you lock it in the first place — unlike
+        // stake you chose to hold for rewards, which serves the full 30 days.
+        const ip = document.getElementById('stake-instant-panel');
+        if (ip) {
+            if (instant.gt(0)) {
+                document.getElementById('stake-instant-detail').textContent =
+                    `${_fmtNQV8(instant)} NQV8 came back from bids that ended without a slash. `
+                    + `You can withdraw it straight to your wallet — the 30-day cooldown does not apply.`;
+                ip.classList.remove('hidden');
+            } else {
+                ip.classList.add('hidden');
+            }
+        }
 
         // Cooldown panel
         const panel = document.getElementById('stake-cooldown');
@@ -15519,6 +15557,40 @@ async function loadStaking() {
 
     } catch(e) {
         console.warn('loadStaking failed:', e.message);
+    }
+}
+
+/**
+ * Withdraw stake freed by a bid bond, with no cooldown.
+ *
+ * Separate from withdrawStake(), which pays out a matured unstake request.
+ * This one needs no request and no waiting, because the capital was locked by
+ * the protocol rather than chosen.
+ */
+async function withdrawReleasedNQV8() {
+    if (!connectedAddress || !signer) return alert('Please connect your wallet first.');
+    const btn = document.getElementById('stake-instant-btn');
+    const orig = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Confirm in wallet...'; }
+    try {
+        const ro  = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const amt = await new ethers.Contract(STAKING_CONTRACT_ADDRESS, STAKING_ABI, ro)
+            .withdrawableNow(connectedAddress);
+        if (amt.isZero()) return alert('Nothing available for instant withdrawal.');
+
+        const tx = await new ethers.Contract(STAKING_CONTRACT_ADDRESS, STAKING_ABI, signer)
+            .withdrawReleased(amt);
+        if (btn) btn.textContent = '⏳ Confirming...';
+        await tx.wait();
+        alert(`✅ Withdrew ${_fmtNQV8(amt)} NQV8 to your wallet.`);
+        await loadStaking();
+        await refreshOnChainBalances().catch(() => {});
+    } catch (e) {
+        const m = e && (e.message || '');
+        if (m.includes('user rejected') || e.code === 4001) { /* cancelled */ }
+        else alert('❌ Withdrawal failed: ' + m);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = orig || 'Withdraw now'; }
     }
 }
 
