@@ -11,6 +11,7 @@ import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { credential } from 'firebase-admin';
 import { gasOverrides } from './_gas.js';
+import { settleEngagementBond, bondWalletFor } from './_bonds.js';
 
 if (!getApps().length) {
     initializeApp({
@@ -131,6 +132,28 @@ export default async function handler(req, res) {
 
                 console.log(`✅ Refunded ${projectId}. Tx: ${tx.hash}`);
 
+                // ── Engagement bond ───────────────────────────────────────
+                // Must run BEFORE the update below, which nulls acceptedBid —
+                // that is where the bonded wallet is recorded.
+                //
+                // Reaching this point means the deadline passed, the grace
+                // period passed, nothing was accepted, and no dispute was
+                // filed. Graduated even so: a builder who delivered something
+                // that was rejected and chose not to contest it is not in the
+                // same position as one who never submitted at all.
+                const _noSubmissions = (project.submissions || []).length === 0;
+                const _bond = await settleEngagementBond({
+                    provider,
+                    signer:     opsWallet,
+                    projectId,
+                    bondWallet: bondWalletFor(project),
+                    slashBps:   _noSubmissions ? 10000 : 5000,
+                    reason:     _noSubmissions
+                        ? 'Deadline passed with no submission'
+                        : 'Deadline passed with no accepted submission'
+                });
+                console.log(`🔗 bond outcome for ${projectId}:`, JSON.stringify(_bond));
+
                 // Update Firestore
                 await db.collection('subprojects').doc(projectId).update({
                     status:              'refunded',
@@ -138,6 +161,11 @@ export default async function handler(req, res) {
                     refundTxHash:        tx.hash,
                     autoRefunded:        true,
                     autoRefundReason:    'Deadline passed with no accepted submission',
+                    bondOutcome:         _bond.action || null,
+                    bondSlashBps:        _bond.action === 'slashed' ? _bond.bps : 0,
+                    bondBurnedNQV8:      _bond.burned || null,
+                    bondTxHash:          _bond.txHash || null,
+                    bondNote:            _bond.skipped || _bond.error || null,
                     marketplacePostStatus: 'open',
                     bidsOpen:            true,
                     acceptedBidderUid:   null,
@@ -168,7 +196,10 @@ export default async function handler(req, res) {
                     await db.collection('notifications').add({
                         recipientUid: project.acceptedBidderUid,
                         type:         'auto_refund',
-                        message:      `⚠️ The escrow for "${project.title}" was automatically refunded to the poster. The deadline passed with no accepted submission.`,
+                        message:      `⚠️ The escrow for "${project.title}" was automatically refunded to the poster. The deadline passed with no accepted submission.`
+                                      + (_bond.action === 'slashed'
+                                          ? ` Your bid bond was slashed ${(_bond.bps / 100).toFixed(0)}% — ${_bond.burned} NQV8 burned, ${_bond.returned} NQV8 returned to your stake.`
+                                          : ''),
                         projectId,
                         read:         false,
                         createdAt:    new Date()
