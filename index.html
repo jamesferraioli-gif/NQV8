@@ -8485,6 +8485,29 @@ async function deletePosting(projectId) {
                     // moment it will not exist.
                     await releaseBidBonds(projectId, 'cancelled');
 
+                    // A posting made from a Studio node leaves marketplaceStatus
+                    // 'live' on that node. Deleting the posting never cleared it,
+                    // so the node went on advertising a posting that no longer
+                    // exists, with a button leading nowhere.
+                    //
+                    // Reverted to unlisted rather than marked complete: deleting
+                    // a posting usually means it needs fixing and re-posting, and
+                    // 'completed' would claim work was delivered when none was.
+                    try {
+                        const _nodeSnap = await db.collection('subprojects')
+                            .where('marketplacePostId', '==', projectId)
+                            .limit(1).get();
+                        if (!_nodeSnap.empty) {
+                            await db.collection('subprojects').doc(_nodeSnap.docs[0].id).update({
+                                marketplaceStatus:     firebase.firestore.FieldValue.delete(),
+                                marketplacePostId:     firebase.firestore.FieldValue.delete(),
+                                marketplacePostStatus: firebase.firestore.FieldValue.delete()
+                            });
+                        }
+                    } catch (e) {
+                        console.warn('could not unlist Studio node:', e.message);
+                    }
+
                     await db.collection("subprojects").doc(projectId).delete();
 
                     if (project.bids && project.bids.length > 0) {
