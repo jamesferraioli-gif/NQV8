@@ -4779,11 +4779,12 @@ async function updateBondPreview() {
     const usd  = postingFormUSDValue(type);
     if (!usd || usd <= 0) { box.classList.add('hidden'); return; }
 
-    const bond = bondAmountNQV8(usd, 'standard', await cachedNQV8Price());
+    const price = await cachedNQV8Price();
+    const bond  = bondAmountNQV8(usd, 'standard', price);
     const atFloor = bond <= BOND_MIN_NQV8;
-    txt.innerHTML = `Builders will stake about <span class="text-zinc-200 font-semibold">${_nqv8(bond)} NQV8</span> `
-        + `to bid — 15% of the posting's value.`
-        + (atFloor ? ` That is the ${_nqv8(BOND_MIN_NQV8)} NQV8 minimum.` : '')
+    txt.innerHTML = `Builders will stake about <span class="text-zinc-200 font-semibold">${_nqv8(bond)} NQV8 (${_usd(bond * price)})</span> `
+        + `to bid — 15% of this posting's ${_usd(usd)} value.`
+        + (atFloor ? ` That is the ${_nqv8(BOND_MIN_NQV8)} NQV8 minimum, which is higher than 15% here.` : '')
         + ` Claude adjusts this up or down for scope when you post, and you can override it then.`;
     box.classList.remove('hidden');
 }
@@ -4818,6 +4819,16 @@ function bidBondMessage(projectId, holder, issuedAt) {
 }
 
 function _nqv8(n) { return Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 }); }
+
+/// Every NQV8 bond figure is shown beside its dollar value. A four-digit NQV8
+/// number next to a "15%" label reads as an arithmetic error unless the
+/// dollar equivalent is on screen — the units are doing the work, not the
+/// percentage.
+function _usd(n) {
+    const v = Number(n);
+    return '$' + v.toLocaleString(undefined, {
+        minimumFractionDigits: v < 100 ? 2 : 0, maximumFractionDigits: v < 100 ? 2 : 0 });
+}
 
 // ── Delivery timeframes ──────────────────────────────────────────────────
 // The only durations the platform supports. Keep in step with VALID in
@@ -4930,6 +4941,8 @@ async function fillBidCostSlot(projectId, project) {
         return;
     }
 
+    const _bidPrice = await cachedNQV8Price();
+
     let staked = null;
     try {
         const ro = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
@@ -4950,7 +4963,7 @@ async function fillBidCostSlot(projectId, project) {
 
             <div class="flex justify-between items-baseline mb-1">
                 <span class="text-sm text-zinc-300">1. Stake <span class="text-emerald-400">(refundable)</span></span>
-                <span class="text-sm font-semibold text-zinc-100">${_nqv8(bond)} NQV8</span>
+                <span class="text-sm font-semibold text-zinc-100">${_nqv8(bond)} NQV8<span class="text-zinc-500 font-normal"> · ${_usd(bond * _bidPrice)}</span></span>
             </div>
             <p class="text-xs text-zinc-500 mb-3">
                 ${!connectedAddress
@@ -14861,6 +14874,7 @@ function showImproveSuggestionsModal(original, improved, changes, onConfirm, tim
                                 class="py-3 px-2 rounded-2xl border-2 text-center transition-all ${t === bond.riskTier ? 'border-amber-400 bg-amber-500/10' : 'border-zinc-700 hover:border-zinc-500'}">
                             <span class="block text-xs text-zinc-400 capitalize">${t} ${(BOND_RATE_BPS[t] / 100).toFixed(0)}%</span>
                             <span class="block text-sm font-semibold text-zinc-100">${_nqv8(bondAmountNQV8(bond.usdValue, t, bond.pricedAt))} NQV8</span>
+                            <span class="block text-xs text-zinc-500">${_usd(bondAmountNQV8(bond.usdValue, t, bond.pricedAt) * bond.pricedAt)}</span>
                         </button>`).join('')}
                 </div>
                 <p class="text-zinc-400 text-xs mb-2">
