@@ -4691,6 +4691,76 @@ const NQV8_FEE = {
     DISPUTE:        1000    // dispute filing
 };
 
+// ── Bid bonds ────────────────────────────────────────────────────────────
+// A builder stakes collateral to bid. It is returned in full unless they win
+// and then default, which is the only thing that can slash it.
+//
+// Claude picks the RATE from the posting's scope; this code does the
+// conversion and the clamping. That split is deliberate: the rate is a
+// judgement call Claude is good at, while the amount has to be a number
+// nobody can talk it into. Even a fully successful prompt injection moves the
+// bond between 10% and 25%, and the floor and cap bound it absolutely.
+//
+// Keep BOND_RATE_BPS in step with api/improve-posting.js.
+const BOND_RATE_BPS = { low: 1000, standard: 1500, high: 2500 };
+const BOND_MIN_NQV8 = 500;
+const BOND_MAX_NQV8 = 500000;
+const BOND_KIND_BID = 1;
+
+/// Dollar value of what a posting is offering. Equity-only postings return 0
+/// — there is no USD figure without a registry valuation, so those fall to
+/// the floor until that is wired up.
+function bountyUSDValue(project) {
+    if (!project) return 0;
+    const raw = String(project.compensation || '');
+    if (!raw) return 0;
+    const cash = raw.match(/\$\s*([0-9][0-9,]*(?:\.[0-9]+)?)/);
+    return cash ? parseFloat(cash[1].replace(/,/g, '')) : 0;
+}
+
+/// Same reading, but off the posting form before anything is saved.
+function postingFormUSDValue(compensationType) {
+    const num = id => {
+        const v = (document.getElementById(id)?.value || '').replace(/[^0-9.]/g, '');
+        const n = parseFloat(v);
+        return isNaN(n) ? 0 : n;
+    };
+    if (compensationType === 'cash')  return num('bounty-compensation-cash');
+    if (compensationType === 'mixed') return num('bounty-compensation-mixed-cash');
+    return 0;   // equity-only
+}
+
+/// Convert a bounty value into a bond, clamped. The clamp is the real safety
+/// net: a bad price — a thin-pool spot quote, a stale peg — still cannot
+/// produce a bond outside the band.
+function bondAmountNQV8(usdValue, riskTier, priceUSD) {
+    const bps   = BOND_RATE_BPS[riskTier] || BOND_RATE_BPS.standard;
+    const price = (priceUSD && priceUSD > 0) ? priceUSD : 0.01;
+    const n     = Math.ceil((usdValue * bps / 10000) / price);
+    return Math.min(Math.max(n, BOND_MIN_NQV8), BOND_MAX_NQV8);
+}
+
+/// Must match bidBondId() in api/lock-bid-bond.js.
+function bidBondId(projectId, holder) {
+    return ethers.utils.solidityKeccak256(
+        ['string', 'address', 'uint8'], [projectId, holder, BOND_KIND_BID]);
+}
+
+/// Must match bidBondMessage() in api/lock-bid-bond.js, byte for byte.
+function bidBondMessage(projectId, holder, issuedAt) {
+    return [
+        'NQVate bid bond authorisation',
+        `Project: ${projectId}`,
+        `Wallet: ${String(holder).toLowerCase()}`,
+        `Issued: ${issuedAt}`,
+        '',
+        'Signing this does not move funds. It proves you control this wallet',
+        'so NQVate can lock your bid bond against it.'
+    ].join('\n');
+}
+
+function _nqv8(n) { return Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 }); }
+
 // ── Delivery timeframes ──────────────────────────────────────────────────
 // The only durations the platform supports. Keep in step with VALID in
 // api/estimate-timeframe.js — the estimator's answer becomes an escrow
@@ -4777,6 +4847,82 @@ function renderTimeframeEstimate(est, compareTo) {
             ${est.confidence === 'low' ? '<p class="text-xs text-zinc-500 mt-1">Low confidence \u2014 the description is thin, so treat this as a rough guide.</p>' : ''}
             ${optimistic ? `<p class="text-xs text-amber-400 mt-2">\u26a0\ufe0f ${timeframeLabel(compareTo)} is faster than Claude thinks is realistic.</p>` : ''}
             ${(est.scopeRisks || []).length ? `<ul class="text-xs text-zinc-500 mt-2 space-y-0.5">${est.scopeRisks.map(r => `<li>\u2022 ${r}</li>`).join('')}</ul>` : ''}
+        </div>`;
+}
+
+/**
+ * Spell out what a bid costs BEFORE MetaMask opens: the refundable stake and
+ * the non-refundable fee, as two separate numbers.
+ *
+ * A bidder who first learns the stake amount from a wallet prompt has no way
+ * to tell a protocol requirement from a site helping itself, and that
+ * misreading is exactly what a bounded approval was meant to avoid.
+ */
+async function fillBidCostSlot(projectId, project) {
+    const slot = document.getElementById('bid-cost-slot');
+    if (!slot) return;
+
+    const bond = Number(project && project.bondNQV8);
+    if (!Number.isFinite(bond) || bond <= 0) {
+        slot.innerHTML = `
+            <div class="bg-zinc-800 border border-zinc-700 rounded-2xl p-4 mb-4">
+                <p class="text-xs text-zinc-400">Transaction fee <span class="float-right text-zinc-200 font-semibold">${NQV8_FEE.MICRO} NQV8</span></p>
+                <p class="text-xs text-zinc-500 mt-2">This posting predates bid bonds, so no stake is required.</p>
+            </div>`;
+        return;
+    }
+
+    let staked = null;
+    try {
+        const ro = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        if (connectedAddress) {
+            staked = await new ethers.Contract(STAKING_CONTRACT_ADDRESS, STAKING_ABI, ro)
+                .availableToUnstake(connectedAddress);
+        }
+    } catch (e) {
+        console.warn('stake lookup failed:', e.message);
+    }
+
+    const have  = staked ? parseFloat(ethers.utils.formatUnits(staked, 18)) : 0;
+    const short = Math.max(0, bond - have);
+
+    slot.innerHTML = `
+        <div class="bg-zinc-800 border border-zinc-700 rounded-2xl p-4 mb-4">
+            <p class="text-xs text-zinc-400 font-semibold mb-3">What this bid costs</p>
+
+            <div class="flex justify-between items-baseline mb-1">
+                <span class="text-sm text-zinc-300">1. Stake <span class="text-emerald-400">(refundable)</span></span>
+                <span class="text-sm font-semibold text-zinc-100">${_nqv8(bond)} NQV8</span>
+            </div>
+            <p class="text-xs text-zinc-500 mb-3">
+                ${!connectedAddress
+                    ? 'Connect your wallet to see how much more you need.'
+                    : short > 0
+                        ? `You have ${_nqv8(have)} staked and free — you'll stake <span class="text-amber-400">${_nqv8(short)} more</span> as part of bidding.`
+                        : `Already covered by your ${_nqv8(have)} NQV8 of free stake — nothing more to stake.`}
+            </p>
+
+            <div class="flex justify-between items-baseline mb-1">
+                <span class="text-sm text-zinc-300">2. Transaction fee <span class="text-zinc-500">(not refundable)</span></span>
+                <span class="text-sm font-semibold text-zinc-100">${NQV8_FEE.MICRO} NQV8</span>
+            </div>
+            <p class="text-xs text-zinc-500 mb-3">Paid to the protocol when you place the bid.</p>
+
+            <div class="border-t border-zinc-700 pt-3">
+                <p class="text-xs text-zinc-400 font-semibold mb-1">Why the stake</p>
+                <p class="text-xs text-zinc-500 mb-2">
+                    It backs your delivery commitment. Win the bid and deliver on time and it is
+                    returned in full. Miss the deadline or deliver dishonest work and part can be
+                    slashed — compensating the founder for demonstrated loss, the remainder burned.
+                    NQVate never receives it.
+                </p>
+                <p class="text-xs text-zinc-400 font-semibold mb-1">When you get it back</p>
+                <p class="text-xs text-zinc-500">
+                    Immediately if you aren't chosen, you withdraw your bid, the founder cancels,
+                    or the bid expires unanswered. It returns to your staked balance and can be
+                    withdrawn straight away — the 30-day unstaking cooldown does not apply to a bond.
+                </p>
+            </div>
         </div>`;
 }
 
@@ -7933,9 +8079,11 @@ async function loadTotalFundingReceivedStat() {
                            class="w-full bg-zinc-900 border border-zinc-600 rounded-xl px-4 py-2 outline-none text-sm font-mono">
                 </div>
             </div>
+            <div id="bid-cost-slot"></div>
+
             <button onclick="placeBid('${projectId}', '${project.compensationType || 'cash'}')"
                     class="w-full py-5 bg-white text-black font-semibold rounded-3xl">
-                Place Bid (1 NQV8)
+                Place Bid
             </button>
         </div>` : ''}
 
@@ -8023,6 +8171,7 @@ async function loadTotalFundingReceivedStat() {
             // Not awaited — the modal is already usable, and the estimate
             // appears when it arrives.
             fillTimeframeEstimateSlot(projectId, project).catch(() => {});
+            fillBidCostSlot(projectId, project).catch(() => {});
 
             if (isInProgress) renderSubmissions(project);
             if (isInProgress) loadEscrowActions(projectId, project);
@@ -8480,6 +8629,78 @@ function hideEditPostingModal() {
                 const modResult = await moderateContent(amount, 'bid');
                 if (!modResult.approved) {
                     return alert(`❌ Post rejected: ${modResult.reason}`);
+                }
+
+                // ── Bid bond ──────────────────────────────────────────────
+                // Ordered stake → lock → fee deliberately. The fee is the only
+                // irreversible step, so it goes last: if the bond cannot be
+                // locked, the bidder has not been charged anything.
+                //
+                // The bond is held against the CONNECTED wallet, which is not
+                // necessarily where payment is sent.
+                const _bondNQV8 = Number(project.bondNQV8);
+                if (Number.isFinite(_bondNQV8) && _bondNQV8 > 0) {
+                    try {
+                        const ro      = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+                        const stakeRO = new ethers.Contract(STAKING_CONTRACT_ADDRESS, STAKING_ABI, ro);
+                        const needRaw = ethers.utils.parseUnits(String(_bondNQV8), 18);
+                        const freeRaw = await stakeRO.availableToUnstake(connectedAddress);
+
+                        if (freeRaw.lt(needRaw)) {
+                            const shortRaw = needRaw.sub(freeRaw);
+                            const shortTxt = _nqv8(parseFloat(ethers.utils.formatUnits(shortRaw, 18)));
+                            const ok = confirm(
+                                `This bid requires ${_nqv8(_bondNQV8)} NQV8 staked as a refundable bond.\n\n` +
+                                `You need to stake ${shortTxt} more. That is two wallet prompts ` +
+                                `(approve, then stake), followed by the ${NQV8_FEE.MICRO} NQV8 bid fee.\n\n` +
+                                `The stake is returned if you don't win, withdraw, or deliver on time.\n\nContinue?`
+                            );
+                            if (!ok) return;
+
+                            const nqv8W = new ethers.Contract(NQV8_TOKEN_ADDRESS, [
+                                "function allowance(address,address) view returns (uint256)",
+                                "function approve(address,uint256) returns (bool)",
+                                "function balanceOf(address) view returns (uint256)"
+                            ], signer);
+
+                            const bal = await nqv8W.balanceOf(connectedAddress);
+                            if (bal.lt(shortRaw)) {
+                                return alert(`❌ Not enough NQV8. You need ${shortTxt} more to stake and have ${_nqv8(parseFloat(ethers.utils.formatUnits(bal, 18)))}.`);
+                            }
+
+                            const allow = await nqv8W.allowance(connectedAddress, STAKING_CONTRACT_ADDRESS);
+                            if (allow.lt(shortRaw)) {
+                                // Exact amount, not a bucket — this one is large
+                                // enough that a padded figure would alarm people.
+                                const ap = await nqv8W.approve(STAKING_CONTRACT_ADDRESS, shortRaw);
+                                await ap.wait();
+                            }
+                            const stx = await new ethers.Contract(STAKING_CONTRACT_ADDRESS, STAKING_ABI, signer)
+                                .stake(shortRaw);
+                            await stx.wait();
+                        }
+
+                        // Prove wallet control. A Firebase token says who the
+                        // user is, not which wallet is theirs — without this a
+                        // signed-in user could lock a stranger's stake.
+                        const issuedAt = new Date().toISOString();
+                        const sig = await signer.signMessage(
+                            bidBondMessage(projectId, connectedAddress, issuedAt));
+
+                        const lockRes = await fetch('/api/lock-bid-bond', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json',
+                                       'Authorization': `Bearer ${await authToken()}` },
+                            body: JSON.stringify({ projectId, holder: connectedAddress, issuedAt, signature: sig })
+                        });
+                        if (!lockRes.ok) {
+                            return alert('❌ Could not lock your bid bond: ' + await serverError(lockRes, `HTTP ${lockRes.status}`) + '\n\nYou have not been charged.');
+                        }
+                    } catch (e) {
+                        const m = e && (e.message || '');
+                        if (m.includes('user rejected') || e.code === 4001) return alert('Bid cancelled.');
+                        return alert('❌ Could not set up your bid bond: ' + m + '\n\nYou have not been charged.');
+                    }
                 }
     
             showPaymentPicker(
@@ -13237,6 +13458,13 @@ async function submitBountyPosting() {
                         // AI call is needed. null when the review produced
                         // none, which the fallback below then covers.
                         timeframeEstimate: window._postingTimeframeEstimate || null,
+                        // Frozen at posting so every bidder is quoted the same
+                        // figure and the server has an amount to lock that no
+                        // client supplied. null means no bond is required —
+                        // older postings, or a review that failed.
+                        riskTier:    window._postingBond ? window._postingBond.riskTier    : null,
+                        bondRateBps: window._postingBond ? window._postingBond.bondRateBps : null,
+                        bondNQV8:    window._postingBond ? window._postingBond.nqv8        : null,
                         postingCost: '100 NQV8',
                         paymentTxHash: txHash,
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -13282,6 +13510,7 @@ async function submitBountyPosting() {
                         }).catch(() => {});
                     }
                     window._postingTimeframeEstimate = null;
+                    window._postingBond = null;
                     alert("✅ Build request posted!");
                     notifyMatchingBuilders({ title, compensation }, _bountySelectedTags, category);
                     hidePostBountyModal();
@@ -14383,6 +14612,30 @@ async function checkAndImprovePosting(title, description, category, compensation
         const _tf = (postingType === 'fund') ? null : (data.timeframe || null);
         window._postingTimeframeEstimate = _tf;
 
+        // Size the bid bond now, so the founder sees what they are asking of
+        // builders while they can still change the scope, and so every bidder
+        // is quoted the same number. Frozen here rather than recomputed per
+        // bid: a figure that moved with the price between two bidders would
+        // not be the same auction.
+        let _bond = null;
+        if (postingType !== 'fund') {
+            try {
+                const usd   = postingFormUSDValue(compensationType);
+                const price = await getNQV8PriceUSD();
+                _bond = {
+                    riskTier:    data.riskTier || 'standard',
+                    bondRateBps: data.bondRateBps || BOND_RATE_BPS.standard,
+                    riskReason:  data.riskReason || '',
+                    usdValue:    usd,
+                    nqv8:        bondAmountNQV8(usd, data.riskTier, price),
+                    pricedAt:    price
+                };
+            } catch (e) {
+                console.warn('bond sizing unavailable:', e.message);
+            }
+        }
+        window._postingBond = _bond;
+
         // If Claude's version is basically the same AND there is no estimate
         // to show, there is nothing to decide — skip the modal. When an
         // estimate exists the modal still opens, because the founder setting
@@ -14392,7 +14645,7 @@ async function checkAndImprovePosting(title, description, category, compensation
             return;
         }
 
-        showImproveSuggestionsModal(description, data.improved, data.changes, onConfirm, _tf);
+        showImproveSuggestionsModal(description, data.improved, data.changes, onConfirm, _tf, _bond);
 
     } catch (e) {
         console.warn('Improve posting failed:', e.message);
@@ -14400,6 +14653,7 @@ async function checkAndImprovePosting(title, description, category, compensation
         // On failure, just proceed with original. Clear any estimate so a
         // previous posting's figure cannot leak onto this one.
         window._postingTimeframeEstimate = null;
+        window._postingBond = null;
         onConfirm(description);
     }
 }
@@ -14423,7 +14677,7 @@ function hideImproveLoadingModal() {
     document.getElementById('improve-loading-modal')?.remove();
 }
 
-function showImproveSuggestionsModal(original, improved, changes, onConfirm, timeframe) {
+function showImproveSuggestionsModal(original, improved, changes, onConfirm, timeframe, bond) {
     document.getElementById('improve-suggestions-modal')?.remove();
 
     const modal = document.createElement('div');
@@ -14472,6 +14726,26 @@ function showImproveSuggestionsModal(original, improved, changes, onConfirm, tim
                     ${timeframeSelectOptions(timeframe.recommended)}
                 </select>
                 <p id="improve-timeframe-warn" class="text-xs text-amber-400 mt-2 hidden"></p>
+            </div>` : ''}
+
+            <!-- What builders must stake -->
+            ${bond ? `
+            <div class="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 mb-6">
+                <p class="text-amber-300 text-sm font-semibold mb-1">
+                    Builders will stake ${_nqv8(bond.nqv8)} NQV8 to bid
+                    <span class="text-zinc-500 font-normal">· ${bond.riskTier} risk, ${(bond.bondRateBps / 100).toFixed(0)}% of bounty value</span>
+                </p>
+                <p class="text-zinc-400 text-xs mb-2">${bond.riskReason || ''}</p>
+                <p class="text-zinc-400 text-xs">
+                    Their stake is returned in full if they don't win, withdraw, or deliver on time.
+                    It is only slashed if they win and then default — part compensating you for
+                    demonstrated loss, the rest burned.
+                    ${bond.usdValue > 0 ? '' : '<br><span class="text-amber-400">This posting has no cash value, so the bond falls to the ' + _nqv8(BOND_MIN_NQV8) + ' NQV8 minimum.</span>'}
+                </p>
+                <p class="text-zinc-500 text-xs mt-2">
+                    A higher bond filters out unserious bids but narrows your pool. Tightening a vague
+                    scope is what lowers it.
+                </p>
             </div>` : ''}
 
             <!-- Side by side comparison -->
