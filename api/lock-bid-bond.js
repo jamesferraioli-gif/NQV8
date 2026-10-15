@@ -26,7 +26,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { verifyCaller } from './_auth.js';
 import { gasOverrides } from './_gas.js';
 
-const STAKING_ADDRESS = '0x6360074371a645c2E394a8d3B18d96aFB6C4ed7c';
+const STAKING_ADDRESS = '0x5d430f7Faae867E0A8a02EcCcbE21eF40628937c';
 const ARBITRUM_RPC    = 'https://arb1.arbitrum.io/rpc';
 
 /// How long a signed request stays valid. Long enough to cover a slow stake
@@ -39,9 +39,17 @@ const BID_EXPIRY_GRACE_DAYS = 14;
 
 const BOND_KIND_BID = 1;
 
+/// keccak256("stake(uint256)")[0:4]
+const STAKE_SELECTOR = '0xa694fc3a';
+
+/// How recent a stake transaction must be to count as "staked for this bid".
+/// Without this, a wallet could point at a stake from months ago — reward
+/// stake — and claim the whole of it as cooldown-exempt.
+const STAKE_MAX_AGE_MS = 30 * 60 * 1000;
+
 const STAKING_ABI = [
-    "function lockBond(bytes32 bondId, address holder, uint256 amount, bytes32 ref, uint8 kind, uint64 expiresAt) external",
-    "function getBond(bytes32 bondId) external view returns (tuple(address holder, uint256 amount, bytes32 ref, uint8 kind, uint8 status, uint64 createdAt, uint64 expiresAt))",
+    "function lockBond(bytes32 bondId, address holder, uint256 amount, bytes32 ref, uint8 kind, uint64 expiresAt, uint256 creditOnRelease) external",
+    "function getBond(bytes32 bondId) external view returns (tuple(address holder, uint256 amount, bytes32 ref, uint8 kind, uint8 status, uint64 createdAt, uint64 expiresAt, uint256 creditOnRelease))",
     "function availableToUnstake(address user) external view returns (uint256)",
     "function paused() external view returns (bool)"
 ];
@@ -81,13 +89,64 @@ function bidBondMessage(projectId, holder, issuedAt) {
     ].join('\n');
 }
 
+/**
+ * How much the bidder actually staked for this bid, or zero.
+ *
+ * Four things have to hold, and each one closes a different way of claiming
+ * credit that was not earned:
+ *   - the transaction is a real stake() to this contract, sent BY the holder
+ *   - it succeeded
+ *   - it is recent, so an old reward stake cannot be re-labelled
+ *   - it has not been used to claim credit on another bid
+ *
+ * Anything that does not hold returns zero rather than throwing. The bid
+ * still goes through; the bidder simply serves the ordinary cooldown, which
+ * is the safe direction to fail in.
+ */
+async function verifiedStakeAmount(db, provider, stakeTxHash, holder, bondAmountWei) {
+    try {
+        if (!/^0x[0-9a-fA-F]{64}$/.test(stakeTxHash)) return ethers.constants.Zero;
+
+        const [tx, receipt] = await Promise.all([
+            provider.getTransaction(stakeTxHash),
+            provider.getTransactionReceipt(stakeTxHash)
+        ]);
+        if (!tx || !receipt || receipt.status !== 1)                           return ethers.constants.Zero;
+        if (!tx.to || tx.to.toLowerCase() !== STAKING_ADDRESS.toLowerCase())   return ethers.constants.Zero;
+        if (tx.from.toLowerCase() !== String(holder).toLowerCase())            return ethers.constants.Zero;
+        if (!tx.data || !tx.data.toLowerCase().startsWith(STAKE_SELECTOR))     return ethers.constants.Zero;
+
+        const block = await provider.getBlock(receipt.blockNumber);
+        if (!block || (Date.now() - block.timestamp * 1000) > STAKE_MAX_AGE_MS) return ethers.constants.Zero;
+
+        const [staked] = ethers.utils.defaultAbiCoder.decode(['uint256'], '0x' + tx.data.slice(10));
+
+        // Claim it exactly once. create() fails if the document exists, which
+        // makes this atomic without a transaction.
+        try {
+            await db.collection('usedStakeTxs').doc(stakeTxHash.toLowerCase()).create({
+                holder: String(holder).toLowerCase(),
+                amount: staked.toString(),
+                usedAt: new Date()
+            });
+        } catch (e) {
+            return ethers.constants.Zero;   // already claimed
+        }
+
+        return staked.gt(bondAmountWei) ? bondAmountWei : staked;
+    } catch (e) {
+        console.warn('stake verification failed:', e.message);
+        return ethers.constants.Zero;
+    }
+}
+
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
     const caller = await verifyCaller(req);
     if (!caller) return res.status(401).json({ error: 'Unauthorized' });
 
-    const { projectId, holder, issuedAt, signature } = req.body || {};
+    const { projectId, holder, issuedAt, signature, stakeTxHash } = req.body || {};
     if (!projectId || !holder || !issuedAt || !signature) {
         return res.status(400).json({ error: 'Missing projectId, holder, issuedAt or signature' });
     }
@@ -173,7 +232,17 @@ export default async function handler(req, res) {
             });
         }
 
-        // ── 7. Expiry, so an undecided founder cannot strand the capital ──
+        // ── 7. How much of this bond may skip the 30-day cooldown ────────
+        // Only NQV8 the bidder staked FOR this bid. Verified against the
+        // actual stake transaction rather than taken from the request: this
+        // number decides how much stake escapes the cooldown, so a client
+        // that could set it freely could set it to everything.
+        let creditOnRelease = ethers.constants.Zero;
+        if (stakeTxHash) {
+            creditOnRelease = await verifiedStakeAmount(db, provider, stakeTxHash, holder, amountWei);
+        }
+
+        // ── 8. Expiry, so an undecided founder cannot strand the capital ──
         const days      = TIMEFRAME_DAYS[project.targetTimeframe] || 7;
         const expiresAt = Math.floor(Date.now() / 1000) + (days + BID_EXPIRY_GRACE_DAYS) * 86400;
 
@@ -184,6 +253,7 @@ export default async function handler(req, res) {
             ethers.utils.id(projectId),
             BOND_KIND_BID,
             expiresAt,
+            creditOnRelease,
             await gasOverrides(provider)
         );
         const receipt = await tx.wait();
@@ -194,6 +264,7 @@ export default async function handler(req, res) {
             bondId,
             amount:    String(bondNQV8),
             expiresAt,
+            creditOnRelease: ethers.utils.formatUnits(creditOnRelease, 18),
             txHash:    tx.hash
         });
 
