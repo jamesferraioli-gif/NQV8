@@ -31,7 +31,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { verifyCaller } from './_auth.js';
 import { gasOverrides } from './_gas.js';
 
-const STAKING_ADDRESS = '0x6360074371a645c2E394a8d3B18d96aFB6C4ed7c';
+const STAKING_ADDRESS = '0x5d430f7Faae867E0A8a02EcCcbE21eF40628937c';
 const ARBITRUM_RPC    = 'https://arb1.arbitrum.io/rpc';
 const BOND_KIND_BID   = 1;
 
@@ -41,7 +41,7 @@ const MAX_BATCH = 100;
 const STAKING_ABI = [
     "function releaseBond(bytes32 bondId) external",
     "function releaseBonds(bytes32[] bondIds) external",
-    "function getBond(bytes32 bondId) external view returns (tuple(address holder, uint256 amount, bytes32 ref, uint8 kind, uint8 status, uint64 createdAt, uint64 expiresAt))"
+    "function getBond(bytes32 bondId) external view returns (tuple(address holder, uint256 amount, bytes32 ref, uint8 kind, uint8 status, uint64 createdAt, uint64 expiresAt, uint256 creditOnRelease))"
 ];
 
 function getAdminDb() {
@@ -143,12 +143,15 @@ export default async function handler(req, res) {
         // Only release what is actually Active. releaseBonds skips the rest
         // anyway, but filtering first keeps a no-op from costing a
         // transaction, and makes the count we report honest.
-        const ids = [];
+        // Kept in lockstep: ids is filtered to active bonds, so it cannot be
+        // indexed against `wallets` afterwards.
+        const ids    = [];
+        const freed  = new Set();
         for (const w of wallets) {
             const id = bidBondId(projectId, w);
             try {
                 const b = await staking.getBond(id);
-                if (b.status === 1) ids.push(id);
+                if (b.status === 1) { ids.push(id); freed.add(w); }
             } catch (e) {
                 console.warn('getBond failed for', w, e.message);
             }
@@ -167,6 +170,27 @@ export default async function handler(req, res) {
             const rec = await tx.wait();
             if (!rec || rec.status === 0) throw new Error('release reverted');
             txHash = tx.hash;
+        }
+
+        // ── Tell the builders ─────────────────────────────────────────────
+        // A bidder has capital sitting in a bond and no reason to keep
+        // checking a posting they did not win. Without a notification the
+        // release is invisible and the stake looks stuck.
+        if (reason !== 'withdrawn') {
+            const title = project.title || 'a posting';
+            await Promise.all(targets
+                .filter(b => b.bidderUid && b.bondWallet && freed.has(String(b.bondWallet).toLowerCase()))
+                .map(b => db.collection('notifications').add({
+                    recipientUid: b.bidderUid,
+                    type:    'bond_released',
+                    message: reason === 'losers'
+                        ? `Your bid on "${title}" wasn't selected. Your ${Number(b.bondNQV8 || 0).toLocaleString()} NQV8 stake has been released — withdraw it any time from Tokenomics, with no cooldown.`
+                        : `"${title}" was cancelled by the poster. Your ${Number(b.bondNQV8 || 0).toLocaleString()} NQV8 stake has been released — withdraw it any time from Tokenomics, with no cooldown.`,
+                    read: false,
+                    createdAt: new Date(),
+                    projectId
+                }))
+            ).catch(e => console.warn('bond_released notifications failed:', e.message));
         }
 
         // ── A withdrawn bid also leaves the posting ───────────────────────
