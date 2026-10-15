@@ -503,7 +503,7 @@
             <div id="comp-field-cash" class="mb-4">
                 <p class="text-xs text-zinc-500 mb-1">Minimum bounty: <span class="text-cyan-400">$20.00 USDC</span></p>
                 <input id="bounty-compensation-cash" type="text" placeholder="Minimum $20.00 USDC"
-                       oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
+                       oninput="this.value = this.value.replace(/[^0-9.]/g, ''); updateBondPreview();"
                        onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : '$' + n.toFixed(6).replace(/\.?0+$/, '') + ' USDC'; }"
                        onfocus="this.value = this.value.replace(/[^0-9.]/g, '')"
                        class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
@@ -519,6 +519,12 @@
                     <span class="text-zinc-400 font-semibold text-lg">%</span>
                 </div>
                 <p class="text-xs text-zinc-500 mt-2">Equity transfers on-chain automatically when work is approved.</p>
+                <p class="text-xs text-zinc-400 mt-3 mb-1">Estimated value of the equity offered</p>
+                <input id="bounty-equity-usd" type="text" placeholder="$0.00"
+                       oninput="this.value = this.value.replace(/[^0-9.]/g, ''); updateBondPreview();"
+                       class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
+                <p class="text-xs text-zinc-500 mt-1">Used only to size the builder's stake. Understate it and you get less
+                protection; overstate it and you get fewer bidders.</p>
             </div>
 
             <!-- Mixed compensation -->
@@ -526,7 +532,7 @@
                 <div>
                     <p class="text-xs text-zinc-400 mb-1">Cash Amount <span class="text-zinc-500">(minimum $20.00 USDC)</span></p>
                     <input id="bounty-compensation-mixed-cash"
-                           oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
+                           oninput="this.value = this.value.replace(/[^0-9.]/g, ''); updateBondPreview();"
                            onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : '$' + n.toFixed(2) + ' USDC'; }"
                            onfocus="this.value = this.value.replace(/[^0-9.]/g, '')"
                            class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
@@ -539,7 +545,19 @@
                         <span class="text-zinc-400 font-semibold text-lg">%</span>
                     </div>
                 </div>
-                <p class="text-xs text-zinc-500">Cash and equity both transfer automatically when work is approved.</p>
+                <div>
+                    <p class="text-xs text-zinc-400 mb-1">Estimated value of the equity portion</p>
+                    <input id="bounty-mixed-equity-usd" type="text" placeholder="$0.00"
+                           oninput="this.value = this.value.replace(/[^0-9.]/g, ''); updateBondPreview();"
+                           class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
+                </div>
+                <p class="text-xs text-zinc-500">Cash and equity both transfer automatically when work is approved.
+                The equity value is used only to size the builder's stake — the bond covers the cash and equity together.</p>
+            </div>
+
+            <!-- Builder stake preview -->
+            <div id="bond-preview" class="hidden bg-zinc-800 border border-zinc-700 rounded-2xl p-4 mb-4">
+                <p class="text-xs text-zinc-400"><span id="bond-preview-text"></span></p>
             </div>
 
             <!-- Target timeframe -->
@@ -4719,15 +4737,55 @@ function bountyUSDValue(project) {
 }
 
 /// Same reading, but off the posting form before anything is saved.
+///
+/// Equity has no price the platform can look up for a company with no trading
+/// history, so the founder supplies one. Both error directions are
+/// self-correcting — understate it and you get a smaller bond protecting your
+/// own bounty, overstate it and you get fewer bidders — which is what makes a
+/// founder-supplied figure safe here where a bidder-supplied one would not be.
 function postingFormUSDValue(compensationType) {
     const num = id => {
         const v = (document.getElementById(id)?.value || '').replace(/[^0-9.]/g, '');
         const n = parseFloat(v);
         return isNaN(n) ? 0 : n;
     };
-    if (compensationType === 'cash')  return num('bounty-compensation-cash');
-    if (compensationType === 'mixed') return num('bounty-compensation-mixed-cash');
-    return 0;   // equity-only
+    if (compensationType === 'cash')   return num('bounty-compensation-cash');
+    if (compensationType === 'equity') return num('bounty-equity-usd');
+    if (compensationType === 'mixed')  return num('bounty-compensation-mixed-cash') + num('bounty-mixed-equity-usd');
+    return 0;
+}
+
+/// The price moves rarely and this is called on every keystroke, so it is
+/// fetched once per session rather than per character.
+let _nqv8PriceCache = null;
+async function cachedNQV8Price() {
+    if (_nqv8PriceCache) return _nqv8PriceCache;
+    try { _nqv8PriceCache = await getNQV8PriceUSD(); } catch { _nqv8PriceCache = 0.01; }
+    return _nqv8PriceCache;
+}
+
+/// Show the founder what bidding will cost a builder, while they can still
+/// change the scope. Standard rate only — Claude has not seen the description
+/// yet, and the review modal is where the rate is settled.
+async function updateBondPreview() {
+    const box = document.getElementById('bond-preview');
+    const txt = document.getElementById('bond-preview-text');
+    if (!box || !txt) return;
+
+    // Derived from which block is visible rather than a global the form
+    // does not keep — one less thing to fall out of step.
+    const vis = id => { const el = document.getElementById(id); return el && !el.classList.contains('hidden'); };
+    const type = vis('comp-field-equity') ? 'equity' : vis('comp-field-mixed') ? 'mixed' : 'cash';
+    const usd  = postingFormUSDValue(type);
+    if (!usd || usd <= 0) { box.classList.add('hidden'); return; }
+
+    const bond = bondAmountNQV8(usd, 'standard', await cachedNQV8Price());
+    const atFloor = bond <= BOND_MIN_NQV8;
+    txt.innerHTML = `Builders will stake about <span class="text-zinc-200 font-semibold">${_nqv8(bond)} NQV8</span> `
+        + `to bid — 15% of the posting's value.`
+        + (atFloor ? ` That is the ${_nqv8(BOND_MIN_NQV8)} NQV8 minimum.` : '')
+        + ` Claude adjusts this up or down for scope when you post, and you can override it then.`;
+    box.classList.remove('hidden');
 }
 
 /// Convert a bounty value into a bond, clamped. The clamp is the real safety
@@ -13427,6 +13485,7 @@ function selectBountyCompType(type) {
     document.getElementById('comp-field-cash').classList.toggle('hidden', type !== 'cash');
     document.getElementById('comp-field-equity').classList.toggle('hidden', type !== 'equity');
     document.getElementById('comp-field-mixed').classList.toggle('hidden', type !== 'mixed');
+    updateBondPreview();
 
     if (type === 'cash') {
         const cashEl = document.getElementById('bounty-compensation-cash');
@@ -14795,20 +14854,26 @@ function showImproveSuggestionsModal(original, improved, changes, onConfirm, tim
             <!-- What builders must stake -->
             ${bond ? `
             <div class="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 mb-6">
-                <p class="text-amber-300 text-sm font-semibold mb-1">
-                    Builders will stake ${_nqv8(bond.nqv8)} NQV8 to bid
-                    <span class="text-zinc-500 font-normal">· ${bond.riskTier} risk, ${(bond.bondRateBps / 100).toFixed(0)}% of bounty value</span>
+                <p class="text-amber-300 text-sm font-semibold mb-2">Builder stake</p>
+                <div class="grid grid-cols-3 gap-2 mb-3">
+                    ${['low', 'standard', 'high'].map(t => `
+                        <button type="button" onclick="selectBondTier('${t}')" id="bond-tier-${t}"
+                                class="py-3 px-2 rounded-2xl border-2 text-center transition-all ${t === bond.riskTier ? 'border-amber-400 bg-amber-500/10' : 'border-zinc-700 hover:border-zinc-500'}">
+                            <span class="block text-xs text-zinc-400 capitalize">${t} ${(BOND_RATE_BPS[t] / 100).toFixed(0)}%</span>
+                            <span class="block text-sm font-semibold text-zinc-100">${_nqv8(bondAmountNQV8(bond.usdValue, t, bond.pricedAt))} NQV8</span>
+                        </button>`).join('')}
+                </div>
+                <p class="text-zinc-400 text-xs mb-2">
+                    Claude suggests <span class="text-amber-300 capitalize">${bond.riskTier}</span>${bond.riskReason ? ' — ' + bond.riskReason : '.'}
                 </p>
-                <p class="text-zinc-400 text-xs mb-2">${bond.riskReason || ''}</p>
                 <p class="text-zinc-400 text-xs">
-                    Their stake is returned in full if they don't win, withdraw, or deliver on time.
+                    A builder's stake is returned in full if they don't win, withdraw, or deliver on time.
                     It is only slashed if they win and then default — part compensating you for
-                    demonstrated loss, the rest burned.
-                    ${bond.usdValue > 0 ? '' : '<br><span class="text-amber-400">This posting has no cash value, so the bond falls to the ' + _nqv8(BOND_MIN_NQV8) + ' NQV8 minimum.</span>'}
+                    demonstrated loss, the rest burned. NQVate never receives it.
+                    ${bond.usdValue > 0 ? '' : '<br><span class="text-amber-400">No value was given for this posting, so every tier lands on the ' + _nqv8(BOND_MIN_NQV8) + ' NQV8 minimum. Go back and add one if you want a bond that scales.</span>'}
                 </p>
                 <p class="text-zinc-500 text-xs mt-2">
-                    A higher bond filters out unserious bids but narrows your pool. Tightening a vague
-                    scope is what lowers it.
+                    A higher stake filters out unserious bids but narrows your pool.
                 </p>
             </div>` : ''}
 
@@ -14880,6 +14945,29 @@ function showImproveSuggestionsModal(original, improved, changes, onConfirm, tim
         _tfSel.onchange = _checkTf;
         _checkTf();
     }
+}
+
+/**
+ * Override Claude's risk tier. Bounded to the same three bands Claude may
+ * choose between, rather than a free amount: the band is what makes the bond
+ * un-talkable-into, and a text field would hand that back to whoever wrote
+ * the posting.
+ */
+function selectBondTier(tier) {
+    const b = window._postingBond;
+    if (!b || !BOND_RATE_BPS[tier]) return;
+
+    b.riskTier    = tier;
+    b.bondRateBps = BOND_RATE_BPS[tier];
+    b.nqv8        = bondAmountNQV8(b.usdValue, tier, b.pricedAt);
+
+    ['low', 'standard', 'high'].forEach(t => {
+        const el = document.getElementById('bond-tier-' + t);
+        if (!el) return;
+        el.classList.toggle('border-amber-400', t === tier);
+        el.classList.toggle('bg-amber-500/10', t === tier);
+        el.classList.toggle('border-zinc-700', t !== tier);
+    });
 }
 
 function selectPostingVersion(version) {
