@@ -4725,6 +4725,17 @@ const BOND_MIN_NQV8 = 500;
 const BOND_MAX_NQV8 = 500000;
 const BOND_KIND_BID = 1;
 
+/// Grace beyond a posting's target timeframe before an unanswered bid's bond
+/// expires and anyone may release it. Must match BID_EXPIRY_GRACE_DAYS in
+/// api/lock-bid-bond.js, which is what actually sets it on-chain.
+const BID_EXPIRY_GRACE_DAYS = 14;
+
+function bidExpiryDate(project) {
+    const days = timeframeDays(project && (project.targetTimeframe || project.deadline) || '1week')
+               + BID_EXPIRY_GRACE_DAYS;
+    return new Date(Date.now() + days * 86400000);
+}
+
 /// Dollar value of what a posting is offering. Equity-only postings return 0
 /// — there is no USD figure without a registry valuation, so those fall to
 /// the floor until that is wired up.
@@ -4784,7 +4795,8 @@ async function updateBondPreview() {
     const atFloor = bond <= BOND_MIN_NQV8;
     txt.innerHTML = `Builders will stake about <span class="text-zinc-200 font-semibold">${_nqv8(bond)} NQV8 (${_usd(bond * price)})</span> `
         + `to bid — 15% of this posting's ${_usd(usd)} value.`
-        + (atFloor ? ` That is the ${_nqv8(BOND_MIN_NQV8)} NQV8 minimum, which is higher than 15% here.` : '')
+        + (atFloor ? ` That is the ${_nqv8(BOND_MIN_NQV8)} NQV8 platform minimum, which is more than 15% of a posting this size.` : '')
+        + (bond >= BOND_MAX_NQV8 ? ` That is the ${_nqv8(BOND_MAX_NQV8)} NQV8 platform maximum.` : '')
         + ` Claude adjusts this up or down for scope when you post, and you can override it then.`;
     box.classList.remove('hidden');
 }
@@ -4819,6 +4831,16 @@ function bidBondMessage(projectId, holder, issuedAt) {
 }
 
 function _nqv8(n) { return Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 }); }
+
+/// Staking happens before the bid is placed, so a bid abandoned part-way
+/// leaves NQV8 staked. That is not lost, but a user who is told only "bid
+/// cancelled" will reasonably think it was.
+function _stakeNote(stakedTxt) {
+    if (!stakedTxt) return '';
+    return `\n\nNote: you already staked ${stakedTxt} NQV8 before stopping. It is safe in your `
+         + `staked balance — place this bid again and no further stake is needed, or unstake it `
+         + `from the Tokenomics page (30-day cooldown).`;
+}
 
 /// Every NQV8 bond figure is shown beside its dollar value. A four-digit NQV8
 /// number next to a "15%" label reads as an arithmetic error unless the
@@ -4863,11 +4885,15 @@ function timeframeSelectOptions(sel) {
 // approvals mean an approve-and-pay pair for every 1 NQV8 bid or comment.
 // A bounded bucket shows a real number in the wallet and covers a long run of
 // actions before asking again.
-const FEE_ALLOWANCE_BUCKET = '2000';   // NQV8
-
 function feeAllowance(amountRaw) {
-    const bucket = ethers.utils.parseUnits(FEE_ALLOWANCE_BUCKET, 18);
-    return amountRaw.gt(bucket) ? amountRaw : bucket;
+    // Exactly the fee, never a bucket.
+    //
+    // This used to pad every approval to 2,000 NQV8 so a run of small fees
+    // needed one approval instead of many. The saving was one wallet prompt;
+    // the cost was a 1 NQV8 bid asking permission to spend 2,000, which is
+    // indistinguishable from a site helping itself. On Arbitrum the extra
+    // approval costs a fraction of a cent, so the trade was never worth it.
+    return amountRaw;
 }
 
 function deadlineToTimestamp(deadlineStr) {
@@ -4989,9 +5015,15 @@ async function fillBidCostSlot(projectId, project) {
                 </p>
                 <p class="text-xs text-zinc-400 font-semibold mb-1">When you get it back</p>
                 <p class="text-xs text-zinc-500">
-                    Immediately if you aren't chosen, you withdraw your bid, the founder cancels,
-                    or the bid expires unanswered. It returns to your staked balance and can be
-                    withdrawn straight away — the 30-day unstaking cooldown does not apply to a bond.
+                    Immediately if you aren't chosen, you withdraw your bid, or the founder cancels.
+                    It returns to your staked balance and can be withdrawn straight away — the 30-day
+                    unstaking cooldown does not apply to a bond.
+                </p>
+                <p class="text-xs text-zinc-500 mt-2">
+                    If the founder never decides, your stake frees itself on
+                    <span class="text-zinc-300">${bidExpiryDate(project).toLocaleDateString()}</span>.
+                    That release is enforced on-chain and anyone can trigger it, so it does not depend
+                    on NQVate.
                 </p>
             </div>
         </div>`;
@@ -8760,6 +8792,7 @@ function hideEditPostingModal() {
                 // The bond is held against the CONNECTED wallet, which is not
                 // necessarily where payment is sent.
                 const _bondNQV8 = Number(project.bondNQV8);
+                let _didStake = null;
                 if (Number.isFinite(_bondNQV8) && _bondNQV8 > 0) {
                     try {
                         const ro      = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
@@ -8774,7 +8807,11 @@ function hideEditPostingModal() {
                                 `This bid requires ${_nqv8(_bondNQV8)} NQV8 staked as a refundable bond.\n\n` +
                                 `You need to stake ${shortTxt} more. That is two wallet prompts ` +
                                 `(approve, then stake), followed by the ${NQV8_FEE.MICRO} NQV8 bid fee.\n\n` +
-                                `The stake is returned if you don't win, withdraw, or deliver on time.\n\nContinue?`
+                                `The stake is returned if you don't win, withdraw, or deliver on time.\n\n` +
+                                `Note: the stake happens BEFORE the bid is placed. If you stop after ` +
+                                `staking, the NQV8 stays in your staked balance — you can finish the bid ` +
+                                `later at no extra stake, or unstake it with the usual 30-day cooldown.` +
+                                `\n\nContinue?`
                             );
                             if (!ok) return;
 
@@ -8799,6 +8836,9 @@ function hideEditPostingModal() {
                             const stx = await new ethers.Contract(STAKING_CONTRACT_ADDRESS, STAKING_ABI, signer)
                                 .stake(shortRaw);
                             await stx.wait();
+                            // From here on, a failure leaves real NQV8 staked.
+                            // Silence would make that look like money vanishing.
+                            _didStake = shortTxt;
                         }
 
                         // Prove wallet control. A Firebase token says who the
@@ -8815,12 +8855,16 @@ function hideEditPostingModal() {
                             body: JSON.stringify({ projectId, holder: connectedAddress, issuedAt, signature: sig })
                         });
                         if (!lockRes.ok) {
-                            return alert('❌ Could not lock your bid bond: ' + await serverError(lockRes, `HTTP ${lockRes.status}`) + '\n\nYou have not been charged.');
+                            return alert('❌ Could not lock your bid bond: ' + await serverError(lockRes, `HTTP ${lockRes.status}`)
+                                + '\n\nYou have not been charged.' + _stakeNote(_didStake));
                         }
                     } catch (e) {
                         const m = e && (e.message || '');
-                        if (m.includes('user rejected') || e.code === 4001) return alert('Bid cancelled.');
-                        return alert('❌ Could not set up your bid bond: ' + m + '\n\nYou have not been charged.');
+                        if (m.includes('user rejected') || e.code === 4001) {
+                            return alert('Bid cancelled. You have not been charged.' + _stakeNote(_didStake));
+                        }
+                        return alert('❌ Could not set up your bid bond: ' + m
+                            + '\n\nYou have not been charged.' + _stakeNote(_didStake));
                     }
                 }
     
@@ -14868,15 +14912,44 @@ function showImproveSuggestionsModal(original, improved, changes, onConfirm, tim
             ${bond ? `
             <div class="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4 mb-6">
                 <p class="text-amber-300 text-sm font-semibold mb-2">Builder stake</p>
-                <div class="grid grid-cols-3 gap-2 mb-3">
-                    ${['low', 'standard', 'high'].map(t => `
-                        <button type="button" onclick="selectBondTier('${t}')" id="bond-tier-${t}"
-                                class="py-3 px-2 rounded-2xl border-2 text-center transition-all ${t === bond.riskTier ? 'border-amber-400 bg-amber-500/10' : 'border-zinc-700 hover:border-zinc-500'}">
-                            <span class="block text-xs text-zinc-400 capitalize">${t} ${(BOND_RATE_BPS[t] / 100).toFixed(0)}%</span>
-                            <span class="block text-sm font-semibold text-zinc-100">${_nqv8(bondAmountNQV8(bond.usdValue, t, bond.pricedAt))} NQV8</span>
-                            <span class="block text-xs text-zinc-500">${_usd(bondAmountNQV8(bond.usdValue, t, bond.pricedAt) * bond.pricedAt)}</span>
-                        </button>`).join('')}
-                </div>
+                ${(() => {
+                    const at = t => bondAmountNQV8(bond.usdValue, t, bond.pricedAt);
+                    const lo = at('low'), hi = at('high');
+
+                    // When the floor or the cap binds, all three tiers resolve
+                    // to the same number. Showing three identical buttons asks
+                    // the founder to make a choice that cannot change anything,
+                    // and — worse — displays a $5 stake under a "high risk"
+                    // verdict with no explanation.
+                    if (lo === hi) {
+                        const atFloor = lo <= BOND_MIN_NQV8;
+                        // Value at which the high tier first clears the floor.
+                        const needUSD = Math.ceil(BOND_MIN_NQV8 * bond.pricedAt / (BOND_RATE_BPS.high / 10000));
+                        return `
+                        <div class="bg-zinc-900/60 border border-zinc-700 rounded-2xl p-3 mb-3 text-center">
+                            <span class="block text-sm font-semibold text-zinc-100">${_nqv8(lo)} NQV8 · ${_usd(lo * bond.pricedAt)}</span>
+                            <span class="block text-xs text-zinc-500 mt-1">
+                                ${atFloor ? 'platform minimum' : 'platform maximum'}
+                            </span>
+                        </div>
+                        <p class="text-xs text-amber-400 mb-3">
+                            ${atFloor
+                                ? `Every tier lands on the ${_nqv8(BOND_MIN_NQV8)} NQV8 minimum, because even 25% of this posting's ${_usd(bond.usdValue)} value is below it. The risk tier only changes the stake once a posting is worth more than about ${_usd(needUSD)}.`
+                                : `Every tier hits the ${_nqv8(BOND_MAX_NQV8)} NQV8 maximum, so the risk tier cannot raise it further on a posting this size.`}
+                        </p>`;
+                    }
+
+                    return `
+                    <div class="grid grid-cols-3 gap-2 mb-3">
+                        ${['low', 'standard', 'high'].map(t => `
+                            <button type="button" onclick="selectBondTier('${t}')" id="bond-tier-${t}"
+                                    class="py-3 px-2 rounded-2xl border-2 text-center transition-all ${t === bond.riskTier ? 'border-amber-400 bg-amber-500/10' : 'border-zinc-700 hover:border-zinc-500'}">
+                                <span class="block text-xs text-zinc-400 capitalize">${t} ${(BOND_RATE_BPS[t] / 100).toFixed(0)}%</span>
+                                <span class="block text-sm font-semibold text-zinc-100">${_nqv8(at(t))} NQV8</span>
+                                <span class="block text-xs text-zinc-500">${_usd(at(t) * bond.pricedAt)}</span>
+                            </button>`).join('')}
+                    </div>`;
+                })()}
                 <p class="text-zinc-400 text-xs mb-2">
                     Claude suggests <span class="text-amber-300 capitalize">${bond.riskTier}</span>${bond.riskReason ? ' — ' + bond.riskReason : '.'}
                 </p>
@@ -14888,6 +14961,13 @@ function showImproveSuggestionsModal(original, improved, changes, onConfirm, tim
                 </p>
                 <p class="text-zinc-500 text-xs mt-2">
                     A higher stake filters out unserious bids but narrows your pool.
+                    Every posting stakes at least ${_nqv8(BOND_MIN_NQV8)} NQV8 (${_usd(BOND_MIN_NQV8 * bond.pricedAt)})
+                    and never more than ${_nqv8(BOND_MAX_NQV8)} NQV8, whatever the tier.
+                </p>
+                <p class="text-zinc-500 text-xs mt-2">
+                    Bids expire ${BID_EXPIRY_GRACE_DAYS} days after your target timeframe if you have not
+                    accepted one. Expired bids release their stake automatically — on-chain, so it does not
+                    depend on NQVate doing anything.
                 </p>
             </div>` : ''}
 
