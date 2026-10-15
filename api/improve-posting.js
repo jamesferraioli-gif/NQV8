@@ -26,6 +26,12 @@ import { callAnthropicJSON } from './_ai.js';
 // estimate-timeframe.js. These are the only durations the escrow can express.
 const VALID = ['1day', '3days', '1week', '2weeks', '1month', '2months', '3months'];
 
+// The only bond rates Claude can select between. Keep in step with
+// BOND_RATE_BPS in index.html — the frontend quotes the amount to the bidder
+// and the server locks it, so a mismatch would show one number and charge
+// another.
+const BOND_RATE_BPS = { low: 1000, standard: 1500, high: 2500 };
+
 /**
  * Pull a usable timeframe out of the model's answer, or null.
  *
@@ -102,6 +108,21 @@ not a shorter one, and the reasoning should say so. If the description is too
 thin to judge, set "confidence" to "low", say so in "reasoning", and still
 give your best range.
 
+3. RATE THE DELIVERY RISK, which sets how much collateral a builder must stake.
+
+The builder posts a bond worth a percentage of the bounty. You choose only the
+PERCENTAGE BAND, never an amount — the platform converts it using a price you
+do not have:
+
+- "low"      (10%) well-specified, self-contained, easy to redo if it goes wrong
+- "standard" (15%) the normal case
+- "high"     (25%) vague scope, touches live or production systems, depends on
+                   third parties, or a failure is expensive to recover from
+
+Rate the WORK, not the money: a large bounty is not automatically high risk, and
+a small one is not automatically low. Judge the original description's scope, and
+when genuinely unsure choose "standard".
+
 Return ONLY a JSON object, no markdown, no explanation:
 {
   "improved": "the improved description text here",
@@ -113,7 +134,9 @@ Return ONLY a JSON object, no markdown, no explanation:
     "confidence": "high" | "medium" | "low",
     "reasoning": "1-2 sentences a non-technical founder would understand",
     "scopeRisks": ["up to 3 short notes on what could make this take longer"]
-  }
+  },
+  "riskTier": "low" | "standard" | "high",
+  "riskReason": "one sentence on why this tier"
 }`;
 
 export default async function handler(req, res) {
@@ -169,7 +192,14 @@ Return only the JSON object.`;
             changes:   parsed.changes.slice(0, 8).map(c => String(c).slice(0, 240)),
             // null when the model returned something unusable — the caller
             // shows no estimate rather than a fabricated one.
-            timeframe: sanitizeTimeframe(parsed.timeframe)
+            timeframe: sanitizeTimeframe(parsed.timeframe),
+
+            // The bond RATE only. The NQV8 amount is computed by the caller,
+            // clamped to a floor and cap, so even a fully successful prompt
+            // injection moves the bond between 10% and 25% and no further.
+            riskTier:    BOND_RATE_BPS[parsed.riskTier] ? parsed.riskTier : 'standard',
+            bondRateBps: BOND_RATE_BPS[parsed.riskTier] || BOND_RATE_BPS.standard,
+            riskReason:  String(parsed.riskReason || '').slice(0, 300)
         });
 
     } catch (e) {
