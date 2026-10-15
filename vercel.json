@@ -55,6 +55,10 @@
             "dest": "/api/improve-posting.js"
         },
         {
+            "src": "/api/lock-bid-bond(.*)",
+            "dest": "/api/lock-bid-bond.js"
+        },
+        {
             "src": "/api/estimate-timeframe(.*)",
             "dest": "/api/estimate-timeframe.js"
         },
