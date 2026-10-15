@@ -59,6 +59,10 @@
             "dest": "/api/lock-bid-bond.js"
         },
         {
+            "src": "/api/release-bid-bond(.*)",
+            "dest": "/api/release-bid-bond.js"
+        },
+        {
             "src": "/api/estimate-timeframe(.*)",
             "dest": "/api/estimate-timeframe.js"
         },
