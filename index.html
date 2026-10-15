@@ -2167,6 +2167,15 @@
                 </div>
             </div>
 
+            <div id="stake-refund-panel" class="hidden mb-4 bg-cyan-500/10 border border-cyan-500/30 rounded-2xl p-4">
+                <p class="text-cyan-400 text-sm font-semibold mb-1">↩️ Stake from a bid you didn't place</p>
+                <p id="stake-refund-detail" class="text-zinc-400 text-xs"></p>
+                <button onclick="refundAbandonedStake()" id="stake-refund-btn"
+                        class="w-full mt-3 py-2 bg-cyan-500 hover:bg-cyan-400 text-black text-sm font-semibold rounded-xl transition-colors">
+                    Release it now
+                </button>
+            </div>
+
             <div id="stake-instant-panel" class="hidden mb-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4">
                 <p class="text-emerald-400 text-sm font-semibold mb-1">✅ Released from bids — no cooldown</p>
                 <p id="stake-instant-detail" class="text-zinc-400 text-xs"></p>
@@ -4845,14 +4854,101 @@ function bidBondMessage(projectId, holder, issuedAt) {
 
 function _nqv8(n) { return Number(n).toLocaleString(undefined, { maximumFractionDigits: 0 }); }
 
+/**
+ * Remember a stake made for a bid that was then abandoned.
+ *
+ * creditOnRelease is only granted for NQV8 staked FOR the bid, proven by the
+ * stake transaction. That proof lives in one placeBid() call, so a bidder who
+ * staked, stopped, and came back would silently lose the cooldown exemption
+ * on money they had just locked up — penalised for hesitating.
+ *
+ * The server still decides: it re-checks sender, recency and one-time use, so
+ * replaying a hash here can only ever be rejected, never over-credited.
+ */
+const STAKE_MEMO_MS = 30 * 60 * 1000;   // matches STAKE_MAX_AGE_MS server-side
+
+function rememberStakeTx(wallet, hash) {
+    try {
+        localStorage.setItem('nqv8.stakeMemo', JSON.stringify({
+            wallet: String(wallet).toLowerCase(), hash, at: Date.now() }));
+    } catch (e) { /* private mode, or storage disabled — not load-bearing */ }
+}
+
+function recallStakeTx(wallet) {
+    try {
+        const m = JSON.parse(localStorage.getItem('nqv8.stakeMemo') || 'null');
+        if (!m || m.wallet !== String(wallet).toLowerCase()) return null;
+        if (Date.now() - m.at > STAKE_MEMO_MS) return null;
+        return m.hash;
+    } catch (e) { return null; }
+}
+
+/// Must match refundStakeMessage() in api/refund-abandoned-stake.js.
+function refundStakeMessage(stakeTxHash, holder, issuedAt) {
+    return [
+        'NQVate abandoned stake refund',
+        `Stake: ${String(stakeTxHash).toLowerCase()}`,
+        `Wallet: ${String(holder).toLowerCase()}`,
+        `Issued: ${issuedAt}`,
+        '',
+        'Signing this does not move funds. It proves you control this wallet',
+        'so NQVate can make your unused bid stake withdrawable again.'
+    ].join('\n');
+}
+
+/**
+ * Hand back NQV8 staked for a bid that was never placed.
+ *
+ * Server-side this is a bond locked and released in the same breath, which is
+ * the only way to grant cooldown-exempt credit. Capped at what was just
+ * staked, so it returns their own money and nothing more.
+ */
+async function refundAbandonedStake() {
+    if (!connectedAddress || !signer) return alert('Please connect your wallet first.');
+    const hash = recallStakeTx(connectedAddress);
+    if (!hash) return alert('No recent unused bid stake found for this wallet.');
+
+    const btn = document.getElementById('stake-refund-btn');
+    const orig = btn ? btn.textContent : '';
+    if (btn) { btn.disabled = true; btn.textContent = '⏳ Sign in wallet...'; }
+    try {
+        const issuedAt = new Date().toISOString();
+        const sig = await signer.signMessage(refundStakeMessage(hash, connectedAddress, issuedAt));
+        if (btn) btn.textContent = '⏳ Releasing...';
+
+        const res = await fetch('/api/refund-abandoned-stake', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
+            body: JSON.stringify({ stakeTxHash: hash, holder: connectedAddress, issuedAt, signature: sig })
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) return alert('❌ ' + (body.error || `HTTP ${res.status}`));
+
+        forgetStakeTx();
+        alert(`✅ ${Number(body.refunded).toLocaleString()} NQV8 released. `
+            + `You can withdraw it now from Instant release — no cooldown.`);
+        await loadStaking();
+    } catch (e) {
+        const m = e && (e.message || '');
+        if (!(m.includes('user rejected') || e.code === 4001)) alert('❌ Refund failed: ' + m);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = orig || 'Release it now'; }
+    }
+}
+
+function forgetStakeTx() {
+    try { localStorage.removeItem('nqv8.stakeMemo'); } catch (e) { /* ignore */ }
+}
+
 /// Staking happens before the bid is placed, so a bid abandoned part-way
 /// leaves NQV8 staked. That is not lost, but a user who is told only "bid
 /// cancelled" will reasonably think it was.
 function _stakeNote(stakedTxt) {
     if (!stakedTxt) return '';
     return `\n\nNote: you already staked ${stakedTxt} NQV8 before stopping. It is safe in your `
-         + `staked balance — place this bid again and no further stake is needed, or unstake it `
-         + `from the Tokenomics page (30-day cooldown).`;
+         + `staked balance. You have 30 minutes to either place this bid again — it still counts as `
+         + `staked for the bid — or release it from the Tokenomics page and withdraw it immediately. `
+         + `After that it becomes ordinary stake and unstaking takes the usual 30 days.`;
 }
 
 /// Every NQV8 bond figure is shown beside its dollar value. A four-digit NQV8
@@ -8854,6 +8950,7 @@ function hideEditPostingModal() {
                             // much skips the 30-day cooldown when the bond is
                             // released; stake they already held does not.
                             _stakeTxHash = stx.hash;
+                            rememberStakeTx(connectedAddress, stx.hash);
                             // From here on, a failure leaves real NQV8 staked.
                             // Silence would make that look like money vanishing.
                             _didStake = shortTxt;
@@ -8866,6 +8963,11 @@ function hideEditPostingModal() {
                         const sig = await signer.signMessage(
                             bidBondMessage(projectId, connectedAddress, issuedAt));
 
+                        // Nothing staked this time round? It may still be the
+                        // same capital from an attempt that was abandoned
+                        // minutes ago. The server re-verifies before crediting.
+                        if (!_stakeTxHash) _stakeTxHash = recallStakeTx(connectedAddress);
+
                         const lockRes = await fetch('/api/lock-bid-bond', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json',
@@ -8876,6 +8978,9 @@ function hideEditPostingModal() {
                             return alert('❌ Could not lock your bid bond: ' + await serverError(lockRes, `HTTP ${lockRes.status}`)
                                 + '\n\nYou have not been charged.' + _stakeNote(_didStake));
                         }
+                        // Consumed. The server also enforces one-time use, so
+                        // this is tidiness rather than the actual guard.
+                        forgetStakeTx();
                     } catch (e) {
                         const m = e && (e.message || '');
                         if (m.includes('user rejected') || e.code === 4001) {
@@ -15524,6 +15629,22 @@ async function loadStaking() {
                 ip.classList.remove('hidden');
             } else {
                 ip.classList.add('hidden');
+            }
+        }
+
+        // An unused bid stake, still inside the 30-minute window where it
+        // can be handed straight back rather than serving the cooldown.
+        const rp = document.getElementById('stake-refund-panel');
+        if (rp) {
+            const pending = recallStakeTx(connectedAddress);
+            if (pending && free.gt(0)) {
+                document.getElementById('stake-refund-detail').textContent =
+                    'You staked NQV8 for a bid you didn\'t complete. Release it now and withdraw '
+                    + 'straight away, or place that bid within 30 minutes and it still counts. '
+                    + 'After that it becomes ordinary stake with the 30-day cooldown.';
+                rp.classList.remove('hidden');
+            } else {
+                rp.classList.add('hidden');
             }
         }
 
