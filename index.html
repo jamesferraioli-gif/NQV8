@@ -4926,6 +4926,45 @@ async function fillBidCostSlot(projectId, project) {
         </div>`;
 }
 
+/**
+ * Return bid bonds. Never awaited by a flow that has already succeeded:
+ * acceptance and deletion must not fail because a release did.
+ *
+ * The on-chain expiry is the backstop — if this never lands, the bond still
+ * frees itself and anyone can trigger it. So a failure here delays a refund,
+ * it does not lose one.
+ */
+async function releaseBidBonds(projectId, reason) {
+    try {
+        const res = await fetch('/api/release-bid-bond', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json',
+                       'Authorization': `Bearer ${await authToken()}` },
+            body: JSON.stringify({ projectId, reason })
+        });
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) { console.warn('bond release failed:', body.error || res.status); return null; }
+        return body;
+    } catch (e) {
+        console.warn('bond release failed:', e.message);
+        return null;
+    }
+}
+
+/// A builder pulling their own bid. Unlike the others this IS awaited and
+/// surfaced — the bidder is standing there waiting for their stake back.
+async function withdrawBid(projectId) {
+    if (!currentUser) return;
+    if (!confirm('Withdraw your bid?\n\nYour bid is removed and your staked bond is returned in full, available to withdraw straight away.')) return;
+    const r = await releaseBidBonds(projectId, 'withdrawn');
+    if (!r) return alert('❌ Could not withdraw your bid. Your bond is unchanged — please try again.');
+    alert(r.released > 0
+        ? '✅ Bid withdrawn and your bond released. It is in your staked balance and can be withdrawn now.'
+        : '✅ Bid withdrawn.');
+    hideProjectDetailModal();
+    loadMarketplace();
+}
+
 // Fill the estimate slot in the project detail modal after it renders.
 async function fillTimeframeEstimateSlot(projectId, project) {
     const slot = document.getElementById('bid-estimate-slot');
@@ -8120,7 +8159,13 @@ async function loadTotalFundingReceivedStat() {
                     </div>
                 </div>`;
             }
-            return `<p class="text-emerald-400 text-center mt-4">✅ You have already placed a bid on this project.${myBid?.status === 'countered' ? ' Counter offer sent.' : ''}</p>`;
+            return `
+                <p class="text-emerald-400 text-center mt-4">✅ You have already placed a bid on this project.${myBid?.status === 'countered' ? ' Counter offer sent.' : ''}</p>
+                ${project.bidsOpen !== false && !project.acceptedBidderUid ? `
+                <button onclick="withdrawBid('${projectId}')"
+                        class="w-full mt-3 py-3 border border-zinc-600 text-zinc-400 hover:bg-zinc-800 rounded-2xl text-sm transition-colors">
+                    Withdraw bid${myBid?.bondNQV8 ? ` and release ${_nqv8(myBid.bondNQV8)} NQV8` : ''}
+                </button>` : ''}`;
         })() : ''}
 
         ${!isPoster && project.type === 'fund' && project.listingId ? `
@@ -8222,6 +8267,11 @@ async function deletePosting(projectId) {
                             // Still proceed with delete — ops wallet can cancel manually if needed
                         }
                     }
+
+                    // Before the delete, not after — the release endpoint
+                    // reads this document to find who is bonded, and in a
+                    // moment it will not exist.
+                    await releaseBidBonds(projectId, 'cancelled');
 
                     await db.collection("subprojects").doc(projectId).delete();
 
@@ -8717,7 +8767,13 @@ function hideEditPostingModal() {
                                 timeframe: bidTimeframe,
                                 timestamp: new Date(),
                                 paymentTxHash: txHash,
-                                paymentWallet: paymentWallet.toLowerCase()
+                                paymentWallet: paymentWallet.toLowerCase(),
+                                // The wallet the bond is held against — the
+                                // one connected at bid time, which is not
+                                // necessarily where payment is sent.
+                                bondWallet: (Number(project.bondNQV8) > 0 && connectedAddress)
+                                              ? connectedAddress.toLowerCase() : null,
+                                bondNQV8:   Number(project.bondNQV8) > 0 ? Number(project.bondNQV8) : null
                             };
                             await projectRef.update({
                                 bids: firebase.firestore.FieldValue.arrayUnion(newBid)
@@ -9079,6 +9135,10 @@ function hideEditPostingModal() {
                             escrowTxHash
                         });
 
+                        // Every losing bidder's capital is freed the moment a
+                        // winner exists, rather than waiting for a sweep.
+                        releaseBidBonds(currentProjectId, 'losers');
+
                         // Update plan node status if this posting came from Studio
                         const nodeSnap = await db.collection('subprojects')
                             .where('marketplacePostId', '==', currentProjectId)
@@ -9213,6 +9273,10 @@ function hideEditPostingModal() {
                     escrowCurrency: isNQV8 ? 'NQV8' : 'USDC',
                     escrowAmount: amountNum
                 });
+
+                // Every losing bidder's capital is freed the moment a winner
+                // exists, rather than waiting for a sweep.
+                releaseBidBonds(currentProjectId, 'losers');
 
                 await db.collection("chats").add({
                     participants: [currentUser.uid, bid.bidderUid].sort(),
