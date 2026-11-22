@@ -10051,7 +10051,9 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
 
             const isEquityBounty = currentProject?.escrowType === 'equity' || currentProject?.compensationType === 'equity';
             const confirmMsg = isEquityBounty
-                ? `Approve this submission?\n\n${(currentProject.equityUnits / 100).toFixed(2)}% equity agreed — ${((currentProject.equityUnits * 0.965) / 100).toFixed(4)}% transfers to @${currentProject.acceptedBidderUsername} and ${((currentProject.equityUnits * 0.035) / 100).toFixed(4)}% to NQVate (3.5% platform fee) when you submit your review. This cannot be undone.`
+                ? (NQV_FEATURES.equityFeeFlat
+                    ? `Approve this submission?\n\n${(currentProject.equityUnits / 100).toFixed(2)}% equity agreed — all of it transfers to @${currentProject.acceptedBidderUsername} when you submit your review. NQVate takes no share of the equity. This cannot be undone.`
+                    : `Approve this submission?\n\n${(currentProject.equityUnits / 100).toFixed(2)}% equity agreed — ${((currentProject.equityUnits * 0.965) / 100).toFixed(4)}% transfers to @${currentProject.acceptedBidderUsername} and ${((currentProject.equityUnits * 0.035) / 100).toFixed(4)}% to NQVate (3.5% platform fee) when you submit your review. This cannot be undone.`)
                 : "Accept this submission and release funds from escrow?\n\n96.5% goes to the worker. 3.5% platform fee. This cannot be undone.";
             if (!confirm(confirmMsg)) return;
 
@@ -18868,6 +18870,10 @@ async function loadGrowTab() {
                     <button onclick="showAdminSupportQueue()"
                             class="w-full py-3 bg-zinc-700 hover:bg-zinc-600 text-white text-sm font-semibold rounded-xl transition-colors">
                         🎫 User Support Queue
+                    </button>
+                    <button onclick="showPlatformFeatures()"
+                            class="w-full py-3 bg-zinc-700 hover:bg-zinc-600 text-white text-sm font-semibold rounded-xl transition-colors">
+                        🎛️ Platform Features
                     </button>` : ''}
                 </div>
             `;
@@ -18946,6 +18952,10 @@ function showCompanyManageModal(companyId, company) {
                 <button onclick="document.getElementById('company-manage-modal').remove(); showAdminSupportQueue()"
                         class="w-full py-3 bg-zinc-700 hover:bg-zinc-600 text-white text-sm rounded-xl">
                     🎫 User Support Queue
+                </button>
+                <button onclick="document.getElementById('company-manage-modal').remove(); showPlatformFeatures()"
+                        class="w-full py-3 bg-zinc-700 hover:bg-zinc-600 text-white text-sm rounded-xl">
+                    🎛️ Platform Features
                 </button>` : ''}
             </div>
         </div>`;
@@ -19256,6 +19266,347 @@ async function founderRelease() {
             errorEl.textContent = '❌ ' + msg;
         }
         errorEl.classList.remove('hidden');
+    }
+}
+
+// ====================== FEATURE GATE: COMING SOON ======================
+// Funding requests and the equity exchange are built but can be switched off.
+// Nothing is deleted: every function below still exists and is simply not
+// reachable while its switch is false.
+//
+// The switches are set from Studio → Grow → NQVate → Platform Features and
+// stored on the server.
+// The values written here are only what the page assumes until the server
+// answers, and what it falls back to if the server cannot be reached — so
+// they are the restrictive ones. Do not edit them to turn a feature on; the
+// server would refuse the transaction anyway.
+//
+// Left live on purpose: cancelling a listing, rejecting an offer and deleting
+// a posting. Those are exits, and an exit should never be switched off.
+const NQV_FEATURES = {
+    fundingRequests: false,   // post a funding request, make or accept an investment offer
+    equityExchange:  false,   // list a stake for sale, make or counter an offer on one
+    equityFeeFlat:   true     // true: NQVate takes no units on an equity bounty (flat NQV8 posting fee only)
+};
+
+const NQV_FEATURE_DEMOS = {
+    fundingRequests: {
+        icon: '💰', title: 'Funding Requests', accent: 'violet',
+        blurb: 'Raise money for a verified company by offering a share of it to investors.',
+        steps: [
+            { h: 'Verify the company',
+              p: 'The founder submits formation documents. Once checked, the company and its ownership units are recorded on Arbitrum.',
+              mock: [['Company', 'Example Robotics LLC'], ['Status', '✓ Verified entity'], ['Units on record', '1,000,000']] },
+            { h: 'Post the request',
+              p: 'The founder states how much they are raising and what share is offered, and attaches a pitch deck.',
+              mock: [['Raising', '$50,000 USDC'], ['Share offered', '5%'], ['Implied valuation', '$1,000,000']] },
+            { h: 'Investors make offers',
+              p: 'An investor offers a price. Their USDC is held in the smart contract, not by NQVate, until the founder answers or the offer expires.',
+              mock: [['Offer', '$48,000 USDC for 5%'], ['Funds', 'Held on-chain'], ['Expires', 'In 7 days']] },
+            { h: 'Accept and settle',
+              p: 'When the founder accepts, the units move to the investor and the USDC moves to the founder in the same transaction. The cap table updates itself.',
+              mock: [['Investor now holds', '50,000 units (5%)'], ['Founder received', '$48,000 USDC'], ['Record', 'Public on Arbitrum']] }
+        ]
+    },
+    equityExchange: {
+        icon: '📈', title: 'Equity Exchange', accent: 'pink',
+        blurb: 'Sell a stake you already hold in a company to another member.',
+        steps: [
+            { h: 'Hold a stake',
+              p: 'Stakes come from completing equity bounties. Each one is a number of units recorded on-chain against your wallet.',
+              mock: [['Company', 'Example Robotics LLC'], ['You hold', '10,000 units (1%)'], ['Earned from', 'An equity bounty']] },
+            { h: 'List it',
+              p: 'Choose how many units to sell and your asking price. Listed units are set aside so they cannot be sold twice.',
+              mock: [['Selling', '5,000 units (0.5%)'], ['Asking', '$1.00 per unit'], ['Total', '$5,000 USDC']] },
+            { h: 'Receive offers',
+              p: 'Buyers can meet your price or offer less. You can accept, decline, or come back with a different number.',
+              mock: [['Offer', '$0.90 per unit'], ['Buyer funds', 'Held on-chain'], ['Your choices', 'Accept · Counter · Decline']] },
+            { h: 'Settle',
+              p: 'On acceptance the units and the USDC change hands in one transaction, and the company cap table reflects the new holder.',
+              mock: [['Buyer now holds', '5,000 units'], ['You received', '$4,500 USDC'], ['You still hold', '5,000 units']] }
+        ]
+    }
+};
+
+let _featureSoonKey = null, _featureSoonStep = 0;
+
+function hideFeatureSoon() {
+    document.getElementById('feature-soon-modal')?.classList.add('hidden');
+}
+
+function featureSoonGo(delta) {
+    const demo = NQV_FEATURE_DEMOS[_featureSoonKey];
+    if (!demo) return;
+    _featureSoonStep = Math.max(0, Math.min(demo.steps.length - 1, _featureSoonStep + delta));
+    renderFeatureSoon();
+}
+
+function renderFeatureSoon() {
+    const demo = NQV_FEATURE_DEMOS[_featureSoonKey];
+    const body = document.getElementById('feature-soon-body');
+    if (!demo || !body) return;
+    const step = demo.steps[_featureSoonStep];
+    const last = _featureSoonStep === demo.steps.length - 1;
+    const tone = demo.accent === 'pink'
+        ? { text: 'text-pink-300', bg: 'bg-pink-500', border: 'border-pink-500/40' }
+        : { text: 'text-violet-300', bg: 'bg-violet-500', border: 'border-violet-500/40' };
+
+    body.innerHTML = `
+        <div class="flex items-start justify-between gap-4 mb-5">
+            <div>
+                <span class="inline-block text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-400/15 text-amber-300 mb-3">Coming soon</span>
+                <h2 class="text-2xl font-bold">${demo.icon} ${demo.title}</h2>
+                <p class="text-sm text-zinc-400 mt-1">${demo.blurb}</p>
+            </div>
+            <button onclick="hideFeatureSoon()" aria-label="Close" class="text-zinc-500 hover:text-white text-2xl leading-none">&times;</button>
+        </div>
+
+        <div class="flex gap-1.5 mb-5">
+            ${demo.steps.map((_, i) => `<div class="h-1 flex-1 rounded-full ${i <= _featureSoonStep ? tone.bg : 'bg-zinc-700'}"></div>`).join('')}
+        </div>
+
+        <p class="text-xs uppercase tracking-wider ${tone.text} mb-1">Step ${_featureSoonStep + 1} of ${demo.steps.length}</p>
+        <p class="text-lg font-semibold mb-2">${step.h}</p>
+        <p class="text-sm text-zinc-300 mb-4">${step.p}</p>
+
+        <div class="rounded-2xl border ${tone.border} bg-zinc-800/60 p-4 mb-2">
+            <p class="text-[11px] uppercase tracking-wider text-zinc-500 mb-3">Example screen</p>
+            ${step.mock.map(([k, v]) => `
+                <div class="flex justify-between gap-4 text-sm py-1.5 border-b border-zinc-700/60 last:border-0">
+                    <span class="text-zinc-400">${k}</span><span class="font-medium text-right">${v}</span>
+                </div>`).join('')}
+        </div>
+        <p class="text-[11px] text-zinc-500 mb-5">Illustration only. Example Robotics LLC is not a real company, and nothing here is an offer to sell or a request to buy anything.</p>
+
+        <div class="flex gap-3">
+            <button onclick="featureSoonGo(-1)" ${_featureSoonStep === 0 ? 'disabled' : ''}
+                    class="flex-1 py-3 rounded-2xl border border-zinc-700 text-sm font-medium ${_featureSoonStep === 0 ? 'opacity-40 cursor-not-allowed' : 'hover:bg-zinc-800'}">Back</button>
+            <button onclick="${last ? 'hideFeatureSoon()' : 'featureSoonGo(1)'}"
+                    class="flex-1 py-3 rounded-2xl ${tone.bg} text-white text-sm font-semibold hover:opacity-90">${last ? 'Got it' : 'Next'}</button>
+        </div>
+        <p class="text-xs text-zinc-500 text-center mt-4">Not available yet. Build requests and bounties are open now.</p>`;
+}
+
+function showFeatureSoon(key) {
+    if (!NQV_FEATURE_DEMOS[key]) return;
+    let modal = document.getElementById('feature-soon-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'feature-soon-modal';
+        modal.className = 'hidden fixed inset-0 bg-black/90 flex items-start justify-center z-[999999] overflow-y-auto py-6';
+        modal.innerHTML = '<div id="feature-soon-body" class="bg-zinc-900 border border-zinc-800 w-full max-w-md mx-4 rounded-3xl p-5 md:p-7 my-auto"></div>';
+        modal.addEventListener('click', e => { if (e.target === modal) hideFeatureSoon(); });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') hideFeatureSoon(); });
+        document.body.appendChild(modal);
+    }
+    _featureSoonKey = key;
+    _featureSoonStep = 0;
+    renderFeatureSoon();
+    modal.classList.remove('hidden');
+}
+
+/// What a switched-off marketplace tab shows instead of live listings.
+function featureSoonPanel(key) {
+    const demo = NQV_FEATURE_DEMOS[key];
+    return `
+        <div class="col-span-full max-w-xl mx-auto text-center py-12 px-4">
+            <span class="inline-block text-[11px] font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full bg-amber-400/15 text-amber-300 mb-4">Coming soon</span>
+            <p class="text-4xl mb-3">${demo.icon}</p>
+            <h3 class="text-2xl font-bold mb-2">${demo.title}</h3>
+            <p class="text-zinc-400 mb-6">${demo.blurb} This part of NQVate is not open yet.</p>
+            <button onclick="showFeatureSoon('${key}')"
+                    class="px-6 py-3 rounded-2xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 font-semibold">See how it will work</button>
+        </div>`;
+}
+
+(function applyFeatureGates() {
+    const gate = (key, fn) => function () {
+        if (NQV_FEATURES[key]) return fn.apply(this, arguments);
+        showFeatureSoon(key);
+        return Promise.resolve();
+    };
+
+    // Every way in. Inline onclick handlers and calls elsewhere in this
+    // script look these names up when they run, so replacing them here
+    // covers buttons that are rendered later as well.
+    showPostFundingModal           = gate('fundingRequests', showPostFundingModal);
+    showPostFundingModalForProject = gate('fundingRequests', showPostFundingModalForProject);
+    submitFundingPosting           = gate('fundingRequests', submitFundingPosting);
+    makeFundingOffer               = gate('fundingRequests', makeFundingOffer);
+    acceptFundingOffer             = gate('fundingRequests', acceptFundingOffer);
+
+    showPostEquityModal            = gate('equityExchange', showPostEquityModal);
+    showCreateEquityListingModal   = gate('equityExchange', showCreateEquityListingModal);
+    submitEquityListing            = gate('equityExchange', submitEquityListing);
+    submitEquityListingModal       = gate('equityExchange', submitEquityListingModal);
+    showCounterOfferModal          = gate('equityExchange', showCounterOfferModal);
+    counterOfferOnChain            = gate('equityExchange', counterOfferOnChain);
+
+    // Shared by both: the funding flow settles through the same call.
+    const _makeOfferOnChain = makeOfferOnChain;
+    makeOfferOnChain = function () {
+        if (NQV_FEATURES.fundingRequests || NQV_FEATURES.equityExchange) return _makeOfferOnChain.apply(this, arguments);
+        showFeatureSoon('equityExchange');
+        return Promise.resolve();
+    };
+
+    // The two marketplace tabs show the explainer instead of live listings.
+    const _loadEquityListings = loadEquityListings;
+    loadEquityListings = function () {
+        if (NQV_FEATURES.equityExchange) return _loadEquityListings.apply(this, arguments);
+        const grid = document.getElementById('equity-grid');
+        if (grid) grid.innerHTML = featureSoonPanel('equityExchange');
+        return Promise.resolve();
+    };
+
+    const _loadMarketplace = loadMarketplace;
+    loadMarketplace = function () {
+        if (NQV_FEATURES.fundingRequests || currentMarketplaceFilter !== 'fund') return _loadMarketplace.apply(this, arguments);
+        _allMarketplacePostings = [];
+        const grid = document.getElementById('projects-grid');
+        if (grid) grid.innerHTML = featureSoonPanel('fundingRequests');
+        return Promise.resolve();
+    };
+
+    const _applyMarketplaceFilters = applyMarketplaceFilters;
+    applyMarketplaceFilters = function () {
+        if (NQV_FEATURES.fundingRequests || currentMarketplaceFilter !== 'fund') return _applyMarketplaceFilters.apply(this, arguments);
+        const grid = document.getElementById('projects-grid');
+        if (grid) grid.innerHTML = featureSoonPanel('fundingRequests');
+    };
+
+})();
+
+/// Label the tabs and the "new posting" choices so the click is no surprise,
+/// and take the labels off again when a feature is switched on.
+function refreshFeatureBadges() {
+    const set = (el, off) => {
+        if (!el) return;
+        const have = el.querySelector('.feature-soon-badge');
+        if (off && !have) {
+            el.insertAdjacentHTML('beforeend', '<span class="feature-soon-badge ml-1 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded-full bg-amber-400/15 text-amber-300 align-middle">Soon</span>');
+        } else if (!off && have) {
+            have.remove();
+        }
+    };
+    set(document.getElementById('tab-fund-market'), !NQV_FEATURES.fundingRequests);
+    set(document.querySelector('button[onclick*="showPostFundingModal()"] p.font-bold'), !NQV_FEATURES.fundingRequests);
+    set(document.getElementById('tab-equity-market'), !NQV_FEATURES.equityExchange);
+    set(document.querySelector('button[onclick*="showPostEquityModal()"] p.font-bold'), !NQV_FEATURES.equityExchange);
+}
+
+/// Ask the server which switches are on. Until it answers — and if it never
+/// does — everything stays in its restrictive state.
+async function loadFeatureFlags() {
+    try {
+        const resp = await fetch('/api/features', { cache: 'no-store' });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const { features } = await resp.json();
+        let changed = false;
+        for (const k of Object.keys(NQV_FEATURES)) {
+            if (features && typeof features[k] === 'boolean' && features[k] !== NQV_FEATURES[k]) {
+                NQV_FEATURES[k] = features[k];
+                changed = true;
+            }
+        }
+        if (!changed) return;
+        refreshFeatureBadges();
+        // Redraw whichever gated tab is on screen so it matches the new state.
+        if (currentMarketplaceFilter === 'fund') loadMarketplace();
+        else if (currentMarketplaceFilter === 'equity-exchange') loadEquityListings();
+    } catch (e) {
+        console.warn('Feature switches unavailable — gated features stay off:', e.message);
+    }
+}
+
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', refreshFeatureBadges);
+else refreshFeatureBadges();
+loadFeatureFlags();
+
+// ── Platform switches (Studio → Grow → NQVate card → Platform Features) ──
+// The button is drawn only on the NQVate company card for the founder
+// account. The server checks that account again on every change, so drawing
+// the button is a convenience and not the protection.
+const PLATFORM_SWITCHES = [
+    { key: 'fundingRequests', title: '💰 Funding Requests',
+      on:  'Open. Founders can post funding requests and investors can make offers.',
+      off: 'Coming soon. Visitors see the walkthrough; posting and offers are refused.' },
+    { key: 'equityExchange', title: '📈 Equity Exchange',
+      on:  'Open. Holders can list stakes for sale and buyers can make offers.',
+      off: 'Coming soon. Visitors see the walkthrough; listings and offers are refused.' },
+    { key: 'equityFeeFlat', title: '🧾 Flat fee on equity bounties',
+      on:  'Flat. NQVate takes no units when an equity bounty pays out. The fee is the NQV8 posting fee.',
+      off: 'Percentage. NQVate takes 3.5% of the units when an equity bounty pays out.' }
+];
+
+function hidePlatformFeatures() {
+    document.getElementById('platform-features-modal')?.classList.add('hidden');
+}
+
+function renderPlatformFeatures(status) {
+    const body = document.getElementById('platform-features-body');
+    if (!body) return;
+    body.innerHTML = `
+        <div class="flex justify-between items-center mb-2">
+            <h2 class="text-2xl font-bold">🎛️ Platform Features</h2>
+            <button onclick="hidePlatformFeatures()" aria-label="Close" class="text-3xl leading-none text-zinc-400 hover:text-white">&times;</button>
+        </div>
+        <p class="text-zinc-500 text-xs mb-6">NQVate LLC · Applies to the whole platform within about ten seconds. Nothing is deleted when a feature is off.</p>
+        <div class="space-y-3">
+            ${PLATFORM_SWITCHES.map(s => {
+                const on = !!NQV_FEATURES[s.key];
+                return `
+                <div class="bg-zinc-800 rounded-2xl p-4 flex items-start justify-between gap-4">
+                    <div>
+                        <p class="font-semibold text-sm">${s.title}</p>
+                        <p class="text-xs text-zinc-400 mt-1">${on ? s.on : s.off}</p>
+                    </div>
+                    <button onclick="setPlatformFeature('${s.key}', ${!on})" role="switch" aria-checked="${on}" aria-label="${s.title}"
+                            class="shrink-0 w-14 h-8 rounded-full relative transition-colors ${on ? 'bg-emerald-500' : 'bg-zinc-600'}">
+                        <span class="absolute top-1 left-1 w-6 h-6 rounded-full bg-white transition-transform ${on ? 'translate-x-6' : ''}"></span>
+                    </button>
+                </div>`;
+            }).join('')}
+        </div>
+        <p class="text-xs text-zinc-500 mt-4 min-h-[1rem]">${status || ''}</p>`;
+}
+
+async function showPlatformFeatures() {
+    let modal = document.getElementById('platform-features-modal');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'platform-features-modal';
+        modal.className = 'hidden fixed inset-0 bg-black/95 flex items-start justify-center z-[99999] overflow-y-auto py-6';
+        modal.innerHTML = '<div id="platform-features-body" class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-6 md:p-8 my-auto"></div>';
+        modal.addEventListener('click', e => { if (e.target === modal) hidePlatformFeatures(); });
+        document.body.appendChild(modal);
+    }
+    modal.classList.remove('hidden');
+    renderPlatformFeatures('Checking current settings...');
+    await loadFeatureFlags();      // show what the server has, not what this tab remembers
+    renderPlatformFeatures();
+}
+
+async function setPlatformFeature(key, value) {
+    const sw = PLATFORM_SWITCHES.find(s => s.key === key);
+    if (!sw) return;
+    if (!confirm(`${sw.title}\n\nChange to:\n${value ? sw.on : sw.off}`)) return;
+    renderPlatformFeatures('Saving...');
+    try {
+        const resp = await fetch('/api/features', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
+            body: JSON.stringify({ [key]: value })
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.success) throw new Error(data.error || 'HTTP ' + resp.status);
+        for (const k of Object.keys(NQV_FEATURES)) {
+            if (typeof data.features[k] === 'boolean') NQV_FEATURES[k] = data.features[k];
+        }
+        refreshFeatureBadges();
+        renderPlatformFeatures('✅ Saved ' + new Date().toLocaleTimeString());
+    } catch (e) {
+        renderPlatformFeatures('❌ Not saved: ' + e.message);
     }
 }
 
