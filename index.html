@@ -2144,6 +2144,18 @@
                 <p id="stake-requirement-hint" class="text-xs text-zinc-500 text-right shrink-0"></p>
             </div>
 
+            <!-- Platform-wide staking against the target. Always shown, wallet or not. -->
+            <div class="mb-5">
+                <div class="flex items-baseline justify-between gap-3 mb-1">
+                    <p class="text-xs text-zinc-500">Platform staking vs target</p>
+                    <p id="platform-stake-figures" class="text-xs text-zinc-300">—</p>
+                </div>
+                <div class="w-full h-2 bg-zinc-900 rounded-full overflow-hidden">
+                    <div id="platform-stake-bar" class="h-2 bg-cyan-400 rounded-full" style="width:0%"></div>
+                </div>
+                <p id="platform-stake-note" class="text-xs text-zinc-500 mt-1"></p>
+            </div>
+
             <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm mb-5">
                 <div>
                     <p class="text-zinc-500 text-xs mb-1">Staked</p>
@@ -15596,6 +15608,7 @@ function setRewardsView(months) {
 // STAKING  (NQVateStaking)
 // ══════════════════════════════════════════════════════════════════════
 const STAKING_ABI = [
+    "function totalStaked() view returns (uint256)",
     "function stake(uint256 amount) external",
     "function requestUnstake(uint256 amount) external",
     "function cancelUnstake() external",
@@ -15622,7 +15635,35 @@ function _stakeStatus(msg) {
 const _fmtNQV8 = (raw) =>
     parseFloat(ethers.utils.formatUnits(raw, 18)).toLocaleString(undefined, { maximumFractionDigits: 4 });
 
+
+/**
+ * How much NQV8 is staked across the whole platform, against the target.
+ * Needs no wallet, so it shows for every visitor. Informational: each
+ * wallet's reward depends on its own slice, not on this figure.
+ */
+async function loadPlatformStaking() {
+    const fig = document.getElementById('platform-stake-figures');
+    if (!fig) return;
+    try {
+        const ro = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const [total, target] = await Promise.all([
+            new ethers.Contract(STAKING_CONTRACT_ADDRESS, STAKING_ABI, ro).totalStaked(),
+            new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, ro).currentTarget()
+        ]);
+        const staked = parseFloat(ethers.utils.formatUnits(total, 18));
+        const goal   = parseFloat(ethers.utils.formatUnits(target.targetStake, 18));
+        const pct    = goal > 0 ? (staked / goal) * 100 : 0;
+        fig.textContent = `${_fmtNQV8(total)} of ${_fmtNQV8(target.targetStake)} NQV8 (${pct.toFixed(0)}%)`;
+        document.getElementById('platform-stake-bar').style.width = Math.min(100, pct).toFixed(1) + '%';
+        document.getElementById('platform-stake-note').textContent =
+            `Target is ${(target.targetBps / 100).toFixed(0)}% of the ${_fmtNQV8(target.circulating)} NQV8 in circulation.`;
+    } catch (e) {
+        console.warn('loadPlatformStaking failed:', e.message);
+    }
+}
+
 async function loadStaking() {
+    loadPlatformStaking();
     const ids = ['stake-staked','stake-free','stake-bonded','stake-unbonding','stake-instant'];
     if (!connectedAddress) { ids.forEach(i => { const e=document.getElementById(i); if(e) e.textContent='—'; }); return; }
     try {
