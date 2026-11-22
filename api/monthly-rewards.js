@@ -16,6 +16,24 @@
 // The Firestore fee verification V1 did here is gone too: it existed as an
 // audit trail against a push-based payout, and the on-chain epoch record now
 // holds the same figures authoritatively.
+//
+// ROLLING FORFEITS FORWARD (RewardsV4)
+//
+// A wallet's uncollected share only moves into the next pool when its claim is
+// settled. A wallet that covered part of its slice settles itself by claiming.
+// A wallet that had nothing staked has nothing to collect, so nobody ever
+// settles it and its share would sit in the old month for two years.
+//
+// So after closing a month this job settles the wallets whose payout is zero.
+// claimFor() is open to anyone and pays such a wallet nothing; all it does is
+// release the share into the open pool. Wallets with something to collect are
+// never touched here; that claim is theirs to make.
+//
+// Settling is best-effort and separate from closing: a month that closed is
+// reported as closed even if settling ran out of time, and whatever is left is
+// picked up on the next run.
+
+export const config = { maxDuration: 300 };
 
 import { ethers } from 'ethers';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
@@ -32,6 +50,18 @@ function getAdminDb() {
 const REWARDS_CONTRACT_ADDRESS = '0x0F630bbEd28545970CCD5C15eAD08fb1286c160f';
 const ARBITRUM_RPC             = 'https://arb1.arbitrum.io/rpc';
 const NQV8_DECIMALS            = 18;
+
+// Block RewardsV4 was deployed in. Fee logs are never searched before it.
+const REWARDS_DEPLOY_BLOCK     = 526575546;
+
+// Ceiling on settlements per run, so a busy month cannot run the function out
+// of time. The remainder is flagged and handled next run.
+const MAX_SETTLE_PER_RUN       = 60;
+
+// eth_getLogs window. Halved on failure, because public RPCs cap the range
+// and the cap is not published.
+const LOG_CHUNK_BLOCKS         = 500000;
+const LOG_CHUNK_FLOOR          = 5000;
 const USDC_DECIMALS            = 6;
 
 const REWARDS_ABI = [
@@ -39,8 +69,102 @@ const REWARDS_ABI = [
     "function currentEpoch() external view returns (uint256)",
     "function getCurrentMonthStats() external view returns (uint256 feePayerCount, uint256 nqv8FeesCollected, uint256 usdcFeesCollected, uint256 nqv8Pool, uint256 usdcPool, uint256 lastDistribution)",
     "function getEpochByLabel(string label) external view returns (uint256 epochId, tuple(uint64 startedAt, uint64 endedAt, uint256 totalNQV8Fees, uint256 totalUSDCFees, uint256 nqv8Pool, uint256 usdcPool, uint256 nqv8Claimed, uint256 usdcClaimed, uint32 payerCount, uint32 claimantCount, bool closed, bool swept, string label) epoch)",
-    "event EpochClosed(uint256 indexed epochId, string label, uint256 nqv8Pool, uint256 usdcPool, uint256 totalNQV8Fees, uint32 payers)"
+    "event EpochClosed(uint256 indexed epochId, string label, uint256 nqv8Pool, uint256 usdcPool, uint256 totalNQV8Fees, uint32 payers)",
+    "event FeesReceived(address indexed payer, uint256 nqv8Amount, uint256 nqv8ToOps, uint256 nqv8ToPool)",
+    "function claimFor(uint256 epochId, address wallet) external",
+    "function claimStatus(uint256 epochId, address wallet) external view returns (tuple(bool closed, bool settled, bool open, uint256 nqv8Paid, uint256 nqv8FullShare, uint256 usdcFullShare, uint256 stakeSlice, uint256 coverageBps, uint256 nqv8Payout, uint256 usdcPayout))"
 ];
+
+/**
+ * Every wallet that paid an NQV8 fee between two blocks.
+ *
+ * Read from FeesReceived logs because the contract deliberately keeps no list
+ * of payers. The range can be a little wider than the month without harm:
+ * claimStatus() decides who actually has a share in it.
+ */
+async function payersBetween(rewards, fromBlock, toBlock) {
+    const filter = rewards.filters.FeesReceived();
+    const payers = new Set();
+    let start = fromBlock;
+    let step  = LOG_CHUNK_BLOCKS;
+
+    while (start <= toBlock) {
+        const end = Math.min(start + step - 1, toBlock);
+        try {
+            const logs = await rewards.queryFilter(filter, start, end);
+            for (const l of logs) payers.add(l.args.payer.toLowerCase());
+            start = end + 1;
+        } catch (e) {
+            if (step <= LOG_CHUNK_FLOOR) throw e;
+            step = Math.max(LOG_CHUNK_FLOOR, Math.floor(step / 2));
+        }
+    }
+    return [...payers];
+}
+
+/**
+ * Settle the wallets in one closed epoch that have a share but a payout of
+ * zero, releasing those shares into the open pool.
+ *
+ * Returns how many were settled and whether any are left for the next run.
+ * One failed wallet does not stop the rest.
+ */
+async function settleZeroCoverage(rewards, provider, epochId, fromBlock, toBlock, budget) {
+    const payers = await payersBetween(rewards, fromBlock, toBlock);
+    let settled = 0, failed = 0, skippedForBudget = 0;
+
+    for (const wallet of payers) {
+        const s = await rewards.claimStatus(epochId, wallet);
+        const hasShare  = s.nqv8Paid.gt(0) && s.open && !s.settled;
+        const zeroPayout = s.nqv8Payout.isZero() && s.usdcPayout.isZero();
+        if (!hasShare || !zeroPayout) continue;
+
+        if (settled >= budget) { skippedForBudget++; continue; }
+
+        try {
+            const tx = await rewards.claimFor(epochId, wallet, await gasOverrides(provider));
+            const r  = await tx.wait();
+            if (!r || r.status === 0) throw new Error('claimFor reverted');
+            settled++;
+        } catch (e) {
+            failed++;
+            console.warn(`settle failed for ${wallet} in epoch ${epochId}:`, e.message);
+        }
+    }
+    return { settled, pending: failed > 0 || skippedForBudget > 0, payersSeen: payers.length };
+}
+
+/**
+ * Finish any month whose zero-payout wallets were not all settled last time.
+ * Never throws: this must not stand between the job and closing the month.
+ */
+async function settlePendingEpochs(db, rewards, provider, budget) {
+    const out = [];
+    try {
+        const snap = await db.collection('rewardEpochs')
+            .where('rewardsContract', '==', REWARDS_CONTRACT_ADDRESS)
+            .where('zeroSettlePending', '==', true)
+            .get();
+
+        for (const doc of snap.docs) {
+            const d = doc.data();
+            if (budget <= 0) break;
+            if (d.epochId == null || d.fromBlock == null || d.closeBlock == null) continue;
+            const r = await settleZeroCoverage(
+                rewards, provider, Number(d.epochId), d.fromBlock, d.closeBlock, budget);
+            budget -= r.settled;
+            await doc.ref.set({
+                zeroSettlePending: r.pending,
+                zeroSettled: (d.zeroSettled || 0) + r.settled,
+                zeroSettleLastRun: new Date()
+            }, { merge: true });
+            out.push({ month: d.month, settled: r.settled, pending: r.pending });
+        }
+    } catch (e) {
+        console.warn('settlePendingEpochs failed:', e.message);
+    }
+    return { results: out, budgetLeft: budget };
+}
 
 export default async function handler(req, res) {
     const authHeader = req.headers['authorization'];
@@ -62,6 +186,11 @@ export default async function handler(req, res) {
 
         console.log(`📅 Closing reward epoch for ${monthStr}`);
 
+        // Before anything can return early: finish settling earlier months,
+        // so their forfeits are in the pool this run is about to close.
+        const pendingRun = await settlePendingEpochs(db, rewards, provider, MAX_SETTLE_PER_RUN);
+        if (pendingRun.results.length) console.log('♻️ settled from earlier months:', JSON.stringify(pendingRun.results));
+
         // ── 2. Already closed? closeEpoch rejects a reused label, but check
         //       first so a re-run is a clean no-op rather than a revert. ────
         try {
@@ -70,7 +199,8 @@ export default async function handler(req, res) {
                 console.log(`⏭ ${monthStr} already closed as epoch ${existingId}`);
                 return res.json({
                     success: true, skipped: true, reason: 'already closed',
-                    month: monthStr, epochId: existingId.toString()
+                    month: monthStr, epochId: existingId.toString(),
+                    settledFromEarlierMonths: pendingRun.results
                 });
             }
         } catch (e) {
@@ -94,7 +224,8 @@ export default async function handler(req, res) {
         if (payerCount === 0 && nqv8Pool.eq(0) && usdcPool.eq(0)) {
             console.log('⚠️ Nothing collected this month — not closing');
             return res.json({
-                success: true, skipped: true, reason: 'no activity', month: monthStr
+                success: true, skipped: true, reason: 'no activity', month: monthStr,
+                settledFromEarlierMonths: pendingRun.results
             });
         }
 
@@ -114,12 +245,33 @@ export default async function handler(req, res) {
 
         console.log(`✅ Epoch ${epochId} closed for ${monthStr}. Tx: ${tx.hash}`);
 
+        // ── 4b. Where this month's fee logs start ──────────────────────────
+        // They sit between the previous close and this one.
+        let fromBlock = REWARDS_DEPLOY_BLOCK;
+        try {
+            const prev = await db.collection('rewardEpochs')
+                .where('rewardsContract', '==', REWARDS_CONTRACT_ADDRESS)
+                .where('epochId', '==', String(Number(epochId) - 1))
+                .limit(1).get();
+            if (!prev.empty && prev.docs[0].data().closeBlock) fromBlock = prev.docs[0].data().closeBlock;
+        } catch (e) {
+            console.warn('previous close block lookup failed, searching from deployment:', e.message);
+        }
+
         // ── 5. Record it so the app can show the period without a chain read
         await db.collection('rewardEpochs').doc(monthStr).set({
             month:          monthStr,
             epochId:        epochId,
             closedAt:       new Date(),
             closeTxHash:    tx.hash,
+            closeBlock:     receipt.blockNumber,
+            fromBlock,
+            rewardsContract: REWARDS_CONTRACT_ADDRESS,
+            // Written as pending BEFORE settling starts. If the function is
+            // cut off mid-way, the record of the close is already saved and
+            // the next run knows this month still needs finishing.
+            zeroSettled:       0,
+            zeroSettlePending: true,
             payerCount,
             nqv8Fees:       parseFloat(ethers.utils.formatUnits(nqv8Fees, NQV8_DECIMALS)),
             nqv8Pool:       parseFloat(ethers.utils.formatUnits(nqv8Pool, NQV8_DECIMALS)),
@@ -127,6 +279,24 @@ export default async function handler(req, res) {
             // Wallets claim from here; nothing has been paid out yet.
             claimsOpen:     true
         }, { merge: true });
+
+        // ── 6. Roll this month's zero-payout shares into the open pool ─────
+        let settle = { settled: 0, pending: true, payersSeen: 0 };
+        if (epochId !== null) {
+            try {
+                settle = await settleZeroCoverage(
+                    rewards, provider, Number(epochId), fromBlock, receipt.blockNumber,
+                    pendingRun.budgetLeft);
+                console.log(`♻️ ${monthStr}: settled ${settle.settled} zero-payout wallet(s) of ${settle.payersSeen} payer(s)${settle.pending ? ', more next run' : ''}`);
+            } catch (e) {
+                console.warn('settling failed, will retry next run:', e.message);
+            }
+        }
+        await db.collection('rewardEpochs').doc(monthStr).set({
+            zeroSettled:       settle.settled,
+            zeroSettlePending: settle.pending,
+            zeroSettleLastRun: new Date()
+        }, { merge: true }).catch(e => console.warn('could not record settle result:', e.message));
 
         return res.json({
             success:     true,
@@ -137,6 +307,9 @@ export default async function handler(req, res) {
             nqv8Pool:    ethers.utils.formatUnits(nqv8Pool, NQV8_DECIMALS),
             usdcPool:    ethers.utils.formatUnits(usdcPool, USDC_DECIMALS),
             closeTxHash: tx.hash,
+            zeroPayoutWalletsSettled: settle.settled,
+            settlePending: settle.pending,
+            settledFromEarlierMonths: pendingRun.results,
             note:        'Epoch closed. Wallets claim their own share; nothing was pushed.'
         });
 
