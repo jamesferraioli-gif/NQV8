@@ -8,7 +8,7 @@ import { ethers } from 'ethers';
 import { verifyCaller } from './_auth.js';
 import { gasOverrides } from './_gas.js';
 
-const REWARDS_CONTRACT_ADDRESS = '0xBfB1301819Ea548E05Ae88611761Db3Fe5bD7C2D';
+const REWARDS_CONTRACT_ADDRESS = '0x0F630bbEd28545970CCD5C15eAD08fb1286c160f';
 const USDC_ADDRESS             = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
 const ARBITRUM_RPC             = 'https://arb1.arbitrum.io/rpc';
 const PLATFORM_FEE_BPS         = 350; // 3.5% = 350 basis points
