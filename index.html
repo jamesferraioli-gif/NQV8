@@ -14768,7 +14768,11 @@ async function loadTokenomics() {
         const founderWalletBal = parseFloat(ethers.utils.formatUnits(founderWalletRaw, NQV8_DECIMALS));
         const lostTokens       = parseFloat(ethers.utils.formatUnits(lost1Raw, NQV8_DECIMALS))
                                + parseFloat(ethers.utils.formatUnits(lost2Raw, NQV8_DECIMALS));
-        const totalCirculating = totalSupply - treasuryBal - founderLocked - founderWalletBal - lostTokens;
+        // One source of truth: the figure the rewards contract uses to size
+        // staking slices. The sum that used to sit here left out the reserve
+        // wallet, so it reported 870M in circulation.
+        const _target = await new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, arbProvider).currentTarget();
+        const totalCirculating = parseFloat(ethers.utils.formatUnits(_target.circulating, NQV8_DECIMALS));
 
         if (circulatingEl) circulatingEl.textContent = Math.round(totalCirculating).toLocaleString();
         
@@ -15634,7 +15638,6 @@ function _stakeStatus(msg) {
 
 const _fmtNQV8 = (raw) =>
     parseFloat(ethers.utils.formatUnits(raw, 18)).toLocaleString(undefined, { maximumFractionDigits: 4 });
-
 
 /**
  * How much NQV8 is staked across the whole platform, against the target.
