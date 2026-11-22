@@ -6,6 +6,7 @@
 
 import { ethers } from 'ethers';
 import { gasOverrides } from './_gas.js';
+import { equitySalesOff } from './_features.js';
 
 const EQUITY_REGISTRY_ADDRESS = '0x726a5EEa94C6d3117bbCd05336A0Cfdaf3c9327a';
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
@@ -32,6 +33,7 @@ export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+    if (await equitySalesOff(res)) return;
 
     const auth = req.headers['authorization'];
     if (auth !== `Bearer ${process.env.INTERNAL_API_SECRET}`) {
