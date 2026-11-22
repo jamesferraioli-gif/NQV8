@@ -19612,21 +19612,79 @@ async function setPlatformFeature(key, value) {
 
 // ====================== INTRO VIDEO ======================
 // The video sits at the top of About → Overview, and the welcome pop-up shows
-// a copy of that tab. A hidden video keeps playing its sound, so stop it
-// whenever the visitor leaves: changing page, changing About tab, or closing
-// the pop-up.
+// a copy of that tab. It starts by itself when either one opens.
+//
+// Browsers only allow a video to start with sound after the visitor has
+// clicked something. So: try with sound; if the browser refuses, start it
+// silent and show a "Tap for sound" button. Opening About is a click, so it
+// usually plays with sound; the first-visit pop-up is not, so it starts silent.
+//
+// A hidden video keeps playing its sound, so stop it whenever the visitor
+// leaves: changing page, changing About tab, or closing the pop-up.
 function pauseIntroVideos() {
     document.querySelectorAll('video.nqv-intro-video').forEach(v => { try { v.pause(); } catch (e) {} });
 }
+
+async function playIntroVideo(containerId) {
+    const v = document.querySelector('#' + containerId + ' video.nqv-intro-video');
+    if (!v) return;
+    const btn = v.parentElement.querySelector('.nqv-intro-unmute');
+    v.onvolumechange = () => { if (btn && !v.muted) btn.classList.add('hidden'); };
+    try {
+        v.muted = false;
+        await v.play();
+        if (btn) btn.classList.add('hidden');
+    } catch (e) {
+        try {
+            v.muted = true;
+            await v.play();
+            if (btn) btn.classList.remove('hidden');
+        } catch (e2) { /* autoplay fully blocked — the play button still works */ }
+    }
+}
+
+function unmuteIntroVideo(btn) {
+    const v = btn.parentElement.querySelector('video.nqv-intro-video');
+    if (!v) return;
+    v.muted = false;
+    v.play().catch(() => {});
+    btn.classList.add('hidden');
+}
+
 (function hookIntroVideo() {
+    const overviewShowing = () => {
+        const page = document.getElementById('about-page'), tab = document.getElementById('about-overview');
+        return page && tab && !page.classList.contains('hidden') && !tab.classList.contains('hidden');
+    };
+
     const _navigateTo = navigateTo;
-    navigateTo = function () { pauseIntroVideos(); return _navigateTo.apply(this, arguments); };
+    navigateTo = function () {
+        pauseIntroVideos();
+        const r = _navigateTo.apply(this, arguments);
+        if (overviewShowing()) playIntroVideo('about-overview');
+        return r;
+    };
+
     const _switchAboutTab = switchAboutTab;
-    switchAboutTab = function () { pauseIntroVideos(); return _switchAboutTab.apply(this, arguments); };
+    switchAboutTab = function () {
+        pauseIntroVideos();
+        const r = _switchAboutTab.apply(this, arguments);
+        if (overviewShowing()) playIntroVideo('about-overview');
+        return r;
+    };
+
+    // The pop-up rebuilds its content each time a tab is shown.
+    const _renderWelcomeModalContent = renderWelcomeModalContent;
+    renderWelcomeModalContent = function () {
+        const r = _renderWelcomeModalContent.apply(this, arguments);
+        const modal = document.getElementById('welcome-modal');
+        if (modal && !modal.classList.contains('hidden')) playIntroVideo('welcome-modal-content');
+        return r;
+    };
+
     const _closeWelcomeModal = closeWelcomeModal;
     closeWelcomeModal = function () { pauseIntroVideos(); return _closeWelcomeModal.apply(this, arguments); };
 })();
-
     </script>    
 
     <!-- BUY NQV8 MODAL -->
@@ -20087,12 +20145,16 @@ function pauseIntroVideos() {
     <div id="about-overview" class="about-tab-content">
 
         <!-- Intro video. The welcome pop-up copies this whole tab, so it appears there too. -->
-        <div class="mb-10 rounded-3xl overflow-hidden border border-zinc-800 bg-black">
-            <video class="nqv-intro-video block w-full aspect-video" controls playsinline preload="none"
+        <div class="relative mb-10 rounded-3xl overflow-hidden border border-zinc-800 bg-black">
+            <video class="nqv-intro-video block w-full aspect-video" controls playsinline preload="metadata"
                    poster="/public/nqvate-intro-poster.jpg">
                 <source src="/public/nqvate-intro.mp4" type="video/mp4">
                 Your browser cannot play this video.
             </video>
+            <button onclick="unmuteIntroVideo(this)"
+                    class="nqv-intro-unmute hidden absolute top-3 right-3 px-4 py-2 rounded-full bg-black/70 border border-white/20 text-white text-sm font-semibold hover:bg-black/90">
+                🔊 Tap for sound
+            </button>
         </div>
 
         <!-- Hero -->
