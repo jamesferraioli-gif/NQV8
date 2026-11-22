@@ -2139,7 +2139,7 @@
             <div class="flex items-start justify-between gap-4 mb-4">
                 <div>
                     <p class="text-sm font-semibold text-zinc-300">Staking</p>
-                    <p class="text-xs text-zinc-500 mt-1">Stake NQV8 to become eligible for the monthly fee rebate.</p>
+                    <p class="text-xs text-zinc-500 mt-1">Stake NQV8 to collect your full share of the monthly fee rebate.</p>
                 </div>
                 <p id="stake-requirement-hint" class="text-xs text-zinc-500 text-right shrink-0"></p>
             </div>
@@ -2210,8 +2210,8 @@
             <p id="stake-status" class="hidden text-xs text-zinc-400 mt-3"></p>
 
             <div class="mt-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4">
-                <p class="text-amber-400 text-xs font-semibold mb-1">Stake before the month starts, not during it</p>
-                <p class="text-zinc-400 text-xs">Eligibility uses your <span class="text-zinc-200 font-semibold">lowest</span> balance at any point in the month — not your balance at the end. Stake mid-month and your lowest balance was zero, so that month pays nothing.</p>
+                <p class="text-amber-400 text-xs font-semibold mb-1">The earlier in the month you stake, the more you collect</p>
+                <p class="text-zinc-400 text-xs">Your stake is <span class="text-zinc-200 font-semibold">averaged across the whole month</span>. Cover your slice from day one and you collect your full share; cover it from the middle of the month and you collect about half. A large balance held for a few days counts only for those days.</p>
             </div>
 
             <details class="mt-3 group">
@@ -2219,11 +2219,11 @@
                 <div class="mt-3 space-y-3 text-xs text-zinc-400 leading-relaxed">
                     <div>
                         <p class="text-zinc-300 font-semibold mb-1">Why stake</p>
-                        <p>Every month, 20% of all platform fees collected go back to the people who paid them, split in proportion to the NQV8 fees each wallet paid. Staking is what makes you eligible to collect your share. Pay fees without staking and the rebate goes unclaimed.</p>
+                        <p>Every month, 20% of all platform fees collected go back to the people who paid them, split in proportion to the NQV8 fees each wallet paid. Only wallets that paid fees that month earn a share. Staking decides how much of your share you collect: cover your slice and you collect all of it, cover half and you collect half. Whatever is not collected rolls into the next month's pool.</p>
                     </div>
                     <div>
                         <p class="text-zinc-300 font-semibold mb-1">How much you need</p>
-                        <p>The greater of <span class="text-zinc-200">1,000 NQV8</span> or <span class="text-zinc-200">5&times; the NQV8 fees you paid that month</span>. Pay 400 NQV8 in fees and you need 2,000 staked; pay almost nothing and the 1,000 floor applies. Your signup bonus is 1,000 NQV8, so simply keeping it staked makes you eligible from day one. The figure at the top of this card is your current requirement, read live from the contract.</p>
+                        <p>The platform aims to have a set share of all circulating NQV8 staked: <span class="text-zinc-200">10% today, rising toward 30%</span> as more of the supply reaches circulation. Your slice of that target equals your slice of the month's fees. Pay 5% of the fees and your slice is 5% of the target. Staking more than your slice earns nothing extra. The figure at the top of this card is your slice so far this month, read live from the contract; it moves as other wallets pay fees and is fixed when the month closes.</p>
                     </div>
                     <div>
                         <p class="text-zinc-300 font-semibold mb-1">Unstaking takes 30 days</p>
@@ -2231,11 +2231,11 @@
                     </div>
                     <div>
                         <p class="text-zinc-300 font-semibold mb-1">Rewards are claimed, not sent</p>
-                        <p>Nothing arrives automatically. When a month closes it appears under Claimable Rewards above with your share and a Claim button. <span class="text-zinc-200">There is no deadline</span> — a claim you have earned stays claimable indefinitely, so you can leave it sitting as long as you like. A month you were not eligible for shows you exactly what was required and what you actually held.</p>
+                        <p>Nothing arrives automatically. When a month closes it appears under Claimable Rewards above with your share and a Claim button. <span class="text-zinc-200">There is no deadline</span> — a claim you have earned stays claimable indefinitely, so you can leave it sitting as long as you like. Each month shows your slice and how much of it your stake covered.</p>
                     </div>
                     <div>
                         <p class="text-zinc-300 font-semibold mb-1">What "locked in bonds" means</p>
-                        <p>It reads zero today. Bonds are a planned use of staked NQV8: a deposit behind a specific commitment, such as a bid or an accepted job, which is returned on honest completion and forfeited to the other party on default. Stake committed to a bond cannot be unstaked until that commitment is settled. Nothing is bonded until that ships.</p>
+                        <p>A bond is staked NQV8 held behind a bid or an accepted job. It is returned in full if you are not chosen, withdraw, or deliver on time, and part of it can be burned if you win the job and then default. Bonded NQV8 cannot be unstaked until that commitment is settled, and it counts toward your slice for every day it is locked.</p>
                     </div>
                     <p class="text-zinc-500">Staking is non-custodial. Your NQV8 sits in the staking contract, which cannot pay it anywhere but back to you, and the contract's recovery function is barred from touching staked funds.</p>
                 </div>
@@ -2245,7 +2245,7 @@
         <!-- Claimable rewards -->
         <div class="bg-zinc-800 rounded-2xl p-5 mb-6">
             <p class="text-sm font-semibold text-zinc-300 mb-1">Claimable Rewards</p>
-            <p class="text-xs text-zinc-500 mb-4">Closed months are claimed, not paid out automatically. Each needs the stake shown held across that whole month.</p>
+            <p class="text-xs text-zinc-500 mb-4">Closed months are claimed, not paid out automatically. How much of each you collect depends on how well your stake covered your slice that month.</p>
             <div id="claims-grid" class="space-y-3">
                 <p class="text-zinc-500 text-sm">Connect a wallet to see your claims.</p>
             </div>
@@ -4681,7 +4681,7 @@ const ESCROW_ABI = [
 ];
 
 // NQVate Rewards Distribution — deployed on Arbitrum One
-const REWARDS_CONTRACT_ADDRESS = '0xb88B4A44203c564Ac7ddBf4aE2703EA057461cC9';
+const REWARDS_CONTRACT_ADDRESS = '0x0F630bbEd28545970CCD5C15eAD08fb1286c160f';   // NQVateRewardsV4
 const STAKING_CONTRACT_ADDRESS = '0x5d430f7Faae867E0A8a02EcCcbE21eF40628937c';
 
 const REWARDS_ABI = [
@@ -4693,10 +4693,13 @@ const REWARDS_ABI = [
     "function getAllLabels() external view returns (string[])",
     "function getStats() external view returns (uint256 totalNQV8Distributed, uint256 totalUSDCDistributed, uint256 epochsClosed, uint256 lastCloseAt, uint256 openNQV8Pool, uint256 openUSDCPool)",
     "function currentEpoch() external view returns (uint256)",
-    "function stakeRequirement(uint256 nqv8FeesPaidInEpoch) external view returns (uint256)",
+    "function currentTarget() external view returns (uint256 circulating, uint16 targetBps, uint256 targetStake)",
+    "function previewCoverage(address wallet) external view returns (uint256 stakeSlice, uint256 coverageBps)",
     "function claim(uint256 epochId) external",
-    "function claimStatus(uint256 epochId, address wallet) external view returns (bool closed, bool claimed, bool windowOpen, uint256 nqv8Paid, uint256 nqv8Share, uint256 usdcShare, uint256 stakeRequired, uint256 stakeHeld, bool eligible)",
-    "event RewardClaimed(address indexed wallet, uint256 indexed epochId, uint256 nqv8Amount, uint256 usdcAmount, uint256 shareBps)",
+    // V4 returns one struct. The stake field is stakeSlice, never "slice":
+    // ethers decodes a struct as an Array, where .slice is already a method.
+    "function claimStatus(uint256 epochId, address wallet) external view returns (tuple(bool closed, bool settled, bool open, uint256 nqv8Paid, uint256 nqv8FullShare, uint256 usdcFullShare, uint256 stakeSlice, uint256 coverageBps, uint256 nqv8Payout, uint256 usdcPayout))",
+    "event RewardClaimed(address indexed wallet, uint256 indexed epochId, uint256 nqv8Amount, uint256 usdcAmount, uint256 shareBps, uint256 coverageBps)",
     "event EpochClosed(uint256 indexed epochId, string label, uint256 nqv8Pool, uint256 usdcPool, uint256 totalNQV8Fees, uint32 payers)",
     "event RewardsDistributed(string month, uint256 nqv8Amount, uint256 usdcAmount, uint256 recipients)",
     "event RewardPaid(address indexed recipient, uint256 nqv8Amount, uint256 usdcAmount, uint256 sharePercent)"
@@ -15691,12 +15694,13 @@ async function loadStaking() {
         // What this wallet needs staked, based on fees paid in the open epoch
         try {
             const rw = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, ro);
-            const [, , , nqv8Paid] = await rw.previewReward(connectedAddress);
-            const required = await rw.stakeRequirement(nqv8Paid);
+            // An estimate until the month closes: the slice moves as other
+            // wallets pay fees and as circulating supply changes.
+            const cov  = await rw.previewCoverage(connectedAddress);
             const hint = document.getElementById('stake-requirement-hint');
-            if (hint) hint.innerHTML = nqv8Paid.gt(0)
-                ? `Needs <span class="text-cyan-400 font-semibold">${_fmtNQV8(required)} NQV8</span> staked<br>to claim this month`
-                : `Minimum <span class="text-cyan-400 font-semibold">${_fmtNQV8(required)} NQV8</span> to claim`;
+            if (hint) hint.innerHTML = cov.stakeSlice.gt(0)
+                ? `Your slice: <span class="text-cyan-400 font-semibold">${_fmtNQV8(cov.stakeSlice)} NQV8</span><br>${(Number(cov.coverageBps) / 100).toFixed(0)}% covered so far this month`
+                : `Pay a fee this month<br>to earn a share`;
         } catch(e) { /* hint is optional */ }
 
     } catch(e) {
@@ -15858,7 +15862,7 @@ async function withdrawStake() {
 }
 
 // ══════════════════════════════════════════════════════════════════════
-// CLAIMS  (NQVateRewardsV2)
+// CLAIMS  (NQVateRewardsV4)
 // ══════════════════════════════════════════════════════════════════════
 
 async function loadClaims() {
@@ -15889,15 +15893,16 @@ async function loadClaims() {
             const s = await rw.claimStatus(id, connectedAddress);
             return {
                 id, label,
-                closed:        s.closed,
-                claimed:       s.claimed,
-                windowOpen:    s.windowOpen,
-                nqv8Paid:      s.nqv8Paid,
-                nqv8Share:     s.nqv8Share,
-                usdcShare:     s.usdcShare,
-                stakeRequired: s.stakeRequired,
-                stakeHeld:     s.stakeHeld,
-                eligible:      s.eligible
+                closed:      s.closed,
+                claimed:     s.settled,
+                windowOpen:  s.open,
+                nqv8Paid:    s.nqv8Paid,
+                nqv8Full:    s.nqv8FullShare,
+                usdcFull:    s.usdcFullShare,
+                stakeSlice:  s.stakeSlice,
+                coveragePct: Number(s.coverageBps) / 100,
+                nqv8Payout:  s.nqv8Payout,
+                usdcPayout:  s.usdcPayout
             };
         }));
 
@@ -15909,25 +15914,31 @@ async function loadClaims() {
 
         mine.reverse(); // newest first
         grid.innerHTML = mine.map(r => {
-            const nq = _fmtNQV8(r.nqv8Share);
-            const us = parseFloat(ethers.utils.formatUnits(r.usdcShare, 6)).toFixed(2);
-            const req = _fmtNQV8(r.stakeRequired);
-            const held = _fmtNQV8(r.stakeHeld);
+            // What is shown is what settling pays: the full share scaled by
+            // how much of the slice the wallet's stake covered that month.
+            const nq   = _fmtNQV8(r.nqv8Payout);
+            const us   = parseFloat(ethers.utils.formatUnits(r.usdcPayout, 6)).toFixed(2);
+            const full = _fmtNQV8(r.nqv8Full);
+            const pct  = r.coveragePct.toFixed(0);
+            const hasPayout = r.nqv8Payout.gt(0) || r.usdcPayout.gt(0);
+            const partial   = r.coveragePct < 100
+                ? `Your stake covered ${pct}% of your ${_fmtNQV8(r.stakeSlice)} NQV8 slice that month, so you collect ${pct}% of your ${full} NQV8 share. The rest rolls into the next month's pool.`
+                : '';
 
             let action, note;
             if (r.claimed) {
                 action = '<span class="text-emerald-400 text-sm font-semibold">✅ Claimed</span>';
-                note   = '';
+                note   = partial;
             } else if (!r.windowOpen) {
                 action = '<span class="text-zinc-500 text-sm">Unavailable</span>';
                 note   = 'This month is no longer claimable.';
-            } else if (r.eligible) {
+            } else if (hasPayout) {
                 action = `<button onclick="claimEpoch(${r.id})" id="claim-btn-${r.id}"
                            class="px-5 py-2 bg-gradient-to-r from-amber-400 to-cyan-400 text-black text-sm font-semibold rounded-xl">Claim</button>`;
-                note   = '';
+                note   = partial;
             } else {
-                action = '<span class="text-amber-400 text-sm font-semibold">Not eligible</span>';
-                note   = `Needed ${req} NQV8 staked across this month — your lowest balance was ${held} NQV8.`;
+                action = '<span class="text-amber-400 text-sm font-semibold">Nothing to collect</span>';
+                note   = `You had no NQV8 staked that month, so your ${full} NQV8 share rolls into the next month's pool. Your slice was ${_fmtNQV8(r.stakeSlice)} NQV8.`;
             }
 
             return `
@@ -15967,9 +15978,7 @@ async function claimEpoch(epochId) {
     } catch(e) {
         const m = e.message || '';
         if (btn) { btn.disabled = false; btn.textContent = 'Claim'; }
-        if (m.includes('Stake requirement not met')) {
-            alert('You did not hold the required stake for the whole of that month, so this reward cannot be claimed.');
-        } else if (m.includes('Already claimed')) {
+        if (m.includes('Already claimed')) {
             alert('That month has already been claimed.');
             await loadClaims();
         } else if (m.includes('already swept')) {
