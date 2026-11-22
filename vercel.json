@@ -215,6 +215,10 @@
             "dest": "/api/estimate-timeframe.js"
         },
         {
+            "src": "/api/features",
+            "dest": "/api/features.js"
+        },
+        {
             "src": "/(.*)",
             "dest": "/index.html"
         }
