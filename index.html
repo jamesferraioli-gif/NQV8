@@ -19610,6 +19610,23 @@ async function setPlatformFeature(key, value) {
     }
 }
 
+// ====================== INTRO VIDEO ======================
+// The video sits at the top of About → Overview, and the welcome pop-up shows
+// a copy of that tab. A hidden video keeps playing its sound, so stop it
+// whenever the visitor leaves: changing page, changing About tab, or closing
+// the pop-up.
+function pauseIntroVideos() {
+    document.querySelectorAll('video.nqv-intro-video').forEach(v => { try { v.pause(); } catch (e) {} });
+}
+(function hookIntroVideo() {
+    const _navigateTo = navigateTo;
+    navigateTo = function () { pauseIntroVideos(); return _navigateTo.apply(this, arguments); };
+    const _switchAboutTab = switchAboutTab;
+    switchAboutTab = function () { pauseIntroVideos(); return _switchAboutTab.apply(this, arguments); };
+    const _closeWelcomeModal = closeWelcomeModal;
+    closeWelcomeModal = function () { pauseIntroVideos(); return _closeWelcomeModal.apply(this, arguments); };
+})();
+
     </script>    
 
     <!-- BUY NQV8 MODAL -->
@@ -20068,6 +20085,15 @@ async function setPlatformFeature(key, value) {
 
     <!-- ===== OVERVIEW TAB ===== -->
     <div id="about-overview" class="about-tab-content">
+
+        <!-- Intro video. The welcome pop-up copies this whole tab, so it appears there too. -->
+        <div class="mb-10 rounded-3xl overflow-hidden border border-zinc-800 bg-black">
+            <video class="nqv-intro-video block w-full aspect-video" controls playsinline preload="none"
+                   poster="/public/nqvate-intro-poster.jpg">
+                <source src="/public/nqvate-intro.mp4" type="video/mp4">
+                Your browser cannot play this video.
+            </video>
+        </div>
 
         <!-- Hero -->
         <div class="bg-gradient-to-br from-cyan-500/10 to-violet-500/10 border border-cyan-500/20 rounded-3xl p-8 md:p-12 mb-10 text-center">
