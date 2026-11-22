@@ -1,15 +1,20 @@
 // api/equity-complete.js
 // Called when a founder submits their review after approving work.
-// Calls completeReservation() on V4 from the Operations wallet,
-// splitting 3.5% to the platform and 96.5% to the builder.
+// Calls completeReservation() from the Operations wallet.
+//
+// What NQVate takes depends on the equityFeeFlat switch (Studio → Grow → Platform Features):
+//   on  — nothing. Every unit goes to the builder; the platform's fee on an
+//         equity bounty is the flat NQV8 posting fee already paid.
+//   off — 3.5% of the units, 96.5% to the builder.
 
 import { ethers } from 'ethers';
 import { verifyCaller, assertCompanyOwner } from './_auth.js';
 import { gasOverrides } from './_gas.js';
+import { getFeatures } from './_features.js';
 
 const EQUITY_REGISTRY_ADDRESS = '0x726a5EEa94C6d3117bbCd05336A0Cfdaf3c9327a';
 const PLATFORM_WALLET         = '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D';
-const PLATFORM_FEE_BPS        = 350; // 3.5%
+const PLATFORM_FEE_BPS        = 350; // 3.5% — used only when equityFeeFlat is off
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
 
 const EQUITY_ABI = [
@@ -51,10 +56,14 @@ export default async function handler(req, res) {
         }
 
         const totalUnits    = reservation.units.toNumber();
-        const platformUnits = Math.floor(totalUnits * PLATFORM_FEE_BPS / 10000);
+        // Read fresh: this decides who ends up owning the units, so a ten-second-old
+        // answer is not good enough here.
+        const { equityFeeFlat } = await getFeatures({ fresh: true });
+        const feeBps        = equityFeeFlat ? 0 : PLATFORM_FEE_BPS;
+        const platformUnits = Math.floor(totalUnits * feeBps / 10000);
         const workerUnits   = totalUnits - platformUnits;
 
-        const tx = await equity.completeReservation(companyIdBytes, bountyIdBytes, PLATFORM_WALLET, PLATFORM_FEE_BPS, await gasOverrides(provider));
+        const tx = await equity.completeReservation(companyIdBytes, bountyIdBytes, PLATFORM_WALLET, feeBps, await gasOverrides(provider));
         await tx.wait();
 
         console.log(`✅ Completed reservation for bounty ${bountyId}`);
@@ -66,7 +75,8 @@ export default async function handler(req, res) {
             txHash: tx.hash,
             totalUnits,
             workerUnits,
-            platformUnits
+            platformUnits,
+            feeMode: equityFeeFlat ? 'flat' : 'units'
         });
 
     } catch(e) {
