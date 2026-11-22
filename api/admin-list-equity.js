@@ -7,6 +7,7 @@ import { ethers } from 'ethers';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { verifyCaller } from './_auth.js';
+import { equitySalesOff } from './_features.js';
 import { gasOverrides } from './_gas.js';
 
 if (!getApps().length) {
@@ -34,6 +35,7 @@ export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     if (req.method === 'OPTIONS') return res.status(200).end();
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+    if (await equitySalesOff(res)) return;
 
     const caller = await verifyCaller(req);
     if (!caller) return res.status(401).json({ error: 'Unauthorized' });
