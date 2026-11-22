@@ -19755,7 +19755,8 @@ const ECO = {
     raw: { users: null, companies: null, holders: null, bounties: null },
     model: null, nodes: [], byId: new Map(),
     selected: null, hovered: null, follow: null, links: null,
-    rebuildTimer: 0, t0: 0, downAt: null, reduceMotion: false
+    rebuildTimer: 0, t0: 0, downAt: null, reduceMotion: false,
+    chain: new Map()          // company id → stakes read from the contract
 };
 
 const ECO_OPS_WALLET = '0x2c6309ed2e36222e7e0ce3c1376941a0d6340f4d';
@@ -19866,6 +19867,7 @@ function ecoBuildModel() {
         const m = member(pl, personFor(null, h.wallet));
         m.roles.add('holder');
         m.units = Math.max(m.units, units);
+        m.wallet = String(h.wallet).toLowerCase();
     });
 
     bounties.forEach(b => {
@@ -20249,6 +20251,14 @@ function ecoSelect(node, quiet) {
 
     panel.innerHTML = ecoPanelHtml(node);
     panel.classList.remove('hidden');
+    if (node.kind === 'company') ecoVerifyCompany(node);
+}
+
+/// A member's stake in one company: the contract's figure if this session has
+/// read it, otherwise the index's.
+function ecoUnitsFor(appearance) {
+    const chain = ECO.chain.get(appearance.planet.id);
+    return chain && chain.ok && chain.units.has(appearance.member.person.key) ? chain.units.get(appearance.member.person.key) : appearance.member.units;
 }
 
 function ecoChip(text, colour) {
@@ -20277,34 +20287,80 @@ function ecoPanelHtml(node) {
 
     if (node.kind === 'company') {
         const pl = node.planet;
-        const members = [...pl.members.values()].sort((a, b) => (b.roles.has('founder') - a.roles.has('founder')) || (b.units - a.units));
+        const chain = ECO.chain.get(pl.id);
+        // Once the contract has answered, its numbers replace the index's, and
+        // anyone the index lists as a holder who holds nothing on-chain loses
+        // the label (and drops off the list if that was their only tie).
+        const view = [...pl.members.values()].map(m => {
+            const onChain = chain && chain.ok && chain.units.has(m.person.key);
+            const units = onChain ? chain.units.get(m.person.key) : m.units;
+            const roles = [...m.roles].filter(r => r !== 'holder' || units > 0);
+            return { m, units, roles };
+        }).filter(v => v.roles.length)
+          .sort((a, b) => (b.roles.includes('founder') - a.roles.includes('founder')) || (b.units - a.units));
+        const note = !chain ? 'Checking stakes against the contract…'
+            : chain.ok ? '✓ Stakes read from the NQVateEquityRegistry contract just now.'
+            : 'Could not reach the contract — showing the site\'s index, which may be out of date.';
         return `${close}<p class="text-xs uppercase tracking-wider ${pl.verified ? 'text-emerald-300' : 'text-blue-300'} mb-1">Company</p>
             <h2 class="text-xl font-bold pr-8">${ecoEsc(pl.name)}</h2>
             <p class="text-xs text-zinc-400 mb-3">${ecoEsc(pl.entityType || 'Project')} · ${pl.verified ? 'Verified' : 'Unverified'} · ${pl.live ? 'Live' : 'Building'}</p>
             <p class="text-xs text-zinc-400 mb-4">Bounties: ${pl.bountyCounts.open} open · ${pl.bountyCounts.active} in progress · ${pl.bountyCounts.done} completed</p>
-            <p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">People (${members.length})</p>
-            <div class="space-y-1.5 mb-4">${members.map(m => row(m.node.id,
-                ecoEsc(m.person.label) + ' ' + [...m.roles].map(r => ecoChip(ECO_ROLE_CHIP[r][0], ECO_ROLE_CHIP[r][1])).join(' '),
-                m.units ? (m.units / 100).toFixed(2) + '%' : (m.bounties.length ? m.bounties.length + (m.bounties.length > 1 ? ' bounties' : ' bounty') : ''))).join('') || '<p class="text-sm text-zinc-500">Nobody yet.</p>'}</div>
+            <p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">People (${view.length})</p>
+            <div class="space-y-1.5 mb-2">${view.map(v => row(v.m.node.id,
+                ecoEsc(v.m.person.label) + ' ' + v.roles.map(r => ecoChip(ECO_ROLE_CHIP[r][0], ECO_ROLE_CHIP[r][1])).join(' '),
+                v.units ? (v.units / 100).toFixed(2) + '%' : (v.m.bounties.length ? v.m.bounties.length + (v.m.bounties.length > 1 ? ' bounties' : ' bounty') : ''))).join('') || '<p class="text-sm text-zinc-500">Nobody yet.</p>'}</div>
+            <p class="text-[11px] ${chain && chain.ok ? 'text-emerald-400' : 'text-zinc-500'} mb-4">${note}</p>
             ${pl.bountyTitles.length ? `<p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Recent bounties</p>
             <ul class="space-y-1 mb-4">${pl.bountyTitles.map(b => `<li class="text-sm text-zinc-300 flex justify-between gap-3"><span class="truncate">${ecoEsc(b.title)}</span><span class="text-xs text-zinc-500 shrink-0">${b.done ? 'done' : b.active ? 'in progress' : 'open'}</span></li>`).join('')}</ul>` : ''}
-            <button onclick="showCapTable('${ecoEsc(pl.id)}', ECO.byId.get('c:${ecoEsc(pl.id)}').label)" class="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-sm font-semibold">📊 View on-chain cap table</button>
-            <p class="text-[11px] text-zinc-500 mt-2">Percentages here come from the site's index. The cap table reads the contract directly.</p>`;
+            <button onclick="showCapTable('${ecoEsc(pl.id)}', ECO.byId.get('c:${ecoEsc(pl.id)}').label)" class="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-sm font-semibold">📊 View on-chain cap table</button>`;
     }
 
     const p = node.person;
     const done = p.bounties.filter(b => b.done).length;
+    // Same rule as the company panel: a stake the contract says is zero is not a stake.
+    const ties = p.appearances.map(a => {
+        const units = ecoUnitsFor(a);
+        return { a, units, roles: [...a.member.roles].filter(r => r !== 'holder' || units > 0) };
+    }).filter(t => t.roles.length);
     return `${close}<p class="text-xs uppercase tracking-wider text-violet-300 mb-1">Member</p>
         <h2 class="text-xl font-bold pr-8">${ecoEsc(p.label)}</h2>
         <p class="text-xs text-zinc-400 mb-4">${ecoEsc(p.name)}${p.name && p.wallet ? ' · ' : ''}${p.wallet ? ecoEsc(p.wallet.slice(0, 6) + '…' + p.wallet.slice(-4)) : ''}</p>
-        ${p.appearances.length ? `<p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Companies (${p.appearances.length})</p>
-        <div class="space-y-1.5 mb-4">${p.appearances.map(a => row(a.planet.node.id,
-            ecoEsc(a.planet.name) + ' ' + [...a.member.roles].map(r => ecoChip(ECO_ROLE_CHIP[r][0], ECO_ROLE_CHIP[r][1])).join(' '),
-            a.member.units ? (a.member.units / 100).toFixed(2) + '%' : '')).join('')}</div>`
+        ${ties.length ? `<p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Companies (${ties.length})</p>
+        <div class="space-y-1.5 mb-4">${ties.map(t => row(t.a.planet.node.id,
+            ecoEsc(t.a.planet.name) + ' ' + t.roles.map(r => ecoChip(ECO_ROLE_CHIP[r][0], ECO_ROLE_CHIP[r][1])).join(' '),
+            t.units ? (t.units / 100).toFixed(2) + '%' : '')).join('')}</div>`
           : '<p class="text-sm text-zinc-400 mb-4">Not tied to a company yet — no company founded, no stake held, no bounty worked.</p>'}
         ${p.bounties.length ? `<p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Bounties worked (${done} completed of ${p.bounties.length})</p>
         <ul class="space-y-1 mb-4">${p.bounties.slice(0, 8).map(b => `<li class="text-sm text-zinc-300 flex justify-between gap-3"><span class="truncate">${ecoEsc(b.title)}</span><span class="text-xs text-zinc-500 shrink-0">${b.done ? 'done' : 'in progress'}</span></li>`).join('')}</ul>` : ''}
         ${p.uid ? `<button onclick="viewUserProfile('${ecoEsc(p.uid)}')" class="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-sm font-semibold">👤 View profile</button>` : ''}`;
+}
+
+/// Read this company's stakes from the contract and redraw the panel with them.
+///
+/// The map is laid out from the site's index (equityHolders), which is quick
+/// but only as fresh as the last time the site wrote to it — it can still
+/// hold balances from an earlier version of the registry. The contract is the
+/// authority, so whenever a company is opened its numbers are checked here.
+async function ecoVerifyCompany(node) {
+    const pl = node.planet;
+    const cached = ECO.chain.get(pl.id);
+    if (cached && Date.now() - cached.at < 60000) return;
+    try {
+        const provider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
+        const registry = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, provider);
+        const cid = toBytes32(pl.id);
+        const todo = [...pl.members.values()]
+            .map(m => ({ key: m.person.key, wallet: m.wallet || m.person.wallet }))
+            .filter(x => x.wallet && /^0x[0-9a-f]{40}$/.test(x.wallet)).slice(0, 60);
+        const units = new Map();
+        await Promise.all(todo.map(async x => { units.set(x.key, (await registry.balances(cid, x.wallet)).toNumber()); }));
+        ECO.chain.set(pl.id, { ok: true, units, at: Date.now() });
+    } catch (e) {
+        console.warn('Ecosystem: could not read stakes from the contract:', e.message);
+        ECO.chain.set(pl.id, { ok: false, units: new Map(), at: Date.now() - 50000 });      // retry after ~10s
+    }
+    const sel = ECO.selected;
+    if (sel && sel.kind === 'company' && sel.planet.id === pl.id) document.getElementById('eco-panel').innerHTML = ecoPanelHtml(sel);
 }
 
 function ecoResetView() {
