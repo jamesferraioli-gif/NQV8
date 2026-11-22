@@ -92,6 +92,7 @@
                     <a onclick="navigateTo('ideas')" class="hover:text-cyan-400 cursor-pointer">Explore</a>
                     <a onclick="navigateToChat()" class="hover:text-cyan-400 cursor-pointer">Chat</a>
                     <a onclick="navigateTo('leaderboard')" class="hover:text-cyan-400 cursor-pointer">Leaderboard</a>
+                    <a onclick="navigateTo('ecosystem')" class="hover:text-cyan-400 cursor-pointer">Ecosystem</a>
                     <a onclick="navigateTo('tokenomics')" class="hover:text-cyan-400 cursor-pointer whitespace-nowrap">
                         NQV8 Tokenomics
                     </a>
@@ -172,6 +173,7 @@
     <a onclick="navigateTo('advertise'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">📢 Advertise</a>
     <a onclick="navigateToChat(); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">💬 Chat</a>
     <a onclick="navigateTo('leaderboard'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏆 Leaderboard</a>
+    <a onclick="navigateTo('ecosystem'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🪐 Ecosystem</a>
     <a onclick="navigateTo('tokenomics'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🪙 NQV8 Tokenomics</a>
     <a onclick="navigateTo('studio'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🗺️ Studio</a>
     <a onclick="navigateTo('about'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">ℹ️ About</a>
@@ -1668,6 +1670,47 @@
 
     
     <!-- ==================== LEADERBOARD PAGE ==================== -->
+<!-- ====================== ECOSYSTEM VIEW ====================== -->
+<div id="ecosystem-page" class="hidden max-w-7xl mx-auto pt-4 px-3 md:px-6 pb-8">
+    <div class="relative w-full rounded-3xl overflow-hidden border border-zinc-800 bg-black" style="height: calc(100vh - 150px); min-height: 480px;">
+        <div id="eco-canvas" class="absolute inset-0" style="touch-action: none;"></div>
+
+        <!-- Title and live counts -->
+        <div class="absolute top-3 left-3 right-3 md:top-4 md:left-4 md:right-auto pointer-events-none">
+            <h1 class="text-lg md:text-2xl font-bold tracking-tight">NQVate Ecosystem</h1>
+            <p class="text-[11px] md:text-xs text-zinc-400 mt-1">
+                <span id="eco-live-dot" class="inline-block w-2 h-2 rounded-full bg-zinc-600 mr-1.5 align-middle"></span><span id="eco-counts">Loading…</span>
+            </p>
+        </div>
+
+        <!-- Search and reset -->
+        <div class="absolute top-[4.5rem] left-3 right-3 md:top-4 md:left-auto md:right-4 flex gap-2">
+            <div class="relative flex-1 md:flex-none">
+                <input id="eco-search" type="search" placeholder="Find a person or company" autocomplete="off"
+                       oninput="ecoSearch(this.value)"
+                       class="w-full md:w-64 px-3 py-2 rounded-xl bg-zinc-900/90 border border-zinc-700 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-cyan-400">
+                <div id="eco-search-results" class="hidden absolute left-0 md:left-auto md:right-0 mt-1 w-64 max-h-64 overflow-y-auto rounded-xl bg-zinc-900 border border-zinc-700 text-sm z-10"></div>
+            </div>
+            <button onclick="ecoResetView()" class="px-3 py-2 rounded-xl bg-zinc-900/90 border border-zinc-700 text-sm hover:border-cyan-400">Reset</button>
+        </div>
+
+        <!-- Legend -->
+        <div class="absolute bottom-3 left-3 md:bottom-4 md:left-4 rounded-2xl bg-zinc-900/85 border border-zinc-800 px-3 py-2 text-[11px] text-zinc-300 space-y-1 pointer-events-none">
+            <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#67e8f9"></span>NQVate (the sun)</p>
+            <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#34d399"></span>Verified company · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#60a5fa"></span>Unverified</p>
+            <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#fbbf24"></span>Founder · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#a78bfa"></span>Equity holder · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#22d3ee"></span>Builder</p>
+            <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#a1a1aa"></span>Member not yet tied to a company</p>
+        </div>
+
+        <div id="eco-tip" class="hidden absolute pointer-events-none px-2.5 py-1.5 rounded-lg bg-zinc-900/95 border border-zinc-700 text-xs text-white whitespace-nowrap"></div>
+
+        <!-- Details: side panel on desktop, bottom sheet on phones -->
+        <div id="eco-panel" class="hidden absolute left-0 right-0 bottom-0 max-h-[55%] md:left-auto md:right-4 md:top-16 md:bottom-4 md:max-h-none md:w-80 overflow-y-auto rounded-t-3xl md:rounded-3xl bg-zinc-900 border border-zinc-700 p-5"></div>
+
+        <div id="eco-status" class="absolute inset-0 flex items-center justify-center text-zinc-400 text-sm pointer-events-none">Loading the ecosystem…</div>
+    </div>
+</div>
+
 <div id="leaderboard-page" class="max-w-6xl mx-auto pt-6 px-4 md:px-6 pb-16 hidden">
 
         <div class="mb-8">
@@ -19685,6 +19728,671 @@ function unmuteIntroVideo(btn) {
     const _closeWelcomeModal = closeWelcomeModal;
     closeWelcomeModal = function () { pauseIntroVideos(); return _closeWelcomeModal.apply(this, arguments); };
 })();
+// ====================== ECOSYSTEM VIEW ======================
+// A live 3D map of everything on NQVate, drawn as a solar system.
+//
+//   The sun        NQVate itself
+//   Planets        companies, in creation order from the centre outwards
+//   Moons          the people tied to a company: its founder, everyone holding
+//                  a stake in it, and everyone who has worked one of its bounties
+//   Outer belt     members not yet tied to any company
+//
+// One person can be a moon of several planets. Selecting them draws lines
+// between every place they appear.
+//
+// WHERE THE DATA COMES FROM: four Firestore collections that are already
+// public (users, companies, equityHolders, subprojects), read with live
+// listeners — so a new company, stake or accepted bid appears without a
+// reload. Firestore is the site's index of what happened on-chain; the chain
+// itself stays the authority for balances, which is why a company's panel
+// links to the cap table (that reads the contract directly).
+//
+// Nothing here writes anything. three.js is loaded only when this tab is
+// opened, so the rest of the site pays nothing for it.
+
+const ECO = {
+    libs: null, ready: false, running: false, raf: 0, unsub: [],
+    raw: { users: null, companies: null, holders: null, bounties: null },
+    model: null, nodes: [], byId: new Map(),
+    selected: null, hovered: null, follow: null, links: null,
+    rebuildTimer: 0, t0: 0, downAt: null, reduceMotion: false
+};
+
+const ECO_OPS_WALLET = '0x2c6309ed2e36222e7e0ce3c1376941a0d6340f4d';
+const ECO_COLORS = { verified: 0x34d399, unverified: 0x60a5fa, founder: 0xfbbf24, holder: 0xa78bfa, builder: 0x22d3ee, belt: 0xa1a1aa };
+
+function ecoEsc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+/// A stable 0–1 number from a string, so a node keeps its place between
+/// reloads and live updates instead of jumping somewhere new each time.
+function ecoHash(str, salt) {
+    let h = 2166136261 ^ (salt || 0);
+    const s = String(str);
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); }
+    return ((h >>> 0) % 100000) / 100000;
+}
+
+function ecoLoadScript(src) {
+    return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src; s.onload = resolve; s.onerror = () => reject(new Error('Could not load ' + src));
+        document.head.appendChild(s);
+    });
+}
+
+function ecoLoadLibs() {
+    if (!ECO.libs) {
+        ECO.libs = (async () => {
+            if (!window.THREE) await ecoLoadScript('https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js');
+            if (!THREE.OrbitControls) await ecoLoadScript('https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js');
+        })().catch(e => { ECO.libs = null; throw e; });
+    }
+    return ECO.libs;
+}
+
+function ecoStatus(msg) {
+    const el = document.getElementById('eco-status');
+    if (!el) return;
+    el.textContent = msg || '';
+    el.classList.toggle('hidden', !msg);
+}
+
+// ── Model: turn the four collections into planets, moons and a belt ──────
+function ecoBuildModel() {
+    const { users, companies, holders, bounties } = ECO.raw;
+    const people = new Map();          // key → person
+    const walletToUid = new Map();
+
+    const personFor = (uid, wallet) => {
+        const w = wallet ? String(wallet).toLowerCase() : null;
+        const id = uid || (w && walletToUid.get(w)) || null;
+        const key = id ? 'u:' + id : 'w:' + w;
+        if (!people.has(key)) {
+            const isOps = !id && w === ECO_OPS_WALLET;
+            people.set(key, {
+                key, uid: id, wallet: w,
+                label: isOps ? 'NQVate (platform)' : (w ? w.slice(0, 6) + '…' + w.slice(-4) : 'Unknown'),
+                name: '', known: false, appearances: [], bounties: []
+            });
+        }
+        return people.get(key);
+    };
+
+    users.forEach((u, uid) => {
+        if (u.walletAddress) walletToUid.set(String(u.walletAddress).toLowerCase(), uid);
+    });
+    // A stake may sit in a wallet the member used before their current one.
+    users.forEach((u, uid) => {
+        (Array.isArray(u.walletHistory) ? u.walletHistory : []).forEach(w => {
+            const k = String(w).toLowerCase();
+            if (!walletToUid.has(k)) walletToUid.set(k, uid);
+        });
+    });
+    users.forEach((u, uid) => {
+        const p = personFor(uid, u.walletAddress);
+        p.known = true;
+        p.label = '@' + (u.username || 'user');
+        p.name  = u.fullName || '';
+    });
+
+    const list = [...companies.entries()]
+        .map(([id, c]) => ({ id, ...c }))
+        .sort((a, b) => ((a.createdAt && a.createdAt.seconds) || 0) - ((b.createdAt && b.createdAt.seconds) || 0) || a.id.localeCompare(b.id));
+
+    const planets = list.map(c => ({
+        id: c.id, name: c.name || 'Unnamed company', entityType: c.entityType || c.type || '',
+        verified: c.verificationStatus === 'verified', live: c.projectStatus === 'live',
+        ownerUid: c.ownerUid || null, members: new Map(),
+        bountyCounts: { open: 0, active: 0, done: 0 }, bountyTitles: []
+    }));
+    const planetById = new Map(planets.map(p => [p.id, p]));
+
+    const member = (planet, person) => {
+        if (!planet.members.has(person.key)) planet.members.set(person.key, { person, roles: new Set(), units: 0, bounties: [] });
+        return planet.members.get(person.key);
+    };
+
+    planets.forEach(pl => { if (pl.ownerUid) member(pl, personFor(pl.ownerUid, null)).roles.add('founder'); });
+
+    holders.forEach(h => {
+        const pl = planetById.get(h.projectId);
+        const units = Number(h.units) || 0;
+        if (!pl || !h.wallet || units <= 0) return;
+        const m = member(pl, personFor(null, h.wallet));
+        m.roles.add('holder');
+        m.units = Math.max(m.units, units);
+    });
+
+    bounties.forEach(b => {
+        if (b.planNode || b.type !== 'build') return;
+        const pl = planetById.get(b.companyId);
+        const done = b.status === 'completed';
+        const builderUid = b.acceptedBidderUid || null;
+        if (pl) {
+            if (done) pl.bountyCounts.done++; else if (builderUid) pl.bountyCounts.active++; else pl.bountyCounts.open++;
+            if (pl.bountyTitles.length < 6) pl.bountyTitles.push({ title: b.title || 'Untitled bounty', done, active: !!builderUid && !done });
+        }
+        if (!builderUid) return;
+        const person = personFor(builderUid, null);
+        const rec = { title: b.title || 'Untitled bounty', done, company: pl ? pl.name : '' };
+        person.bounties.push(rec);
+        if (pl) { const m = member(pl, person); m.roles.add('builder'); m.bounties.push(rec); }
+    });
+
+    planets.forEach(pl => pl.members.forEach(m => m.person.appearances.push({ planet: pl, member: m })));
+    const belt = [...people.values()].filter(p => p.known && p.appearances.length === 0);
+
+    return { planets, belt, people };
+}
+
+// ── Scene ────────────────────────────────────────────────────────────────
+function ecoInitScene() {
+    if (ECO.ready) return;
+    const wrap = document.getElementById('eco-canvas');
+    const w = wrap.clientWidth || 800, h = wrap.clientHeight || 600;
+
+    ECO.reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    ECO.scene = new THREE.Scene();
+    ECO.camera = new THREE.PerspectiveCamera(50, w / h, 1, 20000);
+    ECO.camera.position.set(0, 190, 330);
+
+    ECO.renderer = new THREE.WebGLRenderer({ antialias: true });
+    ECO.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    ECO.renderer.setSize(w, h);
+    ECO.renderer.setClearColor(0x04050a);
+    wrap.appendChild(ECO.renderer.domElement);
+
+    ECO.controls = new THREE.OrbitControls(ECO.camera, ECO.renderer.domElement);
+    ECO.controls.enableDamping = true;
+    ECO.controls.dampingFactor = 0.08;
+    ECO.controls.minDistance = 25;
+    ECO.controls.maxDistance = 6000;
+
+    ECO.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+    ECO.scene.add(new THREE.PointLight(0xffffff, 1.3, 0, 0));
+
+    // Background stars
+    const starPos = new Float32Array(1800 * 3);
+    for (let i = 0; i < 1800; i++) {
+        const r = 4000 + ecoHash('s' + i, 1) * 5000, a = ecoHash('s' + i, 2) * Math.PI * 2, b = Math.acos(2 * ecoHash('s' + i, 3) - 1);
+        starPos[i * 3] = r * Math.sin(b) * Math.cos(a); starPos[i * 3 + 1] = r * Math.cos(b); starPos[i * 3 + 2] = r * Math.sin(b) * Math.sin(a);
+    }
+    const starGeo = new THREE.BufferGeometry();
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    ECO.scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 9, sizeAttenuation: true, transparent: true, opacity: 0.7 })));
+
+    // The sun, with a soft glow
+    ECO.sphere = new THREE.SphereGeometry(1, 24, 16);
+    ECO.sun = new THREE.Mesh(ECO.sphere, new THREE.MeshBasicMaterial({ color: 0x67e8f9 }));
+    ECO.sun.scale.setScalar(14);
+    ECO.scene.add(ECO.sun);
+    const glowCanvas = document.createElement('canvas'); glowCanvas.width = glowCanvas.height = 128;
+    const g = glowCanvas.getContext('2d'), grad = g.createRadialGradient(64, 64, 4, 64, 64, 64);
+    grad.addColorStop(0, 'rgba(103,232,249,0.9)'); grad.addColorStop(0.35, 'rgba(139,92,246,0.35)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
+    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(glowCanvas), transparent: true, depthWrite: false }));
+    glow.scale.setScalar(110);
+    ECO.scene.add(glow);
+
+    ECO.world = new THREE.Group();     // everything rebuilt when the data changes
+    ECO.scene.add(ECO.world);
+
+    ECO.mats = {};
+    Object.keys(ECO_COLORS).forEach(k => {
+        ECO.mats[k] = new THREE.MeshStandardMaterial({ color: ECO_COLORS[k], emissive: ECO_COLORS[k], emissiveIntensity: 0.35, roughness: 0.6 });
+    });
+    ECO.ringMat = new THREE.LineBasicMaterial({ color: 0x3f3f46, transparent: true, opacity: 0.55 });
+    ECO.linkMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
+    ECO.haloMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
+    ECO.halo = new THREE.Mesh(new THREE.RingGeometry(1.25, 1.45, 40), ECO.haloMat);
+    ECO.halo.visible = false;
+    ECO.scene.add(ECO.halo);
+
+    const el = ECO.renderer.domElement;
+    el.addEventListener('pointerdown', e => { ECO.downAt = { x: e.clientX, y: e.clientY }; });
+    el.addEventListener('pointerup', e => {
+        const d = ECO.downAt; ECO.downAt = null;
+        if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6) return;      // that was a drag, not a click
+        ecoSelect(ecoPick(e.clientX, e.clientY, e.pointerType === 'touch' ? 26 : 14));
+    });
+    el.addEventListener('pointermove', e => {
+        if (e.pointerType === 'touch' || ECO.downAt) return;
+        ecoHover(ecoPick(e.clientX, e.clientY, 12), e.clientX, e.clientY);
+    });
+    el.addEventListener('pointerleave', () => ecoHover(null));
+
+    if (window.ResizeObserver) new ResizeObserver(() => ecoResize()).observe(wrap);
+    else window.addEventListener('resize', ecoResize);
+
+    ECO.t0 = performance.now();
+    ECO.ready = true;
+}
+
+function ecoResize() {
+    if (!ECO.ready) return;
+    const wrap = document.getElementById('eco-canvas');
+    const w = wrap.clientWidth, h = wrap.clientHeight;
+    if (!w || !h) return;
+    ECO.camera.aspect = w / h;
+    ECO.camera.updateProjectionMatrix();
+    ECO.renderer.setSize(w, h);
+}
+
+function ecoLabelSprite(text, size) {
+    const c = document.createElement('canvas'), ctx = c.getContext('2d');
+    const font = '600 44px system-ui, -apple-system, Segoe UI, sans-serif';
+    ctx.font = font;
+    const label = text.length > 26 ? text.slice(0, 25) + '…' : text;
+    c.width = Math.ceil(ctx.measureText(label).width) + 24; c.height = 64;
+    ctx.font = font; ctx.textBaseline = 'middle'; ctx.fillStyle = 'rgba(255,255,255,0.92)';
+    ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 8;
+    ctx.fillText(label, 12, 34);
+    const tex = new THREE.CanvasTexture(c);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
+    sp.scale.set(size * c.width / c.height, size, 1);
+    sp.userData.tex = tex;
+    return sp;
+}
+
+function ecoRing(radius) {
+    const pts = [];
+    for (let i = 0; i <= 96; i++) { const a = i / 96 * Math.PI * 2; pts.push(new THREE.Vector3(Math.cos(a) * radius, 0, Math.sin(a) * radius)); }
+    return new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts), ECO.ringMat);
+}
+
+function ecoClearWorld() {
+    ECO.world.traverse(o => {
+        if (o.userData && o.userData.tex) { o.userData.tex.dispose(); o.material.dispose(); }
+        if (o.isLine && o.geometry) o.geometry.dispose();
+    });
+    while (ECO.world.children.length) ECO.world.remove(ECO.world.children[0]);
+    if (ECO.links) { ECO.scene.remove(ECO.links); ECO.links.geometry.dispose(); ECO.links = null; }
+}
+
+function ecoRebuildScene() {
+    if (!ECO.ready || !ECO.raw.users || !ECO.raw.companies || !ECO.raw.holders || !ECO.raw.bounties) return;
+    const keepId = ECO.selected && ECO.selected.id;
+    const model = ECO.model = ecoBuildModel();
+    ecoClearWorld();
+    ECO.nodes = []; ECO.byId = new Map();
+
+    const add = node => { ECO.nodes.push(node); ECO.byId.set(node.id, node); return node; };
+    add({ id: 'sun', kind: 'sun', label: 'NQVate', mesh: ECO.sun, radius: 14 });
+
+    // Planets sit on rings that hold more of them the further out they are,
+    // so the system grows outwards slowly instead of in one long line.
+    let ring = 0, slot = 0, outer = 70;
+    model.planets.forEach(pl => {
+        const cap = Math.ceil((ring + 1) * 1.5);
+        const orbitR = 70 + ring * 46;
+        outer = orbitR;
+        if (slot === 0) {
+            const r = ecoRing(orbitR);
+            ECO.world.add(r);
+        }
+        const size = 4 + Math.min(5, Math.sqrt(pl.members.size + pl.bountyCounts.open + pl.bountyCounts.active + pl.bountyCounts.done));
+        const group = new THREE.Group();
+        const mesh = new THREE.Mesh(ECO.sphere, ECO.mats[pl.verified ? 'verified' : 'unverified']);
+        mesh.scale.setScalar(size);
+        group.add(mesh);
+        const label = ecoLabelSprite(pl.name, 7);
+        label.position.y = size + 7;
+        group.add(label);
+        ECO.world.add(group);
+
+        const node = add({
+            id: 'c:' + pl.id, kind: 'company', label: pl.name, planet: pl, mesh, group, radius: size,
+            orbitR, phase: (slot / cap + ecoHash(pl.id, 7) * 0.5 / cap) * Math.PI * 2 + ring * 0.9,
+            speed: 0.045 / Math.sqrt(orbitR / 70)
+        });
+        pl.node = node;
+
+        // Moons: founder first, then by stake, then by work done.
+        const members = [...pl.members.values()].sort((a, b) =>
+            (b.roles.has('founder') - a.roles.has('founder')) || (b.units - a.units) || (b.bounties.length - a.bounties.length));
+        let shell = 0, place = 0;
+        members.forEach(m => {
+            const shellCap = 6 + shell * 4;
+            const role = m.roles.has('founder') ? 'founder' : m.roles.has('holder') ? 'holder' : 'builder';
+            const mSize = 1.1 + Math.min(1.7, m.units / 10000 * 6 + m.bounties.length * 0.25 + (role === 'founder' ? 0.6 : 0));
+            const moon = new THREE.Mesh(ECO.sphere, ECO.mats[role]);
+            moon.scale.setScalar(mSize);
+            group.add(moon);
+            const mNode = add({
+                id: 'm:' + pl.id + ':' + m.person.key, kind: 'person', label: m.person.label, person: m.person, member: m, planetNode: node,
+                mesh: moon, radius: mSize,
+                orbitR: size + 5 + shell * 3.6,
+                phase: (place / shellCap) * Math.PI * 2 + ecoHash(m.person.key + pl.id, 3) * 0.6,
+                tilt: (ecoHash(m.person.key + pl.id, 5) - 0.5) * 0.9,
+                speed: 0.35 / Math.sqrt(1 + shell)
+            });
+            m.node = mNode;
+            if (++place >= shellCap) { place = 0; shell++; }
+        });
+
+        if (++slot >= cap) { slot = 0; ring++; }
+    });
+
+    // The belt: members with no company tie yet.
+    ECO.belt = new THREE.Group();
+    ECO.world.add(ECO.belt);
+    const beltInner = outer + 60;
+    model.belt.forEach(p => {
+        const mesh = new THREE.Mesh(ECO.sphere, ECO.mats.belt);
+        const r = beltInner + ecoHash(p.key, 11) * 45, a = ecoHash(p.key, 12) * Math.PI * 2;
+        mesh.position.set(Math.cos(a) * r, (ecoHash(p.key, 13) - 0.5) * 14, Math.sin(a) * r);
+        mesh.scale.setScalar(1.3);
+        ECO.belt.add(mesh);
+        p.beltNode = add({ id: 'b:' + p.key, kind: 'person', label: p.label, person: p, mesh, radius: 1.3 });
+    });
+    ECO.extent = beltInner + 60;
+
+    const builders = [...model.people.values()].filter(p => p.bounties.length).length;
+    const holdersN = [...model.people.values()].filter(p => p.appearances.some(a => a.member.roles.has('holder'))).length;
+    document.getElementById('eco-counts').textContent =
+        `${ECO.raw.users.size} members · ${model.planets.length} companies · ${holdersN} equity holders · ${builders} builders`;
+    document.getElementById('eco-live-dot').className = 'inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+    ecoStatus(ECO.raw.users.size || model.planets.length ? '' : 'Nothing here yet.');
+
+    // Keep whatever was selected selected, if it still exists.
+    const again = keepId && ECO.byId.get(keepId);
+    ECO.selected = null; ECO.follow = null;
+    if (again) ecoSelect(again, true); else if (keepId) ecoSelect(null);
+    if (!ECO.framed) { ECO.framed = true; ecoResetView(); }
+}
+
+function ecoScheduleRebuild() {
+    clearTimeout(ECO.rebuildTimer);
+    ECO.rebuildTimer = setTimeout(ecoRebuildScene, 250);      // several listeners often fire together
+}
+
+// ── Frame loop ───────────────────────────────────────────────────────────
+function ecoPlace(t) {
+    const tt = ECO.reduceMotion ? 0 : t;
+    for (const n of ECO.nodes) {
+        if (n.kind === 'company') {
+            const a = n.phase + tt * n.speed;
+            n.group.position.set(Math.cos(a) * n.orbitR, 0, Math.sin(a) * n.orbitR);
+        } else if (n.planetNode) {
+            const a = n.phase + tt * n.speed;
+            n.mesh.position.set(Math.cos(a) * n.orbitR, Math.sin(a) * n.orbitR * n.tilt, Math.sin(a) * n.orbitR);
+        }
+    }
+    if (ECO.belt) ECO.belt.rotation.y = tt * 0.006;
+}
+
+const _ecoV = { a: null, b: null };
+function ecoWorldPos(node, out) { return node.mesh.getWorldPosition(out); }
+
+function ecoFrame() {
+    if (!ECO.running) return;
+    ECO.raf = requestAnimationFrame(ecoFrame);
+    const t = (performance.now() - ECO.t0) / 1000;
+    ecoPlace(t);
+    ECO.scene.updateMatrixWorld();
+
+    if (!_ecoV.a) { _ecoV.a = new THREE.Vector3(); _ecoV.b = new THREE.Vector3(); }
+
+    // Keep the camera travelling with whatever is selected.
+    if (ECO.follow) {
+        ecoWorldPos(ECO.follow, _ecoV.a);
+        _ecoV.b.copy(_ecoV.a).sub(ECO.controls.target);
+        _ecoV.b.multiplyScalar(0.18);                     // glide towards it instead of snapping
+        ECO.controls.target.add(_ecoV.b);
+        ECO.camera.position.add(_ecoV.b);
+        if (ECO.zoomTo) {
+            const d = ECO.camera.position.distanceTo(ECO.controls.target);
+            const nd = d + (ECO.zoomTo - d) * 0.08;
+            ECO.camera.position.sub(ECO.controls.target).setLength(nd).add(ECO.controls.target);
+            if (Math.abs(nd - ECO.zoomTo) < 1) ECO.zoomTo = 0;
+        }
+    }
+
+    if (ECO.selected && ECO.selected.kind !== 'sun') {
+        ecoWorldPos(ECO.selected, ECO.halo.position);
+        ECO.halo.scale.setScalar(ECO.selected.radius);
+        ECO.halo.quaternion.copy(ECO.camera.quaternion);
+        ECO.halo.visible = true;
+    } else ECO.halo.visible = false;
+
+    if (ECO.links) {
+        const pos = ECO.links.geometry.attributes.position, pts = ECO.links.userData.nodes;
+        for (let i = 0; i < pts.length; i++) { ecoWorldPos(pts[i], _ecoV.a); pos.setXYZ(i, _ecoV.a.x, _ecoV.a.y, _ecoV.a.z); }
+        pos.needsUpdate = true;
+    }
+
+    ECO.controls.update();
+    ECO.renderer.render(ECO.scene, ECO.camera);
+}
+
+// ── Picking: nearest node to the pointer on screen ───────────────────────
+// Done in screen space rather than by ray, because the moons are a pixel or
+// two across when zoomed out and a ray would almost never hit one.
+function ecoPick(clientX, clientY, slop) {
+    const rect = ECO.renderer.domElement.getBoundingClientRect();
+    const x = clientX - rect.left, y = clientY - rect.top;
+    const v = new THREE.Vector3(), edge = new THREE.Vector3(), right = new THREE.Vector3();
+    right.setFromMatrixColumn(ECO.camera.matrixWorld, 0);
+    let best = null, bestScore = Infinity;
+    for (const n of ECO.nodes) {
+        ecoWorldPos(n, v);
+        edge.copy(v).addScaledVector(right, n.radius);
+        const depth = v.clone().project(ECO.camera);
+        if (depth.z > 1 || depth.z < -1) continue;
+        edge.project(ECO.camera);
+        const sx = (depth.x + 1) / 2 * rect.width, sy = (1 - depth.y) / 2 * rect.height;
+        const sr = Math.abs((edge.x + 1) / 2 * rect.width - sx);
+        const d = Math.hypot(sx - x, sy - y);
+        if (d > sr + slop) continue;
+        const score = d - sr + depth.z;            // nearest to the pointer, then nearest to the camera
+        if (score < bestScore) { bestScore = score; best = n; }
+    }
+    return best;
+}
+
+function ecoHover(node, cx, cy) {
+    const tip = document.getElementById('eco-tip');
+    ECO.hovered = node;
+    ECO.renderer.domElement.style.cursor = node ? 'pointer' : 'grab';
+    if (!node) return tip.classList.add('hidden');
+    const rect = document.getElementById('eco-canvas').getBoundingClientRect();
+    let text = node.label;
+    if (node.kind === 'person' && node.planetNode) text += ' · ' + [...node.member.roles].join(', ') + ' of ' + node.planetNode.label;
+    if (node.kind === 'company') text += node.planet.verified ? ' · verified' : '';
+    tip.textContent = text;
+    tip.style.left = Math.min(rect.width - 200, cx - rect.left + 14) + 'px';
+    tip.style.top = (cy - rect.top + 14) + 'px';
+    tip.classList.remove('hidden');
+}
+
+// ── Selection and the details panel ──────────────────────────────────────
+function ecoPersonNodes(person) {
+    const nodes = person.appearances.map(a => a.member.node).filter(Boolean);
+    if (person.beltNode) nodes.push(person.beltNode);
+    return nodes;
+}
+
+function ecoSelectId(id) { const n = ECO.byId.get(id); if (n) ecoSelect(n); }
+
+function ecoSelect(node, quiet) {
+    ECO.selected = node || null;
+    if (ECO.links) { ECO.scene.remove(ECO.links); ECO.links.geometry.dispose(); ECO.links = null; }
+    const panel = document.getElementById('eco-panel');
+    document.getElementById('eco-tip').classList.add('hidden');
+    if (!node) { ECO.follow = null; panel.classList.add('hidden'); return; }
+
+    if (!quiet) {
+        ECO.follow = node.kind === 'sun' ? null : node;
+        ECO.zoomTo = node.kind === 'company' ? 150 : node.kind === 'person' ? 110 : 0;
+        if (node.kind === 'sun') ecoResetView();
+    } else if (node.kind !== 'sun') ECO.follow = node;
+
+    // Lines between every place this person appears.
+    if (node.kind === 'person') {
+        const all = ecoPersonNodes(node.person);
+        if (all.length > 1) {
+            const seq = [];
+            all.forEach(n => { if (n !== node) { seq.push(node, n); } });
+            const geo = new THREE.BufferGeometry();
+            geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(seq.length * 3), 3));
+            ECO.links = new THREE.LineSegments(geo, ECO.linkMat);
+            ECO.links.userData.nodes = seq;
+            ECO.links.frustumCulled = false;
+            ECO.scene.add(ECO.links);
+        }
+    }
+
+    panel.innerHTML = ecoPanelHtml(node);
+    panel.classList.remove('hidden');
+}
+
+function ecoChip(text, colour) {
+    return `<span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide" style="background:${colour}22;color:${colour}">${ecoEsc(text)}</span>`;
+}
+const ECO_ROLE_CHIP = { founder: ['Founder', '#fbbf24'], holder: ['Equity holder', '#a78bfa'], builder: ['Builder', '#22d3ee'] };
+
+function ecoPanelHtml(node) {
+    const close = `<button onclick="ecoSelect(null)" aria-label="Close" class="absolute top-3 right-4 text-2xl leading-none text-zinc-500 hover:text-white">&times;</button>`;
+    const row = (id, left, right) =>
+        `<button onclick="ecoSelectId('${ecoEsc(id)}')" class="w-full flex items-center justify-between gap-3 text-left px-3 py-2 rounded-xl bg-zinc-800/70 hover:bg-zinc-700/80">
+            <span class="text-sm truncate">${left}</span><span class="text-xs text-zinc-400 shrink-0">${right}</span></button>`;
+
+    if (node.kind === 'sun') {
+        const m = ECO.model;
+        const open = m.planets.reduce((s, p) => s + p.bountyCounts.open, 0), active = m.planets.reduce((s, p) => s + p.bountyCounts.active, 0),
+              done = m.planets.reduce((s, p) => s + p.bountyCounts.done, 0);
+        return `${close}<p class="text-xs uppercase tracking-wider text-cyan-300 mb-1">The platform</p>
+            <h2 class="text-xl font-bold mb-3">NQVate</h2>
+            <div class="grid grid-cols-2 gap-2 text-center mb-4">
+                ${[[ECO.raw.users.size, 'Members'], [m.planets.length, 'Companies'], [m.planets.filter(p => p.verified).length, 'Verified'], [m.belt.length, 'In the belt']]
+                    .map(([n, l]) => `<div class="bg-zinc-800/70 rounded-xl py-2"><p class="text-lg font-bold">${n}</p><p class="text-[11px] text-zinc-400">${l}</p></div>`).join('')}
+            </div>
+            <p class="text-xs text-zinc-400">Bounties: ${open} open · ${active} in progress · ${done} completed</p>`;
+    }
+
+    if (node.kind === 'company') {
+        const pl = node.planet;
+        const members = [...pl.members.values()].sort((a, b) => (b.roles.has('founder') - a.roles.has('founder')) || (b.units - a.units));
+        return `${close}<p class="text-xs uppercase tracking-wider ${pl.verified ? 'text-emerald-300' : 'text-blue-300'} mb-1">Company</p>
+            <h2 class="text-xl font-bold pr-8">${ecoEsc(pl.name)}</h2>
+            <p class="text-xs text-zinc-400 mb-3">${ecoEsc(pl.entityType || 'Project')} · ${pl.verified ? 'Verified' : 'Unverified'} · ${pl.live ? 'Live' : 'Building'}</p>
+            <p class="text-xs text-zinc-400 mb-4">Bounties: ${pl.bountyCounts.open} open · ${pl.bountyCounts.active} in progress · ${pl.bountyCounts.done} completed</p>
+            <p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">People (${members.length})</p>
+            <div class="space-y-1.5 mb-4">${members.map(m => row(m.node.id,
+                ecoEsc(m.person.label) + ' ' + [...m.roles].map(r => ecoChip(ECO_ROLE_CHIP[r][0], ECO_ROLE_CHIP[r][1])).join(' '),
+                m.units ? (m.units / 100).toFixed(2) + '%' : (m.bounties.length ? m.bounties.length + (m.bounties.length > 1 ? ' bounties' : ' bounty') : ''))).join('') || '<p class="text-sm text-zinc-500">Nobody yet.</p>'}</div>
+            ${pl.bountyTitles.length ? `<p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Recent bounties</p>
+            <ul class="space-y-1 mb-4">${pl.bountyTitles.map(b => `<li class="text-sm text-zinc-300 flex justify-between gap-3"><span class="truncate">${ecoEsc(b.title)}</span><span class="text-xs text-zinc-500 shrink-0">${b.done ? 'done' : b.active ? 'in progress' : 'open'}</span></li>`).join('')}</ul>` : ''}
+            <button onclick="showCapTable('${ecoEsc(pl.id)}', ECO.byId.get('c:${ecoEsc(pl.id)}').label)" class="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-sm font-semibold">📊 View on-chain cap table</button>
+            <p class="text-[11px] text-zinc-500 mt-2">Percentages here come from the site's index. The cap table reads the contract directly.</p>`;
+    }
+
+    const p = node.person;
+    const done = p.bounties.filter(b => b.done).length;
+    return `${close}<p class="text-xs uppercase tracking-wider text-violet-300 mb-1">Member</p>
+        <h2 class="text-xl font-bold pr-8">${ecoEsc(p.label)}</h2>
+        <p class="text-xs text-zinc-400 mb-4">${ecoEsc(p.name)}${p.name && p.wallet ? ' · ' : ''}${p.wallet ? ecoEsc(p.wallet.slice(0, 6) + '…' + p.wallet.slice(-4)) : ''}</p>
+        ${p.appearances.length ? `<p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Companies (${p.appearances.length})</p>
+        <div class="space-y-1.5 mb-4">${p.appearances.map(a => row(a.planet.node.id,
+            ecoEsc(a.planet.name) + ' ' + [...a.member.roles].map(r => ecoChip(ECO_ROLE_CHIP[r][0], ECO_ROLE_CHIP[r][1])).join(' '),
+            a.member.units ? (a.member.units / 100).toFixed(2) + '%' : '')).join('')}</div>`
+          : '<p class="text-sm text-zinc-400 mb-4">Not tied to a company yet — no company founded, no stake held, no bounty worked.</p>'}
+        ${p.bounties.length ? `<p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Bounties worked (${done} completed of ${p.bounties.length})</p>
+        <ul class="space-y-1 mb-4">${p.bounties.slice(0, 8).map(b => `<li class="text-sm text-zinc-300 flex justify-between gap-3"><span class="truncate">${ecoEsc(b.title)}</span><span class="text-xs text-zinc-500 shrink-0">${b.done ? 'done' : 'in progress'}</span></li>`).join('')}</ul>` : ''}
+        ${p.uid ? `<button onclick="viewUserProfile('${ecoEsc(p.uid)}')" class="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-sm font-semibold">👤 View profile</button>` : ''}`;
+}
+
+function ecoResetView() {
+    if (!ECO.ready) return;
+    ECO.follow = null; ECO.zoomTo = 0;
+    const d = Math.max(260, (ECO.extent || 200) * 1.15);
+    ECO.controls.target.set(0, 0, 0);
+    ECO.camera.position.set(0, d * 0.55, d);
+}
+
+function ecoSearch(q) {
+    const box = document.getElementById('eco-search-results');
+    const term = String(q || '').trim().toLowerCase();
+    if (!term || !ECO.model) return box.classList.add('hidden');
+    const hits = [];
+    ECO.model.planets.forEach(pl => { if (pl.name.toLowerCase().includes(term)) hits.push([pl.node.id, pl.name, 'Company']); });
+    ECO.model.people.forEach(p => {
+        if (hits.length >= 12) return;
+        if ((p.label + ' ' + p.name + ' ' + (p.wallet || '')).toLowerCase().includes(term)) {
+            const n = ecoPersonNodes(p)[0];
+            if (n) hits.push([n.id, p.label, 'Member']);
+        }
+    });
+    box.innerHTML = hits.slice(0, 12).map(([id, label, kind]) =>
+        `<button onclick="ecoSelectId('${ecoEsc(id)}'); document.getElementById('eco-search-results').classList.add('hidden'); document.getElementById('eco-search').value='';"
+                 class="w-full flex justify-between gap-3 px-3 py-2 text-left hover:bg-zinc-800"><span class="truncate">${ecoEsc(label)}</span><span class="text-xs text-zinc-500">${kind}</span></button>`).join('')
+        || '<p class="px-3 py-2 text-zinc-500">No match</p>';
+    box.classList.remove('hidden');
+}
+
+// ── Live data ────────────────────────────────────────────────────────────
+function ecoSubscribe() {
+    if (ECO.unsub.length) return;
+    const fail = e => {
+        console.warn('Ecosystem listener failed:', e.message);
+        document.getElementById('eco-live-dot').className = 'inline-block w-2 h-2 rounded-full bg-red-500';
+        if (!ECO.model) ecoStatus('Could not load the ecosystem. Please try again.');
+    };
+    const asMap = snap => { const m = new Map(); snap.forEach(d => m.set(d.id, d.data())); return m; };
+    const asList = snap => { const a = []; snap.forEach(d => a.push(d.data())); return a; };
+
+    ECO.unsub.push(
+        db.collection('users').onSnapshot(s => { ECO.raw.users = asMap(s); ecoScheduleRebuild(); }, fail),
+        db.collection('companies').onSnapshot(s => { ECO.raw.companies = asMap(s); ecoScheduleRebuild(); }, fail),
+        db.collection('equityHolders').onSnapshot(s => { ECO.raw.holders = asList(s); ecoScheduleRebuild(); }, fail),
+        db.collection('subprojects').where('type', '==', 'build').onSnapshot(s => { ECO.raw.bounties = asList(s); ecoScheduleRebuild(); }, fail)
+    );
+}
+
+async function ecoStart() {
+    if (ECO.running) return;
+    try {
+        ecoStatus(ECO.model ? '' : 'Loading the ecosystem…');
+        await ecoLoadLibs();
+        const page = document.getElementById('ecosystem-page');
+        if (!page || page.classList.contains('hidden')) return;      // they left while it was loading
+        ecoInitScene();
+        ecoResize();
+        ecoSubscribe();
+        ECO.running = true;
+        ecoFrame();
+    } catch (e) {
+        console.error('Ecosystem view failed to start:', e);
+        ecoStatus('The 3D view could not start on this device.');
+    }
+}
+
+/// Leaving the tab stops the drawing loop and the live listeners, so the map
+/// costs nothing while nobody is looking at it.
+function ecoStop() {
+    ECO.running = false;
+    cancelAnimationFrame(ECO.raf);
+    ECO.unsub.forEach(u => { try { u(); } catch (e) {} });
+    ECO.unsub = [];
+}
+
+(function hookEcosystem() {
+    const _navigateTo = navigateTo;
+    navigateTo = function (page) {
+        const r = _navigateTo.apply(this, arguments);
+        const el = document.getElementById('ecosystem-page');
+        if (el && !el.classList.contains('hidden')) ecoStart(); else ecoStop();
+        return r;
+    };
+    document.addEventListener('visibilitychange', () => {
+        const el = document.getElementById('ecosystem-page');
+        if (document.hidden) { ECO.running = false; cancelAnimationFrame(ECO.raf); }
+        else if (el && !el.classList.contains('hidden') && ECO.ready && !ECO.running) { ECO.running = true; ecoFrame(); }
+    });
+})();
+
     </script>    
 
     <!-- BUY NQV8 MODAL -->
