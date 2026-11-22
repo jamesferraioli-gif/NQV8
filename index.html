@@ -1700,6 +1700,7 @@
             <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#34d399"></span>Verified company · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#60a5fa"></span>Unverified</p>
             <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#fbbf24"></span>Founder · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#a78bfa"></span>Equity holder · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#22d3ee"></span>Builder</p>
             <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#a1a1aa"></span>Member not yet tied to a company</p>
+            <p class="text-zinc-500">Bigger planet = more value, people and work</p>
         </div>
 
         <div id="eco-tip" class="hidden absolute pointer-events-none px-2.5 py-1.5 rounded-lg bg-zinc-900/95 border border-zinc-700 text-xs text-white whitespace-nowrap"></div>
@@ -19732,7 +19733,10 @@ function unmuteIntroVideo(btn) {
 // A live 3D map of everything on NQVate, drawn as a solar system.
 //
 //   The sun        NQVate itself
-//   Planets        live or verified companies, oldest nearest the centre
+//   Planets        live or verified companies, oldest nearest the centre.
+//                  A planet is bigger the more the company is worth (by its
+//                  last equity sale or funding round), the more people are
+//                  tied to it, and the more bounties it has had worked
 //   Moons          the people tied to a company: its founder, everyone holding
 //                  a stake in it, and everyone who has worked one of its bounties
 //   Outer belt     members not yet tied to any company
@@ -19752,7 +19756,7 @@ function unmuteIntroVideo(btn) {
 
 const ECO = {
     libs: null, ready: false, running: false, raf: 0, unsub: [],
-    raw: { users: null, companies: null, holders: null, bounties: null },
+    raw: { users: null, companies: null, holders: null, bounties: null, sales: [], funding: [] },
     model: null, nodes: [], byId: new Map(),
     selected: null, hovered: null, follow: null, links: null,
     rebuildTimer: 0, t0: 0, downAt: null, reduceMotion: false,
@@ -19802,7 +19806,7 @@ function ecoStatus(msg) {
 
 // ── Model: turn the four collections into planets, moons and a belt ──────
 function ecoBuildModel() {
-    const { users, companies, holders, bounties } = ECO.raw;
+    const { users, companies, holders, bounties, sales, funding } = ECO.raw;
     const people = new Map();          // key → person
     const walletToUid = new Map();
 
@@ -19849,7 +19853,8 @@ function ecoBuildModel() {
         id: c.id, name: c.name || 'Unnamed company', entityType: c.entityType || c.type || '',
         verified: c.verificationStatus === 'verified', live: c.projectStatus === 'live',
         ownerUid: c.ownerUid || null, members: new Map(),
-        bountyCounts: { open: 0, active: 0, done: 0 }, bountyTitles: []
+        bountyCounts: { open: 0, active: 0, done: 0 }, bountyTitles: [],
+        value: 0, valueFrom: '', valueAt: 0, raised: 0
     }));
     const planetById = new Map(planets.map(p => [p.id, p]));
 
@@ -19884,6 +19889,43 @@ function ecoBuildModel() {
         const rec = { title: b.title || 'Untitled bounty', done, company: pl ? pl.name : '' };
         person.bounties.push(rec);
         if (pl) { const m = member(pl, person); m.roles.add('builder'); m.bounties.push(rec); }
+    });
+
+    // What a company is worth, as far as the platform can tell: the price of
+    // the most recent completed deal in its equity, scaled up to the whole
+    // company (10,000 units). An equity sale and a funding round both set a
+    // price, so whichever happened last wins. No deal, no figure — the map
+    // never estimates one.
+    const dollars = v => { const n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')); return isFinite(n) ? n : 0; };
+    const secs = t => (t && t.seconds) || 0;
+    const price = (pl, perUnit, at, from) => {
+        if (!(perUnit > 0) || at < pl.valueAt) return;
+        pl.value = perUnit * 10000; pl.valueAt = at; pl.valueFrom = from;
+    };
+    sales.forEach(l => {
+        const pl = planetById.get(l.projectId);
+        const units = Number(l.units) || 0;
+        if (!pl || l.status !== 'sold' || units <= 0) return;
+        const total = Number(l.finalSaleValue) || 0;
+        price(pl, total > 0 ? total / units : Number(l.pricePerUnit) || 0, secs(l.soldAt), 'last equity sale');
+    });
+    funding.forEach(f => {
+        const pl = planetById.get(f.companyId || f.projectId);
+        const units = Number(f.equityUnits) || 0;
+        if (!pl || f.status !== 'completed') return;
+        const amount = dollars((f.acceptedBid && f.acceptedBid.amount) || f.compensation);
+        pl.raised += amount;
+        if (units > 0) price(pl, amount / units, secs(f.completedAt) || secs(f.createdAt), 'last funding round');
+    });
+
+    // Planet size, from three things: people, work and value. Each is put on
+    // a log scale and the total eases towards a ceiling, so a company ten
+    // times bigger is clearly bigger without ever outgrowing the sun or
+    // swallowing its neighbours. Smallest 4, largest just under 13.
+    planets.forEach(pl => {
+        const work = pl.bountyCounts.done + pl.bountyCounts.active;
+        const score = 1.1 * Math.log2(1 + pl.members.size) + 0.6 * Math.log2(1 + work) + 0.9 * Math.log10(1 + pl.value);
+        pl.size = 4 + 9 * (1 - Math.exp(-score / 8));
     });
 
     planets.forEach(pl => pl.members.forEach(m => m.person.appearances.push({ planet: pl, member: m })));
@@ -20037,7 +20079,7 @@ function ecoRebuildScene() {
             const r = ecoRing(orbitR);
             ECO.world.add(r);
         }
-        const size = 4 + Math.min(5, Math.sqrt(pl.members.size + pl.bountyCounts.open + pl.bountyCounts.active + pl.bountyCounts.done));
+        const size = pl.size;
         const group = new THREE.Group();
         const mesh = new THREE.Mesh(ECO.sphere, ECO.mats[pl.verified ? 'verified' : 'unverified']);
         mesh.scale.setScalar(size);
@@ -20304,6 +20346,13 @@ function ecoPanelHtml(node) {
         return `${close}<p class="text-xs uppercase tracking-wider ${pl.verified ? 'text-emerald-300' : 'text-blue-300'} mb-1">Company</p>
             <h2 class="text-xl font-bold pr-8">${ecoEsc(pl.name)}</h2>
             <p class="text-xs text-zinc-400 mb-3">${ecoEsc(pl.entityType || 'Project')} · ${pl.verified ? 'Verified' : 'Unverified'} · ${pl.live ? 'Live' : 'Building'}</p>
+            <div class="grid grid-cols-3 gap-2 text-center mb-2">
+                ${[[pl.value ? '$' + Math.round(pl.value).toLocaleString() : '—', 'Implied value'], [pl.members.size, 'People'], [pl.bountyCounts.done + pl.bountyCounts.active, 'Bounties worked']]
+                    .map(([n, l]) => `<div class="bg-zinc-800/70 rounded-xl py-2 px-1"><p class="text-sm font-bold truncate">${n}</p><p class="text-[10px] text-zinc-400">${l}</p></div>`).join('')}
+            </div>
+            <p class="text-[11px] text-zinc-500 mb-4">${pl.value
+                ? 'Value is the price of the ' + pl.valueFrom + ', scaled to the whole company. It is not an appraisal.'
+                : 'No equity sale or funding round yet, so no value is shown.'} These three set the planet\'s size.${pl.raised ? ' Raised so far: $' + Math.round(pl.raised).toLocaleString() + '.' : ''}</p>
             <p class="text-xs text-zinc-400 mb-4">Bounties: ${pl.bountyCounts.open} open · ${pl.bountyCounts.active} in progress · ${pl.bountyCounts.done} completed</p>
             <p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">People (${view.length})</p>
             <div class="space-y-1.5 mb-2">${view.map(v => row(v.m.node.id,
@@ -20406,7 +20455,13 @@ function ecoSubscribe() {
         db.collection('users').onSnapshot(s => { ECO.raw.users = asMap(s); ecoScheduleRebuild(); }, fail),
         db.collection('companies').onSnapshot(s => { ECO.raw.companies = asMap(s); ecoScheduleRebuild(); }, fail),
         db.collection('equityHolders').onSnapshot(s => { ECO.raw.holders = asList(s); ecoScheduleRebuild(); }, fail),
-        db.collection('subprojects').where('type', '==', 'build').onSnapshot(s => { ECO.raw.bounties = asList(s); ecoScheduleRebuild(); }, fail)
+        db.collection('subprojects').where('type', '==', 'build').onSnapshot(s => { ECO.raw.bounties = asList(s); ecoScheduleRebuild(); }, fail),
+        // The two that set a company's value. If either cannot be read the map
+        // still draws; those companies simply show no value.
+        db.collection('equityListings').where('status', '==', 'sold').onSnapshot(s => { ECO.raw.sales = asList(s); ecoScheduleRebuild(); },
+            e => console.warn('Ecosystem: equity sales unavailable:', e.message)),
+        db.collection('subprojects').where('type', '==', 'fund').where('status', '==', 'completed').onSnapshot(s => { ECO.raw.funding = asList(s); ecoScheduleRebuild(); },
+            e => console.warn('Ecosystem: funding rounds unavailable:', e.message))
     );
 }
 
