@@ -19732,7 +19732,7 @@ function unmuteIntroVideo(btn) {
 // A live 3D map of everything on NQVate, drawn as a solar system.
 //
 //   The sun        NQVate itself
-//   Planets        companies, in creation order from the centre outwards
+//   Planets        live or verified companies, oldest nearest the centre
 //   Moons          the people tied to a company: its founder, everyone holding
 //                  a stake in it, and everyone who has worked one of its bounties
 //   Outer belt     members not yet tied to any company
@@ -19837,8 +19837,11 @@ function ecoBuildModel() {
         p.name  = u.fullName || '';
     });
 
+    // Only companies that are live or verified become planets. A Studio
+    // project someone is still planning is theirs to reveal, not the map's.
     const list = [...companies.entries()]
         .map(([id, c]) => ({ id, ...c }))
+        .filter(c => c.projectStatus === 'live' || c.verificationStatus === 'verified')
         .sort((a, b) => ((a.createdAt && a.createdAt.seconds) || 0) - ((b.createdAt && b.createdAt.seconds) || 0) || a.id.localeCompare(b.id));
 
     const planets = list.map(c => ({
