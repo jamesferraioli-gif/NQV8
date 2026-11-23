@@ -9,6 +9,9 @@
 //     room link can watch and listen, and cannot turn on a camera or mic.
 //   - The streamer gets an owner token, returned only to them, which is what
 //     lets them broadcast. Without it the room link is view-only.
+//   - A subscribers-only stream uses a PRIVATE room: the link alone opens
+//     nothing, and each paying member is issued a watch-only token by
+//     subscriptions.js when they open the stream.
 //   - Daily's built-in chat is off. Comments happen under the stream on
 //     NQVate, where they are moderated and cost 1 NQV8 like any other comment.
 //
@@ -33,6 +36,7 @@ export default async function handler(req, res) {
         return res.status(500).json({ error: 'Live video is not configured' });
     }
     const auth = { 'Content-Type': 'application/json', 'Authorization': `Bearer ${process.env.DAILY_API_KEY}` };
+    const membersOnly = !!(req.body && req.body.subscribersOnly);
     const displayName = String((req.body && req.body.displayName) || 'Host').replace(/[^\w @.\-]/g, '').slice(0, 40) || 'Host';
 
     try {
@@ -43,7 +47,7 @@ export default async function handler(req, res) {
             method: 'POST', headers: auth,
             body: JSON.stringify({
                 name,
-                privacy: 'public',
+                privacy: membersOnly ? 'private' : 'public',
                 properties: {
                     exp,
                     eject_at_room_exp:  true,
@@ -83,7 +87,7 @@ export default async function handler(req, res) {
         }
         const { token } = await tokRes.json();
 
-        return res.status(200).json({ url: room.url, name: room.name, token, expires: exp, maxViewers: MAX_VIEWERS });
+        return res.status(200).json({ url: room.url, name: room.name, token, expires: exp, maxViewers: MAX_VIEWERS, subscribersOnly: membersOnly });
     } catch (e) {
         console.error('create-stream failed:', e.message);
         return res.status(500).json({ error: 'Could not start the stream' });
