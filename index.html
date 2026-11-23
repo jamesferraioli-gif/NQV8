@@ -11239,7 +11239,8 @@ async function startVideoCall() {
                             <div class="flex justify-between items-start mb-3">
                                 <div>
                                     <p class="font-bold text-lg">${c.name}</p>
-                                    <p class="text-xs text-zinc-400">${c.type}</p>
+                                    <p class="text-xs text-zinc-400">${c.entityType || c.type || 'Project'}</p>
+                                    
                                 </div>
                                 ${statusBadge}
                             </div>
