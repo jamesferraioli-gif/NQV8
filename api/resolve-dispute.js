@@ -16,6 +16,7 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { verifyCaller } from './_auth.js';
 import { gasOverrides } from './_gas.js';
+import { forwardEscrowFee } from './_rewards.js';
 import { callAnthropicJSON } from './_ai.js';
 import { settleEngagementBond, slashBpsForRuling, bondWalletFor } from './_bonds.js';
 import crypto from 'crypto';
@@ -329,6 +330,12 @@ Rule on this dispute. Respond with the JSON object only.`;
                 await escTx.wait();
                 escrowTxHash = escTx.hash;
                 console.log(`✅ USDC leg resolved. Tx: ${escTx.hash}`);
+
+                // Whatever fee the ruling produced landed in Operations. Move
+                // it into the rewards pool, credited to the poster and the
+                // worker. A failure leaves it in Operations; the ruling stands.
+                await forwardEscrowFee({ db, txHash: escTx.hash, subprojectId: projectId, requestedBy: 'dispute' })
+                    .catch(e => console.error(`fee forward failed for ${projectId}:`, e.message));
             }
         }
 

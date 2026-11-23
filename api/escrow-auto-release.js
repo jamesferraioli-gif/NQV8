@@ -9,6 +9,7 @@ import { ethers } from 'ethers';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { gasOverrides } from './_gas.js';
+import { forwardEscrowFee } from './_rewards.js';
 
 if (!getApps().length) {
     initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
@@ -85,6 +86,13 @@ export default async function handler(req, res) {
                 await tx.wait();
 
                 console.log(`✅ Auto-released ${projectId}. Tx: ${tx.hash}`);
+
+                // The 3.5% fee landed in Operations. Move it into the rewards
+                // pool, credited to the poster and the worker — an automatic
+                // release earns them the same share as a manual one. A failure
+                // here leaves the fee in Operations and changes nothing else.
+                await forwardEscrowFee({ db, txHash: tx.hash, subprojectId: projectId, requestedBy: 'auto-release' })
+                    .catch(e => console.error(`fee forward failed for ${projectId}:`, e.message));
 
                 // Update Firestore
                 await db.collection('subprojects').doc(projectId).update({

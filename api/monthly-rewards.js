@@ -1,5 +1,15 @@
 // api/monthly-rewards.js
-// Runs on the 1st of every month via Vercel cron (0 0 1 * *)
+// Runs EVERY DAY via Vercel cron (0 0 * * *).
+//
+// Most days it only settles: it rolls the shares of wallets that had nothing
+// staked into the open pool (see below). On the first run after a month ends
+// it also closes that month. Running daily means a close that failed on the
+// 1st is simply retried on the 2nd, and settling is never more than a day
+// behind — which matters now that every bounty worker and paying member has a
+// share, staked or not.
+//
+// It can never close a month early: the open epoch is closed only if it began
+// before the current month did.
 //
 // Under RewardsV2 this closes the month and nothing else. It pays nobody.
 //
@@ -47,12 +57,8 @@ function getAdminDb() {
     return getFirestore();
 }
 
-const REWARDS_CONTRACT_ADDRESS = '0x0F630bbEd28545970CCD5C15eAD08fb1286c160f';
-const ARBITRUM_RPC             = 'https://arb1.arbitrum.io/rpc';
+import { REWARDS_ADDRESS as REWARDS_CONTRACT_ADDRESS, REWARDS_DEPLOY_BLOCK, ARBITRUM_RPC } from './_rewards.js';
 const NQV8_DECIMALS            = 18;
-
-// Block RewardsV4 was deployed in. Fee logs are never searched before it.
-const REWARDS_DEPLOY_BLOCK     = 526575546;
 
 // Ceiling on settlements per run, so a busy month cannot run the function out
 // of time. The remainder is flagged and handled next run.
@@ -71,19 +77,23 @@ const REWARDS_ABI = [
     "function getEpochByLabel(string label) external view returns (uint256 epochId, tuple(uint64 startedAt, uint64 endedAt, uint256 totalNQV8Fees, uint256 totalUSDCFees, uint256 nqv8Pool, uint256 usdcPool, uint256 nqv8Claimed, uint256 usdcClaimed, uint32 payerCount, uint32 claimantCount, bool closed, bool swept, string label) epoch)",
     "event EpochClosed(uint256 indexed epochId, string label, uint256 nqv8Pool, uint256 usdcPool, uint256 totalNQV8Fees, uint32 payers)",
     "event FeesReceived(address indexed payer, uint256 nqv8Amount, uint256 nqv8ToOps, uint256 nqv8ToPool)",
+    "event USDCFeeCredited(address indexed wallet, uint256 usdcAmount, uint256 weight)",
+    "function getEpoch(uint256 epochId) external view returns (tuple(uint64 startedAt, uint64 endedAt, uint256 totalNQV8Fees, uint256 totalUSDCFees, uint256 nqv8Pool, uint256 usdcPool, uint256 nqv8Claimed, uint256 usdcClaimed, uint32 payerCount, uint32 claimantCount, bool closed, bool swept, string label))",
     "function claimFor(uint256 epochId, address wallet) external",
     "function claimStatus(uint256 epochId, address wallet) external view returns (tuple(bool closed, bool settled, bool open, uint256 nqv8Paid, uint256 nqv8FullShare, uint256 usdcFullShare, uint256 stakeSlice, uint256 coverageBps, uint256 nqv8Payout, uint256 usdcPayout))"
 ];
 
 /**
- * Every wallet that paid an NQV8 fee between two blocks.
+ * Every wallet that earned weight between two blocks: paid an NQV8 fee, or
+ * was credited with a USDC one.
  *
- * Read from FeesReceived logs because the contract deliberately keeps no list
- * of payers. The range can be a little wider than the month without harm:
+ * Read from the logs because the contract deliberately keeps no list of
+ * payers. The range can be a little wider than the month without harm:
  * claimStatus() decides who actually has a share in it.
  */
 async function payersBetween(rewards, fromBlock, toBlock) {
-    const filter = rewards.filters.FeesReceived();
+    const paid     = rewards.filters.FeesReceived();
+    const credited = rewards.filters.USDCFeeCredited();
     const payers = new Set();
     let start = fromBlock;
     let step  = LOG_CHUNK_BLOCKS;
@@ -91,8 +101,10 @@ async function payersBetween(rewards, fromBlock, toBlock) {
     while (start <= toBlock) {
         const end = Math.min(start + step - 1, toBlock);
         try {
-            const logs = await rewards.queryFilter(filter, start, end);
-            for (const l of logs) payers.add(l.args.payer.toLowerCase());
+            const [a, b] = await Promise.all([
+                rewards.queryFilter(paid, start, end), rewards.queryFilter(credited, start, end)]);
+            for (const l of a) payers.add(l.args.payer.toLowerCase());
+            for (const l of b) payers.add(l.args.wallet.toLowerCase());
             start = end + 1;
         } catch (e) {
             if (step <= LOG_CHUNK_FLOOR) throw e;
@@ -181,8 +193,8 @@ export default async function handler(req, res) {
 
         // ── 1. Label the month that just ended ────────────────────────────
         const now      = new Date();
-        const last     = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-        const monthStr = `${last.getFullYear()}-${String(last.getMonth() + 1).padStart(2, '0')}`;
+        const last     = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
+        const monthStr = `${last.getUTCFullYear()}-${String(last.getUTCMonth() + 1).padStart(2, '0')}`;
 
         console.log(`📅 Closing reward epoch for ${monthStr}`);
 
@@ -205,6 +217,19 @@ export default async function handler(req, res) {
             }
         } catch (e) {
             // "Unknown label" is the expected path — the month is not closed yet.
+        }
+
+        // ── 2b. Has the month actually ended for the open epoch? ──────────
+        // This job runs daily. The open epoch is closed only if it began
+        // before the current month did; otherwise it IS the current month
+        // and today is just a settling day.
+        const monthStart = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1) / 1000;
+        const openEpoch  = await rewards.getEpoch(await rewards.currentEpoch());
+        if (Number(openEpoch.startedAt) >= monthStart) {
+            return res.json({
+                success: true, skipped: true, reason: 'month still open', month: monthStr,
+                settledFromEarlierMonths: pendingRun.results
+            });
         }
 
         // ── 3. What is about to be frozen ─────────────────────────────────

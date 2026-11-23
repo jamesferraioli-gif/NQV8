@@ -40,10 +40,9 @@ import { ethers } from 'ethers';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { verifyCaller } from './_auth.js';
-import { gasOverrides } from './_gas.js';
+import { payCreditedUSDCFee, splitTwo, MEMBERSHIP_SUBSCRIBER_BPS } from './_rewards.js';
 
 const USDC_ADDRESS     = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
-const REWARDS_ADDRESS  = '0x0F630bbEd28545970CCD5C15eAD08fb1286c160f';
 const FEE_WALLET       = '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D';   // Operations
 const ARBITRUM_RPC     = 'https://arb1.arbitrum.io/rpc';
 const ADMIN_UIDS       = ['5t0gD2wVnqXXPAQEzfoahx3EIPp2'];
@@ -55,9 +54,6 @@ const MIN_PRICE        = 1;                         // USDC
 const MAX_PRICE        = 1000;
 
 const TRANSFER_TOPIC = ethers.utils.id('Transfer(address,address,uint256)');
-const REWARDS_ABI = ['function payUSDCFee(uint256 amount) external'];
-const ERC20_ABI   = ['function approve(address spender, uint256 amount) returns (bool)',
-                     'function allowance(address owner, address spender) view returns (uint256)'];
 
 function db() {
     if (!getApps().length) {
@@ -209,7 +205,7 @@ async function confirm(store, uid, body, res) {
 
     // The member has their pass. What follows is housekeeping and must not be
     // able to undo it.
-    forwardFee(provider, intent.fee, intentId).catch(e => console.error('subscriptions: fee forward failed:', e.message));
+    forwardFee(provider, intent, intentId).catch(e => console.error('subscriptions: fee forward failed:', e.message));
     store.collection('notifications').add({
         recipientUid: intent.creatorUid, type: 'subscription', read: false,
         message: `You have a new paid member — $${Number(intent.price).toFixed(2)} for 30 days.`,
@@ -220,20 +216,16 @@ async function confirm(store, uid, body, res) {
 }
 
 /// Move the platform's cut from the Operations wallet into the Rewards
-/// contract, the same destination as the escrow fee. Approves exactly the
-/// amount being moved. If this fails the USDC simply stays in Operations.
-async function forwardFee(provider, feeRaw, intentId) {
+/// contract, the same destination as the escrow fee, credited to the
+/// subscriber and the creator so it counts towards their share of the month's
+/// pool. Approves exactly the amount being moved. If this fails the USDC
+/// simply stays in Operations.
+async function forwardFee(provider, intent, intentId) {
     if (!process.env.OPERATIONS_PRIVATE_KEY) return;
     const ops     = new ethers.Wallet(process.env.OPERATIONS_PRIVATE_KEY, provider);
-    const usdc    = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, ops);
-    const rewards = new ethers.Contract(REWARDS_ADDRESS, REWARDS_ABI, ops);
-    const amount  = ethers.BigNumber.from(feeRaw);
-    if ((await usdc.allowance(ops.address, REWARDS_ADDRESS)).lt(amount)) {
-        await (await usdc.approve(REWARDS_ADDRESS, amount, await gasOverrides(provider))).wait();
-    }
-    const tx = await rewards.payUSDCFee(amount, await gasOverrides(provider));
-    await tx.wait();
-    console.log('subscriptions: fee forwarded to rewards', intentId, tx.hash);
+    const credits = splitTwo(intent.fee, intent.wallet, intent.creatorWallet, MEMBERSHIP_SUBSCRIBER_BPS);
+    const paid    = await payCreditedUSDCFee(ops, provider, intent.fee, credits);
+    console.log('subscriptions: fee forwarded to rewards', intentId, paid.txHash);
 }
 
 // ── mine ─────────────────────────────────────────────────────────────────

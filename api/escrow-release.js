@@ -7,6 +7,16 @@
 import { ethers } from 'ethers';
 import { verifyCaller } from './_auth.js';
 import { gasOverrides } from './_gas.js';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+import { forwardEscrowFee } from './_rewards.js';
+
+function getAdminDb() {
+    if (!getApps().length) {
+        initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
+    }
+    return getFirestore();
+}
 
 const ESCROW_CONTRACT_ADDRESS = '0x19E9E191e5F277053Db4373FAbb8fBdEa8A30761';
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
@@ -47,6 +57,12 @@ export default async function handler(req, res) {
         await tx.wait();
 
         console.log(`✅ Escrow released. Tx: ${tx.hash}`);
+
+        // The 3.5% fee landed in Operations. Move it into the rewards pool,
+        // credited to the poster and the worker. The release has happened
+        // whatever becomes of this; a failure leaves the fee in Operations.
+        await forwardEscrowFee({ db: getAdminDb(), txHash: tx.hash, subprojectId: projectId, requestedBy: caller.uid || 'service' })
+            .catch(e => console.error('escrow-release: fee forward failed:', e.message));
 
         return res.status(200).json({
             success: true,
