@@ -1,6 +1,29 @@
-export const config = { runtime: 'edge' };
+// api/send-email.js
+//
+// Sends NQVate's notification emails.
+//
+// WHO AN EMAIL GOES TO is decided here, not by the browser.
+//
+//   A signed-in member may only ask for one of the templates below to be sent
+//   to another MEMBER, named by their user id. The address is looked up on
+//   the server from Firebase Authentication — which is the only place a
+//   member's email now lives. It is no longer stored in the public `users`
+//   records, and it never travels through the browser.
+//
+//   Only the platform's own jobs (which hold the server secret) may send to a
+//   raw address or send free-form text — the ops-wallet warning and the daily
+//   error digest.
+//
+// This used to accept any address and any text from any signed-in user, which
+// made it a way to send arbitrary email from noreply@nqvate.com to anyone.
+//
+// Everything a member supplies for a template (names, titles, amounts) is
+// HTML-escaped before it is placed in the message, so a posting title cannot
+// carry markup or links into someone's inbox.
 
-import { verifyCallerEdge, unauthorizedEdge } from './_auth-edge.js';
+import { initializeApp, getApps, cert } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+import { verifyCaller } from './_auth.js';
 
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const FROM = 'NQVate <noreply@nqvate.com>';
@@ -157,63 +180,78 @@ const templates = {
     })
 };
 
-export default async function handler(req) {
-    if (req.method !== 'POST') return new Response('Method not allowed', { status: 405 });
+const escapeHtml = s => String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
-    const caller = await verifyCallerEdge(req);
-    if (!caller) return unauthorizedEdge();
+/// Escape every string a member supplied, at any depth, and cap its length.
+function cleanData(v, depth = 0) {
+    if (typeof v === 'string') return escapeHtml(v.slice(0, 500));
+    if (typeof v === 'number' || typeof v === 'boolean' || v == null) return v;
+    if (depth > 3) return '';
+    if (Array.isArray(v)) return v.slice(0, 20).map(x => cleanData(x, depth + 1));
+    if (typeof v === 'object') { const o = {}; for (const k of Object.keys(v).slice(0, 40)) o[k] = cleanData(v[k], depth + 1); return o; }
+    return '';
+}
+
+async function emailForUid(uid) {
+    if (!getApps().length) initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
+    try { return (await getAuth().getUser(uid)).email || null; }
+    catch (e) { return null; }
+}
+
+export default async function handler(req, res) {
+    if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
+
+    const caller = await verifyCaller(req);
+    if (!caller) return res.status(401).json({ error: 'Unauthorized' });
 
     try {
-        const payload = await req.json();
-        const { type, to, data } = payload;
+        const payload = req.body || {};
+        const { type } = payload;
+        let to, subject, html;
 
-        if (!to) {
-            return new Response(JSON.stringify({ error: 'Missing recipient' }), { status: 400 });
-        }
-
-        let subject, html;
-
-        if (type) {
-            // Templated email
-            const template = templates[type];
-            if (!template) {
-                return new Response(JSON.stringify({ error: `Unknown template: ${type}` }), { status: 400 });
+        if (caller.service) {
+            // The platform's own jobs: a raw address, and free-form text if wanted.
+            to = payload.to;
+            if (!to && payload.toUid) to = await emailForUid(String(payload.toUid));
+            if (!to) return res.status(400).json({ error: 'Missing recipient' });
+            if (type) {
+                if (!templates[type]) return res.status(400).json({ error: `Unknown template: ${type}` });
+                if (!payload.data)   return res.status(400).json({ error: 'Missing data for template' });
+                ({ subject, html } = templates[type](payload.data));
+            } else if (payload.subject && payload.body) {
+                subject = payload.subject;
+                html = `<pre style="font-family:ui-monospace,Menlo,monospace;font-size:13px;line-height:1.5;white-space:pre-wrap">${escapeHtml(payload.body)}</pre>`;
+            } else {
+                return res.status(400).json({ error: 'Provide either a template type with data, or subject and body' });
             }
-            if (!data) {
-                return new Response(JSON.stringify({ error: 'Missing data for template' }), { status: 400 });
-            }
-            ({ subject, html } = template(data));
-        } else if (payload.subject && payload.body) {
-            // Plain alert — used by ops-wallet warnings and the error digest
-            const esc = (s) => String(s)
-                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-            subject = payload.subject;
-            html = `<pre style="font-family:ui-monospace,Menlo,monospace;font-size:13px;line-height:1.5;white-space:pre-wrap">${esc(payload.body)}</pre>`;
         } else {
-            return new Response(JSON.stringify({ error: 'Provide either a template type with data, or subject and body' }), { status: 400 });
+            // A member: a known template, to another member, by id.
+            if (!type || !templates[type]) return res.status(400).json({ error: 'Unknown template' });
+            const toUid = payload.toUid;
+            if (typeof toUid !== 'string' || !toUid || toUid.length > 128) return res.status(400).json({ error: 'toUid required' });
+            if (!payload.data || typeof payload.data !== 'object') return res.status(400).json({ error: 'Missing data for template' });
+            to = await emailForUid(toUid);
+            // A member with no address on file is not an error worth reporting
+            // to the sender — and saying so would reveal who has one.
+            if (!to) return res.status(200).json({ success: true, skipped: true });
+            ({ subject, html } = templates[type](cleanData(payload.data)));
         }
 
-        const res = await fetch('https://api.resend.com/emails', {
+        const out = await fetch('https://api.resend.com/emails', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${RESEND_API_KEY}`
-            },
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${RESEND_API_KEY}` },
             body: JSON.stringify({ from: FROM, to, subject, html })
         });
-
-        const result = await res.json();
-
-        if (!res.ok) {
-            console.error('Resend error:', result);
-            return new Response(JSON.stringify({ error: result }), { status: 500 });
+        const result = await out.json().catch(() => ({}));
+        if (!out.ok) {
+            console.error('Resend error:', JSON.stringify(result));
+            return res.status(500).json({ error: 'The email could not be sent' });
         }
+        return res.status(200).json({ success: true, id: result.id });
 
-        return new Response(JSON.stringify({ success: true, id: result.id }), {
-            headers: { 'Content-Type': 'application/json' }
-        });
-
-    } catch(e) {
-        return new Response(JSON.stringify({ error: e.message }), { status: 500 });
+    } catch (e) {
+        console.error('send-email failed:', e.message);
+        return res.status(500).json({ error: 'The email could not be sent' });
     }
 }
