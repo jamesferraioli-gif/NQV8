@@ -231,6 +231,10 @@
             "dest": "/api/remove-post.js"
         },
         {
+            "src": "/api/subscriptions",
+            "dest": "/api/subscriptions.js"
+        },
+        {
             "src": "/public/(.*)",
             "dest": "/public/$1"
         },
