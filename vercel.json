@@ -235,6 +235,10 @@
             "dest": "/api/subscriptions.js"
         },
         {
+            "src": "/api/scrub-user-emails",
+            "dest": "/api/scrub-user-emails.js"
+        },
+        {
             "src": "/public/(.*)",
             "dest": "/public/$1"
         },
