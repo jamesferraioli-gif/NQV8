@@ -7486,7 +7486,8 @@ async function createProfile() {
             lastName,
             fullName: `${firstName} ${lastName}`,
             username,
-            email: user.email,
+            // No email here: this record is public. The address lives in
+            // Firebase Authentication, where only the member and the server see it.
             walletAddress: connectedAddress ? connectedAddress.toLowerCase() : null,
             walletHistory: connectedAddress ? [connectedAddress.toLowerCase()] : [],
             nqv8Balance: 0,
@@ -7506,7 +7507,7 @@ async function createProfile() {
         if (refCode) sessionStorage.removeItem('nqvate_ref');
 
         await db.collection("users").doc(user.uid).set(userData);
-        currentUser = userData;
+        currentUser = { ...userData, email: user.email };
         finishLogin();
         alert("✅ Account created! You have 1,000 NQV8 ready to claim from your profile.");
 
@@ -11965,7 +11966,8 @@ async function viewUserProfile(uid) {
                 if (user) {
                     db.collection("users").doc(user.uid).get().then(doc => {
                         if (doc.exists) {
-                            currentUser = doc.data();
+                            // Email comes from the sign-in itself, not the public record.
+                            currentUser = { ...doc.data(), email: user.email };
                             finishLogin();
                             listenForNotifications();
                         } else {
@@ -15455,7 +15457,6 @@ async function changeEmail() {
         const credential = firebase.auth.EmailAuthProvider.credential(currentUser.email, password);
         await auth.currentUser.reauthenticateWithCredential(credential);
         await auth.currentUser.updateEmail(newEmail);
-        await db.collection('users').doc(currentUser.uid).update({ email: newEmail });
         currentUser.email = newEmail;
         document.getElementById('profile-email').textContent = newEmail;
         document.getElementById('settings-email').textContent = newEmail;
@@ -17676,27 +17677,26 @@ async function cancelListingOnChain(listingId) {
     }
 }
 // ====================== EMAIL NOTIFICATIONS ======================
-async function sendEmail(type, toEmail, data) {
-    if (!toEmail) return;
+// Ask the server to email another member. The browser names the member by
+// id; the server looks up their address. No email address is read, held or
+// sent by this page.
+async function sendEmail(type, toUid, data) {
+    if (!toUid) return;
     try {
         await fetch('/api/send-email', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
-            body: JSON.stringify({ type, to: toEmail, data })
+            body: JSON.stringify({ type, toUid, data })
         });
     } catch(e) {
         console.warn('Email notification failed:', e.message);
     }
 }
 
+// Kept so the callers below read as before. It no longer returns an address —
+// nothing in the browser can — only the id to hand to sendEmail().
 async function getUserEmail(uid) {
-    if (!uid) return null;
-    try {
-        const doc = await db.collection('users').doc(uid).get();
-        return doc.exists ? doc.data().email : null;
-    } catch(e) {
-        return null;
-    }
+    return uid || null;
 }
 
 // ── Trigger: bid placed on a posting ─────────────────────────────────
@@ -17782,16 +17782,16 @@ async function notifyMatchingBuilders(posting, tags, category) {
         usersSnap.forEach(doc => {
             const u = doc.data();
             if (doc.id === currentUser.uid) return; // skip poster
-            if (!u.email || !u.skills || u.skills.length === 0) return;
+            if (!u.skills || u.skills.length === 0) return;
             const overlap = u.skills.filter(s => tags.includes(s));
             if (overlap.length > 0) {
-                matches.push({ email: u.email, name: u.firstName || u.username || 'there', matchedSkills: overlap });
+                matches.push({ uid: doc.id, name: u.firstName || u.username || 'there', matchedSkills: overlap });
             }
         });
 
         // Send to up to 50 matching users (avoid spam)
         for (const match of matches.slice(0, 50)) {
-            sendEmail('new_bounty_match', match.email, {
+            sendEmail('new_bounty_match', match.uid, {
                 recipientName:  match.name,
                 postingTitle:   posting.title,
                 compensation:   posting.compensation,
@@ -20532,7 +20532,7 @@ function ecoPanelHtml(node) {
     }).filter(t => t.roles.length);
     return `${close}<p class="text-xs uppercase tracking-wider text-violet-300 mb-1">Member</p>
         <h2 class="text-xl font-bold pr-8">${ecoEsc(p.label)}</h2>
-        <p class="text-xs text-zinc-400 mb-3">${ecoEsc(p.name)}${p.name && p.wallet ? ' · ' : ''}${p.wallet ? ecoEsc(p.wallet.slice(0, 6) + '…' + p.wallet.slice(-4)) : ''}</p>
+        <p class="text-xs text-zinc-400 mb-3">${ecoEsc(p.name)}</p>
         ${p.uid ? ecoFollowBtn('user', p.uid) : ''}
         <div class="grid grid-cols-3 gap-2 text-center mb-2">
             ${[[p.stats.followers, 'Followers'], [p.stats.done, 'Bounties done'], ['$' + Math.round(p.stats.usdc).toLocaleString(), 'USDC earned'],
@@ -20594,7 +20594,7 @@ function ecoSearch(q) {
     ECO.model.planets.forEach(pl => { if (pl.name.toLowerCase().includes(term)) hits.push([pl.node.id, pl.name, 'Company']); });
     ECO.model.people.forEach(p => {
         if (hits.length >= 12) return;
-        if ((p.label + ' ' + p.name + ' ' + (p.wallet || '')).toLowerCase().includes(term)) {
+        if ((p.label + ' ' + p.name).toLowerCase().includes(term)) {
             const n = ecoPersonNodes(p)[0];
             if (n) hits.push([n.id, p.label, 'Member']);
         }
