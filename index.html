@@ -1846,12 +1846,13 @@
         <div id="explore-shows" class="explore-tab-content hidden">
             <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
                 <p class="text-sm text-zinc-400">Subscribe to creators to get their new episodes and streams in your feed.</p>
-                <div class="flex gap-2">
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="showsSetPrice()" id="shows-price-btn" class="px-4 py-2.5 rounded-2xl border border-amber-400/60 text-amber-300 hover:bg-amber-400/10 text-sm font-semibold">⭐ Offer paid membership</button>
                     <button onclick="showsShowModal('live')" class="px-4 py-2.5 rounded-2xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold">🔴 Go live</button>
                     <button onclick="showsShowModal('episode')" class="px-4 py-2.5 rounded-2xl bg-white text-black hover:bg-cyan-400 text-sm font-semibold">🎙️ Add episode</button>
                 </div>
             </div>
-            <p class="text-xs text-zinc-500 border border-zinc-800 rounded-2xl px-4 py-3 mb-8"><span class="text-amber-300 font-semibold">Content rules.</span> No sexual, explicit or otherwise inappropriate content. Episodes and streams follow the same rules as every other post: they are screened when posted, anyone can report one, and anything that breaks the rules is removed. Posting costs 1 NQV8; so does each comment.</p>
+            <p class="text-xs text-zinc-500 border border-zinc-800 rounded-2xl px-4 py-3 mb-8"><span class="text-amber-300 font-semibold">Content rules.</span> No sexual, explicit or otherwise inappropriate content. Episodes and streams follow the same rules as every other post: they are screened when posted, anyone can report one, and anything that breaks the rules is removed. Posting costs 1 NQV8; so does each comment. Creators can also offer a paid 30-day membership in USDC for subscribers-only episodes and streams.</p>
             <div id="shows-body"></div>
         </div>
 
@@ -20815,13 +20816,21 @@ function ecoStop() {
 // creator's subscribers make them larger in the NQVerse, and their new
 // episodes and streams land in subscribers' feeds.
 //
+// PAID MEMBERSHIPS. A creator can set a price for a 30-day pass, paid in USDC,
+// and mark an episode or stream "subscribers only". The member pays from
+// their own wallet in two plain transfers — 96.5% straight to the creator,
+// 3.5% platform fee — with no token approval. The server (subscriptions.js)
+// checks both on-chain before the pass exists, and it alone hands out a gated
+// episode's link or a seat in a gated stream. A free Subscribe still follows;
+// paying is the layer on top.
+//
 // WHAT IS AND IS NOT SCREENED. Titles and descriptions are screened before
 // posting. Live video cannot be screened as it happens, so a stream relies on
 // the rules being stated up front, a Report button on every stream and
 // episode, and admin removal (which also cuts a live broadcast).
 
 const SHOWS_RULES = 'No sexual, explicit or otherwise inappropriate content. Episodes and streams follow the same rules as every other post: they are screened when posted, anyone can report one, and anything that breaks the rules is removed.';
-const SHOWS = { live: null };      // the stream this browser is currently hosting, if any
+const SHOWS = { live: null, prices: new Map(), members: new Map(), myPrice: 0 };      // live = the stream this browser is hosting, if any
 
 function showsIsLive(post) {
     if (!post || post.type !== 'stream' || post.liveStatus !== 'live') return false;
@@ -20856,6 +20865,20 @@ function showsEmbed(link) {
     }
     return '';
 }
+
+async function showsApi(action, body) {
+    const resp = await fetch('/api/subscriptions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
+        body: JSON.stringify({ action, ...(body || {}) })
+    });
+    let data = {};
+    try { data = await resp.json(); } catch (e) {}
+    return { ok: resp.ok, status: resp.status, data };
+}
+
+const showsMoney = n => '$' + Number(n).toFixed(2).replace(/\.00$/, '');
+const showsDate  = sec => new Date(sec * 1000).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
 // ── The tab ──────────────────────────────────────────────────────────────
 async function loadShows() {
@@ -20894,6 +20917,23 @@ async function loadShows() {
         const ranked = [...creators.values()].map(c => ({ ...c, followers: followers.get(c.uid) || 0 }))
             .sort((a, b) => (b.live - a.live) || (b.followers - a.followers) || (b.posts - a.posts)).slice(0, 12);
 
+        // Prices are public (a field on the creator's profile). Memberships
+        // are not, so those come from the server for the signed-in member only.
+        const prices = new Map(), members = new Map();
+        await Promise.all([...ranked.map(c => c.uid), ...(me ? [me] : [])].map(async uid => {
+            try {
+                const u = await db.collection('users').doc(uid).get();
+                const p = Number(u.exists && u.data().subscriptionPriceUSDC);
+                if (p > 0) prices.set(uid, p);
+            } catch (e) {}
+        }));
+        if (me) {
+            try { ((await showsApi('mine')).data.memberships || []).forEach(m => members.set(m.creatorUid, m.paidUntil)); } catch (e) {}
+        }
+        SHOWS.prices = prices; SHOWS.members = members; SHOWS.myPrice = me ? (prices.get(me) || 0) : 0;
+        const priceBtn = document.getElementById('shows-price-btn');
+        if (priceBtn) priceBtn.textContent = SHOWS.myPrice ? `⭐ Membership: ${showsMoney(SHOWS.myPrice)}` : '⭐ Offer paid membership';
+
         const card = ({ id, post }) => {
             const isLive = showsIsLive(post);
             const badge = post.type === 'stream'
@@ -20901,7 +20941,8 @@ async function loadShows() {
                           : '<span class="px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-300 text-[10px] font-semibold uppercase tracking-wide">Stream ended</span>')
                 : '<span class="px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 text-[10px] font-semibold uppercase tracking-wide">Episode</span>';
             return `<div onclick="showsOpen('${ecoEsc(id)}')" class="bg-zinc-900 rounded-2xl p-4 hover:ring-2 ${isLive ? 'ring-1 ring-red-500/60 hover:ring-red-400' : 'hover:ring-cyan-400'} cursor-pointer transition-all">
-                <div class="flex justify-between items-center"><span class="text-2xl">${post.type === 'stream' ? '📡' : '🎙️'}</span>${badge}</div>
+                <div class="flex justify-between items-center"><span class="text-2xl">${post.type === 'stream' ? '📡' : '🎙️'}</span>
+                    <span class="flex items-center gap-1.5">${post.subscribersOnly ? '<span class="px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 text-[10px] font-semibold uppercase tracking-wide">🔒 Members</span>' : ''}${badge}</span></div>
                 <h3 class="text-base font-bold mt-3 break-words line-clamp-2">${ecoEsc(post.title)}</h3>
                 <p class="text-zinc-400 text-sm line-clamp-2 mt-1">${ecoEsc(post.description)}</p>
                 <div class="flex items-center justify-between mt-4 text-xs">
@@ -20922,8 +20963,13 @@ async function loadShows() {
                         <p class="font-semibold truncate">@${ecoEsc(c.username)} ${c.live ? '<span class="text-red-400 text-xs">● live</span>' : ''}</p>
                         <p class="text-xs text-zinc-500">${c.followers} subscriber${c.followers === 1 ? '' : 's'} · ${c.posts} post${c.posts === 1 ? '' : 's'}</p>
                     </div>
-                    ${c.uid === me ? '' : `<button onclick="showsToggleSubscribe('${ecoEsc(c.uid)}', ${mine.has(c.uid)}, this)"
-                        class="shrink-0 px-3 py-1.5 rounded-xl text-xs font-semibold border ${mine.has(c.uid) ? 'border-zinc-600 text-zinc-300' : 'border-cyan-400 text-cyan-300 hover:bg-cyan-400/10'}">${mine.has(c.uid) ? '✓ Subscribed' : '+ Subscribe'}</button>`}
+                    ${c.uid === me ? '' : `<div class="shrink-0 flex flex-col items-end gap-1.5">
+                        <button onclick="showsToggleSubscribe('${ecoEsc(c.uid)}', ${mine.has(c.uid)}, this)"
+                            class="px-3 py-1.5 rounded-xl text-xs font-semibold border ${mine.has(c.uid) ? 'border-zinc-600 text-zinc-300' : 'border-cyan-400 text-cyan-300 hover:bg-cyan-400/10'}">${mine.has(c.uid) ? '✓ Subscribed' : '+ Subscribe'}</button>
+                        ${prices.has(c.uid) ? `<button onclick="showsJoin('${ecoEsc(c.uid)}')"
+                            class="px-3 py-1.5 rounded-xl text-xs font-semibold ${members.has(c.uid) ? 'border border-amber-400/60 text-amber-300' : 'bg-amber-400 text-black hover:bg-amber-300'}">${members.has(c.uid)
+                                ? '⭐ Member to ' + showsDate(members.get(c.uid)) : '⭐ Join · ' + showsMoney(prices.get(c.uid)) + ' / 30 days'}</button>` : ''}
+                    </div>`}
                 </div>`).join('')}</div>` : ''}
 
             <h2 class="text-lg font-bold mb-3">Latest episodes and past streams</h2>
@@ -20989,6 +21035,9 @@ function showsShowModal(mode) {
                     <input id="shows-agree" type="checkbox" class="mt-0.5"> <span>I have read these rules and this ${live ? 'stream' : 'episode'} follows them.</span>
                 </label>
             </div>
+            ${SHOWS.myPrice ? `<label class="flex items-start gap-2 mb-4 text-sm text-zinc-200 cursor-pointer">
+                <input id="shows-gated" type="checkbox" class="mt-1"> <span>🔒 Subscribers only — just your paying members (${showsMoney(SHOWS.myPrice)} / 30 days) can ${live ? 'watch' : 'open it'}. The title and description stay public.</span>
+            </label>` : ''}
             <p class="text-xs text-zinc-500 mb-4">${live
                 ? 'Costs 1 NQV8. Your camera and microphone start when the broadcast window opens. A stream runs for up to two hours. Viewers watch and comment; they cannot broadcast.'
                 : 'Costs 1 NQV8. The episode stays hosted where it is now — NQVate links to it and plays it in the page.'}</p>
@@ -21017,7 +21066,8 @@ async function showsReadForm(kind) {
     const mod = await moderateContent(`${title} ${desc}`, kind);
     btn.disabled = false; btn.textContent = label;
     if (!mod.approved) { alert(`❌ Not posted: ${mod.reason}`); return null; }
-    return { title, desc };
+    const gate = document.getElementById('shows-gated');
+    return { title, desc, gated: !!(gate && gate.checked) };
 }
 
 async function showsSubmitEpisode() {
@@ -21030,12 +21080,19 @@ async function showsSubmitEpisode() {
 
     showPaymentPicker('Post episode — 1 NQV8', NQV8_FEE.MICRO, async (txHash) => {
         try {
-            await db.collection('posts').add({
-                type: 'podcast', title: form.title, description: form.desc, link,
+            // A subscribers-only link never goes into the public post. The post
+            // is created without it and the server keeps the link.
+            const ref = await db.collection('posts').add({
+                type: 'podcast', title: form.title, description: form.desc, link: form.gated ? null : link,
+                subscribersOnly: form.gated,
                 username: currentUser.username, posterUid: currentUser.uid,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                 comments: [], likes: 0, likedBy: [], paymentTxHash: txHash
             });
+            if (form.gated) {
+                const r = await showsApi('setGated', { postId: ref.id, link });
+                if (!r.ok) alert('The episode was posted, but its link could not be saved: ' + (r.data.error || 'error') + '\nDelete the post and try again.');
+            }
             showsHideModal();
             loadShows();
         } catch (e) {
@@ -21059,7 +21116,7 @@ async function showsSubmitLive() {
         const resp = await fetch('/api/create-stream', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
-            body: JSON.stringify({ displayName: currentUser.username })
+            body: JSON.stringify({ displayName: currentUser.username, subscribersOnly: form.gated })
         });
         if (!resp.ok) throw new Error(await serverError(resp, 'Could not open a live room'));
         room = await resp.json();
@@ -21075,7 +21132,7 @@ async function showsSubmitLive() {
                 type: 'stream', title: form.title, description: form.desc, link: null,
                 username: currentUser.username, posterUid: currentUser.uid,
                 createdAt: firebase.firestore.FieldValue.serverTimestamp(),
-                comments: [], likes: 0, likedBy: [], paymentTxHash: txHash,
+                comments: [], likes: 0, likedBy: [], paymentTxHash: txHash, subscribersOnly: form.gated,
                 liveStatus: 'live', liveRoomUrl: room.url, liveRoomName: room.name,
                 liveStartedAt: firebase.firestore.FieldValue.serverTimestamp(),
                 liveExpiresAt: room.expires * 1000
@@ -21135,7 +21192,10 @@ function showsDecorateDetail(postId, post) {
     if (!isShow && !admin) return;
 
     let player = '';
-    if (post.type === 'stream') {
+    if (isShow && post.subscribersOnly && !(post.type === 'stream' && post.posterUid === me && showsIsLive(post))) {
+        // Members only: the server decides, and fills this in when it answers.
+        player = `<div id="shows-gated-slot" class="rounded-2xl bg-zinc-800 p-4 text-sm text-zinc-400">${me ? 'Checking your membership…' : '🔒 Subscribers only. Log in to join.'}</div>`;
+    } else if (post.type === 'stream') {
         if (showsIsLive(post) && post.posterUid === me) {
             player = `<div class="rounded-2xl bg-zinc-800 p-4 text-sm text-zinc-200">You are hosting this stream. ${SHOWS.live
                 ? '<button onclick="showsEndLive()" class="ml-2 px-3 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold">End stream</button>'
@@ -21165,6 +21225,132 @@ function showsDecorateDetail(postId, post) {
         </div>`;
     content.prepend(box);
     SHOWS.viewing = { postId, post };
+    if (document.getElementById('shows-gated-slot') && me) showsUnlock(postId, post);
+}
+
+/// Ask the server for a subscribers-only episode's link or a seat in a
+/// subscribers-only stream, and show whichever it gives — or the way to join.
+async function showsUnlock(postId, post) {
+    const stillHere = () => SHOWS.viewing && SHOWS.viewing.postId === postId && document.getElementById('shows-gated-slot');
+    let r;
+    try { r = await showsApi('unlock', { postId }); } catch (e) { r = { ok: false, status: 0, data: {} }; }
+    const slot = stillHere();
+    if (!slot) return;                                   // they moved on while it was loading
+
+    if (r.status === 402) {
+        const price = SHOWS.prices.get(post.posterUid);
+        slot.innerHTML = `<p class="text-zinc-200 font-semibold mb-1">🔒 Subscribers only</p>
+            <p class="text-xs text-zinc-400 mb-3">This ${post.type === 'stream' ? 'stream' : 'episode'} is for @${ecoEsc(post.username)}'s paying members.</p>
+            <button onclick="showsJoin('${ecoEsc(post.posterUid)}', '${ecoEsc(postId)}')" class="px-4 py-2 rounded-xl bg-amber-400 text-black hover:bg-amber-300 text-sm font-semibold">⭐ Join${price ? ' · ' + showsMoney(price) + ' / 30 days' : ''}</button>`;
+        return;
+    }
+    if (!r.ok) { slot.textContent = r.data.error || 'Could not open this right now.'; return; }
+
+    if (r.data.ended) { slot.textContent = 'This stream has ended.'; return; }
+    if (r.data.link) {
+        const safe = (() => { try { return new URL(r.data.link).protocol === 'https:'; } catch (e) { return false; } })();
+        slot.className = '';
+        slot.innerHTML = showsEmbed(r.data.link)
+            || (safe ? `<a href="${ecoEsc(r.data.link)}" target="_blank" rel="noopener noreferrer" class="block text-center py-3 rounded-2xl bg-zinc-800 hover:bg-zinc-700 text-sm font-semibold">▶ Open episode ↗</a>` : 'This episode has no playable link.');
+        return;
+    }
+    if (r.data.roomUrl && /^https:\/\/[a-z0-9-]+\.daily\.co\//i.test(r.data.roomUrl)) {
+        slot.className = '';
+        slot.innerHTML = `<p class="text-xs font-bold text-red-400 uppercase tracking-wide mb-2 animate-pulse">● Live now · members</p>
+            <iframe src="${ecoEsc(r.data.roomUrl)}?t=${encodeURIComponent(r.data.token)}" allow="autoplay; fullscreen; speaker" class="w-full aspect-video rounded-2xl border-0 bg-black"></iframe>`;
+    }
+}
+
+// ── Paid membership ──────────────────────────────────────────────────────
+/// A creator sets (or removes) the price of their 30-day pass. It is a field
+/// on their own profile; the server reads it when it writes a quote.
+async function showsSetPrice() {
+    if (!currentUser) return showAuthModal();
+    if (!connectedAddress && !currentUser.walletAddress) return alert('Connect a wallet first — memberships are paid straight to it.');
+    const cur = SHOWS.myPrice || '';
+    const ans = prompt(`Price of a 30-day membership, in USDC (1 to 1000).\nEnter 0 to stop offering one.\n\nMembers pay your wallet directly. NQVate's 3.5% fee comes out of the price, so on $10 you receive $9.65.\nExisting members keep the days they have paid for.`, cur);
+    if (ans === null) return;
+    const price = Math.round(parseFloat(ans) * 100) / 100;
+    if (!(price === 0 || (price >= 1 && price <= 1000))) return alert('Enter a number from 1 to 1000, or 0 to turn it off.');
+    try {
+        const patch = { subscriptionPriceUSDC: price };
+        if (!currentUser.walletAddress && connectedAddress) patch.walletAddress = connectedAddress.toLowerCase();
+        await db.collection('users').doc(currentUser.uid).set(patch, { merge: true });
+        currentUser.subscriptionPriceUSDC = price;
+        loadShows();
+    } catch (e) {
+        alert('Could not save the price: ' + e.message);
+    }
+}
+
+/// Buy or renew a 30-day pass. Two wallet prompts: the platform fee, then the
+/// creator's share. The fee goes first because it is the small one — if the
+/// member stops halfway, that is the lesser amount to have sent, and the half-
+/// finished purchase is remembered so they can complete it without paying
+/// twice.
+async function showsJoin(creatorUid, reopenPostId) {
+    if (!currentUser) return showAuthModal();
+    if (creatorUid === currentUser.uid) return;
+    if (!connectedAddress || !signer) {
+        if (!confirm('Connect a wallet to pay for a membership?')) return;
+        await connectWallet();
+        if (!connectedAddress || !signer) return;
+    }
+    const key = `nqv_sub_${currentUser.uid}_${creatorUid}`;
+    let pending = null;
+    try { pending = JSON.parse(localStorage.getItem(key) || 'null'); } catch (e) {}
+    if (pending && (pending.expires < Date.now() / 1000 || pending.wallet !== connectedAddress.toLowerCase())) pending = null;
+
+    try {
+        if (!pending) {
+            const q = await showsApi('quote', { creatorUid, wallet: connectedAddress });
+            if (!q.ok) return alert(q.data.error || 'Could not get a price.');
+            pending = { ...q.data, wallet: connectedAddress.toLowerCase(), feeTx: null, payTx: null };
+        }
+        const fmt = raw => '$' + parseFloat(Number(ethers.utils.formatUnits(raw, 6)).toFixed(4));
+        const until = SHOWS.members.get(creatorUid);
+        if (!pending.feeTx && !confirm(
+            `${until ? 'Renew' : 'Join'} @${pending.creatorUsername || 'creator'} — ${showsMoney(pending.price)} USDC for 30 days${until ? ', added to the days you have left' : ''}.\n\n` +
+            `Your wallet will ask twice:\n  1. ${fmt(pending.feeRaw)} platform fee (3.5%)\n  2. ${fmt(pending.netRaw)} to the creator\n\n` +
+            `Paid from your wallet directly. It does not renew by itself.`)) return;
+
+        const usdc = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, signer);
+        const save = () => { try { localStorage.setItem(key, JSON.stringify(pending)); } catch (e) {} };
+        if (!pending.feeTx) {
+            const tx = await usdc.transfer(pending.feeWallet, ethers.BigNumber.from(pending.feeRaw));
+            await confirmTx(tx);
+            pending.feeTx = tx.hash; save();
+        }
+        if (!pending.payTx) {
+            const tx = await usdc.transfer(pending.creatorWallet, ethers.BigNumber.from(pending.netRaw));
+            await confirmTx(tx);
+            pending.payTx = tx.hash; save();
+        }
+
+        // The server may see the block a moment after the wallet does.
+        let done = null;
+        for (let i = 0; i < 6 && !done; i++) {
+            const c = await showsApi('confirm', { intentId: pending.intentId, payTx: pending.payTx, feeTx: pending.feeTx });
+            if (c.ok) done = c.data;
+            else if (c.data.retry) await new Promise(r => setTimeout(r, 2500));
+            else throw new Error(c.data.error || 'The payment could not be confirmed');
+        }
+        if (!done) throw new Error('Still waiting for the network. Press Join again in a minute — you will not be charged twice.');
+        try { localStorage.removeItem(key); } catch (e) {}
+
+        // Paying also subscribes, so their posts reach the member's feed.
+        try {
+            const f = await db.collection('follows').where('followerUid', '==', currentUser.uid).where('followingUid', '==', creatorUid).limit(1).get();
+            if (f.empty) await db.collection('follows').add({ followerUid: currentUser.uid, followingUid: creatorUid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        } catch (e) {}
+
+        alert(`✅ You are a member until ${showsDate(done.paidUntil)}.`);
+        await loadShows();
+        if (reopenPostId) showsOpen(reopenPostId);
+    } catch (e) {
+        const msg = (e && (e.reason || e.message)) || 'Something went wrong';
+        alert((pending && pending.feeTx ? 'Not finished: ' + msg + '\n\nYour first payment is saved. Press Join again to complete it without paying that part twice.' : 'Not completed: ' + msg));
+    }
 }
 
 /// A report goes to the same support queue the admin already works from.
