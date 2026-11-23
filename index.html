@@ -1709,7 +1709,7 @@
         <!-- Legend -->
         <div class="absolute bottom-3 left-3 md:bottom-4 md:left-4 rounded-2xl bg-zinc-900/85 border border-zinc-800 px-3 py-2 text-[11px] text-zinc-300 space-y-1 pointer-events-none">
             <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#ffd60a"></span>NQVate (the sun)</p>
-            <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#34d399"></span>Verified company · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#60a5fa"></span>Unverified</p>
+            <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#34d399"></span>Green glow: verified company · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#60a5fa"></span>Blue glow: unverified</p>
             <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#fbbf24"></span>Founder · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#a78bfa"></span>Equity holder · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#22d3ee"></span>Builder</p>
             <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#a1a1aa"></span>Member not yet tied to a company</p>
             <p class="text-zinc-500">Bigger = more value, work, stakes and followers</p>
@@ -19819,6 +19819,167 @@ const ECO = {
 const ECO_OPS_WALLET = '0x2c6309ed2e36222e7e0ce3c1376941a0d6340f4d';
 const ECO_COLORS = { verified: 0x34d399, unverified: 0x60a5fa, founder: 0xfbbf24, holder: 0xa78bfa, builder: 0x22d3ee, belt: 0xa1a1aa };
 
+// ── Graphics ─────────────────────────────────────────────────────────────
+// Everything here is detail painted onto objects the map already draws, so
+// it costs almost nothing per frame: planet surfaces are generated once and
+// reused, the sky and the dust disc are a handful of objects however many
+// points they hold, and the belt is a single batch.
+//
+// Two quality levels. A phone or a modest laptop starts on 'low' (lower
+// resolution, fewer stars, no dust disc); and if the frame rate drops on
+// 'high' the map steps down by itself and stays there.
+const ECO_GFX = { quality: 'high', tex: new Map(), mat: new Map(), acc: 0, n: 0, last: 0, floor: false };
+
+function ecoPickQuality() {
+    const small = Math.min(screen.width || 9999, screen.height || 9999) < 700 || /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent || '');
+    const weak  = (navigator.deviceMemory && navigator.deviceMemory <= 2) || (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 2);
+    return (small || weak) ? 'low' : 'high';
+}
+
+/// Smooth random pattern that joins up with itself left-to-right, so a
+/// texture wrapped round a sphere has no seam.
+function ecoNoise(seed, period) {
+    const h = (i, j) => { let n = (Math.imul(i, 374761393) + Math.imul(j, 668265263) + Math.imul(seed, 1442695041)) | 0; n = Math.imul(n ^ (n >>> 13), 1274126177); return ((n ^ (n >>> 16)) >>> 0) / 4294967295; };
+    return (x, y) => {
+        const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi;
+        const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+        const x0 = ((xi % period) + period) % period, x1 = (x0 + 1) % period;
+        const a = h(x0, yi), b = h(x1, yi), c = h(x0, yi + 1), d = h(x1, yi + 1);
+        return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+    };
+}
+function ecoFbm(seed, base) {
+    const layers = [0, 1, 2, 3].map(o => ecoNoise(seed + o * 17, base << o));
+    return (u, v) => { let s = 0, a = 0.5; for (let o = 0; o < 4; o++) { const p = base << o; s += a * layers[o](u * p, v * p * 0.5); a *= 0.5; } return s / 0.9375; };
+}
+
+const ECO_PALETTES = {
+    gas:   [[[214,170,110],[246,226,186],[160,104,60]], [[70,130,170],[190,225,235],[40,80,130]], [[190,120,150],[240,205,215],[120,70,130]]],
+    rock:  [[[120,72,52],[196,140,104],[70,44,36]], [[110,110,118],[188,188,196],[60,60,68]], [[150,128,92],[214,196,158],[96,80,58]]],
+    ice:   [[[150,190,220],[240,248,255],[96,140,186]], [[170,210,214],[244,252,250],[110,160,170]]]
+};
+const _ecoMix = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+
+/// A planet surface, painted once and cached. `kind` and `variant` are picked
+/// from the company's id, so a company always looks the same.
+function ecoPlanetTexture(kind, variant) {
+    const key = kind + variant;
+    if (ECO_GFX.tex.has(key)) return ECO_GFX.tex.get(key);
+    const W = ECO_GFX.quality === 'high' ? 512 : 256, H = W / 2;
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const ctx = c.getContext('2d'), img = ctx.createImageData(W, H), d = img.data;
+    const seed = (kind.charCodeAt(0) * 31 + variant * 101) | 0;
+    const f1 = ecoFbm(seed, 4), f2 = ecoFbm(seed + 7, 8), f3 = ecoFbm(seed + 13, 6);
+    const pal = (ECO_PALETTES[kind] || ECO_PALETTES.rock)[variant % (ECO_PALETTES[kind] || ECO_PALETTES.rock).length];
+    for (let y = 0; y < H; y++) {
+        const v = y / H, lat = Math.abs(v - 0.5) * 2;
+        for (let x = 0; x < W; x++) {
+            const u = x / W;
+            let col;
+            if (kind === 'gas') {
+                const t = v * 9 + (f1(u, v) - 0.5) * 2.4;                       // bands, pushed about by turbulence
+                const band = 0.5 + 0.5 * Math.sin(t * Math.PI);
+                col = _ecoMix(pal[2], _ecoMix(pal[0], pal[1], band), 0.35 + 0.65 * f2(u, v));
+            } else if (kind === 'ocean') {
+                const land = f1(u, v) * 0.7 + f2(u, v) * 0.3;
+                if (land > 0.56) col = _ecoMix([60, 120, 62], [150, 128, 84], Math.min(1, (land - 0.56) * 6));
+                else col = _ecoMix([14, 50, 110], [40, 120, 180], Math.max(0, land / 0.56 - 0.35) * 1.5);
+                if (lat > 0.84 - f2(u, v) * 0.12) col = [236, 244, 250];             // polar caps
+                const cloud = f3(u, v);
+                if (cloud > 0.6) col = _ecoMix(col, [255, 255, 255], Math.min(0.85, (cloud - 0.6) * 4));
+            } else {
+                const n = f1(u, v) * 0.65 + f2(u, v) * 0.35;
+                col = _ecoMix(pal[2], _ecoMix(pal[0], pal[1], n), 0.3 + 0.7 * n);
+                if (kind === 'rock' && f3(u, v) > 0.68) col = _ecoMix(col, pal[2], 0.55);   // darker basins
+                if (kind === 'ice') { const crack = Math.abs(f3(u, v) - 0.5); if (crack < 0.012) col = _ecoMix(col, pal[2], 0.7); }
+            }
+            const i = (y * W + x) * 4;
+            d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255;
+        }
+    }
+    ctx.putImageData(img, 0, 0);
+    const tex = new THREE.CanvasTexture(c);
+    ECO_GFX.tex.set(key, tex);
+    return tex;
+}
+
+const ECO_PLANET_KINDS = ['ocean', 'gas', 'rock', 'gas', 'ice', 'rock', 'ocean', 'gas'];
+function ecoPlanetMaterial(id) {
+    const kind = ECO_PLANET_KINDS[Math.floor(ecoHash(id, 21) * ECO_PLANET_KINDS.length) % ECO_PLANET_KINDS.length];
+    const variant = Math.floor(ecoHash(id, 22) * 3) % 3;
+    const key = kind + variant;
+    if (!ECO_GFX.mat.has(key)) {
+        const map = ecoPlanetTexture(kind, variant);
+        // Lit by the sun, with a little of its own colour so the night side is dim, not black.
+        ECO_GFX.mat.set(key, new THREE.MeshStandardMaterial({ map, roughness: 1, metalness: 0, emissive: 0xffffff, emissiveMap: map, emissiveIntensity: 0.2 }));
+    }
+    return ECO_GFX.mat.get(key);
+}
+
+function ecoCanvasTexture(size, draw) {
+    const c = document.createElement('canvas'); c.width = c.height = size;
+    draw(c.getContext('2d'), size);
+    return new THREE.CanvasTexture(c);
+}
+
+/// Stars in three sizes and a few tints, and a faint disc of dust in the
+/// plane of the orbits. Five objects in total, however many points.
+function ecoBuildSky() {
+    const hi = ECO_GFX.quality === 'high';
+    const dot = ecoCanvasTexture(32, (g, n) => {
+        const r = g.createRadialGradient(n / 2, n / 2, 0, n / 2, n / 2, n / 2);
+        r.addColorStop(0, 'rgba(255,255,255,1)'); r.addColorStop(0.35, 'rgba(255,255,255,0.7)'); r.addColorStop(1, 'rgba(255,255,255,0)');
+        g.fillStyle = r; g.fillRect(0, 0, n, n);
+    });
+    const tints = [[1, 1, 1], [0.8, 0.88, 1], [1, 0.93, 0.8], [0.75, 0.82, 1], [1, 0.85, 0.72]];
+    ECO.sky = [];
+    [[hi ? 5200 : 1800, 1.5, 0.75, 1], [hi ? 900 : 320, 2.6, 0.9, 2], [hi ? 130 : 50, 4.2, 1, 3]].forEach(([count, px, opacity, salt]) => {
+        const pos = new Float32Array(count * 3), col = new Float32Array(count * 3);
+        for (let i = 0; i < count; i++) {
+            const k = 's' + salt + '_' + i;
+            const r = 5000 + ecoHash(k, 1) * 4000, a = ecoHash(k, 2) * Math.PI * 2, b = Math.acos(2 * ecoHash(k, 3) - 1);
+            pos[i * 3] = r * Math.sin(b) * Math.cos(a); pos[i * 3 + 1] = r * Math.cos(b); pos[i * 3 + 2] = r * Math.sin(b) * Math.sin(a);
+            const t = tints[Math.floor(ecoHash(k, 4) * tints.length) % tints.length], dim = 0.55 + 0.45 * ecoHash(k, 5);
+            col[i * 3] = t[0] * dim; col[i * 3 + 1] = t[1] * dim; col[i * 3 + 2] = t[2] * dim;
+        }
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+        const pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: px, sizeAttenuation: false, map: dot, vertexColors: true, transparent: true, opacity, depthWrite: false }));
+        pts.frustumCulled = false;
+        ECO.scene.add(pts); ECO.sky.push(pts);
+    });
+
+    // Dust: built at radius 1 and stretched to the size of the system on each rebuild.
+    const n = hi ? 6000 : 0;
+    const pos = new Float32Array(Math.max(1, n) * 3), col = new Float32Array(Math.max(1, n) * 3);
+    for (let i = 0; i < n; i++) {
+        const k = 'd' + i, r = 0.12 + 0.88 * Math.pow(ecoHash(k, 1), 0.7), a = ecoHash(k, 2) * Math.PI * 2;
+        const lift = (ecoHash(k, 3) + ecoHash(k, 4) + ecoHash(k, 5) - 1.5) * 0.035;      // thin, denser near the plane
+        pos[i * 3] = Math.cos(a) * r; pos[i * 3 + 1] = lift; pos[i * 3 + 2] = Math.sin(a) * r;
+        const warm = 1 - r, dim = 0.35 + 0.65 * ecoHash(k, 6);
+        col[i * 3] = (0.75 + 0.25 * warm) * dim; col[i * 3 + 1] = (0.72 + 0.12 * warm) * dim; col[i * 3 + 2] = (0.85 - 0.35 * warm) * dim;
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+    ECO.dust = new THREE.Points(geo, new THREE.PointsMaterial({ size: 1.4, sizeAttenuation: false, map: dot, vertexColors: true, transparent: true, opacity: 0.5, depthWrite: false, blending: THREE.AdditiveBlending }));
+    ECO.dust.frustumCulled = false;
+    ECO.dust.visible = n > 0;
+    ECO.scene.add(ECO.dust);
+}
+
+/// Step down for a device that is struggling. One way only: a map that keeps
+/// changing how it looks is worse than one that settles.
+function ecoSetQuality(level) {
+    if (!ECO.ready || ECO_GFX.quality === level) return;
+    ECO_GFX.quality = level;
+    ECO.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.25));
+    if (ECO.dust) ECO.dust.visible = false;
+    if (ECO.sky && ECO.sky[0]) ECO.sky[0].geometry.setDrawRange(0, Math.floor(ECO.sky[0].geometry.attributes.position.count * 0.4));
+    ecoResize();
+}
+
 function ecoEsc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -20044,7 +20205,8 @@ function ecoInitScene() {
     ECO.camera.position.set(0, 190, 330);
 
     ECO.renderer = new THREE.WebGLRenderer({ antialias: true });
-    ECO.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+    ECO_GFX.quality = ecoPickQuality();
+    ECO.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, ECO_GFX.quality === 'high' ? 2 : 1.25));
     ECO.renderer.setSize(w, h);
     ECO.renderer.setClearColor(0x04050a);
     wrap.appendChild(ECO.renderer.domElement);
@@ -20055,22 +20217,34 @@ function ecoInitScene() {
     ECO.controls.minDistance = 25;
     ECO.controls.maxDistance = 6000;
 
-    ECO.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-    ECO.scene.add(new THREE.PointLight(0xfff3c4, 1.35, 0, 0));
+    ECO.scene.add(new THREE.AmbientLight(0xffffff, 0.42));
+    ECO.scene.add(new THREE.PointLight(0xfff3c4, 1.15, 0, 0));
 
-    // Background stars
-    const starPos = new Float32Array(1800 * 3);
-    for (let i = 0; i < 1800; i++) {
-        const r = 4000 + ecoHash('s' + i, 1) * 5000, a = ecoHash('s' + i, 2) * Math.PI * 2, b = Math.acos(2 * ecoHash('s' + i, 3) - 1);
-        starPos[i * 3] = r * Math.sin(b) * Math.cos(a); starPos[i * 3 + 1] = r * Math.cos(b); starPos[i * 3 + 2] = r * Math.sin(b) * Math.sin(a);
-    }
-    const starGeo = new THREE.BufferGeometry();
-    starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
-    ECO.scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 9, sizeAttenuation: true, transparent: true, opacity: 0.7 })));
+    ecoBuildSky();
 
-    // The sun: bright yellow, with a corona that breathes and rays that turn.
-    ECO.sphere = new THREE.SphereGeometry(1, 32, 20);
-    ECO.sun = new THREE.Mesh(ECO.sphere, new THREE.MeshBasicMaterial({ color: 0xffd60a }));
+    // The sun: a surface that slowly churns, a corona that breathes, rays that turn.
+    ECO.sphere   = new THREE.SphereGeometry(1, 40, 24);      // the sun and the planets
+    ECO.sphereLo = new THREE.SphereGeometry(1, 14, 10);      // moons and the belt: small on screen, and there are many
+    ECO.sunMat = new THREE.ShaderMaterial({
+        uniforms: { t: { value: 0 } },
+        vertexShader: 'varying vec3 p; varying vec3 n; void main(){ p = position; n = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+        fragmentShader: [
+            'precision mediump float; uniform float t; varying vec3 p; varying vec3 n;',
+            'float h(vec3 q){ return fract(sin(dot(q, vec3(127.1, 311.7, 74.7))) * 43758.5453); }',
+            'float vn(vec3 q){ vec3 i = floor(q), f = fract(q); f = f * f * (3.0 - 2.0 * f);',
+            '  return mix(mix(mix(h(i), h(i + vec3(1,0,0)), f.x), mix(h(i + vec3(0,1,0)), h(i + vec3(1,1,0)), f.x), f.y),',
+            '             mix(mix(h(i + vec3(0,0,1)), h(i + vec3(1,0,1)), f.x), mix(h(i + vec3(0,1,1)), h(i + vec3(1,1,1)), f.x), f.y), f.z); }',
+            'float fbm(vec3 q){ float a = 0.5, s = 0.0; for (int k = 0; k < 4; k++) { s += a * vn(q); q *= 2.02; a *= 0.5; } return s; }',
+            'void main(){',
+            '  float g = fbm(p * 5.0 + vec3(0.0, t * 0.12, t * 0.07)) * 0.65 + fbm(p * 11.0 - vec3(t * 0.10, 0.0, t * 0.05)) * 0.35;',
+            '  float v = smoothstep(0.25, 0.85, g);',
+            '  vec3 c = mix(vec3(1.0, 0.70, 0.04), vec3(1.0, 0.90, 0.16), v);',
+            '  c = mix(c, vec3(1.0, 0.99, 0.78), smoothstep(0.62, 1.0, v));',
+            '  c *= 0.80 + 0.32 * pow(max(n.z, 0.0), 0.45);',          // a touch darker towards the edge, like the real thing
+            '  gl_FragColor = vec4(c, 1.0); }'
+        ].join('\n')
+    });
+    ECO.sun = new THREE.Mesh(ECO.sphere, ECO.sunMat);
     ECO.sun.scale.setScalar(14);
     ECO.scene.add(ECO.sun);
 
@@ -20093,7 +20267,7 @@ function ecoInitScene() {
         for (let i = 0; i < 24; i++) {
             const len = i % 2 ? 122 : 88, w = i % 2 ? 0.035 : 0.06;
             const grad = g.createLinearGradient(0, 0, len, 0);
-            grad.addColorStop(0, 'rgba(255,224,90,0.55)'); grad.addColorStop(1, 'rgba(255,170,0,0)');
+            grad.addColorStop(0, 'rgba(255,224,90,0.22)'); grad.addColorStop(1, 'rgba(255,170,0,0)');
             g.fillStyle = grad;
             g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, len, -w, w); g.closePath(); g.fill();
             g.rotate(Math.PI * 2 / 24);
@@ -20107,7 +20281,22 @@ function ecoInitScene() {
     Object.keys(ECO_COLORS).forEach(k => {
         ECO.mats[k] = new THREE.MeshStandardMaterial({ color: ECO_COLORS[k], emissive: ECO_COLORS[k], emissiveIntensity: 0.35, roughness: 0.6 });
     });
-    ECO.ringMat = new THREE.LineBasicMaterial({ color: 0x3f3f46, transparent: true, opacity: 0.55 });
+    ECO.ringMat = new THREE.LineBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false });
+
+    // A soft rim of light round each planet. One picture, tinted per status:
+    // green for a verified company, blue for an unverified one.
+    const rim = ecoCanvasTexture(128, (g, n) => {
+        const r = g.createRadialGradient(n / 2, n / 2, 0, n / 2, n / 2, n / 2);
+        r.addColorStop(0, 'rgba(255,255,255,0)'); r.addColorStop(0.62, 'rgba(255,255,255,0)');
+        r.addColorStop(0.74, 'rgba(255,255,255,0.85)'); r.addColorStop(1, 'rgba(255,255,255,0)');
+        g.fillStyle = r; g.fillRect(0, 0, n, n);
+    });
+    const rimMat = colour => new THREE.SpriteMaterial({ map: rim, color: colour, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending });
+    ECO.rimMats = { verified: rimMat(ECO_COLORS.verified), unverified: rimMat(ECO_COLORS.unverified), pick: rimMat(0xffffff) };
+    ECO.rimMats.pick.opacity = 0.4;
+    ECO.haloGlow = new THREE.Sprite(ECO.rimMats.pick);
+    ECO.haloGlow.visible = false;
+    ECO.scene.add(ECO.haloGlow);
     ECO.linkMat = new THREE.LineBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.8 });
     ECO.haloMat = new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, opacity: 0.9, side: THREE.DoubleSide });
     ECO.halo = new THREE.Mesh(new THREE.RingGeometry(1.25, 1.45, 40), ECO.haloMat);
@@ -20170,6 +20359,7 @@ function ecoClearWorld() {
     ECO.world.traverse(o => {
         if (o.userData && o.userData.tex) { o.userData.tex.dispose(); o.material.dispose(); }
         if (o.isLine && o.geometry) o.geometry.dispose();
+        if (o.isInstancedMesh && typeof o.dispose === 'function') o.dispose();
     });
     while (ECO.world.children.length) ECO.world.remove(ECO.world.children[0]);
     if (ECO.links) { ECO.scene.remove(ECO.links); ECO.links.geometry.dispose(); ECO.links = null; }
@@ -20198,9 +20388,13 @@ function ecoRebuildScene() {
         }
         const size = pl.size;
         const group = new THREE.Group();
-        const mesh = new THREE.Mesh(ECO.sphere, ECO.mats[pl.verified ? 'verified' : 'unverified']);
+        const mesh = new THREE.Mesh(ECO.sphere, ecoPlanetMaterial(pl.id));
         mesh.scale.setScalar(size);
+        mesh.rotation.z = (ecoHash(pl.id, 23) - 0.5) * 0.5;          // each planet leans a little on its axis
         group.add(mesh);
+        const glow = new THREE.Sprite(ECO.rimMats[pl.verified ? 'verified' : 'unverified']);
+        glow.scale.setScalar(size * 2.76);                           // puts the bright ring just outside the surface
+        group.add(glow);
         const label = ecoLabelSprite(pl.name, 7);
         label.position.y = size + 7;
         group.add(label);
@@ -20209,7 +20403,7 @@ function ecoRebuildScene() {
         const node = add({
             id: 'c:' + pl.id, kind: 'company', label: pl.name, planet: pl, mesh, group, radius: size,
             orbitR, phase: (slot / cap + ecoHash(pl.id, 7) * 0.5 / cap) * Math.PI * 2 + ring * 0.9,
-            speed: 0.045 / Math.sqrt(orbitR / 70)
+            speed: 0.045 / Math.sqrt(orbitR / 70), spin: 0.04 + ecoHash(pl.id, 24) * 0.1
         });
         pl.node = node;
 
@@ -20221,7 +20415,7 @@ function ecoRebuildScene() {
             const shellCap = 6 + shell * 4;
             const role = m.roles.has('founder') ? 'founder' : m.roles.has('holder') ? 'holder' : 'builder';
             const mSize = m.person.size;
-            const moon = new THREE.Mesh(ECO.sphere, ECO.mats[role]);
+            const moon = new THREE.Mesh(ECO.sphereLo, ECO.mats[role]);
             moon.scale.setScalar(mSize);
             group.add(moon);
             const mNode = add({
@@ -20243,15 +20437,23 @@ function ecoRebuildScene() {
     ECO.belt = new THREE.Group();
     ECO.world.add(ECO.belt);
     const beltInner = outer + 60;
-    model.belt.forEach(p => {
-        const mesh = new THREE.Mesh(ECO.sphere, ECO.mats.belt);
+    // Drawn as ONE batch, so a belt of ten thousand costs about what ten does.
+    const beltMesh = new THREE.InstancedMesh(ECO.sphereLo, ECO.mats.belt, Math.max(1, model.belt.length));
+    beltMesh.count = model.belt.length;
+    beltMesh.frustumCulled = false;
+    const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3();
+    model.belt.forEach((p, i) => {
         const r = beltInner + ecoHash(p.key, 11) * 45, a = ecoHash(p.key, 12) * Math.PI * 2;
-        mesh.position.set(Math.cos(a) * r, (ecoHash(p.key, 13) - 0.5) * 14, Math.sin(a) * r);
-        mesh.scale.setScalar(p.size);
-        ECO.belt.add(mesh);
-        p.beltNode = add({ id: 'b:' + p.key, kind: 'person', label: p.label, person: p, mesh, radius: p.size });
+        _p.set(Math.cos(a) * r, (ecoHash(p.key, 13) - 0.5) * 14, Math.sin(a) * r);
+        _s.setScalar(p.size);
+        beltMesh.setMatrixAt(i, _m.compose(_p, _q, _s));
+        // No object of its own: `local` is where it sits inside the belt.
+        p.beltNode = add({ id: 'b:' + p.key, kind: 'person', label: p.label, person: p, local: _p.clone(), radius: p.size });
     });
+    beltMesh.instanceMatrix.needsUpdate = true;
+    ECO.belt.add(beltMesh);
     ECO.extent = beltInner + 60;
+    if (ECO.dust) ECO.dust.scale.setScalar(ECO.extent * 1.15);
 
     const builders = [...model.people.values()].filter(p => p.bounties.length).length;
     const holdersN = [...model.people.values()].filter(p => p.appearances.some(a => a.member.roles.has('holder'))).length;
@@ -20281,21 +20483,37 @@ function ecoPlace(t) {
         if (n.kind === 'company') {
             const a = n.phase + tt * n.speed;
             n.group.position.set(Math.cos(a) * n.orbitR, 0, Math.sin(a) * n.orbitR);
+            n.mesh.rotation.y = tt * n.spin;
         } else if (n.planetNode) {
             const a = n.phase + tt * n.speed;
             n.mesh.position.set(Math.cos(a) * n.orbitR, Math.sin(a) * n.orbitR * n.tilt, Math.sin(a) * n.orbitR);
         }
     }
     if (ECO.belt) ECO.belt.rotation.y = tt * 0.006;
+    if (ECO.dust) ECO.dust.rotation.y = tt * 0.004;
+    if (ECO.sunMat) ECO.sunMat.uniforms.t.value = tt;
 }
 
 const _ecoV = { a: null, b: null };
-function ecoWorldPos(node, out) { return node.mesh.getWorldPosition(out); }
+function ecoWorldPos(node, out) {
+    // Belt members are part of one batch, so their position is worked out from the belt's.
+    return node.local ? out.copy(node.local).applyMatrix4(ECO.belt.matrixWorld) : node.mesh.getWorldPosition(out);
+}
 
 function ecoFrame() {
     if (!ECO.running) return;
     ECO.raf = requestAnimationFrame(ecoFrame);
-    const t = (performance.now() - ECO.t0) / 1000;
+    const now = performance.now(), t = (now - ECO.t0) / 1000;
+
+    // Watch the frame rate. Two seconds of slow frames on 'high' steps the
+    // map down; pauses (a hidden tab, a debugger) are ignored.
+    if (ECO_GFX.last) { const dt = now - ECO_GFX.last; if (dt < 250) { ECO_GFX.acc += dt; ECO_GFX.n++; } }
+    ECO_GFX.last = now;
+    if (ECO_GFX.n >= 120) {
+        const avg = ECO_GFX.acc / ECO_GFX.n; ECO_GFX.acc = 0; ECO_GFX.n = 0;
+        if (avg > 30 && ECO_GFX.quality === 'high') ecoSetQuality('low');
+        else if (avg > 45 && !ECO_GFX.floor) { ECO_GFX.floor = true; ECO.renderer.setPixelRatio(1); ecoResize(); }
+    }
     ecoPlace(t);
     if (ECO.sunGlow) {
         const tt = ECO.reduceMotion ? 0 : t;
@@ -20327,7 +20545,10 @@ function ecoFrame() {
         ECO.halo.scale.setScalar(ECO.selected.radius);
         ECO.halo.quaternion.copy(ECO.camera.quaternion);
         ECO.halo.visible = true;
-    } else ECO.halo.visible = false;
+        ECO.haloGlow.position.copy(ECO.halo.position);
+        ECO.haloGlow.scale.setScalar(ECO.selected.radius * 3.3);
+        ECO.haloGlow.visible = true;
+    } else { ECO.halo.visible = false; ECO.haloGlow.visible = false; }
 
     if (ECO.links) {
         const pos = ECO.links.geometry.attributes.position, pts = ECO.links.userData.nodes;
@@ -20769,6 +20990,7 @@ async function ecoStart() {
         ecoSubscribe();
         ecoSyncUser();
         ECO.running = true;
+        ECO_GFX.last = 0;
         ecoFrame();
     } catch (e) {
         console.error('Ecosystem view failed to start:', e);
@@ -20798,7 +21020,7 @@ function ecoStop() {
     document.addEventListener('visibilitychange', () => {
         const el = document.getElementById('ecosystem-page');
         if (document.hidden) { ECO.running = false; cancelAnimationFrame(ECO.raf); }
-        else if (el && !el.classList.contains('hidden') && ECO.ready && !ECO.running) { ECO.running = true; ecoFrame(); }
+        else if (el && !el.classList.contains('hidden') && ECO.ready && !ECO.running) { ECO.running = true; ECO_GFX.last = 0; ecoFrame(); }
     });
 })();
 
