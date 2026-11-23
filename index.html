@@ -19802,19 +19802,35 @@ function unmuteIntroVideo(btn) {
 // One person can be a moon of several planets. Selecting them draws lines
 // between every place they appear.
 //
-// WHERE THE DATA COMES FROM: four Firestore collections that are already
-// public (users, companies, equityHolders, subprojects), read with live
-// listeners — so a new company, stake or accepted bid appears without a
-// reload. Firestore is the site's index of what happened on-chain; the chain
-// itself stays the authority for balances, which is why a company's panel
-// links to the cap table (that reads the contract directly).
+// WHERE THE DATA COMES FROM: one summary, built on the server and shared by
+// everyone (api/nqverse.js), fetched on arrival and again every minute. The
+// browser no longer downloads whole collections, so the page costs the same
+// to open with ten members or ten thousand. Three small things stay live
+// because they are personal or need to be instant: who YOU follow, your own
+// notifications, and the latest posts for the feed.
 //
-// Nothing here writes anything. three.js is loaded only when this tab is
-// opened, so the rest of the site pays nothing for it.
+// The summary carries no wallet addresses. Firestore is the site's index of
+// what happened on-chain; the chain itself stays the authority for balances,
+// so opening a company asks the server to read its stakes from the contract.
+//
+// HOW IT STAYS FAST AS IT GROWS
+//   - Moons, the belt and distant companies are each drawn as one batch.
+//   - Only the leading companies are drawn in full — surface, glow, label,
+//     moons. The rest are plain spheres until you fly near, search for one
+//     or click it, and then they fill in.
+//   - A company shows its leading people as moons, not all of them.
+//   - Labels are painted once and reused.
+//
+// Nothing here writes anything except a follow. three.js is loaded only when
+// this tab is opened, so the rest of the site pays nothing for it.
 
 const ECO = {
     libs: null, ready: false, running: false, raf: 0, unsub: [],
-    raw: { users: null, companies: null, holders: null, bounties: null, sales: [], funding: [], fundAll: [], follows: [], posts: [], notifs: [], reviews: [] },
+    snap: null, snapTag: '', snapTimer: 0, snapFails: 0,           // the server's summary, and when to ask again
+    myFollows: [], followUnsub: null,                              // the signed-in member's own follows (live)
+    raw: { posts: [], notifs: [] },                                // the only collections still read directly
+    promoted: [], near: new Set(), nearKey: '', nearAt: 0, lodTick: 0, focusKey: null,   // which distant companies are drawn in full
+    minors: [], moonSets: [], marks: [], labelTex: new Map(),
     feedMode: null, feedUid: undefined, notifUnsub: null, feedItems: [],
     side: 'feed',                                                  // which tab the side column shows: 'feed', 'rank' or 'market'
     market: { q: '', type: 'all', sort: 'new' },                   // the Marketplace tab's search, filter and order
@@ -19827,7 +19843,14 @@ const ECO = {
     chain: new Map()          // company id → stakes read from the contract
 };
 
-const ECO_OPS_WALLET = '0x2c6309ed2e36222e7e0ce3c1376941a0d6340f4d';
+// How much is drawn in full. Above these numbers the map still shows
+// everything, just more simply, so it costs about the same to draw.
+const ECO_LOD = {
+    fullHigh: 60, fullLow: 30,        // companies drawn in full, on a strong and a modest device
+    moons: 36,                        // people shown round one company
+    nearIn: 260, nearOut: 340,        // fly this close to a plain company and it fills in; this far and it empties
+    nearMax: 12, promoted: 8, labels: 600
+};
 const ECO_COLORS = { verified: 0x34d399, unverified: 0x60a5fa, founder: 0xfbbf24, holder: 0xa78bfa, builder: 0x22d3ee, belt: 0xa1a1aa };
 
 // ── Marketplace listings ─────────────────────────────────────────────────
@@ -19835,41 +19858,12 @@ const ECO_COLORS = { verified: 0x34d399, unverified: 0x60a5fa, founder: 0xfbbf24
 // listings two ways: a red halo round every company that has any, and a
 // searchable list in the side column.
 //
-// "Open" is the Marketplace's own rule, so the two never disagree: not in
-// progress, finished, refunded or in dispute; no unassigned plan nodes; and a
-// private listing only for its poster and the people invited to it. Funding
-// requests are left out while that feature is switched off.
-const ECO_CLOSED_STATUS = ['in-progress', 'completed', 'refunded', 'disputed', 'resolved'];
+// "Open" is the Marketplace's own rule, applied on the server: not in
+// progress, finished, refunded or in dispute, and no unassigned plan nodes.
+// Private listings are not here at all — the summary is the same for
+// everyone — and stay on the Marketplace page for the people they are for.
+// Funding requests are left out while that feature is switched off.
 function ecoFundingOn() { return typeof NQV_FEATURES === 'undefined' || !NQV_FEATURES || !!NQV_FEATURES.fundingRequests; }
-
-function ecoOpenListings(planetById) {
-    const me = (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) || null;
-    const cashOf = v => {
-        const str = String(v == null ? '' : v), m = str.match(/\$\s*([\d,]+(?:\.\d+)?)/);
-        if (m) return parseFloat(m[1].replace(/,/g, '')) || 0;
-        if (str.includes('%')) return 0;
-        const n = parseFloat(str.replace(/[^0-9.]/g, '')); return isFinite(n) ? n : 0;
-    };
-    const out = [];
-    const take = (p, type) => {
-        if (p.type !== type || ECO_CLOSED_STATUS.includes(p.status)) return;
-        if (p.planNode === true && !p.acceptedBidderUid) return;
-        if (p.isPrivate && !(me && (p.ownerUid === me || (p.invitedUids || []).includes(me)))) return;
-        const coId = type === 'fund' ? (p.companyId || p.projectId) : p.companyId;
-        const planet = planetById.get(coId) || null;
-        out.push({
-            id: p._id, type, raw: p, planet,
-            title: p.title || (type === 'fund' ? 'Untitled funding request' : 'Untitled bounty'),
-            pay: String(p.compensation || ''), value: cashOf(p.compensation),
-            poster: p.posterUsername || p.posterName || '', bids: Array.isArray(p.bids) ? p.bids.length : 0,
-            t: (p.createdAt && (p.createdAt.seconds || p.createdAt._seconds)) || 0,
-            text: [p.title, p.description, p.category, p.posterUsername, p.compensation, (p.tags || []).join(' '), planet ? planet.name : ''].join(' ').toLowerCase()
-        });
-    };
-    (ECO.raw.bounties || []).forEach(p => take(p, 'build'));
-    if (ecoFundingOn()) (ECO.raw.fundAll || []).forEach(p => take(p, 'fund'));
-    return out;
-}
 
 /// How strongly a company's halo shows, 0–1. Either many listings or a few
 /// valuable ones get it there: four listings, or $6,000 on offer, is about
@@ -19906,7 +19900,7 @@ const ECO_MEASURES = {
         overall:   { label: 'Overall',         get: c => c.score,        fmt: v => v.toFixed(1) + ' pts' },
         value:     { label: 'Implied value',   get: c => c.value,        fmt: ecoMoney, needs: ['equityExchange', 'fundingRequests'],
                      offNote: 'Implied value comes from equity sales and funding rounds, which are switched off for now. This ranking fills in when they return.' },
-        people:    { label: 'People',          get: c => c.members.size, fmt: ecoCount },
+        people:    { label: 'People',          get: c => c.memberCount,  fmt: ecoCount },
         work:      { label: 'Bounties worked', get: c => c.work,         fmt: ecoCount },
         followers: { label: 'Followers',       get: c => c.followers,    fmt: ecoCount },
         raised:    { label: 'Funding raised',  get: c => c.raised,       fmt: ecoMoney, needs: ['fundingRequests'],
@@ -20155,204 +20149,70 @@ function ecoStatus(msg) {
 }
 
 // ── Model: turn the four collections into planets, moons and a belt ──────
+/// Turn the server's summary into the objects the rest of this file works
+/// with. The heavy lifting — who is tied to what, what a company is worth,
+/// everyone's totals — was done on the server; this only links it back up.
 function ecoBuildModel() {
-    const { users, companies, holders, bounties, sales, funding, follows, reviews } = ECO.raw;
-    const me = (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) || null;
+    const snap = ECO.snap;
 
-    // Who follows whom. A follow points at a member (followingUid) or at a
-    // company (followingCompanyId).
-    const userFollowers = new Map(), companyFollowers = new Map();
-    const mine = { users: new Map(), companies: new Map() };      // what the signed-in member follows → follow doc id
-    follows.forEach(f => {
-        if (f.followingUid) userFollowers.set(f.followingUid, (userFollowers.get(f.followingUid) || 0) + 1);
-        if (f.followingCompanyId) companyFollowers.set(f.followingCompanyId, (companyFollowers.get(f.followingCompanyId) || 0) + 1);
-        if (me && f.followerUid === me) {
-            if (f.followingUid) mine.users.set(f.followingUid, f._id);
-            if (f.followingCompanyId) mine.companies.set(f.followingCompanyId, f._id);
-        }
+    // What the signed-in member follows → the follow's document id.
+    const mine = { users: new Map(), companies: new Map() };
+    (ECO.myFollows || []).forEach(f => {
+        if (f.followingUid) mine.users.set(f.followingUid, f._id);
+        if (f.followingCompanyId) mine.companies.set(f.followingCompanyId, f._id);
     });
-    const dollars = v => { const n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')); return isFinite(n) ? n : 0; };
-    // The cash part of an amount like "$500 USDC" or "$500 + 2% equity".
-    const cash = v => {
-        const str = String(v == null ? '' : v), m = str.match(/\$\s*([\d,]+(?:\.\d+)?)/);
-        if (m) return parseFloat(m[1].replace(/,/g, '')) || 0;
-        return str.includes('%') ? 0 : dollars(str);
-    };
-    const people = new Map();          // key → person
-    const walletToUid = new Map();
 
-    const personFor = (uid, wallet) => {
-        const w = wallet ? String(wallet).toLowerCase() : null;
-        const id = uid || (w && walletToUid.get(w)) || null;
-        const key = id ? 'u:' + id : 'w:' + w;
-        if (!people.has(key)) {
-            const isOps = !id && w === ECO_OPS_WALLET;
-            people.set(key, {
-                key, uid: id, wallet: w, ops: isOps,
-                label: isOps ? 'NQVate (platform)' : (w ? w.slice(0, 6) + '…' + w.slice(-4) : 'Unknown'),
-                name: '', known: false, appearances: [], bounties: [],
-                stats: { done: 0, usdc: 0, stakes: 0, stakeValue: 0, followers: 0, funded: 0, fundedValue: 0, ratingTotal: 0, ratingCount: 0, rating: 0 },
-                size: 1.2, score: 0, rankPos: 0
-            });
-        }
-        return people.get(key);
-    };
-
-    users.forEach((u, uid) => {
-        if (u.walletAddress) walletToUid.set(String(u.walletAddress).toLowerCase(), uid);
+    const list = snap.people.map(q => {
+        const st = q.st || {};
+        return {
+            key: q.k, uid: q.uid || null, label: q.label || 'Unknown', name: q.name || '', known: !!q.known, ops: !!q.ops,
+            appearances: [], bounties: q.b || [], nb: q.nb || 0,
+            stats: {
+                done: st.done || 0, usdc: st.usdc || 0, stakes: st.stakes || 0, stakeValue: st.stakeValue || 0, followers: st.followers || 0,
+                funded: st.funded || 0, fundedValue: st.fundedValue || 0, ratingTotal: st.rt || 0, ratingCount: st.rc || 0,
+                rating: st.rc ? Math.round(st.rt / st.rc * 10) / 10 : 0
+            },
+            // A member is the same size on every planet they orbit: bounties
+            // finished, cash earned, stakes held and their worth, followers.
+            score: q.score || 0, size: 1.0 + 2.6 * (1 - Math.exp(-(q.score || 0) / 6)), rankPos: 0
+        };
     });
-    // A stake may sit in a wallet the member used before their current one.
-    users.forEach((u, uid) => {
-        (Array.isArray(u.walletHistory) ? u.walletHistory : []).forEach(w => {
-            const k = String(w).toLowerCase();
-            if (!walletToUid.has(k)) walletToUid.set(k, uid);
+    const people = new Map(list.map(p => [p.key, p]));
+
+    const ROLE_BITS = [['founder', 1], ['holder', 2], ['builder', 4]];
+    const planets = snap.planets.map(c => {
+        const bc = c.bc || [0, 0, 0];
+        // Planet size, from people, work, value and followers, each on a log
+        // scale and easing towards a ceiling: smallest 4, largest under 13.
+        const pl = {
+            id: c.id, name: c.name || 'Unnamed company', entityType: c.et || '', verified: !!c.ver, live: !!c.live, ownerUid: c.owner || null,
+            members: new Map(), memberCount: c.mc || 0,
+            bountyCounts: { open: bc[0] || 0, active: bc[1] || 0, done: bc[2] || 0 }, bountyTitles: c.bt || [],
+            value: c.value || 0, valueFrom: c.vf || '', raised: c.raised || 0, followers: c.fol || 0,
+            score: c.score || 0, work: c.work || 0, size: 4 + 9 * (1 - Math.exp(-(c.score || 0) / 8)), rankPos: 0
+        };
+        (c.m || []).forEach(([i, bits, units, nb]) => {
+            const person = list[i];
+            if (!person) return;
+            const m = { person, roles: new Set(ROLE_BITS.filter(b => bits & b[1]).map(b => b[0])), units: units || 0, nb: nb || 0 };
+            pl.members.set(person.key, m);
+            person.appearances.push({ planet: pl, member: m });
         });
+        return pl;
     });
-    users.forEach((u, uid) => {
-        const p = personFor(uid, u.walletAddress);
-        p.known = true;
-        p.label = '@' + (u.username || 'user');
-        p.name  = u.fullName || '';
-    });
-
-    // Only companies that are live or verified become planets. A Studio
-    // project someone is still planning is theirs to reveal, not the map's.
-    const list = [...companies.entries()]
-        .map(([id, c]) => ({ id, ...c }))
-        .filter(c => c.projectStatus === 'live' || c.verificationStatus === 'verified')
-        .sort((a, b) => ((a.createdAt && a.createdAt.seconds) || 0) - ((b.createdAt && b.createdAt.seconds) || 0) || a.id.localeCompare(b.id));
-
-    const planets = list.map(c => ({
-        id: c.id, name: c.name || 'Unnamed company', entityType: c.entityType || c.type || '',
-        verified: c.verificationStatus === 'verified', live: c.projectStatus === 'live',
-        ownerUid: c.ownerUid || null, members: new Map(),
-        bountyCounts: { open: 0, active: 0, done: 0 }, bountyTitles: [],
-        value: 0, valueFrom: '', valueAt: 0, raised: 0, followers: companyFollowers.get(c.id) || 0
-    }));
     const planetById = new Map(planets.map(p => [p.id, p]));
 
-    const member = (planet, person) => {
-        if (!planet.members.has(person.key)) planet.members.set(person.key, { person, roles: new Set(), units: 0, bounties: [] });
-        return planet.members.get(person.key);
-    };
-
-    planets.forEach(pl => { if (pl.ownerUid) member(pl, personFor(pl.ownerUid, null)).roles.add('founder'); });
-
-    holders.forEach(h => {
-        const pl = planetById.get(h.projectId);
-        const units = Number(h.units) || 0;
-        if (!pl || !h.wallet || units <= 0) return;
-        const m = member(pl, personFor(null, h.wallet));
-        m.roles.add('holder');
-        m.units = Math.max(m.units, units);
-        m.wallet = String(h.wallet).toLowerCase();
-    });
-
-    bounties.forEach(b => {
-        if (b.planNode || b.type !== 'build') return;
-        const pl = planetById.get(b.companyId);
-        const done = b.status === 'completed';
-        const builderUid = b.acceptedBidderUid || null;
-        if (pl) {
-            if (done) pl.bountyCounts.done++; else if (builderUid) pl.bountyCounts.active++; else pl.bountyCounts.open++;
-            if (pl.bountyTitles.length < 6) pl.bountyTitles.push({ title: b.title || 'Untitled bounty', done, active: !!builderUid && !done });
-        }
-        if (!builderUid) return;
-        const person = personFor(builderUid, null);
-        const rec = { title: b.title || 'Untitled bounty', done, company: pl ? pl.name : '' };
-        person.bounties.push(rec);
-        if (done) {
-            person.stats.done++;
-            // Cash actually paid for finished work. Equity-only bounties add nothing here.
-            const amt = (b.acceptedBid && b.acceptedBid.amount) || b.compensation || '';
-            person.stats.usdc += b.compensationType === 'equity' ? 0 : cash(amt);
-        }
-        if (pl) { const m = member(pl, person); m.roles.add('builder'); m.bounties.push(rec); }
-    });
-
-    // What a company is worth, as far as the platform can tell: the price of
-    // the most recent completed deal in its equity, scaled up to the whole
-    // company (10,000 units). An equity sale and a funding round both set a
-    // price, so whichever happened last wins. No deal, no figure — the map
-    // never estimates one.
-    const secs = t => (t && t.seconds) || 0;
-    const price = (pl, perUnit, at, from) => {
-        if (!(perUnit > 0) || at < pl.valueAt) return;
-        pl.value = perUnit * 10000; pl.valueAt = at; pl.valueFrom = from;
-    };
-    sales.forEach(l => {
-        const pl = planetById.get(l.projectId);
-        const units = Number(l.units) || 0;
-        if (!pl || l.status !== 'sold' || units <= 0) return;
-        const total = Number(l.finalSaleValue) || 0;
-        price(pl, total > 0 ? total / units : Number(l.pricePerUnit) || 0, secs(l.soldAt), 'last equity sale');
-    });
-    funding.forEach(f => {
-        const pl = planetById.get(f.companyId || f.projectId);
-        const units = Number(f.equityUnits) || 0;
-        if (!pl || f.status !== 'completed') return;
-        const amount = dollars((f.acceptedBid && f.acceptedBid.amount) || f.compensation);
-        pl.raised += amount;
-        if (units > 0) price(pl, amount / units, secs(f.completedAt) || secs(f.createdAt), 'last funding round');
-    });
-    // The other side of a funding round: who put the money in. Counted for
-    // every completed round, whether or not the company is on the map.
-    funding.forEach(f => {
-        if (f.status !== 'completed' || !f.acceptedBidderUid || !users.has(f.acceptedBidderUid)) return;
-        const st = personFor(f.acceptedBidderUid, null).stats;
-        st.funded++;
-        st.fundedValue += dollars((f.acceptedBid && f.acceptedBid.amount) || f.compensation);
-    });
-    // Star ratings left after finished work. Only for members the map knows.
-    (reviews || []).forEach(rv => {
-        const p = rv.revieweeUid && people.get('u:' + rv.revieweeUid);
-        const stars = Number(rv.rating);
-        if (!p || !(stars >= 1 && stars <= 5)) return;
-        p.stats.ratingTotal += stars;
-        p.stats.ratingCount++;
-    });
-
-    // Planet size, from four things: people, work, value and followers. Each
-    // is put on a log scale and the total eases towards a ceiling, so a
-    // company ten times bigger is clearly bigger without ever outgrowing the
-    // sun or swallowing its neighbours. Smallest 4, largest just under 13.
-    planets.forEach(pl => {
-        const work = pl.bountyCounts.done + pl.bountyCounts.active;
-        const score = 1.1 * Math.log2(1 + pl.members.size) + 0.6 * Math.log2(1 + work) + 0.9 * Math.log10(1 + pl.value)
-                    + 0.9 * Math.log2(1 + pl.followers);
-        pl.size = 4 + 9 * (1 - Math.exp(-score / 8));
-        pl.score = score; pl.work = work; pl.rankPos = 0;
-    });
-
-    planets.forEach(pl => pl.members.forEach(m => m.person.appearances.push({ planet: pl, member: m })));
-
-    // A member's size is their standing across the whole platform, so they are
-    // the same size on every planet they orbit: bounties finished, cash earned
-    // doing them, stakes held and what those are worth, and followers.
-    people.forEach(p => {
-        const st = p.stats;
-        st.followers = (p.uid && userFollowers.get(p.uid)) || 0;
-        p.appearances.forEach(a => {
-            if (!a.member.roles.has('holder') || a.member.units <= 0) return;
-            st.stakes++;
-            st.stakeValue += a.member.units / 10000 * a.planet.value;
-        });
-        const score = 0.9 * Math.log2(1 + st.done) + 0.6 * Math.log10(1 + st.usdc) + 0.8 * Math.log2(1 + st.stakes)
-                    + 0.6 * Math.log10(1 + st.stakeValue) + 1.0 * Math.log2(1 + st.followers);
-        p.size = 1.0 + 2.6 * (1 - Math.exp(-score / 6));
-        p.score = score;
-        st.rating = st.ratingCount ? Math.round(st.ratingTotal / st.ratingCount * 10) / 10 : 0;
-    });
-
-    const belt = [...people.values()].filter(p => p.known && p.appearances.length === 0);
+    const belt = list.filter(p => p.known && p.appearances.length === 0);
 
     // What is open on the Marketplace right now, and which companies it belongs to.
-    const listings = ecoOpenListings(planetById);
+    const fundOn = ecoFundingOn();
+    const listings = (snap.listings || []).filter(l => l.type !== 'fund' || fundOn)
+        .map(l => Object.assign({}, l, { planet: planetById.get(l.co) || null }));
     planets.forEach(pl => { pl.open = { count: 0, value: 0, items: [], halo: 0 }; });
-    listings.forEach(l => { if (l.planet) { l.planet.open.count++; l.planet.open.value += l.value; l.planet.open.items.push(l); } });
+    listings.forEach(l => { if (l.planet) { l.planet.open.count++; l.planet.open.value += l.value || 0; l.planet.open.items.push(l); } });
     planets.forEach(pl => { pl.open.halo = ecoHaloStrength(pl.open.count, pl.open.value); });
 
-    const model = { planets, belt, people, mine, userFollowers, listings };
+    const model = { planets, planetById, belt, people, mine, listings, counts: snap.counts || {} };
     ecoRankModel(model);          // positions, and sizes when a single measure is chosen
     return model;
 }
@@ -20389,6 +20249,7 @@ function ecoInitScene() {
     // The sun: a surface that slowly churns, a corona that breathes, rays that turn.
     ECO.sphere   = new THREE.SphereGeometry(1, 40, 24);      // the sun and the planets
     ECO.sphereLo = new THREE.SphereGeometry(1, 14, 10);      // moons and the belt: small on screen, and there are many
+    ECO.sphereTiny = new THREE.SphereGeometry(1, 8, 6);      // for when there are thousands of them
     ECO.sunMat = new THREE.ShaderMaterial({
         uniforms: { t: { value: 0 } },
         vertexShader: 'varying vec3 p; varying vec3 n; void main(){ p = position; n = normalize(normalMatrix * normal); gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
@@ -20445,6 +20306,8 @@ function ecoInitScene() {
     Object.keys(ECO_COLORS).forEach(k => {
         ECO.mats[k] = new THREE.MeshStandardMaterial({ color: ECO_COLORS[k], emissive: ECO_COLORS[k], emissiveIntensity: 0.35, roughness: 0.6 });
     });
+    // Distant companies: plain spheres in one batch, tinted one at a time.
+    ECO.minorMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, metalness: 0 });
     ECO.ringMat = new THREE.LineBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending, depthWrite: false });
 
     // A soft rim of light round each planet. One picture, tinted per status:
@@ -20506,19 +20369,25 @@ function ecoResize() {
     ECO.renderer.setSize(w, h);
 }
 
+/// A text label. Each distinct label is painted once and kept, so redrawing
+/// the map does not repaint every name.
 function ecoLabelSprite(text, size) {
-    const c = document.createElement('canvas'), ctx = c.getContext('2d');
-    const font = '600 44px system-ui, -apple-system, Segoe UI, sans-serif';
-    ctx.font = font;
     const label = text.length > 26 ? text.slice(0, 25) + '…' : text;
-    c.width = Math.ceil(ctx.measureText(label).width) + 24; c.height = 64;
-    ctx.font = font; ctx.textBaseline = 'middle'; ctx.fillStyle = 'rgba(255,255,255,0.92)';
-    ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 8;
-    ctx.fillText(label, 12, 34);
-    const tex = new THREE.CanvasTexture(c);
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthWrite: false }));
-    sp.scale.set(size * c.width / c.height, size, 1);
-    sp.userData.tex = tex;
+    let hit = ECO.labelTex.get(label);
+    if (!hit) {
+        const c = document.createElement('canvas'), ctx = c.getContext('2d');
+        const font = '600 44px system-ui, -apple-system, Segoe UI, sans-serif';
+        ctx.font = font;
+        c.width = Math.ceil(ctx.measureText(label).width) + 24; c.height = 64;
+        ctx.font = font; ctx.textBaseline = 'middle'; ctx.fillStyle = 'rgba(255,255,255,0.92)';
+        ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 8;
+        ctx.fillText(label, 12, 34);
+        hit = { tex: new THREE.CanvasTexture(c), aspect: c.width / c.height };
+        ECO.labelTex.set(label, hit);
+    }
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: hit.tex, transparent: true, depthWrite: false }));
+    sp.scale.set(size * hit.aspect, size, 1);
+    sp.userData.ownMat = true;
     return sp;
 }
 
@@ -20530,39 +20399,78 @@ function ecoRing(radius) {
 
 function ecoClearWorld() {
     ECO.world.traverse(o => {
-        if (o.userData && o.userData.tex) { o.userData.tex.dispose(); o.material.dispose(); }
         if (o.userData && o.userData.ownMat) o.material.dispose();
         if (o.isLine && o.geometry) o.geometry.dispose();
         if (o.isInstancedMesh && typeof o.dispose === 'function') o.dispose();
     });
     while (ECO.world.children.length) ECO.world.remove(ECO.world.children[0]);
     if (ECO.links) { ECO.scene.remove(ECO.links); ECO.links.geometry.dispose(); ECO.links = null; }
+    // Nothing is using a label now, so if the store has grown large, empty it.
+    if (ECO.labelTex.size > ECO_LOD.labels) { ECO.labelTex.forEach(h => h.tex.dispose()); ECO.labelTex.clear(); }
+}
+
+/// Which companies are drawn in full. With few enough, all of them. Beyond
+/// that: the leaders, anything with open listings ahead of its rank, the ones
+/// you follow, the ones you have opened, and the ones the camera is near.
+function ecoFullSet(model) {
+    const cap = ECO_GFX.quality === 'high' ? ECO_LOD.fullHigh : ECO_LOD.fullLow;
+    const full = new Set();
+    if (model.planets.length <= cap) { model.planets.forEach(p => full.add(p.id)); return full; }
+    const weight = p => p.score + (p.open.halo > 0 ? 2 + 3 * p.open.halo : 0) + (model.mine.companies.has(p.id) ? 1000 : 0);
+    model.planets.map(p => [weight(p), p.id]).sort((a, b) => b[0] - a[0]).slice(0, cap).forEach(x => full.add(x[1]));
+    ECO.promoted.forEach(id => full.add(id));
+    ECO.near.forEach(id => full.add(id));
+    // While a ranking is on show, its top ten must be findable on the map.
+    if (model.showTop) model.rank.people.rows.slice(0, ECO_RANK_TOP).forEach(x => { const a = x.e.appearances[0]; if (a) full.add(a.planet.id); });
+    return full;
+}
+
+/// Mark a company to be drawn in full. The last few opened stay that way.
+function ecoPromote(companyId) {
+    ECO.promoted = [companyId].concat(ECO.promoted.filter(id => id !== companyId)).slice(0, ECO_LOD.promoted);
 }
 
 function ecoRebuildScene() {
-    if (!ECO.ready || !ECO.raw.users || !ECO.raw.companies || !ECO.raw.holders || !ECO.raw.bounties) return;
+    if (!ECO.ready || !ECO.snap) return;
     const keepId = ECO.selected && ECO.selected.id;
     const model = ECO.model = ecoBuildModel();
     ecoClearWorld();
-    ECO.nodes = []; ECO.byId = new Map();
+    ECO.nodes = []; ECO.byId = new Map(); ECO.minors = []; ECO.marks = [];
 
     const add = node => { ECO.nodes.push(node); ECO.byId.set(node.id, node); return node; };
     add({ id: 'sun', kind: 'sun', label: 'NQVate', mesh: ECO.sun, radius: 14 });
     // In the top 10 of the ranking currently on show?
     const top = e => model.showTop && e.rankPos > 0 && e.rankPos <= ECO_RANK_TOP;
+    const full = ecoFullSet(model);
+    const moons = { founder: [], holder: [], builder: [] };
 
     // Planets sit on rings that hold more of them the further out they are,
-    // so the system grows outwards slowly instead of in one long line.
+    // so the system grows outwards slowly instead of in one long line. A
+    // company's place depends only on its position in the list, never on
+    // whether it is drawn in full, so nothing jumps when one fills in.
     let ring = 0, slot = 0, outer = 70;
     model.planets.forEach(pl => {
         const cap = Math.ceil((ring + 1) * 1.5);
         const orbitR = 70 + ring * 46;
         outer = orbitR;
-        if (slot === 0) {
-            const r = ecoRing(orbitR);
-            ECO.world.add(r);
-        }
+        if (slot === 0) ECO.world.add(ecoRing(orbitR));
         const size = pl.size;
+        const node = add({
+            id: 'c:' + pl.id, kind: 'company', label: pl.name, planet: pl, radius: size, pos: new THREE.Vector3(),
+            orbitR, phase: (slot / cap + ecoHash(pl.id, 7) * 0.5 / cap) * Math.PI * 2 + ring * 0.9,
+            speed: 0.045 / Math.sqrt(orbitR / 70), spin: 0.04 + ecoHash(pl.id, 24) * 0.1
+        });
+        pl.node = node;
+        if (++slot >= cap) { slot = 0; ring++; }
+
+        if (!full.has(pl.id)) {
+            // A plain sphere in the shared batch. No surface, label or moons
+            // until it is opened or the camera comes near.
+            node.minor = true; node.index = ECO.minors.length;
+            ECO.minors.push(node);
+            return;
+        }
+
         const group = new THREE.Group();
         const mesh = new THREE.Mesh(ECO.sphere, ecoPlanetMaterial(pl.id));
         mesh.scale.setScalar(size);
@@ -20571,10 +20479,9 @@ function ecoRebuildScene() {
         const glow = new THREE.Sprite(ECO.rimMats[pl.verified ? 'verified' : 'unverified']);
         glow.scale.setScalar(size * 2.76);                           // puts the bright ring just outside the surface
         group.add(glow);
-        let halo = null;
         if (pl.open.halo > 0) {
             // Its own material, because each company's brightness differs.
-            halo = new THREE.Sprite(new THREE.SpriteMaterial({
+            const halo = new THREE.Sprite(new THREE.SpriteMaterial({
                 map: ECO.haloTex, color: 0xff2d2d, transparent: true, depthWrite: false,
                 blending: THREE.AdditiveBlending, opacity: 0.35 + 0.65 * pl.open.halo
             }));
@@ -20582,67 +20489,85 @@ function ecoRebuildScene() {
             halo.userData.base = size * (4.6 + 3.4 * pl.open.halo);      // the bright band sits from ~1.15 to ~2 planet radii out
             halo.scale.setScalar(halo.userData.base);
             group.add(halo);
+            node.halo = halo;
         }
         const label = ecoLabelSprite((top(pl) ? '#' + pl.rankPos + ' ' : '') + pl.name, 7);
         label.position.y = size + 7;
         group.add(label);
         ECO.world.add(group);
+        node.group = group; node.mesh = mesh;
+        node.pos = group.position;                                    // one vector: moving the node moves the planet
 
-        const node = add({
-            id: 'c:' + pl.id, kind: 'company', label: pl.name, planet: pl, mesh, group, radius: size, halo,
-            orbitR, phase: (slot / cap + ecoHash(pl.id, 7) * 0.5 / cap) * Math.PI * 2 + ring * 0.9,
-            speed: 0.045 / Math.sqrt(orbitR / 70), spin: 0.04 + ecoHash(pl.id, 24) * 0.1
-        });
-        pl.node = node;
-
-        // Moons: founder first, then by stake, then by work done.
+        // Moons: founder first, then by stake, then by work done. Only the
+        // leading few are drawn — plus whoever is selected or in the ranking's
+        // top ten, wherever they come in this company.
         const members = [...pl.members.values()].sort((a, b) =>
-            (b.roles.has('founder') - a.roles.has('founder')) || (b.units - a.units) || (b.bounties.length - a.bounties.length));
+            (b.roles.has('founder') - a.roles.has('founder')) || (b.units - a.units) || (b.nb - a.nb));
+        const shownMembers = members.slice(0, ECO_LOD.moons);
+        members.slice(ECO_LOD.moons).forEach(m => { if (m.person.key === ECO.focusKey || top(m.person)) shownMembers.push(m); });
         let shell = 0, place = 0;
-        members.forEach(m => {
+        shownMembers.forEach(m => {
             const shellCap = 6 + shell * 4;
             const role = m.roles.has('founder') ? 'founder' : m.roles.has('holder') ? 'holder' : 'builder';
             const mSize = m.person.size;
-            const moon = new THREE.Mesh(ECO.sphereLo, ECO.mats[role]);
-            moon.scale.setScalar(mSize);
-            group.add(moon);
-            if (top(m.person)) {
-                // Children of the moon, so they travel with it. The moon is
-                // scaled, so the label is scaled back to stay one readable size.
-                const gold = new THREE.Sprite(ECO.rimMats.gold);
-                gold.scale.setScalar(3.4);
-                moon.add(gold);
-                const tag = ecoLabelSprite('#' + m.person.rankPos + ' ' + m.person.label, 3.4);
-                tag.scale.multiplyScalar(1 / mSize);
-                tag.position.y = 1 + 3.2 / mSize;
-                moon.add(tag);
-            }
             const mNode = add({
                 id: 'm:' + pl.id + ':' + m.person.key, kind: 'person', label: m.person.label, person: m.person, member: m, planetNode: node,
-                mesh: moon, radius: mSize,
+                radius: mSize, pos: new THREE.Vector3(),
                 orbitR: size + 5 + shell * 3.6,
                 phase: (place / shellCap) * Math.PI * 2 + ecoHash(m.person.key + pl.id, 3) * 0.6,
                 tilt: (ecoHash(m.person.key + pl.id, 5) - 0.5) * 0.9,
                 speed: 0.35 / Math.sqrt(1 + shell)
             });
             m.node = mNode;
+            moons[role].push(mNode);
+            if (top(m.person)) {
+                const gold = new THREE.Sprite(ECO.rimMats.gold);
+                gold.scale.setScalar(mSize * 3.4);
+                const tag = ecoLabelSprite('#' + m.person.rankPos + ' ' + m.person.label, 3.4);
+                ECO.world.add(gold); ECO.world.add(tag);
+                ECO.marks.push({ node: mNode, gold, tag });
+            }
             if (++place >= shellCap) { place = 0; shell++; }
         });
-
-        if (++slot >= cap) { slot = 0; ring++; }
     });
+
+    // Every moon of one role is drawn in a single batch.
+    ECO.moonSets = Object.keys(moons).map(role => {
+        const list = moons[role];
+        const mesh = new THREE.InstancedMesh(ECO.sphereLo, ECO.mats[role], Math.max(1, list.length));
+        mesh.count = list.length; mesh.frustumCulled = false;
+        ECO.world.add(mesh);
+        return { mesh, list };
+    });
+
+    // Distant companies, likewise. Red if they have open listings, otherwise
+    // a quiet version of the verified / unverified colour.
+    ECO.minorMesh = null;
+    if (ECO.minors.length) {
+        ECO.minorMesh = new THREE.InstancedMesh(ECO.minors.length > (ECO_GFX.quality === 'high' ? 2000 : 400) ? ECO.sphereTiny : ECO.sphereLo, ECO.minorMat, ECO.minors.length);
+        ECO.minorMesh.frustumCulled = false;
+        const col = new THREE.Color();
+        ECO.minors.forEach((n, i) => {
+            const pl = n.planet;
+            ECO.minorMesh.setColorAt(i, pl.open.halo > 0 ? col.setHex(0xff5a5a) : col.setHex(pl.verified ? 0x2f9e78 : 0x4a7fc4));
+        });
+        if (ECO.minorMesh.instanceColor) ECO.minorMesh.instanceColor.needsUpdate = true;
+        ECO.world.add(ECO.minorMesh);
+    }
 
     // The belt: members with no company tie yet.
     ECO.belt = new THREE.Group();
     ECO.world.add(ECO.belt);
     const beltInner = outer + 60;
     // Drawn as ONE batch, so a belt of ten thousand costs about what ten does.
-    const beltMesh = new THREE.InstancedMesh(ECO.sphereLo, ECO.mats.belt, Math.max(1, model.belt.length));
+    // In a crowded belt each member is a few pixels, so a simpler sphere will do.
+    const beltMesh = new THREE.InstancedMesh(model.belt.length > 600 ? ECO.sphereTiny : ECO.sphereLo, ECO.mats.belt, Math.max(1, model.belt.length));
     beltMesh.count = model.belt.length;
     beltMesh.frustumCulled = false;
     const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3();
+    const beltDepth = 45 + Math.min(120, model.belt.length / 40);       // a fuller belt is a wider one
     model.belt.forEach((p, i) => {
-        const r = beltInner + ecoHash(p.key, 11) * 45, a = ecoHash(p.key, 12) * Math.PI * 2;
+        const r = beltInner + ecoHash(p.key, 11) * beltDepth, a = ecoHash(p.key, 12) * Math.PI * 2;
         _p.set(Math.cos(a) * r, (ecoHash(p.key, 13) - 0.5) * 14, Math.sin(a) * r);
         _s.setScalar(p.size);
         beltMesh.setMatrixAt(i, _m.compose(_p, _q, _s));
@@ -20659,23 +20584,23 @@ function ecoRebuildScene() {
     });
     beltMesh.instanceMatrix.needsUpdate = true;
     ECO.belt.add(beltMesh);
-    ECO.extent = beltInner + 60;
+    ECO.extent = beltInner + beltDepth + 15;
     if (ECO.dust) ECO.dust.scale.setScalar(ECO.extent * 1.15);
 
-    const builders = [...model.people.values()].filter(p => p.bounties.length).length;
-    const holdersN = [...model.people.values()].filter(p => p.appearances.some(a => a.member.roles.has('holder'))).length;
+    const c = model.counts;
     document.getElementById('eco-counts').textContent =
-        `${ECO.raw.users.size} members · ${model.planets.length} companies · ${holdersN} equity holders · ${builders} builders`;
+        `${(c.members || 0).toLocaleString()} members · ${model.planets.length.toLocaleString()} companies · ${(c.holders || 0).toLocaleString()} equity holders · ${(c.builders || 0).toLocaleString()} builders`;
     document.getElementById('eco-live-dot').className = 'inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
-    ecoStatus(ECO.raw.users.size || model.planets.length ? '' : 'Nothing here yet.');
+    ecoStatus(c.members || model.planets.length ? '' : 'Nothing here yet.');
 
+    ecoPlace(ECO.lastT || 0);          // put everything where it belongs before the next frame draws it
     ecoSyncMeasureUI();
     ecoRenderFeed();
 
     // Keep whatever was selected selected, if it still exists.
     const again = keepId && ECO.byId.get(keepId);
     ECO.selected = null; ECO.follow = null;
-    if (again) ecoSelect(again, true); else if (keepId) ecoSelect(null);
+    if (again && !again.minor) ecoSelect(again, true); else if (keepId) ecoSelect(null);
     if (!ECO.framed) { ECO.framed = true; ecoResetView(); }
 }
 
@@ -20685,28 +20610,67 @@ function ecoScheduleRebuild() {
 }
 
 // ── Frame loop ───────────────────────────────────────────────────────────
+const _ecoM = { m: null, q: null, s: null };
 function ecoPlace(t) {
+    ECO.lastT = t;
     const tt = ECO.reduceMotion ? 0 : t;
+    if (!_ecoM.m) { _ecoM.m = new THREE.Matrix4(); _ecoM.q = new THREE.Quaternion(); _ecoM.s = new THREE.Vector3(); }
+    const { m, q, s } = _ecoM;
+
+    // Companies first: everything else is placed relative to them.
     for (const n of ECO.nodes) {
-        if (n.kind === 'company') {
-            const a = n.phase + tt * n.speed;
-            n.group.position.set(Math.cos(a) * n.orbitR, 0, Math.sin(a) * n.orbitR);
-            n.mesh.rotation.y = tt * n.spin;
-            if (n.halo) n.halo.scale.setScalar(n.halo.userData.base * (1 + 0.07 * Math.sin(tt * 1.7 + n.phase)));     // a slow pulse
-        } else if (n.planetNode) {
-            const a = n.phase + tt * n.speed;
-            n.mesh.position.set(Math.cos(a) * n.orbitR, Math.sin(a) * n.orbitR * n.tilt, Math.sin(a) * n.orbitR);
-        }
+        if (n.kind !== 'company') continue;
+        const a = n.phase + tt * n.speed;
+        n.pos.set(Math.cos(a) * n.orbitR, 0, Math.sin(a) * n.orbitR);
+        if (n.minor) { ECO.minorMesh.setMatrixAt(n.index, m.compose(n.pos, q, s.setScalar(n.radius))); continue; }
+        n.mesh.rotation.y = tt * n.spin;
+        if (n.halo) n.halo.scale.setScalar(n.halo.userData.base * (1 + 0.07 * Math.sin(tt * 1.7 + n.phase)));     // a slow pulse
     }
+    if (ECO.minorMesh) ECO.minorMesh.instanceMatrix.needsUpdate = true;
+
+    // Moons, written straight into their batches.
+    for (const set of ECO.moonSets) {
+        const list = set.list;
+        for (let i = 0; i < list.length; i++) {
+            const n = list[i], c = n.planetNode.pos, a = n.phase + tt * n.speed;
+            n.pos.set(c.x + Math.cos(a) * n.orbitR, Math.sin(a) * n.orbitR * n.tilt, c.z + Math.sin(a) * n.orbitR);
+            set.mesh.setMatrixAt(i, m.compose(n.pos, q, s.setScalar(n.radius)));
+        }
+        if (list.length) set.mesh.instanceMatrix.needsUpdate = true;
+    }
+    // The gold marks travel with the moons they belong to.
+    for (const k of ECO.marks) {
+        k.gold.position.copy(k.node.pos);
+        k.tag.position.copy(k.node.pos); k.tag.position.y += k.node.radius + 3.2;
+    }
+
     if (ECO.belt) ECO.belt.rotation.y = tt * 0.006;
     if (ECO.dust) ECO.dust.rotation.y = tt * 0.004;
     if (ECO.sunMat) ECO.sunMat.uniforms.t.value = tt;
 }
 
+/// Fill in the plain companies the camera has come close to, and empty the
+/// ones it has left. Checked a couple of times a second, and never redrawn
+/// more often than the map can comfortably manage.
+function ecoCheckNear(now) {
+    const cam = ECO.camera.position, keep = new Set(), cand = [];
+    ECO.near.forEach(id => { const n = ECO.byId.get('c:' + id); if (n && n.pos.distanceTo(cam) < ECO_LOD.nearOut) keep.add(id); });
+    for (const n of ECO.minors) { const d = n.pos.distanceTo(cam); if (d < ECO_LOD.nearIn) cand.push([d, n.planet.id]); }
+    cand.sort((a, b) => a[0] - b[0]);
+    for (const x of cand) { if (keep.size >= ECO_LOD.nearMax) break; keep.add(x[1]); }
+    const key = [...keep].sort().join();
+    if (key !== ECO.nearKey && now - ECO.nearAt > 700) {
+        ECO.nearKey = key; ECO.near = keep; ECO.nearAt = now;
+        ecoRebuildScene();
+    }
+}
+
 const _ecoV = { a: null, b: null };
 function ecoWorldPos(node, out) {
     // Belt members are part of one batch, so their position is worked out from the belt's.
-    return node.local ? out.copy(node.local).applyMatrix4(ECO.belt.matrixWorld) : node.mesh.getWorldPosition(out);
+    // Planets and moons carry their own position; only the sun is a plain object.
+    return node.local ? out.copy(node.local).applyMatrix4(ECO.belt.matrixWorld)
+         : node.pos ? out.copy(node.pos) : node.mesh.getWorldPosition(out);
 }
 
 function ecoFrame() {
@@ -20724,6 +20688,7 @@ function ecoFrame() {
         else if (avg > 45 && !ECO_GFX.floor) { ECO_GFX.floor = true; ECO.renderer.setPixelRatio(1); ecoResize(); }
     }
     ecoPlace(t);
+    if ((ECO.minors.length || ECO.near.size) && now - ECO.lodTick > 400) { ECO.lodTick = now; ecoCheckNear(now); }
     if (ECO.sunGlow) {
         const tt = ECO.reduceMotion ? 0 : t;
         ECO.sunGlow.scale.setScalar(150 * (1 + 0.05 * Math.sin(tt * 1.3)));
@@ -20802,7 +20767,7 @@ function ecoHover(node, cx, cy) {
     const rect = document.getElementById('eco-canvas').getBoundingClientRect();
     let text = node.label;
     if (node.kind === 'person' && node.planetNode) text += ' · ' + [...node.member.roles].join(', ') + ' of ' + node.planetNode.label;
-    if (node.kind === 'company') text += node.planet.verified ? ' · verified' : '';
+    if (node.kind === 'company') text += (node.planet.verified ? ' · verified' : '') + (node.planet.open.count ? ' · ' + node.planet.open.count + ' open' : '');
     tip.textContent = text;
     tip.style.left = Math.min(rect.width - 200, cx - rect.left + 14) + 'px';
     tip.style.top = (cy - rect.top + 14) + 'px';
@@ -20816,9 +20781,34 @@ function ecoPersonNodes(person) {
     return nodes;
 }
 
-function ecoSelectId(id) { const n = ECO.byId.get(id); if (n) ecoSelect(n); }
+/// Select by id. If the thing is not drawn in full yet — a distant company,
+/// or someone beyond the few moons a company shows — draw it first.
+function ecoSelectId(id) {
+    let n = ECO.byId.get(id);
+    if (!n || n.minor) {
+        const moon = /^m:([^:]+):(.+)$/.exec(id), co = /^c:(.+)$/.exec(id);
+        if (moon) { ecoPromote(moon[1]); ECO.focusKey = moon[2]; }
+        else if (co) ecoPromote(co[1]);
+        else return;
+        ecoRebuildScene();
+        n = ECO.byId.get(id);
+    }
+    if (n && !n.minor) ecoSelect(n);
+}
+
+/// Select a member wherever they are: one of their moons, or their place in the belt.
+function ecoSelectPerson(key) {
+    const p = ECO.model && ECO.model.people.get(key);
+    if (!p) return;
+    const n = ecoPersonNodes(p)[0];
+    if (n) return ecoSelect(n);
+    if (p.appearances.length) ecoSelectId('m:' + p.appearances[0].planet.id + ':' + key);
+}
 
 function ecoSelect(node, quiet) {
+    if (node && node.minor) return ecoSelectId(node.id);            // fill it in, then select it
+    if (node && node.kind === 'person') ECO.focusKey = node.person.key;
+    if (node && node.kind === 'company' && !ECO.promoted.includes(node.planet.id)) ecoPromote(node.planet.id);
     ECO.selected = node || null;
     if (ECO.links) { ECO.scene.remove(ECO.links); ECO.links.geometry.dispose(); ECO.links = null; }
     const panel = document.getElementById('eco-panel');
@@ -20910,7 +20900,7 @@ function ecoPanelHtml(node) {
         return `${close}<p class="text-xs uppercase tracking-wider text-cyan-300 mb-1">The platform</p>
             <h2 class="text-xl font-bold mb-3">NQVate</h2>
             <div class="grid grid-cols-2 gap-2 text-center mb-4">
-                ${[[ECO.raw.users.size, 'Members'], [m.planets.length, 'Companies'], [m.planets.filter(p => p.verified).length, 'Verified'], [m.belt.length, 'In the belt']]
+                ${[[(m.counts.members || 0).toLocaleString(), 'Members'], [m.planets.length, 'Companies'], [m.planets.filter(p => p.verified).length, 'Verified'], [(m.belt.length + (m.counts.peopleLeftOut || 0)).toLocaleString(), 'In the belt']]
                     .map(([n, l]) => `<div class="bg-zinc-800/70 rounded-xl py-2"><p class="text-lg font-bold">${n}</p><p class="text-[11px] text-zinc-400">${l}</p></div>`).join('')}
             </div>
             <p class="text-xs text-zinc-400 mb-3">Bounties: ${open} open · ${active} in progress · ${done} completed</p>
@@ -20931,14 +20921,14 @@ function ecoPanelHtml(node) {
         }).filter(v => v.roles.length)
           .sort((a, b) => (b.roles.includes('founder') - a.roles.includes('founder')) || (b.units - a.units));
         const note = !chain ? 'Checking stakes against the contract…'
-            : chain.ok ? '✓ Stakes read from the NQVateEquityRegistry contract just now.'
+            : chain.ok ? '✓ Stakes read from the NQVateEquityRegistry contract within the last minute.'
             : 'Could not reach the contract — showing the site\'s index, which may be out of date.';
         return `${close}<p class="text-xs uppercase tracking-wider ${pl.verified ? 'text-emerald-300' : 'text-blue-300'} mb-1">Company</p>
             <h2 class="text-xl font-bold pr-8">${ecoEsc(pl.name)}</h2>
             <p class="text-xs text-zinc-400 mb-3">${ecoEsc(pl.entityType || 'Project')} · ${pl.verified ? 'Verified' : 'Unverified'} · ${pl.live ? 'Live' : 'Building'}</p>
             ${ecoFollowBtn('company', pl.id)}
             <div class="grid grid-cols-2 gap-2 text-center mb-2">
-                ${[[pl.value ? '$' + Math.round(pl.value).toLocaleString() : '—', 'Implied value'], [pl.followers, 'Followers'], [pl.members.size, 'People'], [pl.bountyCounts.done + pl.bountyCounts.active, 'Bounties worked']]
+                ${[[pl.value ? '$' + Math.round(pl.value).toLocaleString() : '—', 'Implied value'], [pl.followers, 'Followers'], [pl.memberCount.toLocaleString(), 'People'], [pl.bountyCounts.done + pl.bountyCounts.active, 'Bounties worked']]
                     .map(([n, l]) => `<div class="bg-zinc-800/70 rounded-xl py-2 px-1"><p class="text-sm font-bold truncate">${n}</p><p class="text-[10px] text-zinc-400">${l}</p></div>`).join('')}
             </div>
             <p class="text-[11px] text-zinc-500 mb-4">${pl.value
@@ -20950,10 +20940,11 @@ function ecoPanelHtml(node) {
                 `<button onclick="ecoOpenListing('${ecoEsc(l.id)}')" class="w-full flex items-center justify-between gap-3 text-left px-3 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20">
                     <span class="text-sm truncate">${l.type === 'fund' ? '💰' : '📋'} ${ecoEsc(l.title)}</span><span class="text-xs text-red-200 shrink-0">${ecoEsc(l.pay.length > 22 ? l.pay.slice(0, 21) + '…' : l.pay)}</span></button>`).join('')}
             ${pl.open.count > 8 ? `<button onclick="ecoMarketFor('${ecoEsc(pl.id)}')" class="text-xs text-red-300 hover:underline">See all ${pl.open.count} →</button>` : ''}</div>` : ''}
-            <p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">People (${view.length})</p>
-            <div class="space-y-1.5 mb-2">${view.map(v => row(v.m.node.id,
+            <p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">People (${pl.memberCount.toLocaleString()})</p>
+            <div class="space-y-1.5 mb-2">${view.slice(0, 60).map(v => row('m:' + pl.id + ':' + v.m.person.key,
                 ecoEsc(v.m.person.label) + ' ' + v.roles.map(r => ecoChip(ECO_ROLE_CHIP[r][0], ECO_ROLE_CHIP[r][1])).join(' '),
-                v.units ? (v.units / 100).toFixed(2) + '%' : (v.m.bounties.length ? v.m.bounties.length + (v.m.bounties.length > 1 ? ' bounties' : ' bounty') : ''))).join('') || '<p class="text-sm text-zinc-500">Nobody yet.</p>'}</div>
+                v.units ? (v.units / 100).toFixed(2) + '%' : (v.m.nb ? v.m.nb + (v.m.nb > 1 ? ' bounties' : ' bounty') : ''))).join('') || '<p class="text-sm text-zinc-500">Nobody yet.</p>'}</div>
+            ${pl.memberCount > Math.min(view.length, 60) ? `<p class="text-[11px] text-zinc-500 mb-2">Showing the leading ${Math.min(view.length, 60)} of ${pl.memberCount.toLocaleString()}. Search for anyone else by name.</p>` : ''}
             <p class="text-[11px] ${chain && chain.ok ? 'text-emerald-400' : 'text-zinc-500'} mb-4">${note}</p>
             ${pl.bountyTitles.length ? `<p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Recent bounties</p>
             <ul class="space-y-1 mb-4">${pl.bountyTitles.map(b => `<li class="text-sm text-zinc-300 flex justify-between gap-3"><span class="truncate">${ecoEsc(b.title)}</span><span class="text-xs text-zinc-500 shrink-0">${b.done ? 'done' : b.active ? 'in progress' : 'open'}</span></li>`).join('')}</ul>` : ''}
@@ -20961,7 +20952,7 @@ function ecoPanelHtml(node) {
     }
 
     const p = node.person;
-    const done = p.bounties.filter(b => b.done).length;
+    const done = p.stats.done;
     // Same rule as the company panel: a stake the contract says is zero is not a stake.
     const ties = p.appearances.map(a => {
         const units = ecoUnitsFor(a);
@@ -20981,11 +20972,11 @@ function ecoPanelHtml(node) {
         ${p.rankPos ? `<p class="text-xs text-yellow-300 mb-2">🏆 #${p.rankPos} for ${ecoEsc(ecoLow(ECO.model.rank.people.m.label))}</p>` : ''}
         <p class="text-[11px] text-zinc-500 mb-4">${ECO.model.rank.people.key === 'overall' ? 'Everything but the rating sets how large this member appears.' : 'Right now members are sized by ' + ecoEsc(ecoLow(ECO.model.rank.people.m.label)) + ' alone.'}</p>
         ${ties.length ? `<p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Companies (${ties.length})</p>
-        <div class="space-y-1.5 mb-4">${ties.map(t => row(t.a.planet.node.id,
+        <div class="space-y-1.5 mb-4">${ties.map(t => row('c:' + t.a.planet.id,
             ecoEsc(t.a.planet.name) + ' ' + t.roles.map(r => ecoChip(ECO_ROLE_CHIP[r][0], ECO_ROLE_CHIP[r][1])).join(' '),
             t.units ? (t.units / 100).toFixed(2) + '%' : '')).join('')}</div>`
           : '<p class="text-sm text-zinc-400 mb-4">Not tied to a company yet — no company founded, no stake held, no bounty worked.</p>'}
-        ${p.bounties.length ? `<p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Bounties worked (${done} completed of ${p.bounties.length})</p>
+        ${p.nb ? `<p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Bounties worked (${done} completed of ${p.nb})</p>
         <ul class="space-y-1 mb-4">${p.bounties.slice(0, 8).map(b => `<li class="text-sm text-zinc-300 flex justify-between gap-3"><span class="truncate">${ecoEsc(b.title)}</span><span class="text-xs text-zinc-500 shrink-0">${b.done ? 'done' : 'in progress'}</span></li>`).join('')}</ul>` : ''}
         ${p.uid ? `<button onclick="viewUserProfile('${ecoEsc(p.uid)}')" class="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-sm font-semibold">👤 View profile</button>` : ''}`;
 }
@@ -20993,25 +20984,21 @@ function ecoPanelHtml(node) {
 /// Read this company's stakes from the contract and redraw the panel with them.
 ///
 /// The map is laid out from the site's index (equityHolders), which is quick
-/// but only as fresh as the last time the site wrote to it — it can still
-/// hold balances from an earlier version of the registry. The contract is the
-/// authority, so whenever a company is opened its numbers are checked here.
+/// but only as fresh as the last time the site wrote to it. The contract is
+/// the authority, so whenever a company is opened its numbers are checked.
+/// The server does the reading: it holds the wallet addresses, which the map
+/// itself is never sent.
 async function ecoVerifyCompany(node) {
     const pl = node.planet;
     const cached = ECO.chain.get(pl.id);
     if (cached && Date.now() - cached.at < 60000) return;
     try {
-        const provider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
-        const registry = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, provider);
-        const cid = toBytes32(pl.id);
-        const todo = [...pl.members.values()]
-            .map(m => ({ key: m.person.key, wallet: m.wallet || m.person.wallet }))
-            .filter(x => x.wallet && /^0x[0-9a-f]{40}$/.test(x.wallet)).slice(0, 60);
-        const units = new Map();
-        await Promise.all(todo.map(async x => { units.set(x.key, (await registry.balances(cid, x.wallet)).toNumber()); }));
-        ECO.chain.set(pl.id, { ok: true, units, at: Date.now() });
+        const res = await fetch('/api/nqverse?company=' + encodeURIComponent(pl.id));
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const body = await res.json();
+        ECO.chain.set(pl.id, { ok: true, units: new Map(Object.entries(body.units || {})), at: Date.now() });
     } catch (e) {
-        console.warn('Ecosystem: could not read stakes from the contract:', e.message);
+        console.warn('NQVerse: could not read stakes from the contract:', e.message);
         ECO.chain.set(pl.id, { ok: false, units: new Map(), at: Date.now() - 50000 });      // retry after ~10s
     }
     const sel = ECO.selected;
@@ -21031,63 +21018,42 @@ function ecoSearch(q) {
     const term = String(q || '').trim().toLowerCase();
     if (!term || !ECO.model) return box.classList.add('hidden');
     const hits = [];
-    ECO.model.planets.forEach(pl => { if (pl.name.toLowerCase().includes(term)) hits.push([pl.node.id, pl.name, 'Company']); });
-    ECO.model.people.forEach(p => {
-        if (hits.length >= 12) return;
-        if ((p.label + ' ' + p.name).toLowerCase().includes(term)) {
-            const n = ecoPersonNodes(p)[0];
-            if (n) hits.push([n.id, p.label, 'Member']);
+    for (const pl of ECO.model.planets) {
+        if (hits.length >= 6) break;
+        if (pl.name.toLowerCase().includes(term)) hits.push(["ecoSelectId('c:" + ecoEsc(pl.id) + "')", pl.name, 'Company']);
+    }
+    for (const p of ECO.model.people.values()) {
+        if (hits.length >= 12) break;
+        if ((p.known || p.appearances.length) && (p.label + ' ' + p.name).toLowerCase().includes(term)) {
+            hits.push(["ecoSelectPerson('" + ecoEsc(p.key) + "')", p.label, 'Member']);
         }
-    });
-    box.innerHTML = hits.slice(0, 12).map(([id, label, kind]) =>
-        `<button onclick="ecoSelectId('${ecoEsc(id)}'); document.getElementById('eco-search-results').classList.add('hidden'); document.getElementById('eco-search').value='';"
+    }
+    box.innerHTML = hits.map(([go, label, kind]) =>
+        `<button onclick="${go}; document.getElementById('eco-search-results').classList.add('hidden'); document.getElementById('eco-search').value='';"
                  class="w-full flex justify-between gap-3 px-3 py-2 text-left hover:bg-zinc-800"><span class="truncate">${ecoEsc(label)}</span><span class="text-xs text-zinc-500">${kind}</span></button>`).join('')
         || '<p class="px-3 py-2 text-zinc-500">No match</p>';
     box.classList.remove('hidden');
 }
 
 // ── Feed ─────────────────────────────────────────────────────────────────
-// Built from what the map is already listening to, so it costs no extra
-// reads beyond the latest posts and the member's own notifications.
+// Platform activity arrives with the summary. The only extra reads are the
+// latest posts and the member's own notifications.
 //
 //   Following   your notifications, plus anything done by a member or company
 //               you follow
 //   Everyone    the latest across the whole platform — what a guest sees
 function ecoFeedEvents() {
-    const m = ECO.model, { users, companies, bounties, sales, funding, posts } = ECO.raw;
+    // What happened on the platform comes ready-made in the summary; the
+    // latest posts are still read live so a new one shows at once.
     const secs = t => (t && t.seconds) || 0;
-    const uname = uid => { const u = users.get(uid); return u ? '@' + (u.username || 'user') : 'Someone'; };
-    const shown = new Map(m.planets.map(p => [p.id, p.name]));
-    const ev = [];
-    const push = (t, icon, text, actors, comps, target) => {
-        if (t > 0) ev.push({ t, icon, text, actors: actors.filter(Boolean), comps: comps.filter(Boolean), target });
-    };
-
-    bounties.forEach(b => {
-        if (b.planNode || b.type !== 'build') return;
-        const owner = b.ownerUid || b.posterUid, builder = b.acceptedBidderUid;
-        const co = shown.has(b.companyId) ? b.companyId : null;
-        const title = '“' + (b.title || 'Untitled bounty') + '”', forCo = co ? ' for ' + shown.get(co) : '';
-        push(secs(b.createdAt), '📋', `${uname(owner)} posted a bounty: ${title}`, [owner], [co], co ? { node: 'c:' + co } : { uid: owner });
-        if (builder) push(secs(b.acceptedAt), '🤝', `${uname(builder)} was chosen for ${title}${forCo}`, [builder, owner], [co], { uid: builder });
-        if (builder && b.status === 'completed') push(secs(b.completedAt), '✅', `${uname(builder)} completed ${title}${forCo}`, [builder, owner], [co], { uid: builder });
-    });
-    m.planets.forEach(p => {
-        const c = companies.get(p.id);
-        push(secs(c && c.createdAt), '🚀', `${uname(p.ownerUid)} started ${p.name}`, [p.ownerUid], [p.id], { node: 'c:' + p.id });
-    });
-    sales.forEach(l => { if (shown.has(l.projectId)) push(secs(l.soldAt), '📈', `A stake in ${shown.get(l.projectId)} changed hands`, [], [l.projectId], { node: 'c:' + l.projectId }); });
-    funding.forEach(f => {
-        const id = f.companyId || f.projectId;
-        if (shown.has(id)) push(secs(f.completedAt) || secs(f.createdAt), '💰', `${shown.get(id)} closed a funding round`, [f.ownerUid], [id], { node: 'c:' + id });
-    });
-    posts.forEach(p => {
+    const ev = (ECO.snap.events || []).map(e => Object.assign({}, e));
+    ECO.raw.posts.forEach(p => {
         const who = '@' + (p.username || 'user'), title = '“' + (p.title || 'Untitled') + '”';
         const live = p.type === 'stream' && p.liveStatus === 'live' && (!p.liveExpiresAt || Date.now() < p.liveExpiresAt);
         const [icon, text] = p.type === 'stream' ? (live ? ['🔴', `${who} is live: ${title}`] : ['📡', `${who} streamed: ${title}`])
                            : p.type === 'podcast' ? ['🎙️', `${who} released an episode: ${title}`]
                            : ['💬', `${who} posted: ${title}`];
-        push(secs(p.createdAt), icon, text, [p.posterUid], [], { post: p._id });
+        if (secs(p.createdAt) > 0) ev.push({ t: secs(p.createdAt), icon, text, actors: [p.posterUid].filter(Boolean), comps: [], target: { post: p._id } });
     });
     return ev;
 }
@@ -21231,8 +21197,11 @@ function ecoRenderMarketRows() {
 function ecoOpenListing(id) {
     const l = ECO.model && ECO.model.listings.find(x => x.id === id);
     if (!l) return;
-    if (typeof showSubprojectDetail === 'function') showSubprojectDetail(l.id, Object.assign({ id: l.id }, l.raw));
-    else navigateTo('marketplace');
+    if (typeof showSubprojectDetail !== 'function') return navigateTo('marketplace');
+    // The summary holds only what a row needs. Fetch the listing itself to open it.
+    db.collection('subprojects').doc(l.id).get()
+        .then(doc => { if (doc.exists) showSubprojectDetail(l.id, Object.assign({ id: l.id }, doc.data())); else alert('That listing is no longer available.'); })
+        .catch(() => navigateTo('marketplace'));
 }
 
 /// A row in the Marketplace tab: point the map at the company it belongs to,
@@ -21240,7 +21209,7 @@ function ecoOpenListing(id) {
 function ecoMarketClick(i) {
     const l = ECO.marketRows && ECO.marketRows[i];
     if (!l) return;
-    if (l.planet && l.planet.node) ecoSelect(l.planet.node);
+    if (l.planet) ecoSelectId('c:' + l.planet.id);
     ecoOpenListing(l.id);
 }
 
@@ -21292,9 +21261,7 @@ function ecoRenderRankings() {
 function ecoRankClick(i) {
     const e = ECO.rankRows && ECO.rankRows[i];
     if (!e) return;
-    const node = e.node || ecoPersonNodes(e)[0];
-    if (!node) return;
-    ecoSelect(node);
+    if (ECO.rank.kind === 'companies') ecoSelectId('c:' + e.id); else ecoSelectPerson(e.key);
     // On a phone the map is above the list; go back up to watch it fly.
     if (window.innerWidth < 1024) { const st = document.getElementById('eco-canvas'); if (st) st.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
 }
@@ -21352,22 +21319,25 @@ function ecoFeedClick(i) {
         return;
     }
     if (t.node) return ecoSelectId(t.node);
-    if (t.uid) {
-        const p = ECO.model.people.get('u:' + t.uid), n = p && ecoPersonNodes(p)[0];
-        if (n) ecoSelect(n);
-    }
+    if (t.uid) ecoSelectPerson('u:' + t.uid);
 }
 
-/// Follow the signed-in member's notifications. Called whenever the page is
+/// Follow the signed-in member's notifications and follows. Called whenever the page is
 /// shown, because login can happen after the map has already started.
 function ecoSyncUser() {
     const uid = (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) || null;
     if (uid === ECO.feedUid) return;
     ECO.feedUid = uid;
     if (ECO.notifUnsub) { try { ECO.notifUnsub(); } catch (e) {} ECO.notifUnsub = null; }
-    ECO.raw.notifs = [];
+    if (ECO.followUnsub) { try { ECO.followUnsub(); } catch (e) {} ECO.followUnsub = null; }
+    ECO.raw.notifs = []; ECO.myFollows = [];
     ECO.feedMode = null;
     if (uid) {
+        // Only this member's own follows — a handful of records, and the
+        // Follow buttons react the instant one changes.
+        ECO.followUnsub = db.collection('follows').where('followerUid', '==', uid)
+            .onSnapshot(s => { const a = []; s.forEach(d => a.push(Object.assign({ _id: d.id }, d.data()))); ECO.myFollows = a; if (ECO.snap) ecoScheduleRebuild(); },
+                        e => console.warn('NQVerse: your follows are unavailable:', e.message));
         ECO.notifUnsub = db.collection('notifications').where('recipientUid', '==', uid).orderBy('createdAt', 'desc').limit(20)
             .onSnapshot(s => { const a = []; s.forEach(d => a.push(Object.assign({ _id: d.id }, d.data()))); ECO.raw.notifs = a; ecoRenderFeed(); },
                         e => console.warn('NQVerse: notifications unavailable:', e.message));
@@ -21375,39 +21345,43 @@ function ecoSyncUser() {
     if (ECO.model) ecoScheduleRebuild();      // who "I follow" changed, so buttons and feed must too
 }
 
-// ── Live data ────────────────────────────────────────────────────────────
+// ── Data ─────────────────────────────────────────────────────────────────
+/// Fetch the server's summary and redraw if it has changed. Asked for on
+/// arrival and once a minute after that; the server and its CDN make that a
+/// cheap question, and usually answer "nothing new".
+async function ecoLoadSnapshot() {
+    try {
+        const res = await fetch('/api/nqverse', { headers: { Accept: 'application/json' } });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const tag = res.headers.get('ETag') || '';
+        const snap = await res.json();
+        if (!snap || !Array.isArray(snap.planets) || !Array.isArray(snap.people)) throw new Error('Unexpected reply');
+        ECO.snapFails = 0;
+        const changed = !ECO.snap || (tag ? tag !== ECO.snapTag : snap.at !== ECO.snap.at);
+        ECO.snap = snap; ECO.snapTag = tag;
+        if (changed) ecoScheduleRebuild(); else document.getElementById('eco-live-dot').className = 'inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+    } catch (e) {
+        console.warn('NQVerse: could not load the summary:', e.message);
+        ECO.snapFails++;
+        document.getElementById('eco-live-dot').className = 'inline-block w-2 h-2 rounded-full bg-red-500';
+        if (!ECO.snap) ecoStatus('Could not load the NQVerse. Trying again…');
+    }
+    if (!ECO.running) return;
+    // Back off after failures: 5s, 10s, 20s … up to the usual minute.
+    const wait = ECO.snapFails ? Math.min(60000, 5000 * Math.pow(2, ECO.snapFails - 1)) : 60000;
+    clearTimeout(ECO.snapTimer);
+    ECO.snapTimer = setTimeout(() => { if (ECO.running && !document.hidden) ecoLoadSnapshot(); }, wait);
+}
+
 function ecoSubscribe() {
     if (ECO.unsub.length) return;
-    const fail = e => {
-        console.warn('Ecosystem listener failed:', e.message);
-        document.getElementById('eco-live-dot').className = 'inline-block w-2 h-2 rounded-full bg-red-500';
-        if (!ECO.model) ecoStatus('Could not load the NQVerse. Please try again.');
-    };
-    const asMap = snap => { const m = new Map(); snap.forEach(d => m.set(d.id, d.data())); return m; };
     const asList = snap => { const a = []; snap.forEach(d => a.push(Object.assign({ _id: d.id }, d.data()))); return a; };
-
     ECO.unsub.push(
-        db.collection('users').onSnapshot(s => { ECO.raw.users = asMap(s); ecoScheduleRebuild(); }, fail),
-        db.collection('companies').onSnapshot(s => { ECO.raw.companies = asMap(s); ecoScheduleRebuild(); }, fail),
-        db.collection('equityHolders').onSnapshot(s => { ECO.raw.holders = asList(s); ecoScheduleRebuild(); }, fail),
-        db.collection('subprojects').where('type', '==', 'build').onSnapshot(s => { ECO.raw.bounties = asList(s); ecoScheduleRebuild(); }, fail),
-        // The two that set a company's value. If either cannot be read the map
-        // still draws; those companies simply show no value.
-        db.collection('equityListings').where('status', '==', 'sold').onSnapshot(s => { ECO.raw.sales = asList(s); ecoScheduleRebuild(); },
-            e => console.warn('Ecosystem: equity sales unavailable:', e.message)),
-        // Every funding request: the completed ones price companies, the open ones are listings.
-        db.collection('subprojects').where('type', '==', 'fund').onSnapshot(s => {
-                ECO.raw.fundAll = asList(s); ECO.raw.funding = ECO.raw.fundAll.filter(f => f.status === 'completed'); ecoScheduleRebuild(); },
-            e => console.warn('Ecosystem: funding rounds unavailable:', e.message)),
-        // Followers (for sizes and Follow buttons) and the latest posts (for the feed).
-        db.collection('follows').onSnapshot(s => { ECO.raw.follows = asList(s); ecoScheduleRebuild(); },
-            e => console.warn('NQVerse: follows unavailable:', e.message)),
+        // The latest posts, for the feed. Bounded, so it never grows with the platform.
         db.collection('posts').orderBy('createdAt', 'desc').limit(40).onSnapshot(s => { ECO.raw.posts = asList(s); ecoRenderFeed(); },
-            e => console.warn('NQVerse: posts unavailable:', e.message)),
-        // Star ratings, for the rankings and the member panel.
-        db.collection('reviews').onSnapshot(s => { ECO.raw.reviews = asList(s); ecoScheduleRebuild(); },
-            e => console.warn('NQVerse: reviews unavailable:', e.message))
+            e => console.warn('NQVerse: posts unavailable:', e.message))
     );
+    ecoLoadSnapshot();
 }
 
 async function ecoStart() {
@@ -21430,14 +21404,16 @@ async function ecoStart() {
     }
 }
 
-/// Leaving the tab stops the drawing loop and the live listeners, so the map
+/// Leaving the tab stops the drawing loop, the listeners and the polling, so the map
 /// costs nothing while nobody is looking at it.
 function ecoStop() {
     ECO.running = false;
     cancelAnimationFrame(ECO.raf);
     ECO.unsub.forEach(u => { try { u(); } catch (e) {} });
     ECO.unsub = [];
+    clearTimeout(ECO.snapTimer);
     if (ECO.notifUnsub) { try { ECO.notifUnsub(); } catch (e) {} ECO.notifUnsub = null; }
+    if (ECO.followUnsub) { try { ECO.followUnsub(); } catch (e) {} ECO.followUnsub = null; }
     ECO.feedUid = undefined;      // so notifications are picked up again on return
 }
 
@@ -21455,7 +21431,7 @@ function ecoStop() {
     document.addEventListener('visibilitychange', () => {
         const el = document.getElementById('ecosystem-page');
         if (document.hidden) { ECO.running = false; cancelAnimationFrame(ECO.raf); }
-        else if (el && !el.classList.contains('hidden') && ECO.ready && !ECO.running) { ECO.running = true; ECO_GFX.last = 0; ecoFrame(); }
+        else if (el && !el.classList.contains('hidden') && ECO.ready && !ECO.running) { ECO.running = true; ECO_GFX.last = 0; ecoFrame(); ecoLoadSnapshot(); }
     });
 })();
 

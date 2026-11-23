@@ -235,6 +235,10 @@
             "dest": "/api/subscriptions.js"
         },
         {
+            "src": "/api/nqverse",
+            "dest": "/api/nqverse.js"
+        },
+        {
             "src": "/api/scrub-user-emails",
             "dest": "/api/scrub-user-emails.js"
         },
