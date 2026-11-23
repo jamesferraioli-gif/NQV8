@@ -4779,7 +4779,7 @@ const ESCROW_ABI = [
 ];
 
 // NQVate Rewards Distribution — deployed on Arbitrum One
-const REWARDS_CONTRACT_ADDRESS = '0x0F630bbEd28545970CCD5C15eAD08fb1286c160f';   // NQVateRewardsV4
+const REWARDS_CONTRACT_ADDRESS = '0xAD69239AEC2a0ace4A7E75249CdffD8D0Bf5ad06';   // NQVateRewardsV5
 const STAKING_CONTRACT_ADDRESS = '0x5d430f7Faae867E0A8a02EcCcbE21eF40628937c';
 
 const REWARDS_ABI = [
@@ -15839,7 +15839,7 @@ async function loadStaking() {
             const hint = document.getElementById('stake-requirement-hint');
             if (hint) hint.innerHTML = cov.stakeSlice.gt(0)
                 ? `Your slice: <span class="text-cyan-400 font-semibold">${_fmtNQV8(cov.stakeSlice)} NQV8</span><br>${(Number(cov.coverageBps) / 100).toFixed(0)}% covered so far this month`
-                : `Pay a fee this month<br>to earn a share`;
+                : `Be active this month<br>to earn a share`;
         } catch(e) { /* hint is optional */ }
 
     } catch(e) {
@@ -16085,7 +16085,7 @@ async function loadClaims() {
                 <div class="flex items-center justify-between gap-4 flex-wrap">
                     <div>
                         <p class="font-semibold">${r.label}</p>
-                        <p class="text-xs text-zinc-500 mt-1">You paid ${_fmtNQV8(r.nqv8Paid)} NQV8 in fees</p>
+                        <p class="text-xs text-zinc-500 mt-1">Your activity: ${_fmtNQV8(r.nqv8Paid)} NQV8 of fees (USDC fees count at 100 NQV8 per $1)</p>
                     </div>
                     <div class="text-right">
                         <p class="text-cyan-400 font-bold">${nq} NQV8</p>
