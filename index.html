@@ -75,7 +75,7 @@
             <div class="flex items-center gap-4">
 
                 <!-- LEFT: Logo -->
-                <div class="flex items-center gap-3 flex-shrink-0">
+                <div class="flex items-center gap-3 flex-shrink-0 cursor-pointer" onclick="navigateTo('ecosystem')" title="NQVerse">
                     <div class="w-10 h-10 md:w-16 md:h-16 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-2xl flex items-center justify-center text-lg md:text-2xl font-bold shadow-2xl ring-2 ring-offset-2 ring-offset-black ring-cyan-400/30">
                         NQV8
                     </div>
@@ -88,11 +88,11 @@
 
                 <!-- CENTER: Navigation -->
                 <div class="hidden md:flex flex-1 justify-center items-center gap-3 text-xs font-medium">
+                    <a onclick="navigateTo('ecosystem')" class="hover:text-cyan-400 cursor-pointer whitespace-nowrap">NQVerse</a>
                     <a onclick="navigateTo('marketplace')" class="hover:text-cyan-400 cursor-pointer whitespace-nowrap">Marketplace</a>
                     <a onclick="navigateTo('ideas')" class="hover:text-cyan-400 cursor-pointer">Explore</a>
                     <a onclick="navigateToChat()" class="hover:text-cyan-400 cursor-pointer">Chat</a>
                     <a onclick="navigateTo('leaderboard')" class="hover:text-cyan-400 cursor-pointer">Leaderboard</a>
-                    <a onclick="navigateTo('ecosystem')" class="hover:text-cyan-400 cursor-pointer">Ecosystem</a>
                     <a onclick="navigateTo('tokenomics')" class="hover:text-cyan-400 cursor-pointer whitespace-nowrap">
                         NQV8 Tokenomics
                     </a>
@@ -168,12 +168,12 @@
 </div>
 
 <div id="mobile-menu" class="hidden md:hidden bg-zinc-900 border-b border-zinc-800 px-6 py-4 space-y-4 sticky top-[72px] z-40">    
+    <a onclick="navigateTo('ecosystem'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🪐 NQVerse</a>
     <a onclick="navigateTo('marketplace'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏪 Marketplace</a>
     <a onclick="navigateTo('ideas'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🔎 Explore</a>
     <a onclick="navigateTo('advertise'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">📢 Advertise</a>
     <a onclick="navigateToChat(); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">💬 Chat</a>
     <a onclick="navigateTo('leaderboard'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏆 Leaderboard</a>
-    <a onclick="navigateTo('ecosystem'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🪐 Ecosystem</a>
     <a onclick="navigateTo('tokenomics'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🪙 NQV8 Tokenomics</a>
     <a onclick="navigateTo('studio'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🗺️ Studio</a>
     <a onclick="navigateTo('about'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">ℹ️ About</a>
@@ -189,7 +189,7 @@
     </div>
 
     <!-- MARKETPLACE PAGE -->
-    <div id="marketplace-page" class="max-w-6xl mx-auto pt-6 px-4 md:px-6">
+    <div id="marketplace-page" class="max-w-6xl mx-auto pt-6 px-4 md:px-6 hidden">
 
         <div class="mb-10">
             <h1 class="text-3xl md:text-5xl font-bold tracking-tighter mb-1">Marketplace</h1>
@@ -1671,13 +1671,22 @@
     
     <!-- ==================== LEADERBOARD PAGE ==================== -->
 <!-- ====================== ECOSYSTEM VIEW ====================== -->
-<div id="ecosystem-page" class="hidden max-w-7xl mx-auto pt-4 px-3 md:px-6 pb-8">
-    <div class="relative w-full rounded-3xl overflow-hidden border border-zinc-800 bg-black" style="height: calc(100vh - 150px); min-height: 480px;">
+<!-- The NQVerse: the landing page. Internally still "ecosystem". -->
+<style>
+    .nqv-stage { height: 62vh; min-height: 420px; }
+    .nqv-feed  { max-height: 70vh; }
+    @media (min-width: 1024px) {
+        .nqv-stage, .nqv-feed { height: calc(100vh - 150px); min-height: 480px; max-height: none; }
+    }
+</style>
+<div id="ecosystem-page" class="max-w-[1700px] mx-auto pt-4 px-3 md:px-6 pb-8">
+  <div class="flex flex-col lg:flex-row gap-4">
+    <div class="nqv-stage relative flex-1 min-w-0 rounded-3xl overflow-hidden border border-zinc-800 bg-black">
         <div id="eco-canvas" class="absolute inset-0" style="touch-action: none;"></div>
 
         <!-- Title and live counts -->
         <div class="absolute top-3 left-3 right-3 md:top-4 md:left-4 md:right-auto pointer-events-none">
-            <h1 class="text-lg md:text-2xl font-bold tracking-tight">NQVate Ecosystem</h1>
+            <h1 class="text-lg md:text-2xl font-bold tracking-tight">The NQVerse</h1>
             <p class="text-[11px] md:text-xs text-zinc-400 mt-1">
                 <span id="eco-live-dot" class="inline-block w-2 h-2 rounded-full bg-zinc-600 mr-1.5 align-middle"></span><span id="eco-counts">Loading…</span>
             </p>
@@ -1688,19 +1697,19 @@
             <div class="relative flex-1 md:flex-none">
                 <input id="eco-search" type="search" placeholder="Find a person or company" autocomplete="off"
                        oninput="ecoSearch(this.value)"
-                       class="w-full md:w-64 px-3 py-2 rounded-xl bg-zinc-900/90 border border-zinc-700 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-cyan-400">
+                       class="w-full md:w-64 px-3 py-2 rounded-xl bg-zinc-900/90 border border-zinc-700 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-yellow-400">
                 <div id="eco-search-results" class="hidden absolute left-0 md:left-auto md:right-0 mt-1 w-64 max-h-64 overflow-y-auto rounded-xl bg-zinc-900 border border-zinc-700 text-sm z-10"></div>
             </div>
-            <button onclick="ecoResetView()" class="px-3 py-2 rounded-xl bg-zinc-900/90 border border-zinc-700 text-sm hover:border-cyan-400">Reset</button>
+            <button onclick="ecoResetView()" class="px-3 py-2 rounded-xl bg-zinc-900/90 border border-zinc-700 text-sm hover:border-yellow-400">Reset</button>
         </div>
 
         <!-- Legend -->
         <div class="absolute bottom-3 left-3 md:bottom-4 md:left-4 rounded-2xl bg-zinc-900/85 border border-zinc-800 px-3 py-2 text-[11px] text-zinc-300 space-y-1 pointer-events-none">
-            <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#67e8f9"></span>NQVate (the sun)</p>
+            <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#ffd60a"></span>NQVate (the sun)</p>
             <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#34d399"></span>Verified company · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#60a5fa"></span>Unverified</p>
             <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#fbbf24"></span>Founder · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#a78bfa"></span>Equity holder · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#22d3ee"></span>Builder</p>
             <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#a1a1aa"></span>Member not yet tied to a company</p>
-            <p class="text-zinc-500">Bigger planet = more value, people and work</p>
+            <p class="text-zinc-500">Bigger = more value, work, stakes and followers</p>
         </div>
 
         <div id="eco-tip" class="hidden absolute pointer-events-none px-2.5 py-1.5 rounded-lg bg-zinc-900/95 border border-zinc-700 text-xs text-white whitespace-nowrap"></div>
@@ -1708,8 +1717,20 @@
         <!-- Details: side panel on desktop, bottom sheet on phones -->
         <div id="eco-panel" class="hidden absolute left-0 right-0 bottom-0 max-h-[55%] md:left-auto md:right-4 md:top-16 md:bottom-4 md:max-h-none md:w-80 overflow-y-auto rounded-t-3xl md:rounded-3xl bg-zinc-900 border border-zinc-700 p-5"></div>
 
-        <div id="eco-status" class="absolute inset-0 flex items-center justify-center text-zinc-400 text-sm pointer-events-none">Loading the ecosystem…</div>
+        <div id="eco-status" class="absolute inset-0 flex items-center justify-center text-zinc-400 text-sm pointer-events-none">Loading the NQVerse…</div>
     </div>
+
+    <!-- Feed -->
+    <aside class="nqv-feed w-full lg:w-80 xl:w-96 shrink-0 rounded-3xl border border-zinc-800 bg-zinc-900 flex flex-col overflow-hidden">
+        <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-zinc-800">
+            <h2 class="font-bold">Feed</h2>
+            <div id="nqv-feed-tabs" class="flex gap-1.5"></div>
+        </div>
+        <div id="nqv-feed-list" class="flex-1 overflow-y-auto">
+            <p class="text-sm text-zinc-500 px-4 py-6">Loading…</p>
+        </div>
+    </aside>
+  </div>
 </div>
 
 <div id="leaderboard-page" class="max-w-6xl mx-auto pt-6 px-4 md:px-6 pb-16 hidden">
@@ -7517,7 +7538,7 @@ async function createProfile() {
             safeClassList('nav-loggedin', 'show');
             safeClassList('mobile-menu-btn', 'show');
             // right-section already visible
-            navigateTo('marketplace');
+            navigateTo('ecosystem');      // the NQVerse is home
             updateProfileUI();
             
             // Show welcome popup every time you login
@@ -11881,7 +11902,7 @@ async function viewUserProfile(uid) {
             if (match) {
                 viewUserProfile(match[1]);
             } else if (window.location.pathname === '/') {
-                navigateTo('marketplace');
+                navigateTo('ecosystem');
             }
         });
 
@@ -11941,7 +11962,7 @@ async function viewUserProfile(uid) {
                         updateAuthMenuUI();
                         safeClassList('auth-modal', 'hide');
                         safeClassList('guest-bar', 'show');
-                        navigateTo('marketplace');
+                        navigateTo('ecosystem');
                     });
                 } else {
                     // Guest mode — let visitors browse freely
@@ -11949,7 +11970,7 @@ async function viewUserProfile(uid) {
                     safeClassList('auth-modal', 'hide');
                     safeClassList('guest-bar', 'show');
                     updateAuthMenuUI();
-                    navigateTo('marketplace');
+                    navigateTo('ecosystem');
                     setTimeout(showWelcomeModal, 500);
 
                 }
@@ -19730,15 +19751,19 @@ function unmuteIntroVideo(btn) {
     closeWelcomeModal = function () { pauseIntroVideos(); return _closeWelcomeModal.apply(this, arguments); };
 })();
 // ====================== ECOSYSTEM VIEW ======================
-// A live 3D map of everything on NQVate, drawn as a solar system.
+// The NQVerse: the site's landing page. A live 3D map of everything on
+// NQVate, drawn as a solar system, with a feed beside it.
 //
 //   The sun        NQVate itself
 //   Planets        live or verified companies, oldest nearest the centre.
 //                  A planet is bigger the more the company is worth (by its
 //                  last equity sale or funding round), the more people are
-//                  tied to it, and the more bounties it has had worked
+//                  tied to it, the more bounties it has had worked, and the
+//                  more followers it has
 //   Moons          the people tied to a company: its founder, everyone holding
-//                  a stake in it, and everyone who has worked one of its bounties
+//                  a stake in it, and everyone who has worked one of its bounties.
+//                  A person is bigger the more bounties they have finished, the
+//                  more they have earned and hold, and the more followers they have
 //   Outer belt     members not yet tied to any company
 //
 // One person can be a moon of several planets. Selecting them draws lines
@@ -19756,7 +19781,8 @@ function unmuteIntroVideo(btn) {
 
 const ECO = {
     libs: null, ready: false, running: false, raf: 0, unsub: [],
-    raw: { users: null, companies: null, holders: null, bounties: null, sales: [], funding: [] },
+    raw: { users: null, companies: null, holders: null, bounties: null, sales: [], funding: [], follows: [], posts: [], notifs: [] },
+    feedMode: null, feedUid: undefined, notifUnsub: null, feedItems: [],
     model: null, nodes: [], byId: new Map(),
     selected: null, hovered: null, follow: null, links: null,
     rebuildTimer: 0, t0: 0, downAt: null, reduceMotion: false,
@@ -19806,7 +19832,28 @@ function ecoStatus(msg) {
 
 // ── Model: turn the four collections into planets, moons and a belt ──────
 function ecoBuildModel() {
-    const { users, companies, holders, bounties, sales, funding } = ECO.raw;
+    const { users, companies, holders, bounties, sales, funding, follows } = ECO.raw;
+    const me = (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) || null;
+
+    // Who follows whom. A follow points at a member (followingUid) or at a
+    // company (followingCompanyId).
+    const userFollowers = new Map(), companyFollowers = new Map();
+    const mine = { users: new Map(), companies: new Map() };      // what the signed-in member follows → follow doc id
+    follows.forEach(f => {
+        if (f.followingUid) userFollowers.set(f.followingUid, (userFollowers.get(f.followingUid) || 0) + 1);
+        if (f.followingCompanyId) companyFollowers.set(f.followingCompanyId, (companyFollowers.get(f.followingCompanyId) || 0) + 1);
+        if (me && f.followerUid === me) {
+            if (f.followingUid) mine.users.set(f.followingUid, f._id);
+            if (f.followingCompanyId) mine.companies.set(f.followingCompanyId, f._id);
+        }
+    });
+    const dollars = v => { const n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')); return isFinite(n) ? n : 0; };
+    // The cash part of an amount like "$500 USDC" or "$500 + 2% equity".
+    const cash = v => {
+        const str = String(v == null ? '' : v), m = str.match(/\$\s*([\d,]+(?:\.\d+)?)/);
+        if (m) return parseFloat(m[1].replace(/,/g, '')) || 0;
+        return str.includes('%') ? 0 : dollars(str);
+    };
     const people = new Map();          // key → person
     const walletToUid = new Map();
 
@@ -19819,7 +19866,8 @@ function ecoBuildModel() {
             people.set(key, {
                 key, uid: id, wallet: w,
                 label: isOps ? 'NQVate (platform)' : (w ? w.slice(0, 6) + '…' + w.slice(-4) : 'Unknown'),
-                name: '', known: false, appearances: [], bounties: []
+                name: '', known: false, appearances: [], bounties: [],
+                stats: { done: 0, usdc: 0, stakes: 0, stakeValue: 0, followers: 0 }, size: 1.2
             });
         }
         return people.get(key);
@@ -19854,7 +19902,7 @@ function ecoBuildModel() {
         verified: c.verificationStatus === 'verified', live: c.projectStatus === 'live',
         ownerUid: c.ownerUid || null, members: new Map(),
         bountyCounts: { open: 0, active: 0, done: 0 }, bountyTitles: [],
-        value: 0, valueFrom: '', valueAt: 0, raised: 0
+        value: 0, valueFrom: '', valueAt: 0, raised: 0, followers: companyFollowers.get(c.id) || 0
     }));
     const planetById = new Map(planets.map(p => [p.id, p]));
 
@@ -19888,6 +19936,12 @@ function ecoBuildModel() {
         const person = personFor(builderUid, null);
         const rec = { title: b.title || 'Untitled bounty', done, company: pl ? pl.name : '' };
         person.bounties.push(rec);
+        if (done) {
+            person.stats.done++;
+            // Cash actually paid for finished work. Equity-only bounties add nothing here.
+            const amt = (b.acceptedBid && b.acceptedBid.amount) || b.compensation || '';
+            person.stats.usdc += b.compensationType === 'equity' ? 0 : cash(amt);
+        }
         if (pl) { const m = member(pl, person); m.roles.add('builder'); m.bounties.push(rec); }
     });
 
@@ -19896,7 +19950,6 @@ function ecoBuildModel() {
     // company (10,000 units). An equity sale and a funding round both set a
     // price, so whichever happened last wins. No deal, no figure — the map
     // never estimates one.
-    const dollars = v => { const n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.]/g, '')); return isFinite(n) ? n : 0; };
     const secs = t => (t && t.seconds) || 0;
     const price = (pl, perUnit, at, from) => {
         if (!(perUnit > 0) || at < pl.valueAt) return;
@@ -19918,20 +19971,38 @@ function ecoBuildModel() {
         if (units > 0) price(pl, amount / units, secs(f.completedAt) || secs(f.createdAt), 'last funding round');
     });
 
-    // Planet size, from three things: people, work and value. Each is put on
-    // a log scale and the total eases towards a ceiling, so a company ten
-    // times bigger is clearly bigger without ever outgrowing the sun or
-    // swallowing its neighbours. Smallest 4, largest just under 13.
+    // Planet size, from four things: people, work, value and followers. Each
+    // is put on a log scale and the total eases towards a ceiling, so a
+    // company ten times bigger is clearly bigger without ever outgrowing the
+    // sun or swallowing its neighbours. Smallest 4, largest just under 13.
     planets.forEach(pl => {
         const work = pl.bountyCounts.done + pl.bountyCounts.active;
-        const score = 1.1 * Math.log2(1 + pl.members.size) + 0.6 * Math.log2(1 + work) + 0.9 * Math.log10(1 + pl.value);
+        const score = 1.1 * Math.log2(1 + pl.members.size) + 0.6 * Math.log2(1 + work) + 0.9 * Math.log10(1 + pl.value)
+                    + 0.9 * Math.log2(1 + pl.followers);
         pl.size = 4 + 9 * (1 - Math.exp(-score / 8));
     });
 
     planets.forEach(pl => pl.members.forEach(m => m.person.appearances.push({ planet: pl, member: m })));
+
+    // A member's size is their standing across the whole platform, so they are
+    // the same size on every planet they orbit: bounties finished, cash earned
+    // doing them, stakes held and what those are worth, and followers.
+    people.forEach(p => {
+        const st = p.stats;
+        st.followers = (p.uid && userFollowers.get(p.uid)) || 0;
+        p.appearances.forEach(a => {
+            if (!a.member.roles.has('holder') || a.member.units <= 0) return;
+            st.stakes++;
+            st.stakeValue += a.member.units / 10000 * a.planet.value;
+        });
+        const score = 0.9 * Math.log2(1 + st.done) + 0.6 * Math.log10(1 + st.usdc) + 0.8 * Math.log2(1 + st.stakes)
+                    + 0.6 * Math.log10(1 + st.stakeValue) + 1.0 * Math.log2(1 + st.followers);
+        p.size = 1.0 + 2.6 * (1 - Math.exp(-score / 6));
+    });
+
     const belt = [...people.values()].filter(p => p.known && p.appearances.length === 0);
 
-    return { planets, belt, people };
+    return { planets, belt, people, mine, userFollowers };
 }
 
 // ── Scene ────────────────────────────────────────────────────────────────
@@ -19958,7 +20029,7 @@ function ecoInitScene() {
     ECO.controls.maxDistance = 6000;
 
     ECO.scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-    ECO.scene.add(new THREE.PointLight(0xffffff, 1.3, 0, 0));
+    ECO.scene.add(new THREE.PointLight(0xfff3c4, 1.35, 0, 0));
 
     // Background stars
     const starPos = new Float32Array(1800 * 3);
@@ -19970,18 +20041,37 @@ function ecoInitScene() {
     starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
     ECO.scene.add(new THREE.Points(starGeo, new THREE.PointsMaterial({ color: 0xffffff, size: 9, sizeAttenuation: true, transparent: true, opacity: 0.7 })));
 
-    // The sun, with a soft glow
-    ECO.sphere = new THREE.SphereGeometry(1, 24, 16);
-    ECO.sun = new THREE.Mesh(ECO.sphere, new THREE.MeshBasicMaterial({ color: 0x67e8f9 }));
+    // The sun: bright yellow, with a corona that breathes and rays that turn.
+    ECO.sphere = new THREE.SphereGeometry(1, 32, 20);
+    ECO.sun = new THREE.Mesh(ECO.sphere, new THREE.MeshBasicMaterial({ color: 0xffd60a }));
     ECO.sun.scale.setScalar(14);
     ECO.scene.add(ECO.sun);
-    const glowCanvas = document.createElement('canvas'); glowCanvas.width = glowCanvas.height = 128;
-    const g = glowCanvas.getContext('2d'), grad = g.createRadialGradient(64, 64, 4, 64, 64, 64);
-    grad.addColorStop(0, 'rgba(103,232,249,0.9)'); grad.addColorStop(0.35, 'rgba(139,92,246,0.35)'); grad.addColorStop(1, 'rgba(0,0,0,0)');
-    g.fillStyle = grad; g.fillRect(0, 0, 128, 128);
-    const glow = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(glowCanvas), transparent: true, depthWrite: false }));
-    glow.scale.setScalar(110);
-    ECO.scene.add(glow);
+
+    const sprite = (size, draw) => {
+        const c = document.createElement('canvas'); c.width = c.height = 256;
+        draw(c.getContext('2d'));
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthWrite: false, blending: THREE.AdditiveBlending }));
+        sp.scale.setScalar(size);
+        ECO.scene.add(sp);
+        return sp;
+    };
+    ECO.sunGlow = sprite(150, g => {
+        const grad = g.createRadialGradient(128, 128, 10, 128, 128, 128);
+        grad.addColorStop(0, 'rgba(255,244,170,1)'); grad.addColorStop(0.22, 'rgba(255,214,10,0.75)');
+        grad.addColorStop(0.5, 'rgba(255,140,0,0.22)'); grad.addColorStop(1, 'rgba(255,120,0,0)');
+        g.fillStyle = grad; g.fillRect(0, 0, 256, 256);
+    });
+    ECO.sunRays = sprite(210, g => {
+        g.translate(128, 128);
+        for (let i = 0; i < 24; i++) {
+            const len = i % 2 ? 122 : 88, w = i % 2 ? 0.035 : 0.06;
+            const grad = g.createLinearGradient(0, 0, len, 0);
+            grad.addColorStop(0, 'rgba(255,224,90,0.55)'); grad.addColorStop(1, 'rgba(255,170,0,0)');
+            g.fillStyle = grad;
+            g.beginPath(); g.moveTo(0, 0); g.arc(0, 0, len, -w, w); g.closePath(); g.fill();
+            g.rotate(Math.PI * 2 / 24);
+        }
+    });
 
     ECO.world = new THREE.Group();     // everything rebuilt when the data changes
     ECO.scene.add(ECO.world);
@@ -20103,7 +20193,7 @@ function ecoRebuildScene() {
         members.forEach(m => {
             const shellCap = 6 + shell * 4;
             const role = m.roles.has('founder') ? 'founder' : m.roles.has('holder') ? 'holder' : 'builder';
-            const mSize = 1.1 + Math.min(1.7, m.units / 10000 * 6 + m.bounties.length * 0.25 + (role === 'founder' ? 0.6 : 0));
+            const mSize = m.person.size;
             const moon = new THREE.Mesh(ECO.sphere, ECO.mats[role]);
             moon.scale.setScalar(mSize);
             group.add(moon);
@@ -20130,9 +20220,9 @@ function ecoRebuildScene() {
         const mesh = new THREE.Mesh(ECO.sphere, ECO.mats.belt);
         const r = beltInner + ecoHash(p.key, 11) * 45, a = ecoHash(p.key, 12) * Math.PI * 2;
         mesh.position.set(Math.cos(a) * r, (ecoHash(p.key, 13) - 0.5) * 14, Math.sin(a) * r);
-        mesh.scale.setScalar(1.3);
+        mesh.scale.setScalar(p.size);
         ECO.belt.add(mesh);
-        p.beltNode = add({ id: 'b:' + p.key, kind: 'person', label: p.label, person: p, mesh, radius: 1.3 });
+        p.beltNode = add({ id: 'b:' + p.key, kind: 'person', label: p.label, person: p, mesh, radius: p.size });
     });
     ECO.extent = beltInner + 60;
 
@@ -20142,6 +20232,8 @@ function ecoRebuildScene() {
         `${ECO.raw.users.size} members · ${model.planets.length} companies · ${holdersN} equity holders · ${builders} builders`;
     document.getElementById('eco-live-dot').className = 'inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
     ecoStatus(ECO.raw.users.size || model.planets.length ? '' : 'Nothing here yet.');
+
+    ecoRenderFeed();
 
     // Keep whatever was selected selected, if it still exists.
     const again = keepId && ECO.byId.get(keepId);
@@ -20178,6 +20270,12 @@ function ecoFrame() {
     ECO.raf = requestAnimationFrame(ecoFrame);
     const t = (performance.now() - ECO.t0) / 1000;
     ecoPlace(t);
+    if (ECO.sunGlow) {
+        const tt = ECO.reduceMotion ? 0 : t;
+        ECO.sunGlow.scale.setScalar(150 * (1 + 0.05 * Math.sin(tt * 1.3)));
+        ECO.sunRays.material.rotation = tt * 0.05;
+        ECO.sunRays.scale.setScalar(210 * (1 + 0.03 * Math.sin(tt * 0.9 + 1)));
+    }
     ECO.scene.updateMatrixWorld();
 
     if (!_ecoV.a) { _ecoV.a = new THREE.Vector3(); _ecoV.b = new THREE.Vector3(); }
@@ -20303,6 +20401,40 @@ function ecoUnitsFor(appearance) {
     return chain && chain.ok && chain.units.has(appearance.member.person.key) ? chain.units.get(appearance.member.person.key) : appearance.member.units;
 }
 
+function ecoFollowBtn(kind, id) {
+    const me = (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) || null;
+    if (kind === 'user' && id === me) return '';
+    const on = ECO.model && (kind === 'user' ? ECO.model.mine.users : ECO.model.mine.companies).has(id);
+    return `<button onclick="ecoToggleFollow('${kind}', '${ecoEsc(id)}')" class="w-full mb-3 py-2 rounded-xl text-sm font-semibold border ${on
+        ? 'border-zinc-600 text-zinc-300 hover:border-red-500 hover:text-red-400' : 'border-yellow-400 text-yellow-300 hover:bg-yellow-400/10'}">${on ? '✓ Following' : '+ Follow'}</button>`;
+}
+
+/// Follow or unfollow a member or a company. The live follows listener then
+/// redraws the map, the open panel and the feed, so nothing is updated by hand.
+async function ecoToggleFollow(kind, id) {
+    if (typeof currentUser === 'undefined' || !currentUser) {
+        return typeof showAuthModal === 'function' ? showAuthModal() : alert('Please log in to follow.');
+    }
+    if (!ECO.model || (kind === 'user' && id === currentUser.uid)) return;
+    const mine = kind === 'user' ? ECO.model.mine.users : ECO.model.mine.companies;
+    try {
+        if (mine.has(id)) {
+            await db.collection('follows').doc(mine.get(id)).delete();
+        } else {
+            await db.collection('follows').add({
+                followerUid: currentUser.uid,
+                [kind === 'user' ? 'followingUid' : 'followingCompanyId']: id,
+                createdAt: firebase.firestore.FieldValue.serverTimestamp()
+            });
+            if (kind === 'user' && typeof createNotification === 'function') {
+                Promise.resolve(createNotification(id, 'follow', `@${currentUser.username} started following you.`)).catch(() => {});
+            }
+        }
+    } catch (e) {
+        alert('Could not update: ' + e.message);
+    }
+}
+
 function ecoChip(text, colour) {
     return `<span class="inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wide" style="background:${colour}22;color:${colour}">${ecoEsc(text)}</span>`;
 }
@@ -20346,13 +20478,14 @@ function ecoPanelHtml(node) {
         return `${close}<p class="text-xs uppercase tracking-wider ${pl.verified ? 'text-emerald-300' : 'text-blue-300'} mb-1">Company</p>
             <h2 class="text-xl font-bold pr-8">${ecoEsc(pl.name)}</h2>
             <p class="text-xs text-zinc-400 mb-3">${ecoEsc(pl.entityType || 'Project')} · ${pl.verified ? 'Verified' : 'Unverified'} · ${pl.live ? 'Live' : 'Building'}</p>
-            <div class="grid grid-cols-3 gap-2 text-center mb-2">
-                ${[[pl.value ? '$' + Math.round(pl.value).toLocaleString() : '—', 'Implied value'], [pl.members.size, 'People'], [pl.bountyCounts.done + pl.bountyCounts.active, 'Bounties worked']]
+            ${ecoFollowBtn('company', pl.id)}
+            <div class="grid grid-cols-2 gap-2 text-center mb-2">
+                ${[[pl.value ? '$' + Math.round(pl.value).toLocaleString() : '—', 'Implied value'], [pl.followers, 'Followers'], [pl.members.size, 'People'], [pl.bountyCounts.done + pl.bountyCounts.active, 'Bounties worked']]
                     .map(([n, l]) => `<div class="bg-zinc-800/70 rounded-xl py-2 px-1"><p class="text-sm font-bold truncate">${n}</p><p class="text-[10px] text-zinc-400">${l}</p></div>`).join('')}
             </div>
             <p class="text-[11px] text-zinc-500 mb-4">${pl.value
                 ? 'Value is the price of the ' + pl.valueFrom + ', scaled to the whole company. It is not an appraisal.'
-                : 'No equity sale or funding round yet, so no value is shown.'} These three set the planet\'s size.${pl.raised ? ' Raised so far: $' + Math.round(pl.raised).toLocaleString() + '.' : ''}</p>
+                : 'No equity sale or funding round yet, so no value is shown.'} These four set the planet\'s size.${pl.raised ? ' Raised so far: $' + Math.round(pl.raised).toLocaleString() + '.' : ''}</p>
             <p class="text-xs text-zinc-400 mb-4">Bounties: ${pl.bountyCounts.open} open · ${pl.bountyCounts.active} in progress · ${pl.bountyCounts.done} completed</p>
             <p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">People (${view.length})</p>
             <div class="space-y-1.5 mb-2">${view.map(v => row(v.m.node.id,
@@ -20373,7 +20506,14 @@ function ecoPanelHtml(node) {
     }).filter(t => t.roles.length);
     return `${close}<p class="text-xs uppercase tracking-wider text-violet-300 mb-1">Member</p>
         <h2 class="text-xl font-bold pr-8">${ecoEsc(p.label)}</h2>
-        <p class="text-xs text-zinc-400 mb-4">${ecoEsc(p.name)}${p.name && p.wallet ? ' · ' : ''}${p.wallet ? ecoEsc(p.wallet.slice(0, 6) + '…' + p.wallet.slice(-4)) : ''}</p>
+        <p class="text-xs text-zinc-400 mb-3">${ecoEsc(p.name)}${p.name && p.wallet ? ' · ' : ''}${p.wallet ? ecoEsc(p.wallet.slice(0, 6) + '…' + p.wallet.slice(-4)) : ''}</p>
+        ${p.uid ? ecoFollowBtn('user', p.uid) : ''}
+        <div class="grid grid-cols-3 gap-2 text-center mb-2">
+            ${[[p.stats.followers, 'Followers'], [p.stats.done, 'Bounties done'], ['$' + Math.round(p.stats.usdc).toLocaleString(), 'USDC earned'],
+               [p.stats.stakes, 'Stakes held'], [p.stats.stakeValue ? '$' + Math.round(p.stats.stakeValue).toLocaleString() : '—', 'Stake value']]
+                .map(([n, l]) => `<div class="bg-zinc-800/70 rounded-xl py-2 px-1"><p class="text-sm font-bold truncate">${n}</p><p class="text-[10px] text-zinc-400">${l}</p></div>`).join('')}
+        </div>
+        <p class="text-[11px] text-zinc-500 mb-4">These set how large this member appears.</p>
         ${ties.length ? `<p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Companies (${ties.length})</p>
         <div class="space-y-1.5 mb-4">${ties.map(t => row(t.a.planet.node.id,
             ecoEsc(t.a.planet.name) + ' ' + t.roles.map(r => ecoChip(ECO_ROLE_CHIP[r][0], ECO_ROLE_CHIP[r][1])).join(' '),
@@ -20440,16 +20580,129 @@ function ecoSearch(q) {
     box.classList.remove('hidden');
 }
 
+// ── Feed ─────────────────────────────────────────────────────────────────
+// Built from what the map is already listening to, so it costs no extra
+// reads beyond the latest posts and the member's own notifications.
+//
+//   Following   your notifications, plus anything done by a member or company
+//               you follow
+//   Everyone    the latest across the whole platform — what a guest sees
+function ecoFeedEvents() {
+    const m = ECO.model, { users, companies, bounties, sales, funding, posts } = ECO.raw;
+    const secs = t => (t && t.seconds) || 0;
+    const uname = uid => { const u = users.get(uid); return u ? '@' + (u.username || 'user') : 'Someone'; };
+    const shown = new Map(m.planets.map(p => [p.id, p.name]));
+    const ev = [];
+    const push = (t, icon, text, actors, comps, target) => {
+        if (t > 0) ev.push({ t, icon, text, actors: actors.filter(Boolean), comps: comps.filter(Boolean), target });
+    };
+
+    bounties.forEach(b => {
+        if (b.planNode || b.type !== 'build') return;
+        const owner = b.ownerUid || b.posterUid, builder = b.acceptedBidderUid;
+        const co = shown.has(b.companyId) ? b.companyId : null;
+        const title = '“' + (b.title || 'Untitled bounty') + '”', forCo = co ? ' for ' + shown.get(co) : '';
+        push(secs(b.createdAt), '📋', `${uname(owner)} posted a bounty: ${title}`, [owner], [co], co ? { node: 'c:' + co } : { uid: owner });
+        if (builder) push(secs(b.acceptedAt), '🤝', `${uname(builder)} was chosen for ${title}${forCo}`, [builder, owner], [co], { uid: builder });
+        if (builder && b.status === 'completed') push(secs(b.completedAt), '✅', `${uname(builder)} completed ${title}${forCo}`, [builder, owner], [co], { uid: builder });
+    });
+    m.planets.forEach(p => {
+        const c = companies.get(p.id);
+        push(secs(c && c.createdAt), '🚀', `${uname(p.ownerUid)} started ${p.name}`, [p.ownerUid], [p.id], { node: 'c:' + p.id });
+    });
+    sales.forEach(l => { if (shown.has(l.projectId)) push(secs(l.soldAt), '📈', `A stake in ${shown.get(l.projectId)} changed hands`, [], [l.projectId], { node: 'c:' + l.projectId }); });
+    funding.forEach(f => {
+        const id = f.companyId || f.projectId;
+        if (shown.has(id)) push(secs(f.completedAt) || secs(f.createdAt), '💰', `${shown.get(id)} closed a funding round`, [f.ownerUid], [id], { node: 'c:' + id });
+    });
+    posts.forEach(p => push(secs(p.createdAt), '💬', `@${p.username || 'user'} posted: “${p.title || 'Untitled'}”`, [p.posterUid], [], { post: p._id }));
+    return ev;
+}
+
+function ecoSetFeedMode(mode) { ECO.feedMode = mode; ecoRenderFeed(); }
+
+function ecoRenderFeed() {
+    const box = document.getElementById('nqv-feed-list'), tabs = document.getElementById('nqv-feed-tabs');
+    if (!box || !ECO.model) return;
+    const me = (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) || null;
+    if (me !== ECO.feedUid) ecoSyncUser();
+    const mine = ECO.model.mine;
+    if (!ECO.feedMode) ECO.feedMode = me ? 'following' : 'everyone';
+    const mode = me ? ECO.feedMode : 'everyone';
+
+    const tab = (id, label) => `<button onclick="ecoSetFeedMode('${id}')" class="px-3 py-1 rounded-full text-xs font-semibold ${mode === id ? 'bg-yellow-400 text-black' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}">${label}</button>`;
+    tabs.innerHTML = me ? tab('following', 'Following') + tab('everyone', 'Everyone') : '';
+
+    let items = ecoFeedEvents();
+    if (mode === 'following') {
+        items = items.filter(e => e.actors.some(u => mine.users.has(u)) || e.comps.some(c => mine.companies.has(c)));
+        ECO.raw.notifs.forEach(n => items.push({
+            t: (n.createdAt && n.createdAt.seconds) || 0, text: n.message || 'Notification', unread: !n.read,
+            icon: typeof getNotifIcon === 'function' ? getNotifIcon(n.type) : '🔔', target: { notif: n }
+        }));
+    }
+    items.sort((a, b) => b.t - a.t);
+    ECO.feedItems = items = items.slice(0, 40);
+
+    const ago = t => typeof timeAgo === 'function' ? timeAgo(new Date(t * 1000)) : '';
+    const empty = mode === 'following'
+        ? `<p class="text-sm text-zinc-400 px-4 py-6">Nothing yet. Follow members and companies in the NQVerse — click one and press Follow — and what they do shows up here, alongside your notifications.</p>`
+        : `<p class="text-sm text-zinc-400 px-4 py-6">No activity yet.</p>`;
+    box.innerHTML = (me ? '' : `<p class="text-xs text-zinc-400 px-4 py-3 border-b border-zinc-800">Log in to see your notifications and the people you follow.</p>`)
+        + (items.map((e, i) => `
+        <button onclick="ecoFeedClick(${i})" class="w-full text-left flex items-start gap-3 px-4 py-3 border-b border-zinc-800 hover:bg-zinc-800/70 ${e.unread ? 'bg-zinc-800/40' : ''}">
+            <span class="text-lg leading-none mt-0.5">${e.icon}</span>
+            <span class="flex-1 min-w-0"><span class="block text-sm text-zinc-100 break-words">${ecoEsc(e.text)}</span>
+                <span class="block text-[11px] text-zinc-500 mt-0.5">${e.target.notif ? 'Notification · ' : ''}${ago(e.t)}</span></span>
+            ${e.unread ? '<span class="w-2 h-2 rounded-full bg-yellow-400 mt-1.5 shrink-0"></span>' : ''}
+        </button>`).join('') || empty);
+}
+
+function ecoFeedClick(i) {
+    const e = ECO.feedItems && ECO.feedItems[i];
+    if (!e) return;
+    const t = e.target;
+    if (t.notif) { if (typeof handleNotifClick === 'function') handleNotifClick(t.notif._id, t.notif); return; }
+    if (t.post) {
+        navigateTo('ideas');
+        setTimeout(() => db.collection('posts').doc(t.post).get()
+            .then(snap => { if (snap.exists && typeof viewPostDetail === 'function') viewPostDetail(t.post, snap.data()); }).catch(() => {}), 500);
+        return;
+    }
+    if (t.node) return ecoSelectId(t.node);
+    if (t.uid) {
+        const p = ECO.model.people.get('u:' + t.uid), n = p && ecoPersonNodes(p)[0];
+        if (n) ecoSelect(n);
+    }
+}
+
+/// Follow the signed-in member's notifications. Called whenever the page is
+/// shown, because login can happen after the map has already started.
+function ecoSyncUser() {
+    const uid = (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) || null;
+    if (uid === ECO.feedUid) return;
+    ECO.feedUid = uid;
+    if (ECO.notifUnsub) { try { ECO.notifUnsub(); } catch (e) {} ECO.notifUnsub = null; }
+    ECO.raw.notifs = [];
+    ECO.feedMode = null;
+    if (uid) {
+        ECO.notifUnsub = db.collection('notifications').where('recipientUid', '==', uid).orderBy('createdAt', 'desc').limit(20)
+            .onSnapshot(s => { const a = []; s.forEach(d => a.push(Object.assign({ _id: d.id }, d.data()))); ECO.raw.notifs = a; ecoRenderFeed(); },
+                        e => console.warn('NQVerse: notifications unavailable:', e.message));
+    }
+    if (ECO.model) ecoScheduleRebuild();      // who "I follow" changed, so buttons and feed must too
+}
+
 // ── Live data ────────────────────────────────────────────────────────────
 function ecoSubscribe() {
     if (ECO.unsub.length) return;
     const fail = e => {
         console.warn('Ecosystem listener failed:', e.message);
         document.getElementById('eco-live-dot').className = 'inline-block w-2 h-2 rounded-full bg-red-500';
-        if (!ECO.model) ecoStatus('Could not load the ecosystem. Please try again.');
+        if (!ECO.model) ecoStatus('Could not load the NQVerse. Please try again.');
     };
     const asMap = snap => { const m = new Map(); snap.forEach(d => m.set(d.id, d.data())); return m; };
-    const asList = snap => { const a = []; snap.forEach(d => a.push(d.data())); return a; };
+    const asList = snap => { const a = []; snap.forEach(d => a.push(Object.assign({ _id: d.id }, d.data()))); return a; };
 
     ECO.unsub.push(
         db.collection('users').onSnapshot(s => { ECO.raw.users = asMap(s); ecoScheduleRebuild(); }, fail),
@@ -20461,20 +20714,26 @@ function ecoSubscribe() {
         db.collection('equityListings').where('status', '==', 'sold').onSnapshot(s => { ECO.raw.sales = asList(s); ecoScheduleRebuild(); },
             e => console.warn('Ecosystem: equity sales unavailable:', e.message)),
         db.collection('subprojects').where('type', '==', 'fund').where('status', '==', 'completed').onSnapshot(s => { ECO.raw.funding = asList(s); ecoScheduleRebuild(); },
-            e => console.warn('Ecosystem: funding rounds unavailable:', e.message))
+            e => console.warn('Ecosystem: funding rounds unavailable:', e.message)),
+        // Followers (for sizes and Follow buttons) and the latest posts (for the feed).
+        db.collection('follows').onSnapshot(s => { ECO.raw.follows = asList(s); ecoScheduleRebuild(); },
+            e => console.warn('NQVerse: follows unavailable:', e.message)),
+        db.collection('posts').orderBy('createdAt', 'desc').limit(40).onSnapshot(s => { ECO.raw.posts = asList(s); ecoRenderFeed(); },
+            e => console.warn('NQVerse: posts unavailable:', e.message))
     );
 }
 
 async function ecoStart() {
     if (ECO.running) return;
     try {
-        ecoStatus(ECO.model ? '' : 'Loading the ecosystem…');
+        ecoStatus(ECO.model ? '' : 'Loading the NQVerse…');
         await ecoLoadLibs();
         const page = document.getElementById('ecosystem-page');
         if (!page || page.classList.contains('hidden')) return;      // they left while it was loading
         ecoInitScene();
         ecoResize();
         ecoSubscribe();
+        ecoSyncUser();
         ECO.running = true;
         ecoFrame();
     } catch (e) {
@@ -20490,6 +20749,8 @@ function ecoStop() {
     cancelAnimationFrame(ECO.raf);
     ECO.unsub.forEach(u => { try { u(); } catch (e) {} });
     ECO.unsub = [];
+    if (ECO.notifUnsub) { try { ECO.notifUnsub(); } catch (e) {} ECO.notifUnsub = null; }
+    ECO.feedUid = undefined;      // so notifications are picked up again on return
 }
 
 (function hookEcosystem() {
@@ -20497,7 +20758,7 @@ function ecoStop() {
     navigateTo = function (page) {
         const r = _navigateTo.apply(this, arguments);
         const el = document.getElementById('ecosystem-page');
-        if (el && !el.classList.contains('hidden')) ecoStart(); else ecoStop();
+        if (el && !el.classList.contains('hidden')) { ecoStart(); if (ECO.running) ecoSyncUser(); } else ecoStop();
         return r;
     };
     document.addEventListener('visibilitychange', () => {
