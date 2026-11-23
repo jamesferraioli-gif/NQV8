@@ -223,6 +223,14 @@
             "dest": "/api/features.js"
         },
         {
+            "src": "/api/create-stream",
+            "dest": "/api/create-stream.js"
+        },
+        {
+            "src": "/api/remove-post",
+            "dest": "/api/remove-post.js"
+        },
+        {
             "src": "/public/(.*)",
             "dest": "/public/$1"
         },
