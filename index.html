@@ -1604,6 +1604,45 @@
 <!-- The NQVerse: the landing page. Internally still "ecosystem". -->
 <style>
     .nqv-stage { height: 62vh; min-height: 420px; }
+    /* ── Accessibility: always on ───────────────────────────────────────── */
+    /* The faint greys measured 3.7:1 on these backgrounds; this is 5.9:1. */
+    #ecosystem-page .text-zinc-500:not([class*="hover:text-"]), #ecosystem-page .text-zinc-600:not([class*="hover:text-"]),
+    #studio-page .text-zinc-500:not([class*="hover:text-"]), #studio-page .text-zinc-600:not([class*="hover:text-"]),
+    #ecosystem-page .text-zinc-500[class*="hover:text-"]:not(:hover), #ecosystem-page .text-zinc-600[class*="hover:text-"]:not(:hover),
+    #studio-page .text-zinc-500[class*="hover:text-"]:not(:hover), #studio-page .text-zinc-600[class*="hover:text-"]:not(:hover) { color: #9c9ca8; }
+    #ecosystem-page ::placeholder { color: #9c9ca8; opacity: 1; }
+    #eco-keys:focus-visible { outline: 3px solid #22d3ee; outline-offset: -3px; }
+    #eco-panel:focus-visible, #eco-list:focus-visible { outline: 2px solid #22d3ee; outline-offset: -2px; }
+    #ecosystem-page input:focus-visible, #ecosystem-page select:focus-visible, #studio-page select:focus-visible { outline: 2px solid #facc15; outline-offset: 1px; }
+    .eco-shape { display: none; }
+    .nqv-a11y-list .eco-nolist { display: none !important; }
+
+    /* ── Accessibility: the optional settings ───────────────────────────── */
+    .nqv-a11y-shapes span.eco-shape { display: inline; }
+    .nqv-a11y-shapes p.eco-shape { display: block; }
+
+    .nqv-a11y-contrast .text-zinc-300, .nqv-a11y-contrast .text-zinc-400, .nqv-a11y-contrast .text-zinc-500, .nqv-a11y-contrast .text-zinc-600 { color: #fafafa !important; }
+    .nqv-a11y-contrast ::placeholder { color: #e4e4e7 !important; }
+    .nqv-a11y-contrast .border-zinc-700, .nqv-a11y-contrast .border-zinc-800 { border-color: #d4d4d8 !important; }
+    .nqv-a11y-contrast #eco-panel, .nqv-a11y-contrast #nqv-side, .nqv-a11y-contrast #eco-tip, .nqv-a11y-contrast #eco-legend, .nqv-a11y-contrast #eco-a11y-menu,
+    .nqv-a11y-contrast .bg-zinc-900, .nqv-a11y-contrast .bg-zinc-900\/90, .nqv-a11y-contrast .bg-zinc-900\/85, .nqv-a11y-contrast .bg-zinc-900\/60, .nqv-a11y-contrast .bg-zinc-950 { background-color: #000 !important; }
+    .nqv-a11y-contrast :focus-visible { outline: 3px solid #fde047 !important; outline-offset: 2px !important; }
+
+    .nqv-a11y-large .text-\[10px\], .nqv-a11y-large .text-\[11px\] { font-size: 0.875rem !important; line-height: 1.3rem !important; }
+    .nqv-a11y-large .text-xs { font-size: 0.95rem !important; line-height: 1.4rem !important; }
+    .nqv-a11y-large .text-sm { font-size: 1.0625rem !important; line-height: 1.55rem !important; }
+    .nqv-a11y-large .text-base { font-size: 1.2rem !important; line-height: 1.7rem !important; }
+    .nqv-a11y-large #eco-panel { width: auto; }
+    @media (max-width: 767px) { .nqv-a11y-large #eco-counts { display: inline-block; max-width: calc(100% - 1rem); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; } }
+    @media (min-width: 768px) { .nqv-a11y-large #eco-panel { width: 24rem; } }
+
+    .nqv-a11y-targets button, .nqv-a11y-targets select, .nqv-a11y-targets input:not([type="checkbox"]), .nqv-a11y-targets a { min-height: 44px; min-width: 44px; }
+    .nqv-a11y-targets input[type="checkbox"] { width: 1.5rem; height: 1.5rem; }
+    .nqv-a11y-targets #nqv-side-tabs, .nqv-a11y-targets #nqv-side > :first-child > div:first-child { flex-wrap: wrap; }
+    .nqv-a11y-targets .nqv-searchrow { flex-wrap: wrap; }
+
+    .nqv-a11y-calm *, .nqv-a11y-calm *::before, .nqv-a11y-calm *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
+
     /* Inside one of your own projects, the map's own controls step aside. */
     .nqv-inlayer .eco-main-ui { display: none !important; }
     .nqv-feed  { max-height: 70vh; }
@@ -1649,25 +1688,18 @@
 </style>
 <div id="ecosystem-page" class="max-w-[1700px] mx-auto pt-4 px-3 md:px-6 pb-8">
   <div class="flex flex-col lg:flex-row gap-4">
-    <div class="nqv-stage relative flex-1 min-w-0 rounded-3xl overflow-hidden border border-zinc-800 bg-black">
-        <div id="eco-canvas" class="absolute inset-0" style="touch-action: none;"></div>
+    <div class="nqv-stage relative flex-1 min-w-0 rounded-3xl overflow-hidden border border-zinc-800 bg-black" role="region" aria-label="The NQVerse map">
+        <div id="eco-canvas" class="absolute inset-0" style="touch-action: none;" aria-hidden="true"></div>
 
-        <!-- Title and live counts -->
-        <div class="eco-main-ui absolute top-3 left-3 right-3 md:top-4 md:left-4 md:right-auto pointer-events-none">
-            <h1 class="text-lg md:text-2xl font-bold tracking-tight">The NQVerse</h1>
-            <p class="text-[11px] md:text-xs text-zinc-400 mt-1">
-                <span id="eco-live-dot" class="inline-block w-2 h-2 rounded-full bg-zinc-600 mr-1.5 align-middle"></span><span id="eco-counts">Loading…</span>
-            </p>
-            <!-- Size the map by one measure. Phones use the Rankings tab for this. -->
-            <label class="hidden md:flex items-center gap-2 mt-2 pointer-events-auto w-fit">
-                <span class="text-[11px] text-zinc-400">Size by</span>
-                <select id="eco-sizeby" onchange="ecoSizeBy(this.value)" aria-label="Size the map by"
-                        class="px-2 py-1 rounded-lg bg-zinc-900/90 border border-zinc-700 text-xs text-white focus:outline-none focus:border-yellow-400"></select>
-            </label>
-        </div>
+        <!-- Spoken to screen readers; never seen -->
+        <div id="eco-say" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+        <p id="eco-keys-help" class="sr-only">Arrow keys move between the companies and people on screen. Enter opens one. Plus and minus zoom. Home resets the view. Escape closes. For a plain list instead, turn on List view under Accessibility options.</p>
 
         <!-- Search and reset -->
-        <div class="nqv-searchrow eco-main-ui absolute top-[4.5rem] left-3 right-3 md:top-4 md:left-auto md:right-4 flex gap-2">
+        <div class="nqv-searchrow eco-main-ui absolute z-10 top-[4.5rem] left-3 right-3 md:top-4 md:left-auto md:right-4 flex gap-2">
+            <!-- First in the page order so a keyboard or screen-reader user meets it first; shown last in the row. -->
+            <button onclick="ecoA11yToggleMenu(event)" aria-haspopup="true" aria-expanded="false" aria-controls="eco-a11y-menu" aria-label="Accessibility options" title="Accessibility options"
+                    class="eco-a11y-btn order-last px-3 py-2 rounded-xl bg-zinc-900/90 border border-zinc-700 ring-yellow-400 text-sm hover:border-yellow-400 whitespace-nowrap"><span aria-hidden="true">♿</span><span class="hidden 2xl:inline"> Accessibility</span></button>
             <div class="relative flex-1 md:flex-none">
                 <input id="eco-search" type="search" placeholder="Find a person or company" autocomplete="off"
                        oninput="ecoSearch(this.value)"
@@ -1683,6 +1715,30 @@
             </div>
         </div>
 
+        <div id="eco-a11y-menu" role="group" aria-labelledby="eco-a11y-title"
+             class="hidden fixed inset-x-3 top-24 max-h-[calc(100dvh-7rem)] md:absolute md:inset-x-auto md:top-16 md:right-4 md:w-72 md:max-h-[85%] overflow-y-auto rounded-2xl bg-zinc-900 border border-zinc-700 p-3 text-sm z-40"></div>
+
+        <!-- Where the keyboard holds the map: see-through, and clicks pass straight through it -->
+        <div id="eco-keys" tabindex="0" role="application" aria-label="The NQVerse map" aria-describedby="eco-keys-help" class="absolute inset-0 pointer-events-none rounded-3xl"></div>
+
+        <!-- The map as a list (Accessibility → List view) -->
+        <div id="eco-list" tabindex="-1" role="region" aria-label="The NQVerse as a list"
+             class="hidden absolute inset-0 overflow-y-auto bg-zinc-950 pt-32 md:pt-24 px-3 md:px-5 pb-6 md:pr-[22rem]"></div>
+
+        <!-- Title and live counts -->
+        <div class="eco-main-ui absolute top-3 left-3 right-3 md:top-4 md:left-4 md:right-auto pointer-events-none">
+            <h1 class="text-lg md:text-2xl font-bold tracking-tight">The NQVerse</h1>
+            <p class="text-[11px] md:text-xs text-zinc-400 mt-1">
+                <span id="eco-live-dot" class="inline-block w-2 h-2 rounded-full bg-zinc-600 mr-1.5 align-middle"></span><span id="eco-counts">Loading…</span>
+            </p>
+            <!-- Size the map by one measure. Phones use the Rankings tab for this. -->
+            <label class="eco-nolist hidden md:flex items-center gap-2 mt-2 pointer-events-auto w-fit">
+                <span class="text-[11px] text-zinc-400">Size by</span>
+                <select id="eco-sizeby" onchange="ecoSizeBy(this.value)" aria-label="Size the map by"
+                        class="px-2 py-1 rounded-lg bg-zinc-900/90 border border-zinc-700 text-xs text-white focus:outline-none focus:border-yellow-400"></select>
+            </label>
+        </div>
+
         <!-- Inside one of your own projects -->
         <div class="eco-layer-ui hidden absolute top-3 left-3 right-3 md:top-4 md:left-4 md:right-4 flex flex-wrap items-start justify-between gap-2 pointer-events-none">
             <div class="min-w-0">
@@ -1693,18 +1749,20 @@
             <div class="pointer-events-auto flex gap-2">
                 <button onclick="addFlowNode()" class="px-3 py-2 rounded-xl bg-white text-black text-sm font-semibold hover:bg-cyan-300">+ Add a part</button>
                 <button onclick="ecoLayerBoard()" class="px-3 py-2 rounded-xl bg-zinc-900/90 border border-zinc-700 text-sm hover:border-yellow-400">🗂 Board</button>
+                <button onclick="ecoA11yToggleMenu(event)" aria-haspopup="true" aria-expanded="false" aria-controls="eco-a11y-menu" aria-label="Accessibility options" title="Accessibility options"
+                        class="eco-a11y-btn px-3 py-2 rounded-xl bg-zinc-900/90 border border-zinc-700 ring-yellow-400 text-sm hover:border-yellow-400"><span aria-hidden="true">♿</span></button>
             </div>
         </div>
-        <div class="eco-layer-ui hidden absolute bottom-3 left-3 md:bottom-4 md:left-4 rounded-2xl bg-zinc-900/85 border border-zinc-800 px-3 py-2 text-[11px] text-zinc-300 space-y-1 pointer-events-none">
-            <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#a1a1aa"></span>To do · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#a78bfa"></span>Building</p>
-            <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#ef4444"></span>Out for bids · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#34d399"></span>Done</p>
+        <div class="eco-layer-ui eco-nolist hidden absolute bottom-3 left-3 md:bottom-4 md:left-4 rounded-2xl bg-zinc-900/85 border border-zinc-800 px-3 py-2 text-[11px] text-zinc-300 space-y-1 pointer-events-none">
+            <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#a1a1aa"></span><span class="eco-shape">○ </span>To do · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#a78bfa"></span><span class="eco-shape">◐ </span>Building</p>
+            <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#ef4444"></span><span class="eco-shape">◆ </span>Out for bids · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#34d399"></span><span class="eco-shape">✓ </span>Done</p>
             <p class="text-zinc-500">The ring fills as parts are finished. Click a part to move it.</p>
         </div>
 
         <!-- Legend. On a phone it starts as a small "Key" button, so it does not cover the map. -->
         <button id="eco-key-btn" onclick="ecoToggleKey()" aria-expanded="false" aria-controls="eco-legend"
-                class="eco-main-ui md:hidden absolute bottom-3 left-3 z-10 h-9 px-3 rounded-full bg-zinc-900/90 border border-zinc-700 text-xs font-semibold text-zinc-200">ⓘ Key</button>
-        <div id="eco-legend" class="eco-main-ui hidden md:block absolute bottom-14 left-3 md:bottom-4 md:left-4 rounded-2xl bg-zinc-900/85 border border-zinc-800 px-3 py-2 text-[11px] text-zinc-300 space-y-1 pointer-events-none">
+                class="eco-main-ui eco-nolist md:hidden absolute bottom-3 left-3 z-10 h-9 px-3 rounded-full bg-zinc-900/90 border border-zinc-700 text-xs font-semibold text-zinc-200">ⓘ Key</button>
+        <div id="eco-legend" class="eco-main-ui eco-nolist hidden md:block absolute bottom-14 left-3 md:bottom-4 md:left-4 rounded-2xl bg-zinc-900/85 border border-zinc-800 px-3 py-2 text-[11px] text-zinc-300 space-y-1 pointer-events-none">
             <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#ffd60a"></span>NQVate (the sun)</p>
             <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#34d399"></span>Green glow: verified company · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#60a5fa"></span>Blue glow: unverified</p>
             <div id="eco-legend-groups" class="hidden space-y-1"></div>
@@ -1712,22 +1770,23 @@
             <p class="eco-legend-role"><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#a1a1aa"></span>Member not yet tied to a company</p>
             <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#ef4444;box-shadow:0 0 7px 2px #ef4444"></span>Red halo: open listings — bigger and brighter = more, or worth more</p>
             <p id="eco-legend-top" class="hidden"><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#ffd60a;box-shadow:0 0 6px #ffd60a"></span>Gold glow and number: top 10 in the ranking</p>
+            <p class="eco-shape">◆ and a number after a name: open listings · ★ above a member: in the highlighted group</p>
             <p id="eco-legend-size" class="text-zinc-500">Bigger = more value, work, stakes and followers</p>
         </div>
 
-        <div id="eco-tip" class="hidden absolute pointer-events-none px-2.5 py-1.5 rounded-lg bg-zinc-900/95 border border-zinc-700 text-xs text-white whitespace-nowrap"></div>
+        <div id="eco-tip" aria-hidden="true" class="hidden absolute pointer-events-none px-2.5 py-1.5 rounded-lg bg-zinc-900/95 border border-zinc-700 text-xs text-white whitespace-nowrap"></div>
 
         <!-- Details: side panel on desktop, bottom sheet on phones -->
-        <div id="eco-panel" class="hidden absolute left-0 right-0 bottom-0 max-h-[55%] md:left-auto md:right-4 md:top-16 md:bottom-4 md:max-h-none md:w-80 overflow-y-auto rounded-t-3xl md:rounded-3xl bg-zinc-900 border border-zinc-700 p-5"></div>
+        <div id="eco-panel" tabindex="-1" role="region" aria-label="Details" class="hidden absolute left-0 right-0 bottom-0 max-h-[55%] md:left-auto md:right-4 md:top-16 md:bottom-4 md:max-h-none md:w-80 overflow-y-auto rounded-t-3xl md:rounded-3xl bg-zinc-900 border border-zinc-700 p-5"></div>
 
-        <div id="eco-status" class="absolute inset-0 flex items-center justify-center text-zinc-400 text-sm pointer-events-none">Loading the NQVerse…</div>
+        <div id="eco-status" class="eco-nolist absolute inset-0 flex items-center justify-center text-zinc-400 text-sm pointer-events-none">Loading the NQVerse…</div>
     </div>
 
     <!-- Feed and Rankings -->
-    <aside id="nqv-side" class="nqv-feed w-full lg:w-80 xl:w-96 shrink-0 rounded-3xl border border-zinc-800 bg-zinc-900 flex flex-col overflow-hidden">
+    <aside id="nqv-side" aria-label="Feed, trending, rankings, listings and chat" class="nqv-feed w-full lg:w-80 xl:w-96 shrink-0 rounded-3xl border border-zinc-800 bg-zinc-900 flex flex-col overflow-hidden">
         <div class="px-3 pt-3 pb-2.5 border-b border-zinc-800">
             <div class="flex items-center justify-between gap-2">
-                <div id="nqv-side-tabs" class="flex gap-1 font-bold"></div>
+                <div id="nqv-side-tabs" role="tablist" aria-label="Side column" class="flex gap-1 font-bold"></div>
                 <div class="relative flex items-center gap-1.5 shrink-0">
                     <button onclick="ecoToggleCreate(event)" title="Create" aria-label="Create a post, episode or stream" aria-haspopup="true"
                             class="h-9 px-3 rounded-lg bg-white text-black hover:bg-cyan-400 text-sm font-bold whitespace-nowrap">+<span class="hidden 2xl:inline ml-1">Create</span></button>
@@ -20146,7 +20205,7 @@ function ecoInitScene() {
     const wrap = document.getElementById('eco-canvas');
     const w = wrap.clientWidth || 800, h = wrap.clientHeight || 600;
 
-    ECO.reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    ECO.reduceMotion = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) || !!(ECO.a11y && ECO.a11y.calm);
     ECO.scene = new THREE.Scene();
     ECO.camera = new THREE.PerspectiveCamera(50, w / h, 1, 20000);
     ECO.camera.position.set(0, 190, 330);
@@ -20309,19 +20368,22 @@ function ecoResize() {
 /// the map does not repaint every name.
 function ecoLabelSprite(text, size) {
     const label = text.length > 26 ? text.slice(0, 25) + '…' : text;
-    let hit = ECO.labelTex.get(label);
+    const a11y = ECO.a11y || {}, solid = !!a11y.contrast, key = (solid ? 'solid|' : '') + label;      // accessibility: solid backing, larger
+    let hit = ECO.labelTex.get(key);
     if (!hit) {
         const c = document.createElement('canvas'), ctx = c.getContext('2d');
         const font = '600 44px system-ui, -apple-system, Segoe UI, sans-serif';
         ctx.font = font;
         c.width = Math.ceil(ctx.measureText(label).width) + 24; c.height = 64;
-        ctx.font = font; ctx.textBaseline = 'middle'; ctx.fillStyle = 'rgba(255,255,255,0.92)';
-        ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 8;
+        ctx.font = font; ctx.textBaseline = 'middle';
+        if (solid) { ctx.fillStyle = '#000'; ctx.fillRect(0, 3, c.width, 58); ctx.fillStyle = '#fff'; }
+        else { ctx.fillStyle = 'rgba(255,255,255,0.92)'; ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 8; }
         ctx.fillText(label, 12, 34);
         hit = { tex: new THREE.CanvasTexture(c), aspect: c.width / c.height };
-        ECO.labelTex.set(label, hit);
+        ECO.labelTex.set(key, hit);
     }
     const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: hit.tex, transparent: true, depthWrite: false }));
+    if (a11y.large) size *= 1.35;
     sp.scale.set(size * hit.aspect, size, 1);
     sp.userData.ownMat = true;
     return sp;
@@ -20433,7 +20495,7 @@ function ecoRebuildScene() {
             group.add(halo);
             node.halo = halo;
         }
-        const label = ecoLabelSprite((top(pl) ? '#' + pl.rankPos + ' ' : '') + pl.name, 7);
+        const label = ecoLabelSprite((top(pl) ? '#' + pl.rankPos + ' ' : '') + pl.name + (ECO.a11y.shapes && pl.open.count ? ' ◆' + pl.open.count : ''), 7);      // open listings as a mark, not only a red halo
         label.position.y = size + 7;
         group.add(label);
         ECO.world.add(group);
@@ -20477,7 +20539,9 @@ function ecoRebuildScene() {
                 const g = litGlow();
                 g.scale.setScalar(mSize * 4);
                 ECO.world.add(g);
-                ECO.marks.push({ node: mNode, gold: g, tag: null });
+                const star = ECO.a11y.shapes && !top(m.person) ? ecoLabelSprite('★', 3.4) : null;      // highlighted, as a mark as well as a glow
+                if (star) ECO.world.add(star);
+                ECO.marks.push({ node: mNode, gold: g, tag: star });
                 litNodes.push(mNode);
             }
             if (++place >= shellCap) { place = 0; shell++; }
@@ -20533,6 +20597,7 @@ function ecoRebuildScene() {
             const g = litGlow();
             g.position.copy(_p); g.scale.setScalar(p.size * 4);
             ECO.belt.add(g);
+            if (ECO.a11y.shapes && !top(p)) { const star = ecoLabelSprite('★', 3.4); star.position.copy(_p); star.position.y += p.size + 3.2; ECO.belt.add(star); }
             litNodes.push(p.beltNode);
         }
         if (top(p)) {
@@ -20580,6 +20645,7 @@ function ecoRebuildScene() {
     ECO.selected = null; ECO.follow = null;
     if (again && !again.minor) ecoSelect(again, true); else ecoSelect(null);
     if (!ECO.framed) { ECO.framed = true; ecoResetView(); }
+    ecoListRender();
 }
 
 function ecoScheduleRebuild() {
@@ -20665,6 +20731,7 @@ function ecoFrame() {
         if (avg > 30 && ECO_GFX.quality === 'high') ecoSetQuality('low');
         else if (avg > 45 && !ECO_GFX.floor) { ECO_GFX.floor = true; ECO.renderer.setPixelRatio(1); ecoResize(); }
     }
+    if (ECO.a11y.list) return;                        // List view: nothing is on screen to draw
     if (ECO.layer) return ecoLayerFrame(t);          // inside a project: draw that instead of the map
     ecoPlace(t);
     if ((ECO.minors.length || ECO.near.size) && now - ECO.lodTick > 400) { ECO.lodTick = now; ecoCheckNear(now); }
@@ -20682,12 +20749,12 @@ function ecoFrame() {
     if (ECO.follow) {
         ecoWorldPos(ECO.follow, _ecoV.a);
         _ecoV.b.copy(_ecoV.a).sub(ECO.controls.target);
-        _ecoV.b.multiplyScalar(0.18);                     // glide towards it instead of snapping
+        _ecoV.b.multiplyScalar(ECO.reduceMotion ? 1 : 0.18);      // glide towards it — or go straight there when motion is reduced
         ECO.controls.target.add(_ecoV.b);
         ECO.camera.position.add(_ecoV.b);
         if (ECO.zoomTo) {
             const d = ECO.camera.position.distanceTo(ECO.controls.target);
-            const nd = d + (ECO.zoomTo - d) * 0.08;
+            const nd = ECO.reduceMotion ? ECO.zoomTo : d + (ECO.zoomTo - d) * 0.08;
             ECO.camera.position.sub(ECO.controls.target).setLength(nd).add(ECO.controls.target);
             if (Math.abs(nd - ECO.zoomTo) < 1) ECO.zoomTo = 0;
         }
@@ -20702,6 +20769,7 @@ function ecoFrame() {
         ECO.haloGlow.scale.setScalar(ECO.selected.radius * 3.3);
         ECO.haloGlow.visible = true;
     } else { ECO.halo.visible = false; ECO.haloGlow.visible = false; }
+    ecoKbdFrame();
 
     for (const line of [ECO.links, ECO.glinks]) {
         if (!line) continue;
@@ -20817,8 +20885,12 @@ function ecoSelect(node, quiet) {
         }
     }
 
+    const hadFocus = panel.contains(document.activeElement);
     panel.innerHTML = ecoPanelHtml(node);
     panel.classList.remove('hidden');
+    if (hadFocus) panel.focus();                                    // redrawn under the reader: keep them in it
+    else if (!quiet && ECO.kbdMode) ecoPanelFocus();                // opened from the keyboard: go to it
+    if (!quiet) ecoSay(ecoDescribe(node) + '. Details open.');
     if (node.kind === 'company') ecoVerifyCompany(node);
 }
 
@@ -21055,6 +21127,7 @@ function ecoSetFeedMode(mode) { ECO.feedMode = mode === 'everyone' ? 'everyone' 
 function ecoSetSide(side) {
     ecoToggleMin(false);                 // choosing a tab opens the column if it was folded away
     ECO.side = ['rank', 'market', 'trend', 'chat'].includes(side) ? side : 'feed';
+    ecoSay({ feed: 'Feed', trend: 'Trending', rank: 'Rankings', market: 'Marketplace', chat: 'Chat' }[ECO.side] + ' tab');
     if (ECO.model) ecoRebuildScene(); else ecoRenderFeed();
 }
 
@@ -21103,7 +21176,7 @@ function ecoRenderSideTabs() {
     const el = document.getElementById('nqv-side-tabs');
     if (!el) return;
     // Icons, with the name spelled out for the open tab where there is room.
-    const t = (id, icon, label) => `<button onclick="ecoSetSide('${id}')" title="${label}" aria-label="${label}" ${ECO.side === id ? 'aria-current="true"' : ''}
+    const t = (id, icon, label) => `<button onclick="ecoSetSide('${id}')" title="${label}" aria-label="${label}" role="tab" aria-selected="${ECO.side === id}"
         class="inline-flex items-center shrink-0 whitespace-nowrap h-9 px-2 rounded-lg text-base ${ECO.side === id ? 'bg-zinc-800 text-white ring-1 ring-yellow-400/60' : 'text-zinc-400 hover:bg-zinc-800/60'}">${icon}<span class="${ECO.side === id ? 'hidden 2xl:inline' : 'hidden'} ml-1.5 text-sm">${label}</span></button>`;
     el.innerHTML = t('feed', '📰', 'Feed') + t('trend', '🔥', 'Trending') + t('rank', '🏆', 'Rankings') + t('market', '🛒', 'Marketplace') + t('chat', '💬', 'Chat');
 }
@@ -21538,7 +21611,7 @@ function ecoRenderMarket() {
     // its cursor while live updates redraw the rows beneath it.
     if (box.dataset.mode !== 'market' || !document.getElementById('nqv-market-rows')) {
         const mk = ECO.market;
-        const chip = (id, label) => `<button onclick="ecoMarketSet('type','${id}')" class="px-2.5 py-1 rounded-full text-xs font-semibold ${mk.type === id ? 'bg-red-500 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}">${label}</button>`;
+        const chip = (id, label) => `<button onclick="ecoMarketSet('type','${id}')" class="px-2.5 py-1 rounded-full text-xs font-semibold ${mk.type === id ? 'bg-red-600 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}">${label}</button>`;
         box.innerHTML = `<div class="sticky top-0 z-10 bg-zinc-900 px-4 py-3 border-b border-zinc-800 space-y-2">
                 <input id="nqv-market-q" type="search" autocomplete="off" placeholder="Search open listings" aria-label="Search open listings" value="${ecoEsc(mk.q)}"
                        oninput="ecoMarketSet('q', this.value)"
@@ -21818,6 +21891,7 @@ async function ecoStart() {
         const page = document.getElementById('ecosystem-page');
         if (!page || page.classList.contains('hidden')) return;      // they left while it was loading
         ecoInitScene();
+        ecoKeyInit();
         ecoResize();
         ecoSubscribe();
         ecoSyncUser();
@@ -21885,6 +21959,300 @@ function ecoStop() {
         else if (el && !el.classList.contains('hidden') && ECO.ready && !ECO.running) { ECO.running = true; ECO_GFX.last = 0; ecoFrame(); ecoLoadSnapshot(); }
     });
 })();
+
+// ====================== NQVERSE ACCESSIBILITY ======================
+// Two layers.
+//
+// ALWAYS ON — nothing to switch on, because the people who need these cannot
+// be asked to find a switch first:
+//   · the map takes keyboard focus: arrows move between what is on screen,
+//     Enter opens it, + and - zoom, Home resets, Escape closes or steps back
+//   · what is focused or opened is spoken through a live region
+//   · a panel opened from the keyboard takes focus, and gives it back
+//
+// OPTIONAL — the Accessibility button on the map, remembered on this device:
+//   list       the map as a list of companies and people (or of a project's parts)
+//   contrast   brighter text, stronger outlines, solid backing behind map labels
+//   large      bigger text in the panels and the side column, bigger map labels
+//   shapes     symbols as well as colour for open listings, highlights and stages
+//   calm       no orbiting, no camera glides, no transitions
+//   targets    44px buttons
+const ECO_A11Y_KEY = 'nqvA11y';
+const ECO_A11Y_OPTS = [
+    ['list',     'List view',                'The map as a list of companies and people'],
+    ['contrast', 'High contrast',            'Brighter text, stronger outlines, solid label backgrounds'],
+    ['large',    'Larger text',              'Bigger text in panels, the side column and map labels'],
+    ['shapes',   'Shapes as well as colour', 'Symbols for open listings, highlights and stages'],
+    ['calm',     'Reduce motion',            'No orbiting, camera glides or transitions'],
+    ['targets',  'Larger buttons',           'Bigger buttons and tap targets']
+];
+const ECO_STAGE_MARK = { todo: '○', building: '◐', bids: '◆', done: '✓' };
+ECO.a11y = { list: false, contrast: false, large: false, shapes: false, calm: false, targets: false };
+(function () {
+    try {
+        const saved = JSON.parse(localStorage.getItem(ECO_A11Y_KEY) || '{}');
+        ECO_A11Y_OPTS.forEach(([k]) => { if (saved && saved[k] === true) ECO.a11y[k] = true; });
+    } catch (e) {}
+})();
+
+/// Say something to a screen reader without moving focus.
+function ecoSay(text) {
+    const el = document.getElementById('eco-say');
+    if (!el) return;
+    el.textContent = '';
+    clearTimeout(ECO.sayTimer);
+    ECO.sayTimer = setTimeout(() => { el.textContent = String(text || ''); }, 40);      // emptied first, so the same words twice are read twice
+}
+
+function ecoDescribe(node) {
+    if (!node) return '';
+    if (node.kind === 'sun') return 'NQVate, the centre of the map';
+    if (node.kind === 'company') {
+        const pl = node.planet, n = pl.memberCount || 0;
+        return pl.name + ', company' + (pl.verified ? ', verified' : '') + ', ' + n + (n === 1 ? ' person' : ' people')
+            + (pl.open && pl.open.count ? ', ' + pl.open.count + ' open listing' + (pl.open.count === 1 ? '' : 's') : '')
+            + (pl.rankPos ? ', ranked ' + pl.rankPos : '');
+    }
+    let s = node.label + ', member';
+    if (node.planetNode && node.member) s += ', ' + [...node.member.roles].join(' and ') + ' of ' + node.planetNode.label;
+    if (node.person && node.person.rankPos) s += ', ranked ' + node.person.rankPos;
+    return s;
+}
+
+/// Apply the saved options to the page. `changed` is the option just switched,
+/// if any, so only what depends on it is redrawn.
+function ecoA11yApply(changed) {
+    const a = ECO.a11y;
+    ['ecosystem-page', 'studio-page'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) ECO_A11Y_OPTS.forEach(([k]) => el.classList.toggle('nqv-a11y-' + k, !!a[k]));
+    });
+    const system = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    ECO.reduceMotion = system || a.calm;
+    const wrap = document.getElementById('eco-keys');
+    if (wrap) {
+        wrap.tabIndex = a.list ? -1 : 0;
+        if (a.list) wrap.setAttribute('aria-hidden', 'true'); else wrap.removeAttribute('aria-hidden');
+    }
+    document.querySelectorAll('.eco-a11y-btn').forEach(b => b.classList.toggle('ring-2', ECO_A11Y_OPTS.some(([k]) => a[k])));
+    // Labels are drawn into textures, so these three need the scene drawn again.
+    if (['contrast', 'large', 'shapes'].includes(changed) && ECO.ready) {
+        if (ECO.model) ecoRebuildScene();
+        ecoLayerSync();
+    }
+    ecoListRender();
+}
+
+function ecoA11ySet(key, on) {
+    if (!(key in ECO.a11y)) return;
+    ECO.a11y[key] = !!on;
+    try { localStorage.setItem(ECO_A11Y_KEY, JSON.stringify(ECO.a11y)); } catch (e) {}
+    ecoA11yApply(key);
+    const opt = ECO_A11Y_OPTS.find(o => o[0] === key);
+    ecoSay(opt[1] + (on ? ' on' : ' off'));
+}
+
+function ecoA11yMenu(open, from) {
+    const menu = document.getElementById('eco-a11y-menu');
+    if (!menu) return;
+    const isOpen = !menu.classList.contains('hidden');
+    if (open === undefined) open = !isOpen;
+    if (open === isOpen) return;
+    if (open) {
+        ECO.a11yFrom = from || document.activeElement;
+        menu.innerHTML = `<p id="eco-a11y-title" class="font-semibold mb-1">Accessibility</p>
+            <p class="text-xs text-zinc-400 mb-2">Remembered on this device. The map also works from the keyboard: arrows to move, Enter to open, Escape to close.</p>` +
+            ECO_A11Y_OPTS.map(([k, label, hint]) => `<label class="flex items-start gap-3 py-2 px-1 rounded-lg hover:bg-zinc-800 cursor-pointer">
+                <input type="checkbox" class="mt-1 w-4 h-4 shrink-0 accent-yellow-400" ${ECO.a11y[k] ? 'checked' : ''} onchange="ecoA11ySet('${k}', this.checked)" aria-describedby="eco-a11y-h-${k}">
+                <span><span class="block font-medium">${label}</span><span id="eco-a11y-h-${k}" class="block text-xs text-zinc-400">${hint}</span></span></label>`).join('') +
+            `<button onclick="ecoA11yMenu(false)" class="w-full mt-2 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm">Done</button>`;
+        menu.classList.remove('hidden');
+        const first = menu.querySelector('input');
+        if (first) first.focus();
+    } else {
+        menu.classList.add('hidden');
+        const back = ECO.a11yFrom;
+        if (back && document.contains(back) && back.offsetParent !== null) back.focus();
+    }
+    document.querySelectorAll('.eco-a11y-btn').forEach(b => b.setAttribute('aria-expanded', open ? 'true' : 'false'));
+}
+function ecoA11yToggleMenu(ev) { if (ev) ev.stopPropagation(); ecoA11yMenu(undefined, ev && ev.currentTarget); }
+
+// ── List view ────────────────────────────────────────────────────────────
+// The same nodes and the same panels as the map, as buttons in a list.
+function ecoListRender() {
+    const box = document.getElementById('eco-list');
+    if (!box) return;
+    const on = !!ECO.a11y.list;
+    box.classList.toggle('hidden', !on);
+    if (!on) return;
+    const had = box.contains(document.activeElement);
+    const row = (go, title, sub) => `<li><button onclick="${go}" class="w-full text-left px-3 py-2.5 rounded-xl bg-zinc-900 border border-zinc-800 hover:border-yellow-400">
+        <span class="block font-semibold break-words">${title}</span>${sub ? `<span class="block text-xs text-zinc-400 mt-0.5">${sub}</span>` : ''}</button></li>`;
+    if (ECO.layer) {
+        const L = ECO.layer, k = studioCounts(STUDIO.nodes);
+        box.innerHTML = `<h2 class="text-base font-bold mb-1">Parts of ${ecoEsc(L.name)}</h2>
+            <p class="text-xs text-zinc-400 mb-3">${k.total ? `${k.done} of ${k.total} done. In plan order.` : 'No parts yet.'}</p>
+            <ol class="space-y-2">${STUDIO.nodes.map((n, i) => row(`ecoLayerSelectId('${ecoEsc(n.id)}')`,
+                (i + 1) + '. ' + ecoEsc(n.title || 'Untitled'), ECO_STAGE_MARK[studioStage(n)] + ' ' + STUDIO_STAGES[studioStage(n)].label)).join('')}</ol>`;
+    } else if (!ECO.model) {
+        box.innerHTML = `<p class="text-sm text-zinc-400">Loading…</p>`;
+    } else {
+        const planets = [...ECO.model.planets].sort((a, b) => b.score - a.score).slice(0, 200);
+        const people = [...ECO.model.people.values()].filter(p => p.known || p.appearances.length).sort((a, b) => b.score - a.score).slice(0, 100);
+        box.innerHTML = `<h2 class="text-base font-bold mb-1">Companies (${planets.length.toLocaleString()})</h2>
+            <p class="text-xs text-zinc-400 mb-3">Most active first. Open one to see its people, value and listings.</p>
+            <ul class="space-y-2 mb-6">${planets.map(pl => row(`ecoSelectId('c:${ecoEsc(pl.id)}')`, ecoEsc(pl.name),
+                [pl.verified ? 'Verified' : '', (pl.memberCount || 0) + (pl.memberCount === 1 ? ' person' : ' people'),
+                 pl.open && pl.open.count ? '◆ ' + pl.open.count + ' open listing' + (pl.open.count === 1 ? '' : 's') : ''].filter(Boolean).join(' · '))).join('')
+                || '<li class="text-sm text-zinc-400">No companies yet.</li>'}</ul>
+            <h2 class="text-base font-bold mb-1">People (top ${people.length.toLocaleString()})</h2>
+            <p class="text-xs text-zinc-400 mb-3">Most active first. Use Find at the top to reach anyone by name.</p>
+            <ul class="space-y-2">${people.map(p => row(`ecoSelectPerson('${ecoEsc(p.key)}')`, ecoEsc(p.label),
+                p.appearances.length ? ecoEsc(p.appearances.slice(0, 2).map(x => x.planet.name).join(', ')) + (p.appearances.length > 2 ? ' and ' + (p.appearances.length - 2) + ' more' : '') : 'Not yet tied to a company')).join('')
+                || '<li class="text-sm text-zinc-400">No members yet.</li>'}</ul>`;
+    }
+    if (had) box.focus();
+}
+
+// ── Keyboard ─────────────────────────────────────────────────────────────
+function ecoKeyInit() {
+    const wrap = document.getElementById('eco-keys');
+    if (!wrap || ECO.keysOn) return;
+    ECO.keysOn = true;
+    wrap.addEventListener('keydown', ecoKey);
+    wrap.addEventListener('focus', () => { if (ECO.kbdMode && !ECO.kbd && !ECO.layer) ecoKbdMove(null); });
+    // Which way the last instruction came decides whether a panel takes focus.
+    document.addEventListener('keydown', e => { if (e.key !== 'Shift' && e.key !== 'Control' && e.key !== 'Alt' && e.key !== 'Meta') ECO.kbdMode = true; }, true);
+    document.addEventListener('pointerdown', () => { ECO.kbdMode = false; ecoKbdClear(); }, true);
+    document.addEventListener('keydown', ecoKeyGlobal);
+    ECO.kbdRing = new THREE.Mesh(new THREE.RingGeometry(1.55, 1.85, 40),
+        new THREE.MeshBasicMaterial({ color: 0x22d3ee, side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthTest: false }));
+    ECO.kbdRing.visible = false; ECO.kbdRing.renderOrder = 5;
+    ECO.scene.add(ECO.kbdRing);
+    ecoA11yApply();
+}
+
+function ecoKbdClear() {
+    ECO.kbd = null;
+    if (ECO.kbdRing) ECO.kbdRing.visible = false;
+}
+
+/// Move the keyboard cursor to the nearest thing on screen in a direction
+/// ([dx, dy] in screen terms), or with no direction to whatever is nearest the middle.
+function ecoKbdMove(dir) {
+    const rect = ECO.renderer.domElement.getBoundingClientRect(), v = new THREE.Vector3();
+    const at = n => {
+        ecoWorldPos(n, v); v.project(ECO.camera);
+        if (v.z > 1 || v.z < -1 || Math.abs(v.x) > 1 || Math.abs(v.y) > 1) return null;
+        return [(v.x + 1) / 2 * rect.width, (1 - v.y) / 2 * rect.height];
+    };
+    let cur = ECO.kbd && ECO.byId.get(ECO.kbd.id) === ECO.kbd ? ECO.kbd : (ECO.selected || null);
+    const from = cur ? at(cur) : null;
+    let best = null, bestScore = Infinity;
+    for (const n of ECO.nodes) {
+        if (n === cur && from) continue;
+        const p = at(n);
+        if (!p) continue;
+        let score;
+        if (!from || !dir) {
+            score = Math.hypot(p[0] - rect.width / 2, p[1] - rect.height / 2) - n.radius * 6;      // near the middle, favouring the big ones
+        } else {
+            const dx = p[0] - from[0], dy = p[1] - from[1];
+            const along = dx * dir[0] + dy * dir[1], across = Math.abs(dx * dir[1] - dy * dir[0]);
+            if (along < 6 || across > along * 2) continue;                                          // not in that direction
+            score = along + across * 2;
+        }
+        if (score < bestScore) { bestScore = score; best = n; }
+    }
+    if (!best) return ecoSay(cur ? 'Nothing further that way.' : 'Nothing on screen. Press Home to reset the view.');
+    ECO.kbd = best;
+    ecoSay(ecoDescribe(best));
+}
+
+/// Draw the keyboard cursor: a ring on the map and the name beside it.
+function ecoKbdFrame() {
+    if (!ECO.kbdRing) return;
+    let n = ECO.kbd;
+    if (n && ECO.byId.get(n.id) !== n) n = ECO.kbd = ECO.byId.get(n.id) || null;       // the map was redrawn under it
+    if (!n || !ECO.kbdMode) { ECO.kbdRing.visible = false; return; }
+    ecoWorldPos(n, ECO.kbdRing.position);
+    ECO.kbdRing.scale.setScalar(Math.max(n.radius, 1.2));
+    ECO.kbdRing.quaternion.copy(ECO.camera.quaternion);
+    ECO.kbdRing.visible = true;
+    const tip = document.getElementById('eco-tip'), rect = ECO.renderer.domElement.getBoundingClientRect();
+    const v = _ecoV.b.copy(ECO.kbdRing.position).project(ECO.camera);
+    tip.textContent = n.label;
+    tip.style.left = Math.max(4, Math.min(rect.width - 200, (v.x + 1) / 2 * rect.width + 16)) + 'px';
+    tip.style.top = Math.max(4, (1 - v.y) / 2 * rect.height + 16) + 'px';
+    tip.classList.remove('hidden');
+}
+
+function ecoZoomBy(f) {
+    const off = ECO.camera.position.clone().sub(ECO.controls.target);
+    off.setLength(Math.max(ECO.controls.minDistance, Math.min(ECO.controls.maxDistance, off.length() * f)));
+    ECO.camera.position.copy(ECO.controls.target).add(off);
+    ECO.zoomTo = 0;
+}
+
+function ecoKey(e) {
+    if (ECO.a11y.list || e.altKey || e.ctrlKey || e.metaKey) return;
+    const k = e.key, dirs = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
+    const used = () => { e.preventDefault(); e.stopPropagation(); };
+    if (k === '+' || k === '=') { used(); return ecoZoomBy(0.8); }
+    if (k === '-' || k === '_') { used(); return ecoZoomBy(1.25); }
+    if (ECO.layer) {
+        const L = ECO.layer, parts = L.items.filter(it => it.kind === 'part');
+        const i = parts.findIndex(it => it.node.id === L.sel);
+        if (dirs[k]) {
+            used();
+            if (!parts.length) return ecoSay('No parts yet.');
+            const step = (k === 'ArrowRight' || k === 'ArrowDown') ? 1 : -1;
+            const next = parts[i < 0 ? (step > 0 ? 0 : parts.length - 1) : (i + step + parts.length) % parts.length];
+            ecoLayerSelect(next, true);
+            return ecoSay('Part ' + next.label);
+        }
+        if (k === 'Home') { used(); ecoLayerSelect(L.items[0], true); return ecoSay(L.name + ', your project'); }
+        if (k === 'Enter' || k === ' ') { used(); if (L.sel) ecoPanelFocus(); }
+        return;
+    }
+    if (dirs[k]) { used(); return ecoKbdMove(dirs[k]); }
+    if (k === 'Home') { used(); ecoKbdClear(); ecoResetView(); return ecoSay('View reset.'); }
+    if ((k === 'Enter' || k === ' ') && ECO.kbd) { used(); ecoSelect(ECO.kbd); }
+}
+
+/// Escape closes the nearest open thing on the NQVerse, one at a time.
+function ecoKeyGlobal(e) {
+    if (e.key !== 'Escape') return;
+    const page = document.getElementById('ecosystem-page');
+    if (!page || page.classList.contains('hidden') || !ECO.ready) return;
+    const open = id => { const el = document.getElementById(id); return el && !el.classList.contains('hidden') ? el : null; };
+    let el;
+    if (open('eco-a11y-menu')) return ecoA11yMenu(false);
+    if ((el = open('nqv-create-menu')) || (el = open('eco-mine-list')) || (el = open('eco-search-results'))) return el.classList.add('hidden');
+    if (open('eco-panel')) {
+        if (ECO.layer) ecoLayerSelect(null); else if (ECO.selected) ecoSelect(null); else if (ECO.group) ecoSetGroup(null); else return;
+        return ecoPanelClosed();
+    }
+    const stage = document.querySelector('.nqv-stage');
+    if (ECO.layer && stage && stage.contains(document.activeElement)) { ecoLayerExit(); ecoSay('Back on the NQVerse map.'); return ecoPanelClosed(); }
+    if (ECO.kbd) ecoKbdClear();
+}
+
+/// Move focus into the details panel, remembering where it came from.
+function ecoPanelFocus() {
+    const panel = document.getElementById('eco-panel');
+    if (!panel || panel.classList.contains('hidden')) return;
+    if (!panel.contains(document.activeElement)) ECO.panelFrom = document.activeElement;
+    panel.focus();
+}
+function ecoPanelClosed() {
+    const back = ECO.panelFrom;
+    ECO.panelFrom = null;
+    if (back && document.contains(back) && back.offsetParent !== null) return back.focus();
+    const fallback = document.getElementById(ECO.a11y.list ? 'eco-list' : 'eco-keys');
+    if (fallback && ECO.kbdMode) fallback.focus();
+}
 
 // ====================== STUDIO PIPELINE ======================
 // One model of a project's plan, shown two ways:
@@ -22162,6 +22530,7 @@ async function ecoLayerEnter(id, name) {
     document.getElementById('eco-panel').classList.add('hidden');
     document.getElementById('eco-layer-name').textContent = ECO.layer.name;
     document.getElementById('eco-layer-sub').textContent = 'Opening…';
+    ecoSay('Inside ' + ECO.layer.name + '. Arrow keys step through its parts. Escape goes back to the map.');
     ecoLayerClear();
     currentStudioProjectId = id;
     await studioRefresh();
@@ -22198,6 +22567,7 @@ function ecoLayerExit() {
     ECO.camera.position.copy(L.saved.pos);
     ECO.controls.target.copy(L.saved.target);
     ecoGroupPanel();
+    ecoListRender();
 }
 
 /// Draw the project from STUDIO.nodes. Called whenever they are reloaded.
@@ -22236,7 +22606,7 @@ function ecoLayerSync() {
         glow.scale.setScalar(34);
         g.add(glow);
         const title = String(n.title || 'Untitled');
-        const label = ecoLabelSprite((i + 1) + '. ' + (title.length > 20 ? title.slice(0, 19) + '…' : title), 6.5);      // the whole title is in the tip and the panel
+        const label = ecoLabelSprite((ECO.a11y.shapes ? ECO_STAGE_MARK[stage] + ' ' : '') + (i + 1) + '. ' + (title.length > 20 ? title.slice(0, 19) + '…' : title), 6.5);      // the whole title is in the tip and the panel
         label.position.set(0, 14, 0);
         g.add(label);
         root.add(g);
@@ -22256,6 +22626,7 @@ function ecoLayerSync() {
     if (!L.framed) { L.framed = true; ecoLayerFrameUp(nodes.length); }       // once, so later changes do not move a view you have turned
     if (L.sel && L.sel !== 'planet' && !studioNode(L.sel)) L.sel = null;      // the selected part was deleted
     ecoLayerPanel();
+    ecoListRender();
 }
 
 function ecoLayerItem(sel) {
@@ -22324,12 +22695,13 @@ function ecoLayerHover(item, cx, cy) {
     tip.classList.remove('hidden');
 }
 
-function ecoLayerSelect(item) {
+function ecoLayerSelect(item, stay) {
     const L = ECO.layer;
     if (!L) return;
     L.sel = item ? (item.kind === 'planet' ? 'planet' : item.node.id) : null;
     document.getElementById('eco-tip').classList.add('hidden');
     ecoLayerPanel();
+    if (item && !stay && ECO.kbdMode) ecoPanelFocus();             // opened from the keyboard: go to it (arrowing along the plan stays on the map)
 }
 function ecoLayerSelectId(id) { ecoLayerSelect(ecoLayerItem(id)); }
 
@@ -22338,7 +22710,9 @@ function ecoLayerPanel() {
     if (!L || !panel) return;
     const item = ecoLayerItem(L.sel);
     if (!item) return panel.classList.add('hidden');
-    const close = `<button onclick="ecoLayerSelect(null)" aria-label="Close" class="absolute top-3 right-4 text-2xl leading-none text-zinc-500 hover:text-white">&times;</button>`;
+    const hadFocus = panel.contains(document.activeElement);
+    setTimeout(() => { if (hadFocus && !panel.classList.contains('hidden') && !panel.contains(document.activeElement)) panel.focus(); }, 0);      // redrawn under the reader: keep them in it
+    const close = `<button onclick="ecoLayerSelect(null); ecoPanelClosed()" aria-label="Close" class="absolute top-3 right-4 text-2xl leading-none text-zinc-500 hover:text-white">&times;</button>`;
     const wide = (onclick, label, cls) => `<button onclick="${onclick}" class="w-full py-2.5 rounded-xl text-sm font-semibold ${cls}">${label}</button>`;
 
     if (item.kind === 'planet') {
@@ -23247,7 +23621,7 @@ async function showsAdminRemove(postId) {
 
         <!-- Project selector + new node button -->
         <div class="flex gap-3 mb-6 items-center flex-wrap">
-            <select id="studio-project-select" onchange="studioPick(this.value)"
+            <select id="studio-project-select" aria-label="Project" onchange="studioPick(this.value)"
                     class="flex-1 bg-zinc-900 border border-zinc-700 rounded-2xl px-5 py-3 outline-none text-sm min-w-0">
                 <option value="">— Select a project —</option>
             </select>
