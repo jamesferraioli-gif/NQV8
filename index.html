@@ -1611,7 +1611,7 @@
     @media (min-width: 1024px) {
         #nqv-side.nqv-wide { width: min(68%, 1150px); }
         /* The map is narrow while the column is wide: stack its search under its title, as on a phone. */
-        .nqv-widemode .nqv-searchrow { top: 9.75rem; left: 1rem; right: 1rem; }
+        .nqv-widemode .nqv-searchrow { top: 7.25rem; left: 1rem; right: 1rem; }
     }
     /* Chat inside the side column. It was built as a page of its own, switching
        from one pane to two by the width of the window; here it goes by the
@@ -1643,12 +1643,6 @@
                 <span class="text-[11px] text-zinc-400">Size by</span>
                 <select id="eco-sizeby" onchange="ecoSizeBy(this.value)" aria-label="Size the map by"
                         class="px-2 py-1 rounded-lg bg-zinc-900/90 border border-zinc-700 text-xs text-white focus:outline-none focus:border-yellow-400"></select>
-            </label>
-            <!-- Light up everyone who shares a school, a past employer, or work for one company. -->
-            <label class="hidden md:flex items-center gap-2 mt-1.5 pointer-events-auto w-fit">
-                <span class="text-[11px] text-zinc-400">Group</span>
-                <select id="eco-groupby" onchange="ecoGroupMenu(this.value)" aria-label="Group members by"
-                        class="max-w-[15rem] px-2 py-1 rounded-lg bg-zinc-900/90 border border-zinc-700 text-xs text-white focus:outline-none focus:border-pink-400"></select>
             </label>
         </div>
 
@@ -19894,9 +19888,11 @@ const ECO_LOD = {
 const ECO_COLORS = { verified: 0x34d399, unverified: 0x60a5fa, founder: 0xfbbf24, holder: 0xa78bfa, builder: 0x22d3ee, belt: 0xa1a1aa };
 
 // ── Groups: schools, past employers, and who has worked for a company ────
-// Members list where they studied and worked on their profiles. The map can
-// light up everyone who shares one of those, or colour everybody by school
-// or by employer at once. Both are self-reported and unchecked, and say so.
+// Members list where they studied and worked on their profiles. Click a
+// member and their headline shows it; click a school or company there and
+// the map lights up everyone who shares it. The Rankings tab can also colour
+// everybody by school or by employer at once. All of it is self-reported and
+// unchecked, and says so.
 //
 // A third kind is not self-reported at all: the people who have actually
 // worked on a company's bounties here, which the platform knows for itself.
@@ -20287,7 +20283,8 @@ function ecoBuildModel() {
     const mkGroups = (kind, arr) => (arr || []).map(g => ({
         kind, name: g.n, key: ecoGroupKey(kind, g.n), count: g.c || 0, done: g.d || 0, usdc: g.u || 0, members: [], rankPos: 0 }));
     const groups = { school: mkGroups('school', gsnap.s), employer: mkGroups('employer', gsnap.e) };
-    const pick = (arr, idx) => (idx || []).map(i => arr[i]).filter(Boolean);
+    // Each entry is [position, degree or role, years].
+    const pick = (arr, refs) => (refs || []).map(x => Array.isArray(x) ? x : [x]).map(x => ({ group: arr[x[0]], detail: x[1] || '', years: x[2] || '' })).filter(x => x.group);
 
     const list = snap.people.map(q => {
         const st = q.st || {};
@@ -20304,9 +20301,11 @@ function ecoBuildModel() {
             score: q.score || 0, size: 1.0 + 2.6 * (1 - Math.exp(-(q.score || 0) / 6)), rankPos: 0,
             // This week: [score, new followers, bounties finished, posts].
             trend: q.tr || null,
-            schools: pick(groups.school, q.gs), employers: pick(groups.employer, q.ge)
+            skills: q.sk || [],                                            // what they do, from their profile
+            edu: pick(groups.school, q.gs), jobs: pick(groups.employer, q.ge)
         };
     });
+    list.forEach(p => { p.schools = p.edu.map(x => x.group); p.employers = p.jobs.map(x => x.group); });
     list.forEach(p => { p.schools.forEach(g => g.members.push(p)); p.employers.forEach(g => g.members.push(p)); });
     const people = new Map(list.map(p => [p.key, p]));
 
@@ -21144,19 +21143,16 @@ function ecoPanelHtml(node) {
     return `${close}<p class="text-xs uppercase tracking-wider text-violet-300 mb-1">Member</p>
         <h2 class="text-xl font-bold pr-8">${ecoEsc(p.label)}</h2>
         <p class="text-xs text-zinc-400 mb-3">${ecoEsc(p.name)}</p>
+        ${ecoHeadline(p)}
         ${p.uid ? ecoFollowBtn('user', p.uid) : ''}
         <div class="grid grid-cols-3 gap-2 text-center mb-2">
             ${[[p.stats.followers, 'Followers'], [p.stats.done, 'Bounties done'], ['$' + Math.round(p.stats.usdc).toLocaleString(), 'USDC earned'],
-               [p.stats.stakes, 'Stakes held'], [p.stats.stakeValue ? '$' + Math.round(p.stats.stakeValue).toLocaleString() : '—', 'Stake value'],
-               [p.stats.ratingCount ? '⭐ ' + p.stats.rating.toFixed(1) : '—', p.stats.ratingCount ? 'Rating (' + p.stats.ratingCount + ')' : 'Rating']]
+               [p.stats.stakes, 'Stakes held'], [p.stats.stakeValue ? '$' + Math.round(p.stats.stakeValue).toLocaleString() : '—', 'Stake value']]
                 .map(([n, l]) => `<div class="bg-zinc-800/70 rounded-xl py-2 px-1"><p class="text-sm font-bold truncate">${n}</p><p class="text-[10px] text-zinc-400">${l}</p></div>`).join('')}
         </div>
         ${p.stats.funded && !ecoMeasureOff(ECO_MEASURES.people.funded) ? `<p class="text-xs text-zinc-400 mb-2">Funded ${p.stats.funded} project${p.stats.funded > 1 ? 's' : ''} · $${Math.round(p.stats.fundedValue).toLocaleString()} provided</p>` : ''}
         ${p.rankPos ? `<p class="text-xs text-yellow-300 mb-2">🏆 #${p.rankPos} for ${ecoEsc(ecoLow(ECO.model.rank.people.m.label))}</p>` : ''}
         <p class="text-[11px] text-zinc-500 mb-4">${ECO.model.rank.people.key === 'overall' ? 'Everything but the rating sets how large this member appears.' : 'Right now members are sized by ' + ecoEsc(ecoLow(ECO.model.rank.people.m.label)) + ' alone.'}</p>
-        ${p.schools.length || p.employers.length ? `<div class="flex flex-wrap gap-1.5 mb-1.5">${
-            p.schools.map(g => ecoGroupChip(g)).join('') + p.employers.map(g => ecoGroupChip(g)).join('')}</div>
-        <p class="text-[10px] text-zinc-600 mb-3">Self-reported. Click one to light up everyone who shares it.</p>` : ''}
         ${ties.length ? `<p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Companies (${ties.length})</p>
         <div class="space-y-1.5 mb-4">${ties.map(t => row('c:' + t.a.planet.id,
             ecoEsc(t.a.planet.name) + ' ' + t.roles.map(r => ecoChip(ECO_ROLE_CHIP[r][0], ECO_ROLE_CHIP[r][1])).join(' '),
@@ -21418,14 +21414,6 @@ function ecoPickGroup(kind, i) {
     const g = ECO.model && ECO.model.groups[kind] && ECO.model.groups[kind][i];
     if (g) ecoSetGroup({ mode: 'one', kind, id: g.key });
 }
-/// The Group menu on the map. Values: '', 'all:school', 'one:employer:3', 'one:company:<id>'.
-function ecoGroupMenu(value) {
-    const [mode, kind, id] = String(value || '').split(':');
-    if (mode === 'all') return ecoSetGroup({ mode: 'all', kind });
-    if (mode === 'one' && kind === 'company') return ecoSetGroup({ mode: 'one', kind, id });
-    if (mode === 'one') return ecoPickGroup(kind, Number(id));
-    ecoSetGroup(null);
-}
 /// From a profile page: go to the map and light up that school or employer.
 function ecoOpenGroup(kind, name) {
     ECO.group = { mode: 'one', kind, id: ecoGroupKey(kind, name) };
@@ -21437,29 +21425,36 @@ function ecoOpenGroup(kind, name) {
     }
 }
 
-function ecoGroupChip(g) {
-    return `<button onclick="ecoSetGroup({ mode: 'one', kind: '${g.kind}', id: '${ecoEsc(g.key)}' })" title="${ECO_GROUP_KIND[g.kind].one}: light up everyone who lists it"
-        class="px-2.5 py-1 rounded-full bg-pink-500/15 hover:bg-pink-500/25 text-pink-200 text-xs">${ECO_GROUP_KIND[g.kind].icon} ${ecoEsc(g.name)}</button>`;
+/// A member's headline: what they do, where they studied, where they have
+/// worked, and how they are rated. The school and company names are buttons:
+/// click one and everyone in the NQVerse who lists the same place lights up.
+function ecoHeadline(p) {
+    const lit = ECO.model.gnow && ECO.model.gnow.mode === 'one' ? ECO.model.gnow.group : null;
+    const place = x => {
+        const g = x.group, on = lit === g;
+        return `<li class="flex items-start gap-2"><span class="shrink-0">${ECO_GROUP_KIND[g.kind].icon}</span><span class="min-w-0">
+            <button onclick="ecoSetGroup(${on ? 'null' : `{ mode: 'one', kind: '${g.kind}', id: '${ecoEsc(g.key)}' }`})" title="${on ? 'Stop highlighting' : 'Light up everyone who lists this'}"
+                class="text-left font-semibold underline decoration-dotted underline-offset-2 ${on ? 'text-pink-300' : 'text-zinc-100 hover:text-pink-300'}">${ecoEsc(g.name)}</button>${
+            x.detail ? '<span class="text-zinc-400"> — ' + ecoEsc(x.detail) + '</span>' : ''}${x.years ? '<span class="text-zinc-500"> · ' + ecoEsc(x.years) + '</span>' : ''}${
+            g.count > 1 ? `<span class="text-[10px] text-zinc-500"> · ${g.count} here</span>` : ''}</span></li>`;
+    };
+    const rated = p.stats.ratingCount > 0;
+    const listed = p.edu.length || p.jobs.length;
+    if (!p.skills.length && !listed && !rated) return '';
+    return `<div class="rounded-2xl border border-zinc-800 bg-zinc-800/40 px-3 py-3 mb-3 text-sm space-y-2">
+        ${p.skills.length ? `<div class="flex flex-wrap items-center gap-1.5"><span class="text-[10px] uppercase tracking-wider text-zinc-500 mr-0.5">Focus</span>${
+            p.skills.map(k => `<span class="px-2 py-0.5 rounded-full bg-cyan-500/15 text-cyan-300 text-xs">${ecoEsc(k)}</span>`).join('')}</div>` : ''}
+        ${p.edu.length ? `<ul class="space-y-1">${p.edu.map(place).join('')}</ul>` : ''}
+        ${p.jobs.length ? `<ul class="space-y-1">${p.jobs.map(place).join('')}</ul>` : ''}
+        ${rated ? `<p class="flex items-center gap-2"><span class="shrink-0">⭐</span><span><span class="font-semibold">${p.stats.rating.toFixed(1)}</span>
+            <span class="text-zinc-400"> from ${p.stats.ratingCount} review${p.stats.ratingCount === 1 ? '' : 's'}</span></span></p>` : ''}
+        ${listed ? `<p class="text-[10px] text-zinc-500">School and work are self-reported. Click one to light up everyone who shares it.</p>` : ''}
+    </div>`;
 }
 
-/// Keep the Group menu and the legend in step with what is lit up.
+/// Keep the legend in step with what is lit up.
 function ecoSyncGroupUI() {
-    const m = ECO.model, g = m.gnow, sel = document.getElementById('eco-groupby');
-    if (sel) {
-        const opt = (v, label) => `<option value="${ecoEsc(v)}">${ecoEsc(label)}</option>`;
-        const some = (kind, title) => m.groups[kind].length ? `<optgroup label="${title}">` + m.groups[kind].slice(0, 25).map((x, i) => opt('one:' + kind + ':' + i, x.name + ' (' + x.count + ')')).join('') + '</optgroup>' : '';
-        const cos = m.planets.map(pl => [pl, [...pl.members.values()].filter(x => x.roles.has('builder')).length]).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, 25);
-        sel.innerHTML = opt('', 'None') + opt('all:school', 'Colour everyone by school') + opt('all:employer', 'Colour everyone by past employer')
-            + some('school', 'Schools') + some('employer', 'Past employers')
-            + (cos.length ? '<optgroup label="Worked on bounties for">' + cos.map(x => opt('one:company:' + x[0].id, x[0].name + ' (' + x[1] + ')')).join('') + '</optgroup>' : '');
-        let v = '';
-        if (g && g.mode === 'all') v = 'all:' + g.kind;
-        else if (g && g.kind === 'company') v = 'one:company:' + g.group.id;
-        else if (g) v = 'one:' + g.kind + ':' + m.groups[g.kind].indexOf(g.group);
-        sel.value = v;
-        // A group beyond the 25 listed can still be lit up, from search or a profile; show it as chosen.
-        if (g && sel.value !== v) { sel.insertAdjacentHTML('beforeend', opt(v, g.group.name + ' (' + g.group.count + ')')); sel.value = v; }
-    }
+    const g = ECO.model.gnow;
     const box = document.getElementById('eco-legend-groups');
     if (box) {
         const dot = (hex, glowing) => `<span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:${hex}${glowing ? ';box-shadow:0 0 7px 2px ' + hex : ''}"></span>`;
@@ -21817,6 +21812,11 @@ function ecoRenderRankings() {
                     ? 'Overall blends ' + (kind === 'people' ? 'bounties, earnings, stakes and followers' : 'people, work, value and followers') + ' — the same blend that sizes the map.'
                     : 'The map is sized by this too.') + ' The top ' + ECO_RANK_TOP + ' glow gold. Click a row to fly there.'}</p>
         </div>`
+        + (isGroup && shown.length ? (() => {
+            const gk = kind === 'schools' ? 'school' : 'employer', on = ECO.model.gnow && ECO.model.gnow.mode === 'all' && ECO.model.gnow.kind === gk;
+            return `<div class="px-4 py-2.5 border-b border-zinc-800"><button onclick="ecoSetGroup(${on ? 'null' : `{ mode: 'all', kind: '${gk}' }`})"
+                class="w-full py-2 rounded-xl text-sm font-semibold ${on ? 'bg-pink-500 text-white' : 'bg-pink-500/15 hover:bg-pink-500/25 text-pink-200'}">${on ? 'Stop colouring the map' : '🎨 Colour the whole map by ' + (gk === 'school' ? 'school' : 'past employer')}</button></div>`;
+        })() : '')
         + (shown.map(rowHtml).join('') || empty) + foot;
 }
 
