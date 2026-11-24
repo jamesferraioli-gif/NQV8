@@ -4895,8 +4895,8 @@ const NQV8_FEE = {
 //
 // Keep BOND_RATE_BPS in step with api/improve-posting.js.
 const BOND_RATE_BPS = { low: 1000, standard: 1500, high: 2500 };
-const BOND_MIN_NQV8 = 500;
-const BOND_MAX_NQV8 = 500000;
+const BOND_MIN_NQV8 = 100;      // keep in step with api/lock-bid-bond.js and firestore.rules
+const BOND_MAX_NQV8 = 500000;   // keep in step with api/lock-bid-bond.js and firestore.rules
 const BOND_KIND_BID = 1;
 
 /// Grace beyond a posting's target timeframe before an unanswered bid's bond
@@ -5270,9 +5270,9 @@ async function fillBidCostSlot(projectId, project) {
                 <p class="text-xs text-zinc-400 font-semibold mb-1">Why the stake</p>
                 <p class="text-xs text-zinc-500 mb-2">
                     It backs your delivery commitment. Win the bid and deliver on time and it is
-                    returned in full. Miss the deadline or deliver dishonest work and part can be
-                    slashed — compensating the founder for demonstrated loss, the remainder burned.
-                    NQVate never receives it.
+                    returned in full. Miss the deadline or lose a dispute and part or all of it
+                    can be slashed. Whatever is slashed is burned — neither the founder nor
+                    NQVate receives it.
                 </p>
                 <p class="text-xs text-zinc-400 font-semibold mb-1">When you get it back</p>
                 <p class="text-xs text-zinc-500">
@@ -15273,8 +15273,8 @@ function showImproveSuggestionsModal(original, improved, changes, onConfirm, tim
                 </p>
                 <p class="text-zinc-400 text-xs">
                     A builder's stake is returned in full if they don't win, withdraw, or deliver on time.
-                    It is only slashed if they win and then default — part compensating you for
-                    demonstrated loss, the rest burned. NQVate never receives it.
+                    It is only slashed if they win and then default. Whatever is slashed is burned —
+                    your escrow is what makes you whole, and neither you nor NQVate receives the stake.
                     ${bond.usdValue > 0 ? '' : '<br><span class="text-amber-400">No value was given for this posting, so every tier lands on the ' + _nqv8(BOND_MIN_NQV8) + ' NQV8 minimum. Go back and add one if you want a bond that scales.</span>'}
                 </p>
                 <p class="text-zinc-500 text-xs mt-2">
@@ -23296,7 +23296,7 @@ async function showsAdminRemove(postId) {
                 </div>
                 <div class="bg-cyan-500/10 border border-cyan-500/20 rounded-2xl p-4 mt-4">
                     <p class="text-cyan-400 text-sm font-semibold mb-1">🔒 Builders stake a refundable bond to bid</p>
-                    <p class="text-zinc-400 text-sm">To place a bid, a builder stakes NQV8 as a delivery commitment — 10–25% of the posting's value depending on its scope, with a 500 NQV8 minimum. It comes straight back if you aren't chosen, you withdraw your bid, or the posting is cancelled, and it is returned in full when you win and deliver. Part of it can be forfeited only if you win and then miss the deadline or lose a dispute. NQVate never receives it.</p>
+                    <p class="text-zinc-400 text-sm">To place a bid, a builder stakes NQV8 as a delivery commitment — 10–25% of the posting's value depending on its scope, with a 100 NQV8 minimum and a 500,000 NQV8 maximum. It comes straight back if you aren't chosen, you withdraw your bid, or the posting is cancelled, and it is returned in full when you win and deliver. Part of it can be forfeited only if you win and then miss the deadline or lose a dispute. Whatever is forfeited is burned — neither the founder nor NQVate receives it.</p>
                 </div>
             </div>
 
@@ -23770,7 +23770,7 @@ async function showsAdminRemove(postId) {
                         </div>
                         <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
                             <span class="text-zinc-400">Bid bond (refundable stake)</span>
-                            <span class="text-white">10–25% of posting value · min 500 NQV8</span>
+                            <span class="text-white">10–25% of posting value · min 100 NQV8</span>
                         </div>
                         <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
                             <span class="text-zinc-400">Post, comment, podcast episode or going live</span>
