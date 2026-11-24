@@ -1605,6 +1605,14 @@
 <style>
     .nqv-stage { height: 62vh; min-height: 420px; }
     .nqv-feed  { max-height: 70vh; }
+    /* On a phone the side column can be folded down to its row of tabs, and
+       the map grows to fill the screen above it. */
+    @media (max-width: 1023px) {
+        #nqv-side.nqv-min > :not(:first-child), #nqv-side.nqv-min #nqv-feed-tabs { display: none !important; }
+        #nqv-side.nqv-min > :first-child { border-bottom-width: 0; padding-bottom: 0.75rem; }
+        /* min-height, because in the phone's stacked layout that is what sets the map's height. */
+        .nqv-minmode .nqv-stage { min-height: max(360px, calc(100vh - 215px)); min-height: max(360px, calc(100dvh - 215px)); }
+    }
     /* Posts and shows are laid out as card grids sized for a full page. In the
        side column they stack one to a row — until the column is widened. */
     #nqv-side:not(.nqv-wide) #nqv-explore .grid { grid-template-columns: minmax(0, 1fr) !important; }
@@ -1657,8 +1665,10 @@
             <button onclick="ecoResetView()" class="px-3 py-2 rounded-xl bg-zinc-900/90 border border-zinc-700 text-sm hover:border-yellow-400">Reset</button>
         </div>
 
-        <!-- Legend -->
-        <div class="absolute bottom-3 left-3 md:bottom-4 md:left-4 rounded-2xl bg-zinc-900/85 border border-zinc-800 px-3 py-2 text-[11px] text-zinc-300 space-y-1 pointer-events-none">
+        <!-- Legend. On a phone it starts as a small "Key" button, so it does not cover the map. -->
+        <button id="eco-key-btn" onclick="ecoToggleKey()" aria-expanded="false" aria-controls="eco-legend"
+                class="md:hidden absolute bottom-3 left-3 z-10 h-9 px-3 rounded-full bg-zinc-900/90 border border-zinc-700 text-xs font-semibold text-zinc-200">ⓘ Key</button>
+        <div id="eco-legend" class="hidden md:block absolute bottom-14 left-3 md:bottom-4 md:left-4 rounded-2xl bg-zinc-900/85 border border-zinc-800 px-3 py-2 text-[11px] text-zinc-300 space-y-1 pointer-events-none">
             <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#ffd60a"></span>NQVate (the sun)</p>
             <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#34d399"></span>Green glow: verified company · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#60a5fa"></span>Blue glow: unverified</p>
             <div id="eco-legend-groups" class="hidden space-y-1"></div>
@@ -1685,6 +1695,8 @@
                 <div class="relative flex items-center gap-1.5 shrink-0">
                     <button onclick="ecoToggleCreate(event)" title="Create" aria-label="Create a post, episode or stream" aria-haspopup="true"
                             class="h-9 px-3 rounded-lg bg-white text-black hover:bg-cyan-400 text-sm font-bold whitespace-nowrap">+<span class="hidden 2xl:inline ml-1">Create</span></button>
+                    <button id="nqv-min-btn" onclick="ecoToggleMin()" title="Minimise" aria-label="Minimise this section to see more of the map" aria-expanded="true"
+                            class="lg:hidden inline-flex items-center justify-center h-9 w-9 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-lg leading-none">▾</button>
                     <button id="nqv-wide-btn" onclick="ecoToggleWide()" title="Widen this column" aria-label="Widen this column"
                             class="hidden lg:inline-flex items-center justify-center h-9 w-9 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200">⤢</button>
                     <div id="nqv-create-menu" class="hidden absolute right-0 top-full mt-2 z-30 w-56 rounded-xl border border-zinc-700 bg-zinc-900 shadow-xl overflow-hidden text-sm">
@@ -19866,6 +19878,7 @@ const ECO = {
     feedContent: 'all',                                            // the Feed tab's content filter: all, posts, shows or activity
     trend: { type: 'all', aud: null }, trendRows: [],              // the Trending tab's filters
     wide: false, exploreKey: '',
+    min: false,                                                    // phones: the side column folded down to its tabs
     marketRows: [],
     rank: { kind: 'people', people: 'overall', companies: 'overall', schools: 'members', employers: 'members' },   // the measure each ranking (and the map) uses
     group: null,                                                   // what is lit up: { mode: 'one', kind, id } or { mode: 'all', kind }
@@ -21252,6 +21265,7 @@ function ecoSetFeedMode(mode) { ECO.feedMode = mode === 'everyone' ? 'everyone' 
 /// Feed or Rankings. The gold top-10 marks depend on which is open, so the
 /// map is redrawn too.
 function ecoSetSide(side) {
+    ecoToggleMin(false);                 // choosing a tab opens the column if it was folded away
     ECO.side = ['rank', 'market', 'trend', 'chat'].includes(side) ? side : 'feed';
     if (ECO.model) ecoRebuildScene(); else ecoRenderFeed();
 }
@@ -21289,6 +21303,7 @@ function ecoSyncMeasureUI() {
 
 /// Jump straight to the rankings from anywhere — the old Leaderboard link.
 function ecoOpenRankings() {
+    ecoToggleMin(false);
     ECO.side = 'rank';
     navigateTo('ecosystem');
     if (ECO.model) ecoRebuildScene(); else ecoRenderFeed();
@@ -21352,6 +21367,7 @@ function ecoRenderChat() {
 
 /// Open the chat from anywhere — where the old Chat link and "Message" buttons land.
 function ecoOpenChat() {
+    ecoToggleMin(false);
     ECO.side = 'chat';
     ECO.chatOpen = false;                // arriving from elsewhere always shows a fresh list
     navigateTo('ecosystem');
@@ -21373,6 +21389,37 @@ function ecoCreate(kind) {
     if (kind === 'price' && typeof showsSetPrice === 'function') return showsSetPrice();
 }
 
+/// Phones: show or hide the key to the map's colours.
+function ecoToggleKey() {
+    const key = document.getElementById('eco-legend'), btn = document.getElementById('eco-key-btn');
+    if (!key || !btn) return;
+    const open = key.classList.toggle('hidden') === false;
+    btn.textContent = open ? '✕ Key' : 'ⓘ Key';
+    btn.setAttribute('aria-expanded', String(open));
+}
+
+/// Phones: fold the side column down to its row of tabs so the map has the
+/// screen, or open it again. Remembered between visits. On a desktop the
+/// column sits beside the map and this does nothing.
+function ecoToggleMin(force) {
+    const want = typeof force === 'boolean' ? force : !ECO.min;
+    if (want === ECO.min) return;
+    ECO.min = want;
+    const side = document.getElementById('nqv-side'), page = document.getElementById('ecosystem-page'), btn = document.getElementById('nqv-min-btn');
+    if (side) side.classList.toggle('nqv-min', want);
+    if (page) page.classList.toggle('nqv-minmode', want);
+    if (btn) {
+        btn.textContent = want ? '▴' : '▾';
+        btn.title = want ? 'Show' : 'Minimise';
+        btn.setAttribute('aria-label', want ? 'Show this section again' : 'Minimise this section to see more of the map');
+        btn.setAttribute('aria-expanded', String(!want));
+    }
+    try { localStorage.setItem('nqvSideMin', want ? '1' : '0'); } catch (e) {}
+    // The map's box has changed size; tell the renderer once it has settled.
+    setTimeout(ecoResize, 30); setTimeout(ecoResize, 320);
+    if (want) { const st = document.querySelector('.nqv-stage'); if (st && window.innerWidth < 1024) st.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+}
+
 /// Widen the side column so posts lay out as a grid again; the map narrows.
 function ecoToggleWide() {
     ECO.wide = !ECO.wide;
@@ -21387,6 +21434,7 @@ function ecoToggleWide() {
 
 /// Open the Feed filtered to posts or shows — where the old Explore links land.
 function ecoOpenFeed(content) {
+    ecoToggleMin(false);
     ECO.side = 'feed';
     ECO.feedContent = ['all', 'posts', 'shows', 'activity'].includes(content) ? content : 'all';
     navigateTo('ecosystem');
@@ -22025,6 +22073,8 @@ function ecoStop() {
         };
     }
     window.addEventListener('resize', () => { if (ECO.side === 'chat') ecoChatLayout(); });
+    // Phones: start folded if that is how it was left.
+    try { if (localStorage.getItem('nqvSideMin') === '1') ecoToggleMin(true); } catch (e) {}
     // Profile: fill the education and work rows whenever the editor opens.
     if (typeof showEditProfileModal === 'function') {
         const _showEdit = showEditProfileModal;
