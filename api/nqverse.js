@@ -63,6 +63,8 @@ const TREND_DAYS          = 7;        // "trending" means: in the last week
 const POSTS_LOOKBACK_DAYS = 30;       // how far back posts are read, to catch an older one that has come alive
 const HOT_POSTS_MAX       = 120;
 const TREND_KEEP          = 300;      // trending members always make the file, however new they are
+const GROUPS_MAX          = 2000;     // schools, and past employers, listed (largest first)
+const HISTORY_PER_MEMBER  = 6;        // entries of each kind read from one profile
 
 function getAdminDb() {
     if (!getApps().length) {
@@ -94,6 +96,32 @@ const when = t => {
     const ms = Date.parse(String(t));
     return isFinite(ms) ? Math.floor(ms / 1000) : 0;
 };
+
+// ── Schools and past employers ─────────────────────────────────────────────
+// Members type these into their profiles themselves, so the same place turns
+// up spelled several ways. groupKey() reduces a name to a key that is the same
+// for the common variations: case, accents, punctuation, filler words, word
+// order ("University of Michigan" / "Michigan University"), and a short list
+// of well-known abbreviations. It will not catch everything; suggesting
+// existing names as people type does the rest.
+const SCHOOL_ALIASES = {
+    'mit': 'massachusetts institute of technology', 'nyu': 'new york university', 'cmu': 'carnegie mellon university',
+    'ucla': 'university of california los angeles', 'uc berkeley': 'university of california berkeley',
+    'berkeley': 'university of california berkeley', 'usc': 'university of southern california',
+    'upenn': 'university of pennsylvania', 'penn': 'university of pennsylvania', 'caltech': 'california institute of technology',
+    'georgia tech': 'georgia institute of technology', 'gatech': 'georgia institute of technology',
+    'ut austin': 'university of texas austin', 'umich': 'university of michigan', 'lse': 'london school of economics'
+};
+const FILLER = {
+    school:   new Set(['the', 'of', 'at', 'and', 'in']),
+    employer: new Set(['the', 'and', 'inc', 'incorporated', 'llc', 'ltd', 'limited', 'corp', 'corporation', 'co', 'company', 'plc', 'gmbh', 'sa', 'ag'])
+};
+export function groupKey(kind, name) {
+    let s = String(name == null ? '' : name).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[.'’]/g, '').replace(/&/g, ' and ').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (kind === 'school' && SCHOOL_ALIASES[s]) s = SCHOOL_ALIASES[s];
+    return s.split(' ').filter(t => t && !FILLER[kind].has(t)).sort().join(' ');
+}
 
 /**
  * Work the whole map out from the raw collections. Pure: no I/O, so it can be
@@ -315,6 +343,44 @@ export function buildSnapshot(raw, now = Date.now()) {
         p.trend = [2 * f7 + 3 * d7 + p7, f7, d7, p7];
     });
 
+    // ── Schools and past employers, as members listed them ─────────────────
+    // Self-reported and unchecked. Each group carries its members' combined
+    // record, counted across everyone — not only the people sent in the file.
+    const groupSets = { school: new Map(), employer: new Map() };
+    const noteGroups = (person, kind, entries, field) => {
+        const seen = new Set();
+        (Array.isArray(entries) ? entries : []).slice(0, HISTORY_PER_MEMBER).forEach(e => {
+            const raw = clip(String((e && e[field]) || '').replace(/\s+/g, ' ').trim(), 80), key = groupKey(kind, raw);
+            if (!key || seen.has(key)) return;
+            seen.add(key);
+            let g = groupSets[kind].get(key);
+            if (!g) groupSets[kind].set(key, g = { key, names: new Map(), n: 0, done: 0, usdc: 0 });
+            g.names.set(raw, (g.names.get(raw) || 0) + 1);
+            g.n++; g.done += person.stats.done; g.usdc += person.stats.usdc;
+            (person.groups[kind] = person.groups[kind] || []).push(g);
+        });
+    };
+    people.forEach(p => { p.groups = {}; });
+    users.forEach((u, uid) => {
+        const p = people.get('u:' + uid);
+        if (!p) return;
+        noteGroups(p, 'school', u.education, 'school');
+        noteGroups(p, 'employer', u.workHistory, 'company');
+    });
+    // Largest first; shown under the spelling most members used — and, between
+    // equally common spellings, one written with capitals, then the fullest.
+    const proper = n => (/[A-Z]/.test(n) && /[a-z]/.test(n) ? 1 : 0);
+    const groupOut = {}, groupIndex = { school: new Map(), employer: new Map() };
+    Object.keys(groupSets).forEach(kind => {
+        const list = [...groupSets[kind].values()].sort((a, b) => b.n - a.n || a.key.localeCompare(b.key)).slice(0, GROUPS_MAX);
+        list.forEach((g, i) => groupIndex[kind].set(g.key, i));
+        groupOut[kind] = list.map(g => ({
+            n: [...g.names.entries()].sort((a, b) => b[1] - a[1] || proper(b[0]) - proper(a[0]) || b[0].length - a[0].length || a[0].localeCompare(b[0]))[0][0],
+            c: g.n, d: g.done, u: Math.round(g.usdc * 100) / 100
+        }));
+    });
+    const groupRefs = (p, kind) => (p.groups[kind] || []).map(g => groupIndex[kind].get(g.key)).filter(i => i !== undefined);
+
     // ── Who goes in the file ───────────────────────────────────────────────
     const ROLE_BIT = { founder: 1, holder: 2, builder: 4 };
     const order = (a, b) => (b.roles.has('founder') - a.roles.has('founder')) || (b.units - a.units) || (b.nb - a.nb) || a.person.key.localeCompare(b.person.key);
@@ -363,7 +429,10 @@ export function buildSnapshot(raw, now = Date.now()) {
         },
         score: Math.round(p.score * 1000) / 1000,
         // [score, new followers, bounties finished, posts] this week — only when there is something to say.
-        ...(p.trend[0] > 0 ? { tr: p.trend } : {})
+        ...(p.trend[0] > 0 ? { tr: p.trend } : {}),
+        // Which schools and past employers (positions in `groups`) this member listed.
+        ...(groupRefs(p, 'school').length ? { gs: groupRefs(p, 'school') } : {}),
+        ...(groupRefs(p, 'employer').length ? { ge: groupRefs(p, 'employer') } : {})
     }));
 
     const outPlanets = planets.map(pl => ({
@@ -450,7 +519,8 @@ export function buildSnapshot(raw, now = Date.now()) {
         },
         people: outPeople, planets: outPlanets,
         listings: listings.slice(0, LISTINGS_MAX), events: events.slice(0, EVENTS_MAX),
-        hot: hot.slice(0, HOT_POSTS_MAX)
+        hot: hot.slice(0, HOT_POSTS_MAX),
+        groups: { s: groupOut.school, e: groupOut.employer }
     };
     return { snapshot, wallets };
 }
@@ -466,7 +536,7 @@ async function loadRaw(db) {
     // Only the fields the map uses are fetched, which keeps this quick even
     // when the documents themselves are large.
     const [users, companies, holders, subprojects, sales, follows, reviews, posts] = await Promise.all([
-        db.collection('users').select('username', 'fullName', 'walletAddress', 'walletHistory').get(),
+        db.collection('users').select('username', 'fullName', 'walletAddress', 'walletHistory', 'education', 'workHistory').get(),
         db.collection('companies').select('name', 'entityType', 'type', 'verificationStatus', 'projectStatus', 'ownerUid', 'createdAt').get(),
         db.collection('equityHolders').select('projectId', 'wallet', 'units').get(),
         db.collection('subprojects').where('type', 'in', ['build', 'fund'])
