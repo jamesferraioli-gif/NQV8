@@ -1604,6 +1604,8 @@
 <!-- The NQVerse: the landing page. Internally still "ecosystem". -->
 <style>
     .nqv-stage { height: 62vh; min-height: 420px; }
+    /* Inside one of your own projects, the map's own controls step aside. */
+    .nqv-inlayer .eco-main-ui { display: none !important; }
     .nqv-feed  { max-height: 70vh; }
     /* On a phone the side column can be folded down to its row of tabs, and
        the map grows to fill the screen above it. */
@@ -1651,7 +1653,7 @@
         <div id="eco-canvas" class="absolute inset-0" style="touch-action: none;"></div>
 
         <!-- Title and live counts -->
-        <div class="absolute top-3 left-3 right-3 md:top-4 md:left-4 md:right-auto pointer-events-none">
+        <div class="eco-main-ui absolute top-3 left-3 right-3 md:top-4 md:left-4 md:right-auto pointer-events-none">
             <h1 class="text-lg md:text-2xl font-bold tracking-tight">The NQVerse</h1>
             <p class="text-[11px] md:text-xs text-zinc-400 mt-1">
                 <span id="eco-live-dot" class="inline-block w-2 h-2 rounded-full bg-zinc-600 mr-1.5 align-middle"></span><span id="eco-counts">Loading…</span>
@@ -1665,7 +1667,7 @@
         </div>
 
         <!-- Search and reset -->
-        <div class="nqv-searchrow absolute top-[4.5rem] left-3 right-3 md:top-4 md:left-auto md:right-4 flex gap-2">
+        <div class="nqv-searchrow eco-main-ui absolute top-[4.5rem] left-3 right-3 md:top-4 md:left-auto md:right-4 flex gap-2">
             <div class="relative flex-1 md:flex-none">
                 <input id="eco-search" type="search" placeholder="Find a person or company" autocomplete="off"
                        oninput="ecoSearch(this.value)"
@@ -1673,12 +1675,36 @@
                 <div id="eco-search-results" class="hidden absolute left-0 md:left-auto md:right-0 mt-1 w-64 max-h-64 overflow-y-auto rounded-xl bg-zinc-900 border border-zinc-700 text-sm z-10"></div>
             </div>
             <button onclick="ecoResetView()" class="px-3 py-2 rounded-xl bg-zinc-900/90 border border-zinc-700 text-sm hover:border-yellow-400">Reset</button>
+            <!-- Your own projects, including drafts that are not planets yet -->
+            <div id="eco-mine" class="hidden relative">
+                <button onclick="ecoMineToggle(event)" title="Step inside one of your projects" aria-label="My projects"
+                        class="h-full px-3 py-2 rounded-xl bg-yellow-400/15 border border-yellow-400/50 text-sm font-semibold text-yellow-200 hover:border-yellow-400 whitespace-nowrap">🛠<span class="hidden md:inline"> My projects</span></button>
+                <div id="eco-mine-list" class="hidden absolute right-0 mt-1 w-64 max-h-64 overflow-y-auto rounded-xl bg-zinc-900 border border-zinc-700 text-sm z-10"></div>
+            </div>
+        </div>
+
+        <!-- Inside one of your own projects -->
+        <div class="eco-layer-ui hidden absolute top-3 left-3 right-3 md:top-4 md:left-4 md:right-4 flex flex-wrap items-start justify-between gap-2 pointer-events-none">
+            <div class="min-w-0">
+                <button onclick="ecoLayerExit()" class="pointer-events-auto px-3 py-1.5 rounded-xl bg-zinc-900/90 border border-zinc-700 text-xs font-semibold hover:border-yellow-400">← The NQVerse</button>
+                <h1 id="eco-layer-name" class="text-lg md:text-2xl font-bold tracking-tight mt-2 truncate"></h1>
+                <p id="eco-layer-sub" class="text-[11px] md:text-xs text-zinc-400 mt-1"></p>
+            </div>
+            <div class="pointer-events-auto flex gap-2">
+                <button onclick="addFlowNode()" class="px-3 py-2 rounded-xl bg-white text-black text-sm font-semibold hover:bg-cyan-300">+ Add a part</button>
+                <button onclick="ecoLayerBoard()" class="px-3 py-2 rounded-xl bg-zinc-900/90 border border-zinc-700 text-sm hover:border-yellow-400">🗂 Board</button>
+            </div>
+        </div>
+        <div class="eco-layer-ui hidden absolute bottom-3 left-3 md:bottom-4 md:left-4 rounded-2xl bg-zinc-900/85 border border-zinc-800 px-3 py-2 text-[11px] text-zinc-300 space-y-1 pointer-events-none">
+            <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#a1a1aa"></span>To do · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#a78bfa"></span>Building</p>
+            <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#ef4444"></span>Out for bids · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#34d399"></span>Done</p>
+            <p class="text-zinc-500">The ring fills as parts are finished. Click a part to move it.</p>
         </div>
 
         <!-- Legend. On a phone it starts as a small "Key" button, so it does not cover the map. -->
         <button id="eco-key-btn" onclick="ecoToggleKey()" aria-expanded="false" aria-controls="eco-legend"
-                class="md:hidden absolute bottom-3 left-3 z-10 h-9 px-3 rounded-full bg-zinc-900/90 border border-zinc-700 text-xs font-semibold text-zinc-200">ⓘ Key</button>
-        <div id="eco-legend" class="hidden md:block absolute bottom-14 left-3 md:bottom-4 md:left-4 rounded-2xl bg-zinc-900/85 border border-zinc-800 px-3 py-2 text-[11px] text-zinc-300 space-y-1 pointer-events-none">
+                class="eco-main-ui md:hidden absolute bottom-3 left-3 z-10 h-9 px-3 rounded-full bg-zinc-900/90 border border-zinc-700 text-xs font-semibold text-zinc-200">ⓘ Key</button>
+        <div id="eco-legend" class="eco-main-ui hidden md:block absolute bottom-14 left-3 md:bottom-4 md:left-4 rounded-2xl bg-zinc-900/85 border border-zinc-800 px-3 py-2 text-[11px] text-zinc-300 space-y-1 pointer-events-none">
             <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#ffd60a"></span>NQVate (the sun)</p>
             <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#34d399"></span>Green glow: verified company · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#60a5fa"></span>Blue glow: unverified</p>
             <div id="eco-legend-groups" class="hidden space-y-1"></div>
@@ -18173,21 +18199,11 @@ let currentStudioProjectId = null;
 let selectedFlowmapProjectId = null;
 
 function switchStudioTab(tab) {
-    currentStudioTab = tab;
-    ['plan','build','grow'].forEach(t => {
-        const btn = document.getElementById(`studio-tab-${t}`);
-        const content = document.getElementById(`studio-${t}`);
-        const isActive = t === tab;
-        if (btn) {
-            btn.classList.toggle('border-b-2', isActive);
-            btn.classList.toggle('border-cyan-400', isActive);
-            btn.classList.toggle('text-zinc-400', !isActive);
-        }
-        if (content) content.classList.toggle('hidden', !isActive);
-    });
-    if (tab === 'plan') loadStudioProjectList();
-    if (tab === 'build') renderBuildTab();
-    if (tab === 'grow') loadGrowTab();
+    // The three tabs are one page now: the board for the chosen project, with
+    // the Grow launchpad for live companies beneath it.
+    currentStudioTab = 'plan';
+    loadStudioProjectList();
+    loadGrowTab();
 }
 
 // ── Populate the project dropdown with active companies ──────────────
@@ -18213,170 +18229,18 @@ async function loadStudioProjectList() {
             sel.appendChild(opt);
         });
 
-        if (currentStudioProjectId) {
-            loadStudioProject();
-        } else {
-            document.getElementById('plan-empty').classList.remove('hidden');
-            document.getElementById('plan-flowmap').classList.add('hidden');
+        // Nothing chosen yet (or the chosen one is gone): open the newest.
+        if (![...sel.options].some(o => o.value && o.value === currentStudioProjectId)) {
+            currentStudioProjectId = sel.options.length > 1 ? sel.options[1].value : null;
+            if (currentStudioProjectId) sel.value = currentStudioProjectId;
         }
+        studioRefresh();
     } catch(e) {
         console.error('loadStudioProjectList:', e.message);
     }
 }
 
-// ── Load plan nodes for selected project ─────────────────────────────
-async function loadStudioProject() {
-    const sel = document.getElementById('studio-project-select');
-    const projectId = sel?.value;
-
-    if (!projectId) {
-        document.getElementById('plan-empty').classList.remove('hidden');
-        document.getElementById('plan-flowmap').classList.add('hidden');
-        currentStudioProjectId = null;
-        return;
-    }
-
-    currentStudioProjectId = projectId;
-
-    try {
-        const [companyDoc, nodesSnap] = await Promise.all([
-            db.collection('companies').doc(projectId).get(),
-            db.collection('subprojects')
-                .where('companyId', '==', projectId)
-                .where('planNode', '==', true)
-                .get()
-        ]);
-
-        const company = companyDoc.data();
-        document.getElementById('flowmap-project-name').textContent = company?.name || '';
-        document.getElementById('flowmap-project-desc').textContent = company?.description || '';
-
-        document.getElementById('plan-empty').classList.add('hidden');
-        document.getElementById('plan-flowmap').classList.remove('hidden');
-
-    const allNodes = nodesSnap.docs.map(d => ({ id: d.id, ...d.data() }));
-    const nodes = allNodes
-            .filter(n => n.status !== 'completed' && n.type !== 'build')
-            .sort((a, b) => (a.nodeOrder ?? 0) - (b.nodeOrder ?? 0));
-        renderFlowNodes(allNodes, nodes);
-    } catch(e) {
-        console.error('loadStudioProject error:', e.message);
-        alert('Error loading plan: ' + e.message);
-    }
-}
-
-// ── Render the node list ─────────────────────────────────────────────
-function renderFlowNodes(allNodes, nodes) {
-    const container = document.getElementById('flowmap-nodes');
-    if (!container) return;
-
-    const todo    = allNodes.filter(n => n.status === 'open' && n.type !== 'build').length;
-    const inprog  = allNodes.filter(n => n.status === 'in-progress').length;
-    const done    = allNodes.filter(n => n.status === 'completed').length;
-    const inbuild = allNodes.filter(n => n.type === 'build').length;
-    const completed = done + inbuild;
-    const pct = allNodes.length > 0 ? Math.round((completed / allNodes.length) * 100) : 0;
-
-    const pb = document.getElementById('flowmap-progress-bar');
-    const pt = document.getElementById('flowmap-progress-text');
-    if (pb) pb.style.width = pct + '%';
-    if (pt) pt.textContent = pct + '%';
-    ['flowmap-stat-todo','flowmap-stat-inprogress','flowmap-stat-done','flowmap-stat-build'].forEach((id, i) => {
-        const el = document.getElementById(id);
-        if (el) el.textContent = [`${todo} to do`,`${inprog} in progress`,`${done} done`,`${inbuild} in build`][i];
-    });
-
-    if (nodes.length === 0) {
-        container.innerHTML = `
-            <div style="text-align:center;padding:48px 24px;border:2px dashed #3f3f46;border-radius:16px;margin-top:8px;">
-                <p style="color:#a1a1aa;margin-bottom:16px;font-size:14px;">No nodes yet. Add one manually or use AI Generate above.</p>
-                <button onclick="addFlowNode()"
-                        style="padding:10px 24px;border:1.5px solid #22d3ee;color:#22d3ee;background:none;border-radius:12px;cursor:pointer;font-size:13px;font-weight:500;">
-                    + Add First Node
-                </button>
-            </div>`;
-        return;
-    }
-
-    // Store nodes on window so onclick handlers can access them by index
-    window._studioNodes = nodes;
-
-    const statusConfig = {
-        'open':        { border: '#52525b', bg: '#18181b', badge: '#3f3f46', badgeText: '#a1a1aa', label: 'To Do' },
-        'in-progress': { border: '#0891b2', bg: '#0c1a1f', badge: '#0e3a4a', badgeText: '#67e8f9', label: 'In Progress' },
-        'completed':   { border: '#16a34a', bg: '#0a1f0f', badge: '#14532d', badgeText: '#86efac', label: '✅ Done' },
-        'build':       { border: '#8b5cf6', bg: '#0d0a1a', badge: '#2e1065', badgeText: '#c4b5fd', label: '→ In Build' }
-    };
-    const categoryIcon = {
-        'Frontend':'🎨','Backend':'⚙️','Database':'🗄️','Auth':'🔐',
-        'API':'🔌','Infrastructure':'🏗️','Testing':'🧪','Design':'✏️',
-        'Marketing':'📣','Legal':'⚖️','Other':'📋'
-    };
-
-    const NODE_H = 76;
-    const CONNECTOR_H = 36;
-    const UNIT = NODE_H + CONNECTOR_H;
-    const svgH = nodes.length * NODE_H + (nodes.length - 1) * CONNECTOR_H + 72;
-
-    let html = `<svg width="100%" viewBox="0 0 640 ${svgH}" style="display:block;overflow:visible">
-        <defs>
-            <marker id="fm-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
-                <path d="M2 1L8 5L2 9" fill="none" stroke="#52525b" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-            </marker>
-        </defs>`;
-
-    nodes.forEach((node, idx) => {
-        const effectiveStatus = node.status === 'completed' ? 'completed' : (node.type === 'build' ? 'build' : (node.status || 'open'));
-        const sc = statusConfig[effectiveStatus] || statusConfig.open;
-        const icon = categoryIcon[node.nodeCategory || node.category] || '📋';
-        const y = idx * UNIT;
-        const isLast = idx === nodes.length - 1;
-        const desc = (node.description || '').length > 75
-            ? (node.description || '').substring(0, 75) + '...'
-            : (node.description || '');
-
-        html += `
-        <g onclick="showFlowNodeModal(window._studioNodes[${idx}])" style="cursor:pointer">
-            <rect x="0" y="${y}" width="640" height="${NODE_H}" rx="10"
-                  fill="${sc.bg}" stroke="${sc.border}" stroke-width="1"
-                  onmouseenter="this.style.opacity='0.8'" onmouseleave="this.style.opacity='1'"/>
-            <circle cx="34" cy="${y + NODE_H/2}" r="15" fill="none" stroke="${sc.border}" stroke-width="1.5"/>
-            <text x="34" y="${y + NODE_H/2 + 1}" text-anchor="middle" dominant-baseline="central"
-                  style="font-size:12px;font-weight:700;fill:${sc.border};pointer-events:none">${idx + 1}</text>
-            <text x="62" y="${y + NODE_H/2 - 8}" dominant-baseline="central"
-                  style="font-size:15px;pointer-events:none">${icon}</text>
-            <text x="84" y="${y + NODE_H/2 - 10}" dominant-baseline="central"
-                  style="font-size:14px;font-weight:600;fill:#f4f4f5;pointer-events:none">${node.title}</text>
-            <text x="84" y="${y + NODE_H/2 + 12}" dominant-baseline="central"
-                  style="font-size:12px;fill:#71717a;pointer-events:none">${desc}</text>
-            <rect x="${640 - 106}" y="${y + NODE_H/2 - 12}" width="98" height="22" rx="11" fill="${sc.badge}"/>
-            <text x="${640 - 57}" y="${y + NODE_H/2}" text-anchor="middle" dominant-baseline="central"
-                  style="font-size:11px;font-weight:500;fill:${sc.badgeText};pointer-events:none">${sc.label}</text>
-            ${effectiveStatus !== 'completed' ? `
-            <text x="${640 - 116}" y="${y + NODE_H/2}" text-anchor="end" dominant-baseline="central"
-                  style="font-size:11px;fill:#a78bfa;cursor:pointer;pointer-events:all"
-                  onclick="event.stopPropagation();sendNodeToBuild('${node.id}','${(node.title||'').replace(/'/g,"\\'").replace(/"/g,'&quot;')}')">→ Send to Build</text>` : ''}
-        </g>
-        ${!isLast ? `
-        <line x1="320" y1="${y + NODE_H}" x2="320" y2="${y + NODE_H + CONNECTOR_H - 6}"
-              stroke="#3f3f46" stroke-width="1.5" marker-end="url(#fm-arrow)"/>` : ''}`;
-    });
-
-    // Add node button
-    const addY = nodes.length * UNIT;
-    html += `
-        <line x1="320" y1="${addY}" x2="320" y2="${addY + 18}" stroke="#3f3f46" stroke-width="1" opacity="0.4"/>
-    </svg>`;
-
-    container.innerHTML = html;
-
-    // Add node button as real HTML element so onclick works reliably
-    const addBtn = document.createElement('button');
-    addBtn.onclick = addFlowNode;
-    addBtn.className = 'w-full mt-1 py-3 border border-dashed border-zinc-600 text-zinc-400 rounded-xl text-sm font-medium hover:border-cyan-400 hover:text-cyan-400 transition-colors flex items-center justify-center gap-2';
-    addBtn.innerHTML = '<i class="fa-solid fa-plus"></i> Add Node';
-    container.appendChild(addBtn);
-}
+// (Loading and drawing the plan now lives in STUDIO PIPELINE, further down.)
 
 // ── Node status update ────────────────────────────────────────────────
 async function updateNodeStatus(nodeId, status) {
@@ -18393,7 +18257,7 @@ async function sendNodeToBuild(nodeId, title) {
     try {
         await db.collection('subprojects').doc(nodeId).update({ type: 'build', status: 'open', bidsOpen: true });
         loadStudioProject();
-        alert(`✅ "${title}" sent to Build tab.`);
+        alert(`✅ "${title}" moved to Building.`);
     } catch(e) {
         alert('Failed: ' + e.message);
     }
@@ -18402,7 +18266,7 @@ async function sendNodeToBuild(nodeId, title) {
 // ── Add a node manually ───────────────────────────────────────────────
 async function addFlowNode() {
     if (!currentStudioProjectId) return alert('Select a project first.');
-    const title = prompt('Node title:');
+    const title = prompt('Name this part of the project:');
     if (!title?.trim()) return;
     if (tooShort(title, 'Node title')) return;
     const desc = prompt('Brief description (optional):') || '';
@@ -18635,7 +18499,7 @@ async function submitNewFlowMap(useAI = false) {
         let nodes = [];
 
         if (useAI) {
-            // Pay $5 NQV8
+            // Pay the flow-map fee (NQV8_FEE.FLOWMAP)
             if (btnAI) btnAI.textContent = '⏳ Paying...';
             const nqv8Amount = NQV8_FEE.FLOWMAP;
             const nqv8Raw = await nqv8Contract.balanceOf(connectedAddress);
@@ -18748,7 +18612,7 @@ async function submitNewFlowMap(useAI = false) {
     } catch(e) {
         setStatus('❌ ' + e.message);
     } finally {
-        if (btnAI)   { btnAI.disabled   = false; btnAI.textContent   = '✨ AI ($5 NQV8)'; }
+        if (btnAI)   { btnAI.disabled   = false; btnAI.textContent   = '✨ AI (500 NQV8)'; }
         if (btnFree) { btnFree.disabled = false; btnFree.textContent = '🆓 Start Blank'; }
     }
 }
@@ -18777,118 +18641,10 @@ async function openMarketplacePosting(postingId) {
         alert('Error loading posting: ' + e.message);
     }
 }
-// ── Build tab ─────────────────────────────────────────────────────────
-async function renderBuildTab() {
-    if (!currentUser) return;
-    const container = document.getElementById('build-nodes');
-    const empty     = document.getElementById('build-empty');
-    if (!container) return;
-
-    container.innerHTML = '<p class="text-zinc-400 animate-pulse">Loading...</p>';
-
-    try {
-        const snap = await db.collection('subprojects')
-            .where('ownerUid', '==', currentUser.uid)
-            .where('planNode', '==', true)
-            .where('type', '==', 'build')
-            .orderBy('createdAt', 'desc')
-            .get();
-
-        const allNodes    = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        const activeNodes = allNodes.filter(n => n.status !== 'completed' && n.status !== 'refunded');
-        const doneNodes   = allNodes.filter(n => n.status === 'completed');
-
-        if (allNodes.length === 0) {
-            empty.classList.remove('hidden');
-            container.innerHTML = '';
-            return;
-        }
-
-        empty.classList.add('hidden');
-        container.innerHTML = '';
-
-        // ── Active nodes ──────────────────────────────────────────────
-        activeNodes.forEach(node => {
-            const card = document.createElement('div');
-            card.className = 'bg-zinc-900 border border-violet-500/30 rounded-2xl p-6';
-            card.innerHTML = `
-                <div class="flex justify-between items-start mb-3">
-                    <div>
-                        <p class="font-bold text-lg">${node.title}</p>
-                        <p class="text-zinc-400 text-sm mt-1">${node.description}</p>
-                    </div>
-                    ${node.marketplaceStatus === 'live' ?
-                        `<span class="px-3 py-1 rounded-full text-xs bg-emerald-500/20 text-emerald-400 ml-4 flex-shrink-0">🟢 Live</span>` :
-                        `<span class="px-3 py-1 rounded-full text-xs bg-violet-500/20 text-violet-400 ml-4 flex-shrink-0">In Build</span>`
-                    }
-                </div>
-                ${node.instructions ? `
-                <div class="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-4 mb-4">
-                    <p class="text-cyan-400 text-xs font-semibold mb-2">🤖 Instructions</p>
-                    <p class="text-zinc-300 text-sm">${node.instructions}</p>
-                </div>` : ''}
-                <div class="flex flex-wrap gap-3 mt-4">
-                    <button onclick="updateNodeStatus('${node.id}', 'completed'); renderBuildTab()"
-                            class="px-4 py-2 bg-emerald-500/20 text-emerald-400 rounded-xl text-sm font-medium hover:bg-emerald-500/30">
-                        ✓ Mark Complete
-                    </button>
-                    ${node.marketplaceStatus === 'live' && node.marketplacePostId ? `
-                    <button onclick="openMarketplacePosting('${node.marketplacePostId}')"
-                            class="px-4 py-2 ${node.marketplacePostStatus === 'in-progress' ? 'bg-violet-500/20 text-violet-400 border-violet-500/30' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'} rounded-xl text-sm font-medium border">
-                        ${node.marketplacePostStatus === 'in-progress' ? '🔨 In Progress →' : '🟢 Live on Marketplace →'}
-                    </button>` : `
-                    <button onclick="postNodeToMarketplace('${node.id}', '${node.title.replace(/'/g,"\\'")}')"
-                            class="px-4 py-2 bg-white text-black rounded-xl text-sm font-semibold hover:bg-cyan-400 transition-colors">
-                        📣 Post to Marketplace
-                    </button>`}
-                    <button onclick="sendNodeBackToPlan('${node.id}'); renderBuildTab()"
-                            class="px-4 py-2 border border-zinc-600 text-zinc-400 rounded-xl text-sm hover:bg-zinc-800">
-                        ← Back to Plan
-                    </button>
-                </div>
-            `;
-            container.appendChild(card);
-        });
-
-        // ── Completed nodes dropdown ──────────────────────────────────
-        if (doneNodes.length > 0) {
-            const section = document.createElement('div');
-            section.className = 'mt-6 border-t border-zinc-800 pt-6';
-            section.innerHTML = `
-                <button onclick="this.nextElementSibling.classList.toggle('hidden')"
-                        class="flex items-center gap-2 text-zinc-400 hover:text-white text-sm font-medium mb-4">
-                    <span>✅ Completed Nodes (${doneNodes.length})</span>
-                    <span class="text-xs">▼</span>
-                </button>
-                <div class="hidden space-y-3">
-                    ${doneNodes.map(node => `
-                    <div class="bg-zinc-900 border border-zinc-700 rounded-2xl p-4 opacity-70">
-                        <div class="flex justify-between items-center">
-                            <div>
-                                <p class="font-medium text-sm">${node.title}</p>
-                                <p class="text-zinc-500 text-xs mt-0.5">${node.description}</p>
-                            </div>
-                            <div class="flex items-center gap-2 ml-4 flex-shrink-0">
-                                <span class="px-2 py-1 rounded-full text-xs bg-emerald-500/20 text-emerald-400">✅ Done</span>
-                                <button onclick="updateNodeStatus('${node.id}', 'open'); renderBuildTab()"
-                                        class="px-3 py-1 border border-zinc-600 text-zinc-400 rounded-xl text-xs hover:bg-zinc-800">
-                                    Reopen
-                                </button>
-                            </div>
-                        </div>
-                    </div>`).join('')}
-                </div>
-            `;
-            container.appendChild(section);
-        }
-
-    } catch(e) {
-        container.innerHTML = `<p class="text-red-400">Error: ${e.message}</p>`;
-    }
-}
 async function sendNodeBackToPlan(nodeId) {
     try {
         await db.collection('subprojects').doc(nodeId).update({ type: 'plan', bidsOpen: false });
+        studioRefresh();
     } catch(e) {
         alert('Failed: ' + e.message);
     }
@@ -19897,6 +19653,7 @@ const ECO = {
     rank: { kind: 'people', people: 'overall', companies: 'overall', schools: 'members', employers: 'members' },   // the measure each ranking (and the map) uses
     group: null,                                                   // what is lit up: { mode: 'one', kind, id } or { mode: 'all', kind }
     glinks: null, chatOpen: false,
+    layer: null, layerWant: null, mine: [],                        // inside one of your own projects (see STUDIO PIPELINE)
     rankRows: [],
     model: null, nodes: [], byId: new Map(),
     selected: null, hovered: null, follow: null, links: null,
@@ -20509,10 +20266,19 @@ function ecoInitScene() {
     el.addEventListener('pointerup', e => {
         const d = ECO.downAt; ECO.downAt = null;
         if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 6) return;      // that was a drag, not a click
-        ecoSelect(ecoPick(e.clientX, e.clientY, e.pointerType === 'touch' ? 26 : 14));
+        const slop = e.pointerType === 'touch' ? 26 : 14;
+        if (ECO.layer) return ecoLayerSelect(ecoLayerPick(e.clientX, e.clientY, slop));
+        ecoSelect(ecoPick(e.clientX, e.clientY, slop));
+    });
+    // Double-click a planet you own to step inside it.
+    el.addEventListener('dblclick', e => {
+        if (ECO.layer) return;
+        const n = ecoPick(e.clientX, e.clientY, 14);
+        if (n && n.kind === 'company' && ecoIsMine(n.planet)) ecoLayerEnter(n.planet.id, n.planet.name);
     });
     el.addEventListener('pointermove', e => {
         if (e.pointerType === 'touch' || ECO.downAt) return;
+        if (ECO.layer) return ecoLayerHover(ecoLayerPick(e.clientX, e.clientY, 12), e.clientX, e.clientY);
         ecoHover(ecoPick(e.clientX, e.clientY, 12), e.clientX, e.clientY);
     });
     el.addEventListener('pointerleave', () => ecoHover(null));
@@ -20894,6 +20660,7 @@ function ecoFrame() {
         if (avg > 30 && ECO_GFX.quality === 'high') ecoSetQuality('low');
         else if (avg > 45 && !ECO_GFX.floor) { ECO_GFX.floor = true; ECO.renderer.setPixelRatio(1); ecoResize(); }
     }
+    if (ECO.layer) return ecoLayerFrame(t);          // inside a project: draw that instead of the map
     ecoPlace(t);
     if ((ECO.minors.length || ECO.near.size) && now - ECO.lodTick > 400) { ECO.lodTick = now; ecoCheckNear(now); }
     if (ECO.sunGlow) {
@@ -21014,6 +20781,7 @@ function ecoSelectPerson(key) {
 }
 
 function ecoSelect(node, quiet) {
+    if (ECO.layer && node) ecoLayerExit();                          // picked something on the main map: step back out to it
     if (node && node.minor) return ecoSelectId(node.id);            // fill it in, then select it
     if (node && node.kind === 'person') ECO.focusKey = node.person.key;
     if (node && node.kind === 'company' && !ECO.promoted.includes(node.planet.id)) ecoPromote(node.planet.id);
@@ -21021,7 +20789,7 @@ function ecoSelect(node, quiet) {
     if (ECO.links) { ECO.scene.remove(ECO.links); ECO.links.geometry.dispose(); ECO.links = null; }
     const panel = document.getElementById('eco-panel');
     document.getElementById('eco-tip').classList.add('hidden');
-    if (!node) { ECO.follow = null; panel.classList.add('hidden'); ecoGroupPanel(); return; }
+    if (!node) { ECO.follow = null; if (!ECO.layer) { panel.classList.add('hidden'); ecoGroupPanel(); } return; }      // inside a project the panel is that view's
 
     if (!quiet) {
         ECO.follow = node.kind === 'sun' ? null : node;
@@ -21135,6 +20903,7 @@ function ecoPanelHtml(node) {
             <h2 class="text-xl font-bold pr-8">${ecoEsc(pl.name)}</h2>
             <p class="text-xs text-zinc-400 mb-3">${ecoEsc(pl.entityType || 'Project')} · ${pl.verified ? 'Verified' : 'Unverified'} · ${pl.live ? 'Live' : 'Building'}</p>
             ${ecoFollowBtn('company', pl.id)}
+            ${ecoIsMine(pl) ? `<button onclick="ecoLayerEnter('${ecoEsc(pl.id)}')" class="w-full mb-3 py-2.5 rounded-xl bg-yellow-400 hover:bg-yellow-300 text-black text-sm font-bold">🛠 Step inside — plan &amp; build</button>` : ''}
             <div class="grid grid-cols-2 gap-2 text-center mb-2">
                 ${[[pl.value ? '$' + Math.round(pl.value).toLocaleString() : '—', 'Implied value'], [pl.followers, 'Followers'], [pl.memberCount.toLocaleString(), 'People'], [pl.bountyCounts.done + pl.bountyCounts.active, 'Bounties worked']]
                     .map(([n, l]) => `<div class="bg-zinc-800/70 rounded-xl py-2 px-1"><p class="text-sm font-bold truncate">${n}</p><p class="text-[10px] text-zinc-400">${l}</p></div>`).join('')}
@@ -21543,7 +21312,7 @@ function ecoSyncGroupUI() {
 /// The side panel for what is lit up — shown whenever nothing else is selected.
 function ecoGroupPanel() {
     const panel = document.getElementById('eco-panel'), g = ECO.model && ECO.model.gnow;
-    if (!panel || ECO.selected) return;
+    if (!panel || ECO.selected || ECO.layer) return;
     if (!g) return panel.classList.add('hidden');
     const close = `<button onclick="ecoSetGroup(null)" aria-label="Clear grouping" class="absolute top-3 right-4 text-2xl leading-none text-zinc-500 hover:text-white">&times;</button>`;
     const K = ECO_GROUP_KIND[g.kind];
@@ -21983,6 +21752,7 @@ function ecoSyncUser() {
     if (ECO.followUnsub) { try { ECO.followUnsub(); } catch (e) {} ECO.followUnsub = null; }
     ECO.raw.notifs = []; ECO.myFollows = [];
     ECO.feedMode = null;
+    ecoMineLoad();
     if (uid) {
         // Only this member's own follows — a handful of records, and the
         // Follow buttons react the instant one changes.
@@ -22049,6 +21819,7 @@ async function ecoStart() {
         ECO.running = true;
         ECO_GFX.last = 0;
         ecoFrame();
+        ecoLayerWanted();
     } catch (e) {
         console.error('Ecosystem view failed to start:', e);
         ecoStatus('The 3D view could not start on this device.');
@@ -22109,6 +21880,497 @@ function ecoStop() {
         else if (el && !el.classList.contains('hidden') && ECO.ready && !ECO.running) { ECO.running = true; ECO_GFX.last = 0; ecoFrame(); ecoLoadSnapshot(); }
     });
 })();
+
+// ====================== STUDIO PIPELINE ======================
+// One model of a project's plan, shown two ways:
+//
+//   Studio page      a board with four columns, one per stage
+//   NQVerse          "step inside" a planet you own: the same parts, drawn as
+//                    a ring of nodes round it, coloured by stage
+//
+// A part is a `subprojects` document with planNode: true. Its stage is read
+// from fields the rest of the site already sets, so nothing here needs a
+// migration:
+//
+//   done        status is 'completed'
+//   bids        it has a live Marketplace posting (marketplaceStatus 'live')
+//   building    type is 'build'
+//   todo        anything else
+//
+// Both views call studioAct() to move a part and studioRefresh() to redraw,
+// so they cannot drift apart.
+const STUDIO_STAGES = {
+    todo:     { label: 'To do',        hint: 'Planned, not started yet',         css: '#a1a1aa', hex: 0x8b8b94, none: 'Nothing waiting.' },
+    building: { label: 'Building',     hint: 'You are working on these',         css: '#a78bfa', hex: 0x8b5cf6, none: 'Nothing in progress.' },
+    bids:     { label: 'Out for bids', hint: 'Posted to the Marketplace',        css: '#f87171', hex: 0xef4444, none: 'Nothing posted.' },
+    done:     { label: 'Done',         hint: 'Finished',                         css: '#34d399', hex: 0x10b981, none: 'Nothing finished yet.' }
+};
+const STUDIO_ORDER = ['todo', 'building', 'bids', 'done'];
+const STUDIO_ICONS = { Frontend: '🎨', Backend: '⚙️', Database: '🗄️', Auth: '🔐', API: '🔌', Infrastructure: '🏗️', Testing: '🧪', Design: '✏️', Marketing: '📣', Legal: '⚖️', Other: '📋' };
+const STUDIO = { id: null, company: null, nodes: [], ticket: 0 };
+
+function studioStage(n) {
+    if (n.status === 'completed') return 'done';
+    if (n.marketplaceStatus === 'live') return 'bids';
+    if (n.type === 'build') return 'building';
+    return 'todo';
+}
+
+function studioCounts(nodes) {
+    const k = { todo: 0, building: 0, bids: 0, done: 0, total: nodes.length };
+    nodes.forEach(n => { k[studioStage(n)]++; });
+    k.pct = k.total ? Math.round(k.done / k.total * 100) : 0;
+    return k;
+}
+
+function studioNode(id) { return STUDIO.nodes.find(n => n.id === id) || null; }
+
+/// What can be done with a part from where it is. The first is the main one.
+function studioActions(n) {
+    const stage = studioStage(n);
+    if (stage === 'todo')     return [['build', 'Start building →'], ['post', '📣 Post for bids'], ['done', '✓ Done']];
+    if (stage === 'building') return [['post', '📣 Post for bids'], ['done', '✓ Done'], ['plan', '← Back to To do']];
+    if (stage === 'bids')     return (n.marketplacePostId ? [['view', n.marketplacePostStatus === 'in-progress' ? 'With a builder — view →' : 'View the posting →']] : []).concat([['done', '✓ Mark done']]);
+    return [['reopen', 'Reopen']];
+}
+
+/// Load the chosen project's parts and redraw whichever views are open.
+async function studioRefresh() {
+    const id = currentStudioProjectId;
+    const ticket = ++STUDIO.ticket;
+    if (!id) { STUDIO.id = null; STUDIO.company = null; STUDIO.nodes = []; studioRenderBoard(); return; }
+    try {
+        const [companyDoc, snap] = await Promise.all([
+            db.collection('companies').doc(id).get(),
+            db.collection('subprojects').where('companyId', '==', id).where('planNode', '==', true).get()
+        ]);
+        if (ticket !== STUDIO.ticket) return;            // a newer request has been made since
+        const nodes = [];
+        snap.forEach(d => nodes.push(Object.assign({ id: d.id }, d.data())));
+        const at = n => (n.createdAt && n.createdAt.seconds) || 0;
+        nodes.sort((a, b) => ((a.nodeOrder ?? 1e9) - (b.nodeOrder ?? 1e9)) || (at(a) - at(b)));
+        STUDIO.id = id;
+        STUDIO.company = companyDoc.exists ? companyDoc.data() : null;
+        STUDIO.nodes = nodes;
+    } catch (e) {
+        console.error('Studio: could not load the plan:', e.message);
+        if (ticket !== STUDIO.ticket) return;
+        STUDIO.id = id; STUDIO.company = null; STUDIO.nodes = []; STUDIO.error = e.message;
+    }
+    studioRenderBoard();
+    ecoLayerSync();
+}
+// The rest of the site asks for these by their old names.
+function loadStudioProject() { return studioRefresh(); }
+function renderBuildTab() { return studioRefresh(); }
+function studioPick(id) { currentStudioProjectId = id || null; return studioRefresh(); }
+
+function studioRenderBoard() {
+    const empty = document.getElementById('plan-empty'), wrap = document.getElementById('plan-flowmap'), board = document.getElementById('studio-board');
+    if (!empty || !wrap || !board) return;
+    const has = !!STUDIO.id;
+    empty.classList.toggle('hidden', has);
+    wrap.classList.toggle('hidden', !has);
+    if (!has) return;
+    const c = STUDIO.company || {}, k = studioCounts(STUDIO.nodes);
+    document.getElementById('flowmap-project-name').textContent = c.name || '';
+    document.getElementById('flowmap-project-desc').textContent = c.description || '';
+    document.getElementById('flowmap-progress-bar').style.width = k.pct + '%';
+    document.getElementById('flowmap-progress-text').textContent = k.total ? `${k.done} of ${k.total} done · ${k.pct}%` : 'No parts yet';
+    document.getElementById('flowmap-stats').innerHTML = STUDIO_ORDER.map(s =>
+        `<span><span class="inline-block w-2 h-2 rounded-full align-middle mr-1.5" style="background:${STUDIO_STAGES[s].css}"></span>${k[s]} ${STUDIO_STAGES[s].label.toLowerCase()}</span>`).join('');
+
+    const btn = (id, act, label, main) =>
+        `<button onclick="studioAct('${ecoEsc(id)}','${act}')" class="px-2.5 py-1.5 rounded-lg text-[11px] font-semibold ${main ? 'bg-white text-black hover:bg-cyan-300' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}">${label}</button>`;
+    board.innerHTML = STUDIO_ORDER.map(stage => {
+        const st = STUDIO_STAGES[stage];
+        const cards = STUDIO.nodes.map((n, i) => ({ n, i })).filter(x => studioStage(x.n) === stage).map(({ n, i }) => {
+            const desc = String(n.description || '');
+            return `<article class="studio-card bg-zinc-950 border border-zinc-800 hover:border-zinc-600 rounded-xl p-3 cursor-pointer" data-id="${ecoEsc(n.id)}" style="border-left:3px solid ${st.css}" onclick="studioAct('${ecoEsc(n.id)}','open')">
+                <div class="flex items-start gap-2">
+                    <span class="shrink-0 w-5 h-5 rounded-full bg-zinc-800 text-[10px] font-bold flex items-center justify-center text-zinc-300">${i + 1}</span>
+                    <p class="text-sm font-semibold leading-snug min-w-0 break-words">${STUDIO_ICONS[n.nodeCategory || n.category] || '📋'} ${ecoEsc(n.title || 'Untitled')}</p>
+                </div>
+                ${desc ? `<p class="text-xs text-zinc-500 mt-1.5 line-clamp-2">${ecoEsc(desc.length > 140 ? desc.slice(0, 139) + '…' : desc)}</p>` : ''}
+                ${stage === 'bids' ? `<p class="text-[11px] mt-1.5" style="color:${st.css}">${n.marketplacePostStatus === 'in-progress' ? '🔨 A builder is working on it' : '🟢 Open for bids on the Marketplace'}</p>` : ''}
+                <div class="flex flex-wrap gap-1.5 mt-2.5" onclick="event.stopPropagation()">${studioActions(n).map(([a, l], j) => btn(n.id, a, l, j === 0 && stage !== 'done')).join('')}</div>
+            </article>`;
+        }).join('');
+        return `<section class="studio-col bg-zinc-900/60 border border-zinc-800 rounded-2xl p-3 min-w-0" data-stage="${stage}">
+            <header class="flex items-center justify-between px-1 mb-1">
+                <p class="text-sm font-semibold flex items-center gap-2"><span class="inline-block w-2.5 h-2.5 rounded-full" style="background:${st.css}"></span>${st.label}</p>
+                <span class="studio-count text-xs text-zinc-500">${k[stage]}</span>
+            </header>
+            <p class="text-[11px] text-zinc-600 px-1 mb-3">${st.hint}</p>
+            <div class="space-y-2">${cards || `<p class="text-xs text-zinc-600 px-1 py-6 text-center">${STUDIO.error && stage === 'todo' ? 'Could not load this plan: ' + ecoEsc(STUDIO.error) : st.none}</p>`}</div>
+            ${stage === 'todo' ? `<button onclick="addFlowNode()" class="w-full mt-2 py-2 border border-dashed border-zinc-700 text-zinc-400 rounded-xl text-xs font-medium hover:border-cyan-400 hover:text-cyan-400">+ Add a part</button>` : ''}
+        </section>`;
+    }).join('');
+    STUDIO.error = null;
+}
+
+/// Move a part, or open something about it. Used by the board and by the
+/// project view in the NQVerse.
+async function studioAct(id, act) {
+    const n = studioNode(id);
+    if (!n) return;
+    if (act === 'open') return showFlowNodeModal(n);
+    if (act === 'post') return postNodeToMarketplace(id, n.title || '');
+    if (act === 'view') return n.marketplacePostId ? openMarketplacePosting(n.marketplacePostId) : null;
+    const change = {
+        build:  { type: 'build', status: 'open', bidsOpen: true },
+        plan:   { type: 'plan', bidsOpen: false },
+        done:   { status: 'completed' },
+        reopen: { status: 'open' }
+    }[act];
+    if (!change) return;
+    try {
+        await db.collection('subprojects').doc(id).update(change);
+    } catch (e) {
+        alert('Could not update this part: ' + e.message);
+    }
+    return studioRefresh();
+}
+
+/// Studio → the same project, drawn in the NQVerse.
+function studioOpenInVerse() {
+    if (!STUDIO.id) return;
+    ECO.layerWant = { id: STUDIO.id, name: (STUDIO.company && STUDIO.company.name) || '' };
+    navigateTo('ecosystem');
+    if (ECO.running && ECO.ready) ecoLayerWanted();
+}
+
+// ── The project view: inside a planet you own ────────────────────────────
+// A second scene, drawn with the same camera and controls. The main map is
+// left exactly as it was and is simply not drawn while you are inside, so
+// stepping back out costs nothing and loses nothing.
+function ecoIsMine(pl) {
+    return !!(pl && pl.ownerUid && typeof currentUser !== 'undefined' && currentUser && currentUser.uid === pl.ownerUid);
+}
+
+/// The signed-in member's own projects, for the "My projects" menu. Drafts
+/// are not planets yet, so this is the only way into one from the map.
+async function ecoMineLoad() {
+    const box = document.getElementById('eco-mine');
+    const uid = (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) || null;
+    ECO.mine = [];
+    if (box && uid) {
+        try {
+            const snap = await db.collection('companies').where('ownerUid', '==', uid).get();
+            snap.forEach(d => {
+                const c = d.data();
+                if (c.isActive === false) return;
+                ECO.mine.push({ id: d.id, name: c.name || 'Unnamed project', live: c.projectStatus === 'live', at: (c.createdAt && c.createdAt.seconds) || 0 });
+            });
+            ECO.mine.sort((a, b) => b.at - a.at);
+        } catch (e) { console.warn('NQVerse: your projects are unavailable:', e.message); }
+    }
+    if (box) box.classList.toggle('hidden', !ECO.mine.length);
+    const list = document.getElementById('eco-mine-list');
+    if (list) list.classList.add('hidden');
+}
+
+function ecoMineToggle(ev) {
+    if (ev) ev.stopPropagation();
+    const list = document.getElementById('eco-mine-list');
+    if (!list) return;
+    if (!list.classList.contains('hidden')) return list.classList.add('hidden');
+    list.innerHTML = `<p class="px-3 pt-2.5 pb-1 text-[11px] uppercase tracking-wider text-zinc-500">Step inside a project</p>` +
+        (ECO.mine || []).map(m => `<button onclick="ecoLayerEnter('${ecoEsc(m.id)}')" class="w-full flex items-center justify-between gap-3 text-left px-3 py-2 hover:bg-zinc-800">
+            <span class="truncate">${ecoEsc(m.name)}</span><span class="text-[11px] shrink-0 ${m.live ? 'text-emerald-400' : 'text-zinc-500'}">${m.live ? 'Live' : 'Draft'}</span></button>`).join('');
+    list.classList.remove('hidden');
+}
+
+function ecoLayerWanted() {
+    const w = ECO.layerWant;
+    if (!w) return;
+    ECO.layerWant = null;
+    ecoLayerEnter(w.id, w.name);
+}
+
+function ecoLayerScene() {
+    if (ECO.layerScene) return;
+    const s = ECO.layerScene = new THREE.Scene();
+    s.add(new THREE.AmbientLight(0xffffff, 0.5));
+    const key = new THREE.DirectionalLight(0xfff3c4, 0.8);
+    key.position.set(220, 260, 320);
+    s.add(key);
+    // A fixed scatter of far stars, so it still reads as space.
+    const count = 700, pos = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+        const u = ecoHash('star' + i, 1) * 2 - 1, th = ecoHash('star' + i, 2) * Math.PI * 2, r = 2600 + ecoHash('star' + i, 3) * 900, q = Math.sqrt(1 - u * u);
+        pos[i * 3] = r * q * Math.cos(th); pos[i * 3 + 1] = r * u; pos[i * 3 + 2] = r * q * Math.sin(th);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    s.add(new THREE.Points(geo, new THREE.PointsMaterial({ color: 0xffffff, size: 1.6, sizeAttenuation: false, transparent: true, opacity: 0.75 })));
+
+    ECO.layerRoot = new THREE.Group();
+    s.add(ECO.layerRoot);
+    ECO.layerMats = {}; ECO.layerGlow = {};
+    STUDIO_ORDER.forEach(st => {
+        const hex = STUDIO_STAGES[st].hex;
+        ECO.layerMats[st] = new THREE.MeshStandardMaterial({ color: hex, emissive: hex, emissiveIntensity: st === 'todo' ? 0.12 : 0.3, roughness: 0.7, metalness: 0 });
+        ECO.layerGlow[st] = new THREE.SpriteMaterial({ map: ECO.haloTex, color: hex, transparent: true, opacity: st === 'todo' ? 0.18 : 0.75, depthWrite: false, blending: THREE.AdditiveBlending });
+    });
+    ECO.layerTrack = new THREE.MeshBasicMaterial({ color: 0x52525b, transparent: true, opacity: 0.55, side: THREE.DoubleSide });
+    ECO.layerDone = new THREE.MeshBasicMaterial({ color: STUDIO_STAGES.done.hex, transparent: true, opacity: 0.95, side: THREE.DoubleSide });
+    ECO.layerPath = new THREE.LineBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.4 });
+    ECO.layerSel = new THREE.Mesh(new THREE.RingGeometry(1.35, 1.6, 40), ECO.haloMat);
+    ECO.layerSel.visible = false;
+    s.add(ECO.layerSel);
+}
+
+function ecoLayerClear() {
+    const root = ECO.layerRoot;
+    if (!root) return;
+    root.traverse(o => {
+        if (o.userData && o.userData.ownMat) o.material.dispose();
+        if (o.userData && o.userData.ownGeo && o.geometry) o.geometry.dispose();
+    });
+    while (root.children.length) root.remove(root.children[0]);
+}
+
+async function ecoLayerEnter(id, name) {
+    const uid = (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) || null;
+    if (!ECO.ready || !uid || !id) return;
+    const list = document.getElementById('eco-mine-list');
+    if (list) list.classList.add('hidden');
+    if (ECO.layer && ECO.layer.id === id) return studioRefresh();
+    if (ECO.layer) ecoLayerExit();
+    ecoSelect(null);
+    ecoLayerScene();
+    const known = (ECO.mine || []).find(m => m.id === id), planet = ECO.byId.get('c:' + id);
+    ECO.layer = {
+        id, name: name || (known && known.name) || (planet && planet.label) || 'Your project', items: [], sel: null,
+        saved: { pos: ECO.camera.position.clone(), target: ECO.controls.target.clone(), min: ECO.controls.minDistance, max: ECO.controls.maxDistance }
+    };
+    ECO.follow = null; ECO.zoomTo = 0;
+    ECO.controls.minDistance = 50; ECO.controls.maxDistance = 1400;
+    const stage = document.querySelector('.nqv-stage');
+    if (stage) stage.classList.add('nqv-inlayer');
+    // A phone has little room: fold the feed away while you are inside, and
+    // put it back on the way out if this is what folded it.
+    if (window.innerWidth < 1024 && !ECO.min) { ECO.layer.folded = true; ecoToggleMin(true); }
+    ecoLayerFrameUp(0);
+    document.querySelectorAll('.eco-layer-ui').forEach(el => el.classList.remove('hidden'));
+    document.getElementById('eco-panel').classList.add('hidden');
+    document.getElementById('eco-layer-name').textContent = ECO.layer.name;
+    document.getElementById('eco-layer-sub').textContent = 'Opening…';
+    ecoLayerClear();
+    currentStudioProjectId = id;
+    await studioRefresh();
+    // Only the owner may be in here. The map is told who owns what, but a
+    // menu entry is not proof, so the company record has the last word.
+    if (ECO.layer && ECO.layer.id === id && !(STUDIO.company && STUDIO.company.ownerUid === uid)) ecoLayerExit();
+}
+
+/// Point the camera at the project from far enough back to see every ring
+/// of parts, allowing for a tall, narrow screen.
+function ecoLayerFrameUp(count) {
+    const wrap = document.getElementById('eco-canvas');
+    const aspect = wrap && wrap.clientHeight ? wrap.clientWidth / wrap.clientHeight : 1.6;
+    const reach = 88 + Math.floor(Math.max(0, count - 1) / 10) * 50;
+    const d = reach * 3.1 * Math.max(1, 1.1 / aspect);
+    ECO.controls.target.set(0, 0, 0);
+    ECO.camera.position.set(0, d * 0.68, d * 0.74);
+}
+
+function ecoLayerExit() {
+    const L = ECO.layer;
+    if (!L) return;
+    ECO.layer = null;
+    ECO.camera.clearViewOffset();
+    if (L.folded && ECO.min) ecoToggleMin(false);
+    ecoLayerClear();
+    if (ECO.layerSel) ECO.layerSel.visible = false;
+    const stage = document.querySelector('.nqv-stage');
+    if (stage) stage.classList.remove('nqv-inlayer');
+    document.querySelectorAll('.eco-layer-ui').forEach(el => el.classList.add('hidden'));
+    document.getElementById('eco-panel').classList.add('hidden');
+    document.getElementById('eco-tip').classList.add('hidden');
+    ECO.controls.minDistance = L.saved.min; ECO.controls.maxDistance = L.saved.max;
+    ECO.camera.position.copy(L.saved.pos);
+    ECO.controls.target.copy(L.saved.target);
+    ecoGroupPanel();
+}
+
+/// Draw the project from STUDIO.nodes. Called whenever they are reloaded.
+function ecoLayerSync() {
+    const L = ECO.layer;
+    if (!L || !ECO.ready || STUDIO.id !== L.id) return;
+    ecoLayerScene();
+    ecoLayerClear();
+    const root = ECO.layerRoot, nodes = STUDIO.nodes, k = studioCounts(nodes), R = 26;
+    if (STUDIO.company && STUDIO.company.name) L.name = STUDIO.company.name;
+    L.items = [];
+
+    // The planet itself. Its name is in the heading, so the parts' labels have the space.
+    const planet = new THREE.Mesh(ECO.sphere, ecoPlanetMaterial(L.id));
+    planet.scale.setScalar(R);
+    root.add(planet);
+    L.items.push({ kind: 'planet', obj: planet, radius: R, label: L.name });
+    L.planet = planet;
+
+    // A ring round it that fills as parts are finished.
+    const flat = (geo, mat) => { const m = new THREE.Mesh(geo, mat); m.rotation.x = -Math.PI / 2; m.userData.ownGeo = true; root.add(m); return m; };
+    flat(new THREE.RingGeometry(R * 1.5, R * 1.64, 96), ECO.layerTrack);
+    if (k.done) flat(new THREE.RingGeometry(R * 1.5, R * 1.64, 96, 1, Math.PI / 2, -Math.PI * 2 * (k.done / k.total)), ECO.layerDone);
+
+    // The parts, in plan order, ten to a ring.
+    const per = 10, pts = [];
+    nodes.forEach((n, i) => {
+        const ring = Math.floor(i / per), inRing = Math.min(per, nodes.length - ring * per), slot = i - ring * per;
+        const a = Math.PI * 0.75 - (slot / inRing) * Math.PI * 2 - ring * 0.31, r = 88 + ring * 50;
+        const stage = studioStage(n), g = new THREE.Group();
+        g.position.set(Math.cos(a) * r, i % 2 ? 5 : -5, Math.sin(a) * r);
+        const ball = new THREE.Mesh(ECO.sphereLo, ECO.layerMats[stage]);
+        ball.scale.setScalar(7);
+        g.add(ball);
+        const glow = new THREE.Sprite(ECO.layerGlow[stage]);
+        glow.scale.setScalar(34);
+        g.add(glow);
+        const title = String(n.title || 'Untitled');
+        const label = ecoLabelSprite((i + 1) + '. ' + (title.length > 20 ? title.slice(0, 19) + '…' : title), 6.5);      // the whole title is in the tip and the panel
+        label.position.set(0, 14, 0);
+        g.add(label);
+        root.add(g);
+        pts.push(g.position.clone());
+        L.items.push({ kind: 'part', obj: g, radius: 7, node: n, idx: i, stage, baseY: g.position.y, label: (i + 1) + '. ' + (n.title || 'Untitled') + ' · ' + STUDIO_STAGES[stage].label });
+    });
+    if (pts.length > 1) {
+        const line = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts), ECO.layerPath);
+        line.userData.ownGeo = true;
+        root.add(line);
+    }
+
+    document.getElementById('eco-layer-name').textContent = L.name;
+    document.getElementById('eco-layer-sub').textContent = k.total
+        ? `${k.done} of ${k.total} part${k.total === 1 ? '' : 's'} done · ${k.pct}%`
+        : 'No parts yet — add the first one, or open the board to plan with Claude.';
+    if (!L.framed) { L.framed = true; ecoLayerFrameUp(nodes.length); }       // once, so later changes do not move a view you have turned
+    if (L.sel && L.sel !== 'planet' && !studioNode(L.sel)) L.sel = null;      // the selected part was deleted
+    ecoLayerPanel();
+}
+
+function ecoLayerItem(sel) {
+    const L = ECO.layer;
+    if (!L || !sel) return null;
+    return L.items.find(it => sel === 'planet' ? it.kind === 'planet' : it.kind === 'part' && it.node.id === sel) || null;
+}
+
+function ecoLayerFrame(t) {
+    const L = ECO.layer, tt = ECO.reduceMotion ? 0 : t;
+    if (L.planet) L.planet.rotation.y = tt * 0.06;
+    for (const it of L.items) if (it.kind === 'part') it.obj.position.y = it.baseY + Math.sin(tt * 1.1 + it.idx) * 1.4;
+    const sel = ecoLayerItem(L.sel);
+    if (sel && sel.kind === 'part') {
+        ECO.layerSel.position.copy(sel.obj.position);
+        ECO.layerSel.scale.setScalar(sel.radius);
+        ECO.layerSel.quaternion.copy(ECO.camera.quaternion);
+        ECO.layerSel.visible = true;
+    } else ECO.layerSel.visible = false;
+    // On a wide screen the details panel covers the right of the map, so the
+    // picture slides left by half the panel's width while one is open.
+    const el = ECO.renderer.domElement, panel = document.getElementById('eco-panel');
+    const shift = sel && window.innerWidth >= 768 ? Math.round(panel.offsetWidth / 2) : 0;
+    const key = el.clientWidth + 'x' + el.clientHeight + ':' + shift;
+    if (key !== L.viewKey) {
+        L.viewKey = key;
+        if (shift) ECO.camera.setViewOffset(el.clientWidth, el.clientHeight, shift, 0, el.clientWidth, el.clientHeight);
+        else ECO.camera.clearViewOffset();
+    }
+    ECO.controls.update();
+    ECO.renderer.render(ECO.layerScene, ECO.camera);
+}
+
+/// The same screen-space picking as the main map, over this project's parts.
+function ecoLayerPick(clientX, clientY, slop) {
+    const L = ECO.layer;
+    if (!L) return null;
+    const rect = ECO.renderer.domElement.getBoundingClientRect();
+    const x = clientX - rect.left, y = clientY - rect.top;
+    const edge = new THREE.Vector3(), right = new THREE.Vector3();
+    right.setFromMatrixColumn(ECO.camera.matrixWorld, 0);
+    let best = null, bestScore = Infinity;
+    for (const it of L.items) {
+        const v = it.obj.position;
+        const depth = v.clone().project(ECO.camera);
+        if (depth.z > 1 || depth.z < -1) continue;
+        edge.copy(v).addScaledVector(right, it.radius).project(ECO.camera);
+        const sx = (depth.x + 1) / 2 * rect.width, sy = (1 - depth.y) / 2 * rect.height;
+        const sr = Math.abs((edge.x + 1) / 2 * rect.width - sx);
+        const d = Math.hypot(sx - x, sy - y);
+        if (d > sr + slop) continue;
+        const score = d - sr + depth.z;
+        if (score < bestScore) { bestScore = score; best = it; }
+    }
+    return best;
+}
+
+function ecoLayerHover(item, cx, cy) {
+    const tip = document.getElementById('eco-tip');
+    ECO.renderer.domElement.style.cursor = item ? 'pointer' : 'grab';
+    if (!item) return tip.classList.add('hidden');
+    const rect = document.getElementById('eco-canvas').getBoundingClientRect();
+    tip.textContent = item.label;
+    tip.style.left = Math.min(rect.width - 200, cx - rect.left + 14) + 'px';
+    tip.style.top = (cy - rect.top + 14) + 'px';
+    tip.classList.remove('hidden');
+}
+
+function ecoLayerSelect(item) {
+    const L = ECO.layer;
+    if (!L) return;
+    L.sel = item ? (item.kind === 'planet' ? 'planet' : item.node.id) : null;
+    document.getElementById('eco-tip').classList.add('hidden');
+    ecoLayerPanel();
+}
+function ecoLayerSelectId(id) { ecoLayerSelect(ecoLayerItem(id)); }
+
+function ecoLayerPanel() {
+    const L = ECO.layer, panel = document.getElementById('eco-panel');
+    if (!L || !panel) return;
+    const item = ecoLayerItem(L.sel);
+    if (!item) return panel.classList.add('hidden');
+    const close = `<button onclick="ecoLayerSelect(null)" aria-label="Close" class="absolute top-3 right-4 text-2xl leading-none text-zinc-500 hover:text-white">&times;</button>`;
+    const wide = (onclick, label, cls) => `<button onclick="${onclick}" class="w-full py-2.5 rounded-xl text-sm font-semibold ${cls}">${label}</button>`;
+
+    if (item.kind === 'planet') {
+        const k = studioCounts(STUDIO.nodes);
+        panel.innerHTML = `${close}<p class="text-xs uppercase tracking-wider text-yellow-300 mb-1">Your project</p>
+            <h2 class="text-xl font-bold pr-8">${ecoEsc(L.name)}</h2>
+            <p class="text-xs text-zinc-400 mb-3">${k.total ? `${k.done} of ${k.total} parts done · ${k.pct}%` : 'No parts yet'}</p>
+            <div class="h-2 bg-zinc-800 rounded-full overflow-hidden mb-3"><div class="h-full rounded-full" style="width:${k.pct}%;background:${STUDIO_STAGES.done.css}"></div></div>
+            <div class="grid grid-cols-2 gap-2 text-center mb-4">${STUDIO_ORDER.map(s =>
+                `<div class="bg-zinc-800/70 rounded-xl py-2"><p class="text-lg font-bold" style="color:${STUDIO_STAGES[s].css}">${k[s]}</p><p class="text-[11px] text-zinc-400">${STUDIO_STAGES[s].label}</p></div>`).join('')}</div>
+            <div class="space-y-2">
+                ${wide('addFlowNode()', '+ Add a part', 'bg-white text-black hover:bg-cyan-300')}
+                ${wide('ecoLayerBoard()', '🗂 Open the board in Studio', 'bg-zinc-800 hover:bg-zinc-700')}
+                ${wide('ecoLayerExit()', '← Back to the NQVerse', 'bg-zinc-800 hover:bg-zinc-700')}
+            </div>`;
+    } else {
+        const n = item.node, st = STUDIO_STAGES[item.stage], id = ecoEsc(n.id);
+        const prev = L.items[item.idx], next = L.items[item.idx + 2];      // items[0] is the planet
+        panel.innerHTML = `${close}<p class="text-xs uppercase tracking-wider mb-1" style="color:${st.css}">Part ${item.idx + 1} of ${STUDIO.nodes.length} · ${st.label}</p>
+            <h2 class="text-xl font-bold pr-8 break-words">${ecoEsc(n.title || 'Untitled')}</h2>
+            <p class="text-xs text-zinc-500 mb-3">${ecoEsc(n.nodeCategory || n.category || 'General')}${n.estimatedHours ? ' · about ' + ecoEsc(n.estimatedHours) + ' hours' : ''}</p>
+            ${n.description ? `<p class="text-sm text-zinc-300 leading-relaxed mb-3 break-words">${ecoEsc(n.description)}</p>` : ''}
+            ${item.stage === 'bids' ? `<p class="text-xs mb-3" style="color:${st.css}">${n.marketplacePostStatus === 'in-progress' ? '🔨 A builder is working on it.' : '🟢 Open for bids on the Marketplace.'}</p>` : ''}
+            <div class="space-y-2 mb-4">${studioActions(n).map(([a, l], j) =>
+                wide(`studioAct('${id}','${a}')`, l, j === 0 && item.stage !== 'done' ? 'bg-white text-black hover:bg-cyan-300' : 'bg-zinc-800 hover:bg-zinc-700')).join('')}</div>
+            ${n.instructions ? `<details class="mb-4"><summary class="text-xs text-cyan-300 cursor-pointer select-none">🤖 Claude's instructions</summary>
+                <p class="text-xs text-zinc-300 leading-relaxed whitespace-pre-wrap mt-2">${ecoEsc(n.instructions)}</p></details>` : ''}
+            ${wide(`studioAct('${id}','open')`, '✏️ Details &amp; edit', 'bg-zinc-800 hover:bg-zinc-700')}
+            <div class="flex gap-2 mt-2">
+                ${prev && prev.kind === 'part' ? `<button onclick="ecoLayerSelectId('${ecoEsc(prev.node.id)}')" class="flex-1 py-2 rounded-xl bg-zinc-800/70 hover:bg-zinc-700 text-xs text-zinc-300">← Part ${item.idx}</button>` : ''}
+                ${next ? `<button onclick="ecoLayerSelectId('${ecoEsc(next.node.id)}')" class="flex-1 py-2 rounded-xl bg-zinc-800/70 hover:bg-zinc-700 text-xs text-zinc-300">Part ${item.idx + 2} →</button>` : ''}
+            </div>`;
+    }
+    panel.classList.remove('hidden');
+}
+
+function ecoLayerBoard() { if (ECO.layer) currentStudioProjectId = ECO.layer.id; navigateTo('studio'); }
 
 // ====================== PODCASTS & STREAMS ======================
 // The "Podcasts & Streams" tab in Explore.
@@ -22972,23 +23234,7 @@ async function showsAdminRemove(postId) {
 
     <div class="mb-8">
         <h1 class="text-3xl md:text-5xl font-bold tracking-tighter mb-2">Studio</h1>
-        <p class="text-zinc-400">Your end-to-end development workspace. Map out every step of your build, track progress node by node, post tasks to the marketplace, and manage your live business — all in one place.</p>
-    </div>
-
-    <!-- Studio Sub-Tabs -->
-    <div class="flex border-b border-zinc-700 mb-8">
-        <button onclick="switchStudioTab('plan')" id="studio-tab-plan"
-                class="flex-1 pb-3 text-sm md:text-lg font-semibold border-b-2 border-cyan-400 flex items-center justify-center gap-2">
-            🗺️ <span class="hidden sm:inline">Plan</span>
-        </button>
-        <button onclick="switchStudioTab('build')" id="studio-tab-build"
-                class="flex-1 pb-3 text-sm md:text-lg font-semibold text-zinc-400 flex items-center justify-center gap-2">
-            🔨 <span class="hidden sm:inline">Build</span>
-        </button>
-        <button onclick="switchStudioTab('grow')" id="studio-tab-grow"
-                class="flex-1 pb-3 text-sm md:text-lg font-semibold text-zinc-400 flex items-center justify-center gap-2">
-            🚀 <span class="hidden sm:inline">Grow</span>
-        </button>
+        <p class="text-zinc-400">Your end-to-end development workspace. Every part of your build on one board — plan it, build it, post it for bids, finish it — with your live business below. You can also step inside the same project from the NQVerse.</p>
     </div>
 
     <!-- ===== PLAN TAB ===== -->
@@ -22996,7 +23242,7 @@ async function showsAdminRemove(postId) {
 
         <!-- Project selector + new node button -->
         <div class="flex gap-3 mb-6 items-center flex-wrap">
-            <select id="studio-project-select" onchange="loadStudioProject()"
+            <select id="studio-project-select" onchange="studioPick(this.value)"
                     class="flex-1 bg-zinc-900 border border-zinc-700 rounded-2xl px-5 py-3 outline-none text-sm min-w-0">
                 <option value="">— Select a project —</option>
             </select>
@@ -23010,7 +23256,7 @@ async function showsAdminRemove(postId) {
         <div id="plan-empty" class="text-center py-20">
             <div class="text-6xl mb-4">🗺️</div>
             <p class="text-2xl font-bold mb-2">No plan yet</p>
-            <p class="text-zinc-400 mb-6">Select a project above, or create a new plan. Add nodes manually for free, or let Claude generate a full development path for $5 NQV8.</p>
+            <p class="text-zinc-400 mb-6">Select a project above, or create a new plan. Add nodes manually for free, or let Claude generate a full development path for 500 NQV8.</p>
             <button onclick="showNewFlowMapModal()"
                     class="px-8 py-4 bg-white text-black font-semibold rounded-2xl hover:bg-cyan-400 transition-colors">
                 + Create a Plan
@@ -23025,13 +23271,17 @@ async function showsAdminRemove(postId) {
                     <p id="flowmap-project-desc" class="text-zinc-400 text-sm mt-1"></p>
                 </div>
                 <div class="flex gap-2 flex-wrap">
+                    <button onclick="studioOpenInVerse()"
+                            class="px-4 py-2 border border-yellow-400 text-yellow-300 rounded-xl text-sm font-medium hover:bg-yellow-400/10">
+                        🪐 Open in the NQVerse
+                    </button>
                     <button onclick="addFlowNode()"
                             class="px-4 py-2 border border-cyan-400 text-cyan-400 rounded-xl text-sm font-medium hover:bg-cyan-400/10">
-                        + Add Node
+                        + Add a part
                     </button>
                     <button onclick="showRegenerateModal()"
                             class="px-4 py-2 border border-violet-500 text-violet-400 rounded-xl text-sm hover:bg-violet-500/10">
-                        ✨ AI Generate ($5 NQV8)
+                        ✨ AI Generate (500 NQV8)
                     </button>
                 </div>
             </div>
@@ -23045,36 +23295,21 @@ async function showsAdminRemove(postId) {
                 <div class="h-2 bg-zinc-700 rounded-full overflow-hidden">
                     <div id="flowmap-progress-bar" class="h-full bg-gradient-to-r from-cyan-400 to-violet-500 rounded-full transition-all" style="width:0%"></div>
                 </div>
-                <div class="flex gap-4 mt-3 text-xs text-zinc-500 flex-wrap">
-                    <span id="flowmap-stat-todo">0 to do</span>
-                    <span id="flowmap-stat-inprogress">0 in progress</span>
-                    <span id="flowmap-stat-done">0 done</span>
-                    <span id="flowmap-stat-build">0 in build</span>
-                </div>
+                <div id="flowmap-stats" class="flex gap-4 mt-3 text-xs text-zinc-400 flex-wrap"></div>
             </div>
 
-            <!-- Nodes list -->
-            <div id="flowmap-nodes" class="space-y-3"></div>
+            <!-- The board: one column per stage -->
+            <div id="studio-board" class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-start"></div>
         </div>
     </div>
 
-    <!-- ===== BUILD TAB ===== -->
-    <div id="studio-build" class="studio-tab-content hidden">
-        <p class="text-zinc-400 mb-6">Nodes sent here from your plan. Build solo or post to marketplace for bids.</p>
-        <div id="build-empty" class="text-center py-20">
-            <div class="text-6xl mb-4">🔨</div>
-            <p class="text-2xl font-bold mb-2">Nothing in build yet</p>
-            <p class="text-zinc-400">Send nodes from your Plan tab to start building.</p>
-        </div>
-        <div id="build-nodes" class="space-y-4"></div>
-    </div>
-
-    <!-- ===== GROW TAB ===== -->
-    <div id="studio-grow" class="studio-tab-content hidden">
+    <!-- ===== GROW: live companies ===== -->
+    <div id="studio-grow" class="mt-14 pt-10 border-t border-zinc-800">
+        <h2 class="text-2xl font-bold mb-1">🚀 Grow</h2>
         <p class="text-zinc-400 mb-6">Your launchpad for live products. Manage metrics, equity, funding, and growth.</p>
-        <div id="grow-empty" class="hidden text-center py-20">
-            <div class="text-6xl mb-4">🚀</div>
-            <p class="text-2xl font-bold mb-2">No live projects yet</p>
+        <div id="grow-empty" class="hidden text-center py-12">
+            <div class="text-5xl mb-4">🚀</div>
+            <p class="text-xl font-bold mb-2">No live projects yet</p>
             <p class="text-zinc-400 mb-2">Mark a project as <span class="text-emerald-400">🟢 Live</span> from your profile to see it here.</p>
             <p class="text-zinc-400 mb-6">Create a project to unlock the Grow launchpad.</p>
             <button onclick="showCreateProjectModal()"
@@ -23093,7 +23328,7 @@ async function showsAdminRemove(postId) {
             <h2 class="text-2xl font-bold">New Development Plan</h2>
             <button onclick="hideNewFlowMapModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
         </div>
-        <p class="text-zinc-400 text-sm mb-6">Pick an existing project or create a new one. You can add nodes manually for free, or use Claude to generate a full plan ($5 NQV8).</p>
+        <p class="text-zinc-400 text-sm mb-6">Pick an existing project or create a new one. You can add nodes manually for free, or use Claude to generate a full plan (500 NQV8).</p>
 
         <!-- Step 1: pick or create project -->
         <div id="flowmap-step-1">
@@ -23139,7 +23374,7 @@ async function showsAdminRemove(postId) {
                 </button>
                 <button onclick="submitNewFlowMap(true)" id="generate-flowmap-btn"
                         class="flex-1 py-4 bg-gradient-to-r from-cyan-400 to-violet-500 text-black font-semibold rounded-3xl">
-                    ✨ AI ($5 NQV8)
+                    ✨ AI (500 NQV8)
                 </button>
             </div>
         </div>
@@ -23345,7 +23580,7 @@ async function showsAdminRemove(postId) {
                     </div>
                     <div class="bg-zinc-800 rounded-2xl p-5">
                         <p class="font-semibold text-violet-400 mb-2">🔨 Build</p>
-                        <p class="text-zinc-400 text-sm">Send nodes from your plan to the Build tab. Work on them yourself or post them directly to the Marketplace for builders to bid on. Track what's done, in progress, or complete.</p>
+                        <p class="text-zinc-400 text-sm">Move each part of your plan across one board: To do, Building, Out for bids, Done. Work on a part yourself or post it to the Marketplace for builders to bid on. In the NQVerse you can step inside your own project and see every part laid out around its planet.</p>
                     </div>
                     <div class="bg-zinc-800 rounded-2xl p-5">
                         <p class="font-semibold text-emerald-400 mb-2">🚀 Grow</p>
@@ -23680,7 +23915,7 @@ async function showsAdminRemove(postId) {
                     <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
                         <p class="font-semibold text-violet-400 mb-3">As a founder 🚀</p>
                         <ul class="space-y-2 text-sm text-zinc-300">
-                            <li class="flex items-start gap-2"><span class="text-violet-400 flex-shrink-0">→</span>Create a project in Studio → Plan</li>
+                            <li class="flex items-start gap-2"><span class="text-violet-400 flex-shrink-0">→</span>Create a project and plan it in Studio</li>
                             <li class="flex items-start gap-2"><span class="text-violet-400 flex-shrink-0">→</span>Post bounties to get tasks built</li>
                             <li class="flex items-start gap-2"><span class="text-violet-400 flex-shrink-0">→</span>Verify your entity to unlock equity features</li>
                             <li class="flex items-start gap-2"><span class="text-violet-400 flex-shrink-0">→</span><span id="about-raise-line">Raise funding or list equity when you're ready</span></li>
