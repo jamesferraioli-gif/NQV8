@@ -39,6 +39,13 @@ const BID_EXPIRY_GRACE_DAYS = 14;
 
 const BOND_KIND_BID = 1;
 
+// The published limits on a bid bond. The page computes a posting's bond and
+// the database rules hold it inside this band and freeze it, but this endpoint
+// is what moves a builder's stake, so it checks for itself. Keep in step with
+// BOND_MIN_NQV8 / BOND_MAX_NQV8 in index.html and with firestore.rules.
+const BOND_MIN_NQV8 = 100;
+const BOND_MAX_NQV8 = 500000;
+
 /// keccak256("stake(uint256)")[0:4]
 const STAKE_SELECTOR = '0xa694fc3a';
 
@@ -194,6 +201,13 @@ export default async function handler(req, res) {
         if (!Number.isFinite(bondNQV8) || bondNQV8 <= 0) {
             return res.status(409).json({
                 error: 'This posting has no bond requirement recorded, so a bid bond cannot be locked'
+            });
+        }
+        if (bondNQV8 < BOND_MIN_NQV8 || bondNQV8 > BOND_MAX_NQV8) {
+            console.warn(`lock-bid-bond: posting ${projectId} carries a bond of ${bondNQV8} NQV8, outside ${BOND_MIN_NQV8}-${BOND_MAX_NQV8}`);
+            return res.status(409).json({
+                error: `This posting's bond (${bondNQV8.toLocaleString('en-US')} NQV8) is outside the allowed range of ` +
+                       `${BOND_MIN_NQV8.toLocaleString('en-US')} to ${BOND_MAX_NQV8.toLocaleString('en-US')} NQV8, so a bid cannot be placed on it`
             });
         }
         const amountWei = ethers.utils.parseUnits(String(bondNQV8), 18);
