@@ -357,29 +357,36 @@ export function buildSnapshot(raw, now = Date.now()) {
             if (!g) groupSets[kind].set(key, g = { key, names: new Map(), n: 0, done: 0, usdc: 0 });
             g.names.set(raw, (g.names.get(raw) || 0) + 1);
             g.n++; g.done += person.stats.done; g.usdc += person.stats.usdc;
-            (person.groups[kind] = person.groups[kind] || []).push(g);
+            // With what they studied or did there, and when, for their headline.
+            const second = clip(String((e && e[kind === 'school' ? 'degree' : 'title']) || '').replace(/\s+/g, ' ').trim(), 60);
+            const years = clip(String((e && e.years) || '').replace(/\s+/g, ' ').trim(), 20);
+            (person.groups[kind] = person.groups[kind] || []).push({ g, second, years });
         });
     };
     people.forEach(p => { p.groups = {}; });
     users.forEach((u, uid) => {
         const p = people.get('u:' + uid);
         if (!p) return;
+        // What they do, for the headline: the first few skills on their profile.
+        p.skills = (Array.isArray(u.skills) ? u.skills : []).map(k => clip(String(k).replace(/\s+/g, ' ').trim(), 30)).filter(Boolean).slice(0, 3);
         noteGroups(p, 'school', u.education, 'school');
         noteGroups(p, 'employer', u.workHistory, 'company');
     });
-    // Largest first; shown under the spelling most members used — and, between
-    // equally common spellings, one written with capitals, then the fullest.
+    // Largest first. Shown under a spelling written with capitals if anyone
+    // used one ("Morgan Stanley", not "morgan stanley"); among those, the one
+    // most members used, then the fullest.
     const proper = n => (/[A-Z]/.test(n) && /[a-z]/.test(n) ? 1 : 0);
     const groupOut = {}, groupIndex = { school: new Map(), employer: new Map() };
     Object.keys(groupSets).forEach(kind => {
         const list = [...groupSets[kind].values()].sort((a, b) => b.n - a.n || a.key.localeCompare(b.key)).slice(0, GROUPS_MAX);
         list.forEach((g, i) => groupIndex[kind].set(g.key, i));
         groupOut[kind] = list.map(g => ({
-            n: [...g.names.entries()].sort((a, b) => b[1] - a[1] || proper(b[0]) - proper(a[0]) || b[0].length - a[0].length || a[0].localeCompare(b[0]))[0][0],
+            n: [...g.names.entries()].sort((a, b) => proper(b[0]) - proper(a[0]) || b[1] - a[1] || b[0].length - a[0].length || a[0].localeCompare(b[0]))[0][0],
             c: g.n, d: g.done, u: Math.round(g.usdc * 100) / 100
         }));
     });
-    const groupRefs = (p, kind) => (p.groups[kind] || []).map(g => groupIndex[kind].get(g.key)).filter(i => i !== undefined);
+    // [position in `groups`, degree or role, years]
+    const groupRefs = (p, kind) => (p.groups[kind] || []).map(x => [groupIndex[kind].get(x.g.key), x.second, x.years]).filter(x => x[0] !== undefined);
 
     // ── Who goes in the file ───────────────────────────────────────────────
     const ROLE_BIT = { founder: 1, holder: 2, builder: 4 };
@@ -430,6 +437,7 @@ export function buildSnapshot(raw, now = Date.now()) {
         score: Math.round(p.score * 1000) / 1000,
         // [score, new followers, bounties finished, posts] this week — only when there is something to say.
         ...(p.trend[0] > 0 ? { tr: p.trend } : {}),
+        ...(p.skills && p.skills.length ? { sk: p.skills } : {}),
         // Which schools and past employers (positions in `groups`) this member listed.
         ...(groupRefs(p, 'school').length ? { gs: groupRefs(p, 'school') } : {}),
         ...(groupRefs(p, 'employer').length ? { ge: groupRefs(p, 'employer') } : {})
@@ -536,7 +544,7 @@ async function loadRaw(db) {
     // Only the fields the map uses are fetched, which keeps this quick even
     // when the documents themselves are large.
     const [users, companies, holders, subprojects, sales, follows, reviews, posts] = await Promise.all([
-        db.collection('users').select('username', 'fullName', 'walletAddress', 'walletHistory', 'education', 'workHistory').get(),
+        db.collection('users').select('username', 'fullName', 'walletAddress', 'walletHistory', 'education', 'workHistory', 'skills').get(),
         db.collection('companies').select('name', 'entityType', 'type', 'verificationStatus', 'projectStatus', 'ownerUid', 'createdAt').get(),
         db.collection('equityHolders').select('projectId', 'wallet', 'units').get(),
         db.collection('subprojects').where('type', 'in', ['build', 'fund'])
