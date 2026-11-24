@@ -11,7 +11,8 @@
 //
 //   GET /api/nqverse               the summary: companies, the people tied to
 //                                  them, the most active unattached members,
-//                                  open listings and recent activity
+//                                  open listings, recent activity, and what is
+//                                  trending this week
 //   GET /api/nqverse?company=<id>  that company's stakes, read from the
 //                                  EquityRegistry contract (the authority)
 //
@@ -58,6 +59,10 @@ const MEMBERS_PER_COMPANY = 60;
 const EVENTS_MAX          = 80;
 const LISTINGS_MAX        = 1500;
 const CLOSED_STATUS       = ['in-progress', 'completed', 'refunded', 'disputed', 'resolved'];
+const TREND_DAYS          = 7;        // "trending" means: in the last week
+const POSTS_LOOKBACK_DAYS = 30;       // how far back posts are read, to catch an older one that has come alive
+const HOT_POSTS_MAX       = 120;
+const TREND_KEEP          = 300;      // trending members always make the file, however new they are
 
 function getAdminDb() {
     if (!getApps().length) {
@@ -75,6 +80,20 @@ const cash = v => {
     return str.includes('%') ? 0 : dollars(str);
 };
 const clip = (s, n) => { s = String(s == null ? '' : s); return s.length > n ? s.slice(0, n) : s; };
+// Seconds since 1970 from anything a document might hold a time as: a
+// Firestore timestamp, a Date, a number of milliseconds or an ISO string.
+const when = t => {
+    if (!t) return 0;
+    if (typeof t === 'object') {
+        if (t.seconds || t._seconds) return t.seconds || t._seconds;
+        if (typeof t.toMillis === 'function') return Math.floor(t.toMillis() / 1000);
+        if (t instanceof Date) return Math.floor(t.getTime() / 1000);
+        return 0;
+    }
+    if (typeof t === 'number') return t > 1e11 ? Math.floor(t / 1000) : t;
+    const ms = Date.parse(String(t));
+    return isFinite(ms) ? Math.floor(ms / 1000) : 0;
+};
 
 /**
  * Work the whole map out from the raw collections. Pure: no I/O, so it can be
@@ -89,6 +108,11 @@ const clip = (s, n) => { s = String(s == null ? '' : s); return s.length > n ? s
  */
 export function buildSnapshot(raw, now = Date.now()) {
     const { users, companies, holders, subprojects, sales, follows, reviews } = raw;
+    const posts = raw.posts || [];
+    const nowS = Math.floor(now / 1000), week = nowS - TREND_DAYS * 86400;
+    const bump = (map, key, by = 1) => { if (key) map.set(key, (map.get(key) || 0) + by); };
+    // This week's movement, counted as the collections are walked.
+    const wk = { userFollows: new Map(), companyFollows: new Map(), done: new Map(), posts: new Map(), coPosted: new Map(), coDone: new Map() };
     const bounties = subprojects.filter(p => p.type === 'build');
     const fundAll  = subprojects.filter(p => p.type === 'fund');
     const funding  = fundAll.filter(f => f.status === 'completed');
@@ -97,6 +121,7 @@ export function buildSnapshot(raw, now = Date.now()) {
     follows.forEach(f => {
         if (f.followingUid) userFollowers.set(f.followingUid, (userFollowers.get(f.followingUid) || 0) + 1);
         if (f.followingCompanyId) companyFollowers.set(f.followingCompanyId, (companyFollowers.get(f.followingCompanyId) || 0) + 1);
+        if (when(f.createdAt) >= week) { bump(wk.userFollows, f.followingUid); bump(wk.companyFollows, f.followingCompanyId); }
     });
 
     // ── People ─────────────────────────────────────────────────────────────
@@ -180,6 +205,8 @@ export function buildSnapshot(raw, now = Date.now()) {
         // A private bounty counts as work done, but its title is not the
         // map's to show, and while open it is not counted as open either.
         const title = b.isPrivate ? 'Private bounty' : clip(b.title || 'Untitled bounty', 120);
+        if (pl && !b.isPrivate && when(b.createdAt) >= week) bump(wk.coPosted, pl.id);
+        if (done && when(b.completedAt) >= week) { bump(wk.done, builderUid); if (pl) bump(wk.coDone, pl.id); }
         if (pl) {
             if (done) pl.bountyCounts.done++; else if (builderUid) pl.bountyCounts.active++; else if (!b.isPrivate) pl.bountyCounts.open++;
             if (!b.isPrivate && pl.bountyTitles.length < 6) pl.bountyTitles.push({ title, done, active: !!builderUid && !done });
@@ -256,6 +283,38 @@ export function buildSnapshot(raw, now = Date.now()) {
                 + 0.6 * Math.log10(1 + st.stakeValue) + 1.0 * Math.log2(1 + st.followers);
     });
 
+    // ── Trending: what moved in the last week ──────────────────────────────
+    // Posts, episodes and streams, by this week's likes and comments. A like
+    // is dated only on posts liked since likes began being dated (likeDays);
+    // for the rest, a post made this week counts all its likes.
+    const dayOf = sec => new Date(sec * 1000).toISOString().slice(0, 10);
+    const firstDay = dayOf(week);
+    const hot = [];
+    posts.forEach(p => {
+        const t = when(p.createdAt), fresh = t >= week;
+        let l7 = 0;
+        if (p.likeDays && typeof p.likeDays === 'object') {
+            Object.keys(p.likeDays).forEach(d => { if (d >= firstDay) l7 += Number(p.likeDays[d]) || 0; });
+            l7 = Math.max(0, l7);
+        } else if (fresh) l7 = Math.max(0, Number(p.likes) || 0);
+        const c7 = (Array.isArray(p.comments) ? p.comments : []).filter(c => when(c && c.createdAt) >= week).length;
+        const live = p.type === 'stream' && p.liveStatus === 'live' && (!p.liveExpiresAt || now < Number(p.liveExpiresAt));
+        if (fresh) bump(wk.posts, p.posterUid);
+        // A new post starts with one point so it can appear at all; a stream
+        // that is on air right now is worth three times its score.
+        const score = (l7 + 2 * c7 + (fresh ? 1 : 0) + (live ? 2 : 0)) * (live ? 3 : 1);
+        if (score <= 0) return;
+        hot.push({ id: p._id, type: p.type || 'idea', title: clip(p.title || 'Untitled', 120), by: clip(p.username || 'user', 40),
+                   uid: p.posterUid || null, l7, c7, live: live ? 1 : 0, t, score });
+    });
+    hot.sort((a, b) => b.score - a.score || b.t - a.t);
+
+    // People: new followers, bounties finished, things posted.
+    people.forEach(p => {
+        const f7 = (p.uid && wk.userFollows.get(p.uid)) || 0, d7 = (p.uid && wk.done.get(p.uid)) || 0, p7 = (p.uid && wk.posts.get(p.uid)) || 0;
+        p.trend = [2 * f7 + 3 * d7 + p7, f7, d7, p7];
+    });
+
     // ── Who goes in the file ───────────────────────────────────────────────
     const ROLE_BIT = { founder: 1, holder: 2, builder: 4 };
     const order = (a, b) => (b.roles.has('founder') - a.roles.has('founder')) || (b.units - a.units) || (b.nb - a.nb) || a.person.key.localeCompare(b.person.key);
@@ -269,6 +328,17 @@ export function buildSnapshot(raw, now = Date.now()) {
         listed.set(pl.id, top);
         top.forEach(m => keep.add(m.person.key));
     });
+    // 1b. Whoever is trending this week, so a newcomer having a moment is
+    //     not left out for being new. Added to their company if they have one.
+    const addLoose = p => {
+        keep.add(p.key);
+        if (p.appearances.length) {
+            const a = [...p.appearances].sort((x, y) => y.planet.score - x.planet.score)[0];
+            listed.get(a.planet.id).push(a.member);
+        }
+    };
+    [...people.values()].filter(p => p.trend[0] > 0 && !keep.has(p.key) && (p.known || p.appearances.length))
+        .sort((a, b) => b.trend[0] - a.trend[0] || a.key.localeCompare(b.key)).slice(0, TREND_KEEP).forEach(addLoose);
     // 2. Then the most active of everyone else, until the file is full. If
     //    one of them belongs to a company but was beyond its leading members,
     //    they are added to that company's list so the map can still find them.
@@ -276,11 +346,7 @@ export function buildSnapshot(raw, now = Date.now()) {
         .sort((a, b) => b.score - a.score || a.key.localeCompare(b.key));
     for (const p of others) {
         if (keep.size >= PEOPLE_MAX) break;
-        keep.add(p.key);
-        if (p.appearances.length) {
-            const a = [...p.appearances].sort((x, y) => y.planet.score - x.planet.score)[0];
-            listed.get(a.planet.id).push(a.member);
-        }
+        addLoose(p);
     }
 
     const kept = [...people.values()].filter(p => keep.has(p.key));
@@ -295,7 +361,9 @@ export function buildSnapshot(raw, now = Date.now()) {
             followers: p.stats.followers, funded: p.stats.funded, fundedValue: round2(p.stats.fundedValue),
             rt: p.stats.ratingTotal, rc: p.stats.ratingCount
         },
-        score: Math.round(p.score * 1000) / 1000
+        score: Math.round(p.score * 1000) / 1000,
+        // [score, new followers, bounties finished, posts] this week — only when there is something to say.
+        ...(p.trend[0] > 0 ? { tr: p.trend } : {})
     }));
 
     const outPlanets = planets.map(pl => ({
@@ -335,6 +403,16 @@ export function buildSnapshot(raw, now = Date.now()) {
     fundAll.forEach(p => take(p, 'fund'));
     listings.sort((a, b) => b.t - a.t);
 
+    // Companies: new followers, bounties posted and finished this week, and
+    // what is open right now.
+    const openBy = new Map();
+    listings.forEach(l => bump(openBy, l.co));
+    outPlanets.forEach(o => {
+        const f7 = wk.companyFollows.get(o.id) || 0, b7 = wk.coPosted.get(o.id) || 0, d7 = wk.coDone.get(o.id) || 0, open = openBy.get(o.id) || 0;
+        const score = 2 * f7 + 2 * b7 + 3 * d7 + open;
+        if (score > 0) o.tr = [score, f7, b7, d7, open];
+    });
+
     // ── Recent activity, for the feed ──────────────────────────────────────
     const uname = uid => { const u = users.get(uid); return u ? '@' + (u.username || 'user') : 'Someone'; };
     const shown = new Map(planets.map(p => [p.id, p.name]));
@@ -371,7 +449,8 @@ export function buildSnapshot(raw, now = Date.now()) {
             listings: listings.length
         },
         people: outPeople, planets: outPlanets,
-        listings: listings.slice(0, LISTINGS_MAX), events: events.slice(0, EVENTS_MAX)
+        listings: listings.slice(0, LISTINGS_MAX), events: events.slice(0, EVENTS_MAX),
+        hot: hot.slice(0, HOT_POSTS_MAX)
     };
     return { snapshot, wallets };
 }
@@ -386,7 +465,7 @@ async function loadRaw(db) {
     const asList = snap => { const a = []; snap.forEach(d => a.push(Object.assign({ _id: d.id }, d.data()))); return a; };
     // Only the fields the map uses are fetched, which keeps this quick even
     // when the documents themselves are large.
-    const [users, companies, holders, subprojects, sales, follows, reviews] = await Promise.all([
+    const [users, companies, holders, subprojects, sales, follows, reviews, posts] = await Promise.all([
         db.collection('users').select('username', 'fullName', 'walletAddress', 'walletHistory').get(),
         db.collection('companies').select('name', 'entityType', 'type', 'verificationStatus', 'projectStatus', 'ownerUid', 'createdAt').get(),
         db.collection('equityHolders').select('projectId', 'wallet', 'units').get(),
@@ -395,12 +474,15 @@ async function loadRaw(db) {
                     'acceptedBidderUid', 'acceptedBid', 'compensation', 'compensationType', 'equityUnits', 'title', 'description', 'category',
                     'tags', 'bids', 'createdAt', 'acceptedAt', 'completedAt').get(),
         db.collection('equityListings').where('status', '==', 'sold').select('projectId', 'status', 'units', 'finalSaleValue', 'pricePerUnit', 'soldAt').get(),
-        db.collection('follows').select('followingUid', 'followingCompanyId').get(),
-        db.collection('reviews').select('revieweeUid', 'rating').get()
+        db.collection('follows').select('followingUid', 'followingCompanyId', 'createdAt').get(),
+        db.collection('reviews').select('revieweeUid', 'rating').get(),
+        // Recent posts only, for what is trending.
+        db.collection('posts').where('createdAt', '>=', new Date(Date.now() - POSTS_LOOKBACK_DAYS * 86400000))
+            .select('title', 'type', 'username', 'posterUid', 'likes', 'likeDays', 'comments', 'createdAt', 'liveStatus', 'liveExpiresAt').get()
     ]);
     return {
         users: asMap(users), companies: asMap(companies), holders: asList(holders), subprojects: asList(subprojects),
-        sales: asList(sales), follows: asList(follows), reviews: asList(reviews)
+        sales: asList(sales), follows: asList(follows), reviews: asList(reviews), posts: asList(posts)
     };
 }
 
