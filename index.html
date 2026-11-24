@@ -93,7 +93,6 @@
                 <div class="hidden md:flex flex-1 justify-center items-center gap-3 text-xs font-medium">
                     <a onclick="navigateTo('ecosystem')" class="hover:text-cyan-400 cursor-pointer whitespace-nowrap">NQVerse</a>
                     <a onclick="navigateTo('marketplace')" class="hover:text-cyan-400 cursor-pointer whitespace-nowrap">Marketplace</a>
-                    <a onclick="navigateTo('ideas')" class="hover:text-cyan-400 cursor-pointer">Explore</a>
                     <a onclick="navigateToChat()" class="hover:text-cyan-400 cursor-pointer">Chat</a>
                     <a onclick="navigateTo('tokenomics')" class="hover:text-cyan-400 cursor-pointer whitespace-nowrap">
                         NQV8 Tokenomics
@@ -172,7 +171,6 @@
 <div id="mobile-menu" class="hidden md:hidden bg-zinc-900 border-b border-zinc-800 px-6 py-4 space-y-4 sticky top-[72px] z-40">    
     <a onclick="navigateTo('ecosystem'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🪐 NQVerse</a>
     <a onclick="navigateTo('marketplace'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏪 Marketplace</a>
-    <a onclick="navigateTo('ideas'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🔎 Explore</a>
     <a onclick="navigateTo('advertise'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">📢 Advertise</a>
     <a onclick="navigateToChat(); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">💬 Chat</a>
     <a onclick="navigateTo('tokenomics'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🪙 NQV8 Tokenomics</a>
@@ -390,28 +388,6 @@
         </div>
 
         
-
-        <!-- Trending Section -->
-        <div id="trending-section" class="mb-8 hidden">
-            <div class="flex items-center justify-between mb-4">
-                <h2 class="text-lg font-bold flex items-center gap-2">🔥 Trending</h2>
-                <button onclick="document.getElementById('trending-section').classList.add('hidden')"
-                        class="text-xs text-zinc-500 hover:text-zinc-300">Dismiss</button>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-                <!-- Hot Bounties -->
-                <div class="md:col-span-2">
-                    <p class="text-xs text-zinc-500 uppercase tracking-wider mb-3">Most Active Bounties</p>
-                    <div id="trending-bounties" class="space-y-2"></div>
-                </div>
-                <!-- Top Builders -->
-                <div>
-                    <p class="text-xs text-zinc-500 uppercase tracking-wider mb-3">Top Builders</p>
-                    <div id="trending-builders" class="space-y-2"></div>
-                </div>
-            </div>
-            <div class="border-b border-zinc-800"></div>
-        </div>
 
         <!-- Marketplace Sub-Tabs: Build Requests vs Funding Requests -->
         <div class="flex border-b border-zinc-700 mb-6">
@@ -1676,6 +1652,14 @@
 <style>
     .nqv-stage { height: 62vh; min-height: 420px; }
     .nqv-feed  { max-height: 70vh; }
+    /* Posts and shows are laid out as card grids sized for a full page. In the
+       side column they stack one to a row — until the column is widened. */
+    #nqv-side:not(.nqv-wide) #nqv-explore .grid { grid-template-columns: minmax(0, 1fr) !important; }
+    @media (min-width: 1024px) {
+        #nqv-side.nqv-wide { width: min(68%, 1150px); }
+        /* The map is narrow while the column is wide: stack its search under its title, as on a phone. */
+        .nqv-widemode .nqv-searchrow { top: 7.25rem; left: 1rem; right: 1rem; }
+    }
     @media (min-width: 1024px) {
         .nqv-stage, .nqv-feed { height: calc(100vh - 150px); min-height: 480px; max-height: none; }
     }
@@ -1700,7 +1684,7 @@
         </div>
 
         <!-- Search and reset -->
-        <div class="absolute top-[4.5rem] left-3 right-3 md:top-4 md:left-auto md:right-4 flex gap-2">
+        <div class="nqv-searchrow absolute top-[4.5rem] left-3 right-3 md:top-4 md:left-auto md:right-4 flex gap-2">
             <div class="relative flex-1 md:flex-none">
                 <input id="eco-search" type="search" placeholder="Find a person or company" autocomplete="off"
                        oninput="ecoSearch(this.value)"
@@ -1731,12 +1715,57 @@
 
     <!-- Feed and Rankings -->
     <aside id="nqv-side" class="nqv-feed w-full lg:w-80 xl:w-96 shrink-0 rounded-3xl border border-zinc-800 bg-zinc-900 flex flex-col overflow-hidden">
-        <div class="px-4 pt-3 pb-2.5 border-b border-zinc-800">
-            <div id="nqv-side-tabs" class="flex gap-4 font-bold"><span>Feed</span></div>
-            <div id="nqv-feed-tabs" class="flex flex-wrap gap-1.5 mt-2.5 empty:hidden"></div>
+        <div class="px-3 pt-3 pb-2.5 border-b border-zinc-800">
+            <div class="flex items-center justify-between gap-2">
+                <div id="nqv-side-tabs" class="flex gap-1 font-bold"></div>
+                <div class="relative flex items-center gap-1.5 shrink-0">
+                    <button onclick="ecoToggleCreate(event)" title="Create" aria-label="Create a post, episode or stream" aria-haspopup="true"
+                            class="h-9 px-3 rounded-lg bg-white text-black hover:bg-cyan-400 text-sm font-bold whitespace-nowrap">+<span class="hidden 2xl:inline ml-1">Create</span></button>
+                    <button id="nqv-wide-btn" onclick="ecoToggleWide()" title="Widen this column" aria-label="Widen this column"
+                            class="hidden lg:inline-flex items-center justify-center h-9 w-9 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200">⤢</button>
+                    <div id="nqv-create-menu" class="hidden absolute right-0 top-full mt-2 z-30 w-56 rounded-xl border border-zinc-700 bg-zinc-900 shadow-xl overflow-hidden text-sm">
+                        <button onclick="ecoCreate('post')"    class="w-full text-left px-4 py-2.5 hover:bg-zinc-800">💬 New post</button>
+                        <button onclick="ecoCreate('live')"    class="w-full text-left px-4 py-2.5 hover:bg-zinc-800">🔴 Go live</button>
+                        <button onclick="ecoCreate('episode')" class="w-full text-left px-4 py-2.5 hover:bg-zinc-800">🎙️ Add a podcast episode</button>
+                        <button onclick="ecoCreate('price')"   class="w-full text-left px-4 py-2.5 hover:bg-zinc-800 border-t border-zinc-800">⭐ Membership price</button>
+                        <p class="px-4 py-2 text-[11px] text-zinc-500 border-t border-zinc-800">Posting costs 1 NQV8, to keep the feed high quality.</p>
+                    </div>
+                </div>
+            </div>
+            <div id="nqv-feed-tabs" class="flex flex-wrap items-center gap-1.5 mt-2.5 empty:hidden"></div>
         </div>
         <div id="nqv-feed-list" class="flex-1 overflow-y-auto">
             <p class="text-sm text-zinc-500 px-4 py-6">Loading…</p>
+        </div>
+        <!-- Posts, and Podcasts & Streams: the sections that used to be the
+             Explore page, shown here when the Feed is filtered to them. -->
+        <div id="nqv-explore" class="hidden flex-1 overflow-y-auto p-4">
+        <!-- All tab -->
+        <div id="explore-all" class="explore-tab-content">
+            <div id="ideas-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                <!-- Populated by JS -->
+            </div>
+        </div>
+
+        <!-- Podcasts & Streams tab -->
+        <div id="explore-shows" class="explore-tab-content hidden">
+            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+                <p class="text-sm text-zinc-400">Subscribe to creators to get their new episodes and streams in your feed.</p>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="showsSetPrice()" id="shows-price-btn" class="px-4 py-2.5 rounded-2xl border border-amber-400/60 text-amber-300 hover:bg-amber-400/10 text-sm font-semibold">⭐ Offer paid membership</button>
+                    <button onclick="showsShowModal('live')" class="px-4 py-2.5 rounded-2xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold">🔴 Go live</button>
+                    <button onclick="showsShowModal('episode')" class="px-4 py-2.5 rounded-2xl bg-white text-black hover:bg-cyan-400 text-sm font-semibold">🎙️ Add episode</button>
+                </div>
+            </div>
+            <p class="text-xs text-zinc-500 border border-zinc-800 rounded-2xl px-4 py-3 mb-8"><span class="text-amber-300 font-semibold">Content rules.</span> No sexual, explicit or otherwise inappropriate content. Episodes and streams follow the same rules as every other post: they are screened when posted, anyone can report one, and anything that breaks the rules is removed. Posting costs 1 NQV8; so does each comment. Creators can also offer a paid 30-day membership in USDC for subscribers-only episodes and streams.</p>
+            <div id="shows-body"></div>
+        </div>
+
+        <!-- Following tab -->
+        <div id="explore-following" class="explore-tab-content hidden">
+            <div id="following-feed" class="space-y-3"></div>
+        </div>
+
         </div>
     </aside>
   </div>
@@ -1806,7 +1835,10 @@
 
     </div>
 
-<!-- ==================== IDEAS PAGE ==================== -->
+<!-- ==================== IDEAS PAGE ====================
+     Retired: posts, podcasts and streams now live in the NQVerse's side
+     column, and anything that asks for this page is sent there. What is left
+     here is an unused shell. -->
     <div id="ideas-page" class="max-w-6xl mx-auto pt-6 px-4 md:px-6 hidden">
         <div class="flex items-center justify-between mb-6">
             <div>
@@ -1842,32 +1874,6 @@
                     class="px-5 py-3 text-sm font-semibold text-zinc-400 flex items-center gap-2 whitespace-nowrap">
                 🎙️ <span class="hidden sm:inline">Podcasts &amp; Streams</span>
             </button>
-        </div>
-
-        <!-- All tab -->
-        <div id="explore-all" class="explore-tab-content">
-            <div id="ideas-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                <!-- Populated by JS -->
-            </div>
-        </div>
-
-        <!-- Podcasts & Streams tab -->
-        <div id="explore-shows" class="explore-tab-content hidden">
-            <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
-                <p class="text-sm text-zinc-400">Subscribe to creators to get their new episodes and streams in your feed.</p>
-                <div class="flex flex-wrap gap-2">
-                    <button onclick="showsSetPrice()" id="shows-price-btn" class="px-4 py-2.5 rounded-2xl border border-amber-400/60 text-amber-300 hover:bg-amber-400/10 text-sm font-semibold">⭐ Offer paid membership</button>
-                    <button onclick="showsShowModal('live')" class="px-4 py-2.5 rounded-2xl bg-red-600 hover:bg-red-700 text-white text-sm font-semibold">🔴 Go live</button>
-                    <button onclick="showsShowModal('episode')" class="px-4 py-2.5 rounded-2xl bg-white text-black hover:bg-cyan-400 text-sm font-semibold">🎙️ Add episode</button>
-                </div>
-            </div>
-            <p class="text-xs text-zinc-500 border border-zinc-800 rounded-2xl px-4 py-3 mb-8"><span class="text-amber-300 font-semibold">Content rules.</span> No sexual, explicit or otherwise inappropriate content. Episodes and streams follow the same rules as every other post: they are screened when posted, anyone can report one, and anything that breaks the rules is removed. Posting costs 1 NQV8; so does each comment. Creators can also offer a paid 30-day membership in USDC for subscribers-only episodes and streams.</p>
-            <div id="shows-body"></div>
-        </div>
-
-        <!-- Following tab -->
-        <div id="explore-following" class="explore-tab-content hidden">
-            <div id="following-feed" class="space-y-3"></div>
         </div>
 
         <!-- Trending tab -->
@@ -7613,7 +7619,6 @@ async function createProfile() {
                 loadTotalFundingReceivedStat();
 
                 applyMarketplaceFilters();
-                loadTrendingSection();
 
             } catch(e) {
                 console.error(e);
@@ -14323,18 +14328,18 @@ async function togglePostLike(postId, hasLiked) {
     const ref = db.collection("posts").doc(postId);
 
     try {
-        if (hasLiked) {
-            // Unlike
-            await ref.update({
-                likes: firebase.firestore.FieldValue.increment(-1),
-                likedBy: firebase.firestore.FieldValue.arrayRemove(currentUser.uid)
-            });
-        } else {
-            // Like
-            await ref.update({
-                likes: firebase.firestore.FieldValue.increment(1),
-                likedBy: firebase.firestore.FieldValue.arrayUnion(currentUser.uid)
-            });
+        const inc = firebase.firestore.FieldValue.increment;
+        const change = hasLiked
+            ? { likes: inc(-1), likedBy: firebase.firestore.FieldValue.arrayRemove(currentUser.uid) }     // unlike
+            : { likes: inc(1),  likedBy: firebase.firestore.FieldValue.arrayUnion(currentUser.uid) };     // like
+        // Also count the like against today, so Trending can tell this week's
+        // likes from last year's. If the database rules do not allow that
+        // field yet, the like itself must still go through.
+        const day = new Date().toISOString().slice(0, 10);
+        try {
+            await ref.update(Object.assign({ ['likeDays.' + day]: inc(hasLiked ? -1 : 1) }, change));
+        } catch (e1) {
+            if (e1 && e1.code === 'permission-denied') await ref.update(change); else throw e1;
         }
         // Reload to reflect new state
         loadIdeas();
@@ -19832,8 +19837,11 @@ const ECO = {
     promoted: [], near: new Set(), nearKey: '', nearAt: 0, lodTick: 0, focusKey: null,   // which distant companies are drawn in full
     minors: [], moonSets: [], marks: [], labelTex: new Map(),
     feedMode: null, feedUid: undefined, notifUnsub: null, feedItems: [],
-    side: 'feed',                                                  // which tab the side column shows: 'feed', 'rank' or 'market'
-    market: { q: '', type: 'all', sort: 'new' },                   // the Marketplace tab's search, filter and order
+    side: 'feed',                                                  // which tab the side column shows: 'feed', 'trend', 'rank' or 'market'
+    market: { q: '', type: 'all', sort: 'new', mine: false },      // the Marketplace tab's search, filter and order
+    feedContent: 'all',                                            // the Feed tab's content filter: all, posts, shows or activity
+    trend: { type: 'all', aud: null }, trendRows: [],              // the Trending tab's filters
+    wide: false, exploreKey: '',
     marketRows: [],
     rank: { kind: 'people', people: 'overall', companies: 'overall' },   // the measure each ranking (and the map) uses
     rankRows: [],
@@ -20174,7 +20182,9 @@ function ecoBuildModel() {
             },
             // A member is the same size on every planet they orbit: bounties
             // finished, cash earned, stakes held and their worth, followers.
-            score: q.score || 0, size: 1.0 + 2.6 * (1 - Math.exp(-(q.score || 0) / 6)), rankPos: 0
+            score: q.score || 0, size: 1.0 + 2.6 * (1 - Math.exp(-(q.score || 0) / 6)), rankPos: 0,
+            // This week: [score, new followers, bounties finished, posts].
+            trend: q.tr || null
         };
     });
     const people = new Map(list.map(p => [p.key, p]));
@@ -20189,7 +20199,9 @@ function ecoBuildModel() {
             members: new Map(), memberCount: c.mc || 0,
             bountyCounts: { open: bc[0] || 0, active: bc[1] || 0, done: bc[2] || 0 }, bountyTitles: c.bt || [],
             value: c.value || 0, valueFrom: c.vf || '', raised: c.raised || 0, followers: c.fol || 0,
-            score: c.score || 0, work: c.work || 0, size: 4 + 9 * (1 - Math.exp(-(c.score || 0) / 8)), rankPos: 0
+            score: c.score || 0, work: c.work || 0, size: 4 + 9 * (1 - Math.exp(-(c.score || 0) / 8)), rankPos: 0,
+            // This week: [score, new followers, bounties posted, bounties finished, open listings].
+            trend: c.tr || null
         };
         (c.m || []).forEach(([i, bits, units, nb]) => {
             const person = list[i];
@@ -20212,7 +20224,7 @@ function ecoBuildModel() {
     listings.forEach(l => { if (l.planet) { l.planet.open.count++; l.planet.open.value += l.value || 0; l.planet.open.items.push(l); } });
     planets.forEach(pl => { pl.open.halo = ecoHaloStrength(pl.open.count, pl.open.value); });
 
-    const model = { planets, planetById, belt, people, mine, listings, counts: snap.counts || {} };
+    const model = { planets, planetById, belt, people, mine, listings, counts: snap.counts || {}, hot: snap.hot || [] };
     ecoRankModel(model);          // positions, and sizes when a single measure is chosen
     return model;
 }
@@ -21058,12 +21070,12 @@ function ecoFeedEvents() {
     return ev;
 }
 
-function ecoSetFeedMode(mode) { ECO.feedMode = mode; ecoRenderFeed(); }
+function ecoSetFeedMode(mode) { ECO.feedMode = mode === 'everyone' ? 'everyone' : 'following'; ecoRenderFeed(); }
 
 /// Feed or Rankings. The gold top-10 marks depend on which is open, so the
 /// map is redrawn too.
 function ecoSetSide(side) {
-    ECO.side = side === 'rank' || side === 'market' ? side : 'feed';
+    ECO.side = side === 'rank' || side === 'market' || side === 'trend' ? side : 'feed';
     if (ECO.model) ecoRebuildScene(); else ecoRenderFeed();
 }
 
@@ -21109,19 +21121,160 @@ function ecoOpenRankings() {
 function ecoRenderSideTabs() {
     const el = document.getElementById('nqv-side-tabs');
     if (!el) return;
-    const t = (id, label) => `<button onclick="ecoSetSide('${id}')" class="pb-0.5 border-b-2 ${ECO.side === id ? 'border-yellow-400 text-white' : 'border-transparent text-zinc-500 hover:text-zinc-300'}">${label}</button>`;
-    el.innerHTML = t('feed', 'Feed') + t('rank', 'Rankings') + t('market', 'Marketplace');
+    // Icons, with the name spelled out for the open tab where there is room.
+    const t = (id, icon, label) => `<button onclick="ecoSetSide('${id}')" title="${label}" aria-label="${label}" ${ECO.side === id ? 'aria-current="true"' : ''}
+        class="inline-flex items-center shrink-0 whitespace-nowrap h-9 px-2.5 rounded-lg text-base ${ECO.side === id ? 'bg-zinc-800 text-white ring-1 ring-yellow-400/60' : 'text-zinc-400 hover:bg-zinc-800/60'}">${icon}<span class="${ECO.side === id ? 'hidden xl:inline' : 'hidden'} ml-1.5 text-sm">${label}</span></button>`;
+    el.innerHTML = t('feed', '📰', 'Feed') + t('trend', '🔥', 'Trending') + t('rank', '🏆', 'Rankings') + t('market', '🛒', 'Marketplace');
+}
+
+/// Show the rows list, or the Posts / Podcasts & Streams sections.
+function ecoPane(which) {
+    const list = document.getElementById('nqv-feed-list'), ex = document.getElementById('nqv-explore');
+    if (list) list.classList.toggle('hidden', which !== 'list');
+    if (ex) ex.classList.toggle('hidden', which !== 'explore');
+    if (which !== 'explore') ECO.exploreKey = '';          // so they reload, fresh, next time they are opened
+}
+
+function ecoToggleCreate(ev) {
+    if (ev) ev.stopPropagation();
+    const menu = document.getElementById('nqv-create-menu');
+    if (!menu) return;
+    const open = menu.classList.toggle('hidden') === false;
+    if (open) setTimeout(() => document.addEventListener('click', function close() { menu.classList.add('hidden'); document.removeEventListener('click', close); }), 0);
+}
+function ecoCreate(kind) {
+    document.getElementById('nqv-create-menu').classList.add('hidden');
+    if (kind === 'post' && typeof showPostIdeaModal === 'function') return showPostIdeaModal();
+    if ((kind === 'live' || kind === 'episode') && typeof showsShowModal === 'function') return showsShowModal(kind);
+    if (kind === 'price' && typeof showsSetPrice === 'function') return showsSetPrice();
+}
+
+/// Widen the side column so posts lay out as a grid again; the map narrows.
+function ecoToggleWide() {
+    ECO.wide = !ECO.wide;
+    const side = document.getElementById('nqv-side'), btn = document.getElementById('nqv-wide-btn');
+    if (side) side.classList.toggle('nqv-wide', ECO.wide);
+    document.getElementById('ecosystem-page').classList.toggle('nqv-widemode', ECO.wide);
+    if (btn) { btn.textContent = ECO.wide ? '⤡' : '⤢'; btn.title = ECO.wide ? 'Narrow this column' : 'Widen this column'; btn.setAttribute('aria-label', btn.title); }
+    // The map's box has changed size; tell the renderer once it has settled.
+    setTimeout(ecoResize, 30); setTimeout(ecoResize, 320);
+}
+
+/// Open the Feed filtered to posts or shows — where the old Explore links land.
+function ecoOpenFeed(content) {
+    ECO.side = 'feed';
+    ECO.feedContent = ['all', 'posts', 'shows', 'activity'].includes(content) ? content : 'all';
+    navigateTo('ecosystem');
+    if (ECO.model) ecoRebuildScene(); else ecoRenderFeed();
+    if (window.innerWidth < 1024) setTimeout(() => { const el = document.getElementById('nqv-side'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 350);
+}
+
+/// Open one post, episode or stream in its pop-up.
+function ecoOpenPost(id) {
+    if (typeof viewPostDetail !== 'function') return;
+    db.collection('posts').doc(id).get()
+        .then(snap => { if (snap.exists) viewPostDetail(id, snap.data()); else alert('That post is no longer available.'); })
+        .catch(() => {});
+}
+
+// ── Trending tab ─────────────────────────────────────────────────────────
+// What moved in the last seven days, worked out on the server: members by
+// new followers, bounties finished and posts; companies by new followers,
+// bounties posted and finished, and what they have open; posts, episodes and
+// streams by the week's likes and comments, with a stream on air boosted.
+// The kinds are scored on different scales, so each is measured against its
+// own leader before they are mixed into one list.
+function ecoTrendItems() {
+    const m = ECO.model, out = [];
+    const bits = pairs => pairs.filter(p => p[0] > 0).map(p => p[1](p[0])).join(' · ');
+    const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many);
+    m.people.forEach(p => {
+        const t = p.trend;
+        if (!t || !(t[0] > 0) || p.ops) return;
+        out.push({ kind: 'person', key: p.key, uid: p.uid, score: t[0], icon: '👤', title: p.label,
+            sub: bits([[t[1], n => '+' + plural(n, 'follower', 'followers')], [t[2], n => plural(n, 'bounty', 'bounties') + ' completed'], [t[3], n => plural(n, 'post', 'posts')]]) });
+    });
+    m.planets.forEach(pl => {
+        const t = pl.trend;
+        if (!t) return;
+        // What is open is counted here, not taken from the server's figure,
+        // so it leaves out funding requests while that feature is off.
+        const open = pl.open.count, score = t[0] - t[4] + open;
+        if (!(score > 0)) return;
+        out.push({ kind: 'company', id: pl.id, score, icon: '🏢', title: pl.name,
+            sub: bits([[t[1], n => '+' + plural(n, 'follower', 'followers')], [t[2], n => plural(n, 'bounty', 'bounties') + ' posted'], [t[3], n => n + ' completed'], [open, n => n + ' open now']]) });
+    });
+    m.hot.forEach(h => {
+        const show = h.type === 'podcast' || h.type === 'stream';
+        out.push({ kind: show ? 'show' : 'post', id: h.id, uid: h.uid, score: h.score, live: !!h.live,
+            icon: h.live ? '🔴' : h.type === 'podcast' ? '🎙️' : h.type === 'stream' ? '📡' : '💬', title: h.title,
+            sub: '@' + h.by + (h.live ? ' · live now' : '') + (bits([[h.l7, n => plural(n, 'like', 'likes')], [h.c7, n => plural(n, 'comment', 'comments')]]) ? ' · ' + bits([[h.l7, n => plural(n, 'like', 'likes')], [h.c7, n => plural(n, 'comment', 'comments')]]) : ' · new') });
+    });
+    const max = {};
+    out.forEach(x => { max[x.kind] = Math.max(max[x.kind] || 0, x.score); });
+    out.forEach(x => { x.heat = x.score / max[x.kind]; });
+    return out;
+}
+
+function ecoTrendSet(key, value) { ECO.trend[key] = value; ecoRenderFeed(); }
+
+function ecoRenderTrending() {
+    const box = document.getElementById('nqv-feed-list'), tabs = document.getElementById('nqv-feed-tabs');
+    const me = (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) || null;
+    const tr = ECO.trend, mine = ECO.model.mine;
+    const aud = me ? (tr.aud || 'everyone') : 'everyone';
+
+    const chip = (id, label) => `<button onclick="ecoTrendSet('type','${id}')" class="px-2.5 py-1 rounded-full text-xs font-semibold ${tr.type === id ? 'bg-orange-500 text-white' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}">${label}</button>`;
+    tabs.innerHTML = chip('all', 'All') + chip('company', 'Companies') + chip('person', 'People') + chip('post', 'Posts') + chip('show', 'Shows')
+        + (me ? `<select onchange="ecoTrendSet('aud', this.value)" aria-label="Whose activity" class="ml-auto px-2 py-1 rounded-lg bg-zinc-800 border border-zinc-700 text-xs text-white focus:outline-none focus:border-orange-400">
+            <option value="everyone"${aud === 'everyone' ? ' selected' : ''}>Everyone</option><option value="following"${aud === 'following' ? ' selected' : ''}>Following</option></select>` : '');
+
+    let rows = ecoTrendItems().filter(x => tr.type === 'all' || x.kind === tr.type);
+    if (aud === 'following') rows = rows.filter(x => x.kind === 'company' ? mine.companies.has(x.id) : mine.users.has(x.uid));
+    rows.sort((a, b) => b.heat - a.heat || b.score - a.score || String(a.title).localeCompare(String(b.title)));
+    ECO.trendRows = rows = rows.slice(0, 60);
+
+    const kindName = { all: 'anything', company: 'company', person: 'member', post: 'post', show: 'podcast or stream' }[tr.type];
+    const empty = aud === 'following'
+        ? `Nothing you follow is trending this week. Switch to Everyone to see the whole platform.`
+        : `No ${kindName === 'anything' ? 'activity' : kindName} is trending yet this week.`;
+    box.innerHTML = `<p class="text-[11px] text-zinc-500 px-4 py-2.5 border-b border-zinc-800">What moved in the last 7 days. Click a member or company to fly there; click a post or show to open it.</p>`
+        + (rows.map((x, i) => `
+        <button onclick="ecoTrendClick(${i})" class="w-full text-left flex items-start gap-3 px-4 py-3 border-b border-zinc-800 hover:bg-zinc-800/70">
+            <span class="w-6 shrink-0 text-center text-xs font-bold mt-1 ${i < 3 ? 'text-orange-400' : 'text-zinc-500'}">${i + 1}</span>
+            <span class="text-lg leading-none mt-0.5">${x.icon}</span>
+            <span class="flex-1 min-w-0"><span class="block text-sm font-semibold text-zinc-100 break-words">${ecoEsc(x.title)}</span>
+                <span class="block text-[11px] text-zinc-500 mt-0.5 break-words">${ecoEsc(x.sub)}</span></span>
+            <span class="shrink-0 mt-1.5 h-1.5 w-10 rounded-full bg-zinc-800 overflow-hidden" title="How it compares with the leader of its kind"><span class="block h-full bg-orange-500" style="width:${Math.max(8, Math.round(x.heat * 100))}%"></span></span>
+        </button>`).join('') || `<p class="text-sm text-zinc-400 px-4 py-6">${empty}</p>`);
+}
+
+function ecoTrendClick(i) {
+    const x = ECO.trendRows && ECO.trendRows[i];
+    if (!x) return;
+    if (x.kind === 'company') ecoSelectId('c:' + x.id);
+    else if (x.kind === 'person') ecoSelectPerson(x.key);
+    else return ecoOpenPost(x.id);
+    if (window.innerWidth < 1024) { const st = document.getElementById('eco-canvas'); if (st) st.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
 }
 
 // ── Marketplace tab ──────────────────────────────────────────────────────
 /// The open listings, searched, filtered and ordered as the tab is set.
 function ecoMarketFiltered() {
     const { q, type, sort } = ECO.market, term = q.trim().toLowerCase();
-    const rows = ECO.model.listings.filter(l => (type === 'all' || l.type === type) && (!term || l.text.includes(term)));
+    // "For you": listings that mention one of the skills on your profile.
+    const skills = ECO.market.mine ? ecoMySkills() : null;
+    const rows = ECO.model.listings.filter(l => (type === 'all' || l.type === type) && (!term || l.text.includes(term))
+        && (!skills || skills.some(k => l.text.includes(k))));
     rows.sort(sort === 'value' ? (a, b) => b.value - a.value || b.t - a.t
             : sort === 'bids'  ? (a, b) => b.bids - a.bids || b.t - a.t
             :                    (a, b) => b.t - a.t);
     return rows;
+}
+
+function ecoMySkills() {
+    const u = (typeof currentUser !== 'undefined' && currentUser) || null;
+    return ((u && u.skills) || []).map(k => String(k).trim().toLowerCase()).filter(k => k.length > 1);
 }
 
 function ecoMarketSet(key, value) {
@@ -21155,6 +21308,8 @@ function ecoRenderMarket() {
                        class="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-zinc-700 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-red-400">
                 <div class="flex items-center gap-1.5 flex-wrap">
                     ${chip('all', 'All')}${chip('build', 'Bounties')}${chip('fund', 'Funding')}
+                    <button onclick="ecoMarketSet('mine', !ECO.market.mine)" title="Listings that match the skills on your profile"
+                            class="px-2.5 py-1 rounded-full text-xs font-semibold ${mk.mine ? 'bg-cyan-500 text-black' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}">🎯 For you</button>
                     <select onchange="ecoMarketSet('sort', this.value)" aria-label="Order listings by"
                             class="ml-auto px-2 py-1 rounded-lg bg-zinc-800 border border-zinc-700 text-xs text-white focus:outline-none focus:border-red-400">
                         ${[['new', 'Newest'], ['value', 'Highest value'], ['bids', 'Most bids']].map(([k, l]) => `<option value="${k}"${mk.sort === k ? ' selected' : ''}>${l}</option>`).join('')}
@@ -21177,7 +21332,10 @@ function ecoRenderMarketRows() {
     const fundOff = ECO.market.type === 'fund' && !ecoFundingOn();
     if (count) count.textContent = fundOff ? '' : all.length + ' open listing' + (all.length === 1 ? '' : 's')
         + (all.length > rows.length ? ' · showing the first ' + rows.length : '') + '. A red halo on the map marks the companies they belong to.';
-    const empty = fundOff ? 'Funding requests are switched off for now. They will show here when they return.'
+    const signedIn = typeof currentUser !== 'undefined' && currentUser && currentUser.uid;
+    const empty = ECO.market.mine && !signedIn ? 'Log in to see listings that match your skills.'
+        : ECO.market.mine && !ecoMySkills().length ? 'Add skills to your profile and the listings that match them will show here.'
+        : fundOff ? 'Funding requests are switched off for now. They will show here when they return.'
         : ECO.market.q.trim() ? 'No open listing matches that search.' : 'Nothing is open right now.';
     host.innerHTML = rows.map((l, i) => `
         <button onclick="ecoMarketClick(${i})" class="w-full text-left flex items-start gap-3 px-4 py-3 border-b border-zinc-800 hover:bg-zinc-800/70">
@@ -21266,23 +21424,45 @@ function ecoRankClick(i) {
     if (window.innerWidth < 1024) { const st = document.getElementById('eco-canvas'); if (st) st.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
 }
 
+function ecoSetFeedContent(c) { ECO.feedContent = c; ecoRenderFeed(); }
+
+/// Posts, and Podcasts & Streams, are the sections that used to make up the
+/// Explore page. They keep their own loading and their own cards; this only
+/// decides which one is showing, and reloads it when the choice changes.
+function ecoSyncExplore(content, mode) {
+    const tab = content === 'shows' ? 'shows' : mode === 'following' ? 'following' : 'all';
+    if (ECO.exploreKey === tab) return;
+    ECO.exploreKey = tab;
+    if (typeof switchExploreTab === 'function') switchExploreTab(tab);
+}
+
 function ecoRenderFeed() {
     const box = document.getElementById('nqv-feed-list'), tabs = document.getElementById('nqv-feed-tabs');
     ecoRenderSideTabs();
     if (!box || !ECO.model) return;
+    if (ECO.side !== 'feed') ecoPane('list');
     if (ECO.side === 'market') return ecoRenderMarket();
     box.dataset.mode = '';
     if (ECO.side === 'rank') return ecoRenderRankings();
+    if (ECO.side === 'trend') return ecoRenderTrending();
     const me = (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) || null;
     if (me !== ECO.feedUid) ecoSyncUser();
     const mine = ECO.model.mine;
     if (!ECO.feedMode) ECO.feedMode = me ? 'following' : 'everyone';
     const mode = me ? ECO.feedMode : 'everyone';
+    const content = ECO.feedContent;
 
-    const tab = (id, label) => `<button onclick="ecoSetFeedMode('${id}')" class="px-3 py-1 rounded-full text-xs font-semibold ${mode === id ? 'bg-yellow-400 text-black' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}">${label}</button>`;
-    tabs.innerHTML = me ? tab('following', 'Following') + tab('everyone', 'Everyone') : '';
+    const chip = (id, label) => `<button onclick="ecoSetFeedContent('${id}')" class="px-2.5 py-1 rounded-full text-xs font-semibold ${content === id ? 'bg-yellow-400 text-black' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}">${label}</button>`;
+    // Podcasts & Streams has its own subscriptions, so the audience choice does not apply there.
+    tabs.innerHTML = chip('all', 'All') + chip('posts', 'Posts') + chip('shows', 'Shows') + chip('activity', 'Activity')
+        + (me && content !== 'shows' ? `<select onchange="ecoSetFeedMode(this.value)" aria-label="Whose activity" class="ml-auto px-2 py-1 rounded-lg bg-zinc-800 border border-zinc-700 text-xs text-white focus:outline-none focus:border-yellow-400">
+            <option value="following"${mode === 'following' ? ' selected' : ''}>Following</option><option value="everyone"${mode === 'everyone' ? ' selected' : ''}>Everyone</option></select>` : '');
+
+    if (content === 'posts' || content === 'shows') { ecoPane('explore'); return ecoSyncExplore(content, mode); }
+    ecoPane('list');
 
     let items = ecoFeedEvents();
+    if (content === 'activity') items = items.filter(e => !e.target.post);
     if (mode === 'following') {
         items = items.filter(e => e.actors.some(u => mine.users.has(u)) || e.comps.some(c => mine.companies.has(c)));
         ECO.raw.notifs.forEach(n => items.push({
@@ -21312,12 +21492,7 @@ function ecoFeedClick(i) {
     if (!e) return;
     const t = e.target;
     if (t.notif) { if (typeof handleNotifClick === 'function') handleNotifClick(t.notif._id, t.notif); return; }
-    if (t.post) {
-        navigateTo('ideas');
-        setTimeout(() => db.collection('posts').doc(t.post).get()
-            .then(snap => { if (snap.exists && typeof viewPostDetail === 'function') viewPostDetail(t.post, snap.data()); }).catch(() => {}), 500);
-        return;
-    }
+    if (t.post) return ecoOpenPost(t.post);
     if (t.node) return ecoSelectId(t.node);
     if (t.uid) ecoSelectPerson('u:' + t.uid);
 }
@@ -21423,6 +21598,8 @@ function ecoStop() {
         // The Leaderboard page has been folded into the NQVerse. Anything
         // that still asks for it lands on the rankings.
         if (page === 'leaderboard') return ecoOpenRankings();
+        // So has Explore: its posts and shows are the Feed's Posts and Shows.
+        if (page === 'ideas') return ecoOpenFeed('posts');
         const r = _navigateTo.apply(this, arguments);
         const el = document.getElementById('ecosystem-page');
         if (el && !el.classList.contains('hidden')) { ecoStart(); if (ECO.running) ecoSyncUser(); } else ecoStop();
