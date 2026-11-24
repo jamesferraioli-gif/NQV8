@@ -71,6 +71,10 @@
 </head>
 
 <body class="bg-black text-white min-h-screen">
+    <a href="#" onclick="nqvSkipToMain(event)" class="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[100003] focus:px-4 focus:py-2 focus:rounded-xl focus:bg-yellow-400 focus:text-black focus:font-semibold">Skip to content</a>
+    <div id="nqv-say" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>
+    <div id="eco-a11y-menu" role="group" aria-labelledby="eco-a11y-title"
+         class="hidden fixed inset-x-3 top-20 md:inset-x-auto md:right-4 md:w-80 max-h-[calc(100dvh-6rem)] overflow-y-auto rounded-2xl bg-zinc-900 border border-zinc-700 p-3 text-sm shadow-2xl z-[100002]"></div>
 
     <!-- NAVBAR (unchanged) -->
 <nav class="bg-black border-b border-zinc-800 sticky top-0 z-50">
@@ -104,6 +108,8 @@
 
                 <!-- RIGHT: Bell + Wallet + Profile — all in one flex group -->
                 <div id="right-section" class="flex items-center gap-4 ml-auto flex-row">
+                    <button onclick="ecoA11yToggleMenu(event)" aria-haspopup="true" aria-expanded="false" aria-controls="eco-a11y-menu" aria-label="Accessibility options" title="Accessibility options"
+                            class="eco-a11y-btn hidden md:flex w-9 h-9 flex-shrink-0 items-center justify-center rounded-full hover:bg-zinc-800 ring-yellow-400 text-lg"><span aria-hidden="true">♿</span></button>
                 <!-- Connect Wallet (desktop only) -->
                     <button onclick="connectWallet()" class="hidden md:flex items-center gap-2 bg-zinc-900 hover:bg-zinc-800 border border-cyan-400 text-cyan-400 px-4 py-2 rounded-2xl text-sm font-medium whitespace-nowrap flex-shrink-0">
                         <i class="fa-solid fa-wallet"></i> Connect Wallet
@@ -111,9 +117,10 @@
 
                     <!-- Notification Bell -->
                     <div class="relative flex-shrink-0">
-                        <button onclick="toggleNotifications(event)" class="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-zinc-800 transition-colors">
+                        <button onclick="toggleNotifications(event)" aria-haspopup="true" class="relative w-9 h-9 flex items-center justify-center rounded-full hover:bg-zinc-800 transition-colors">
+                            <span class="sr-only">Notifications</span>
                             <i class="fa-solid fa-bell text-lg"></i>
-                            <span id="notif-count" class="hidden absolute -top-0.5 -right-0.5 bg-red-500 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">0</span>
+                            <span id="notif-count" class="hidden absolute -top-0.5 -right-0.5 bg-red-600 text-white text-xs font-bold rounded-full w-4 h-4 flex items-center justify-center leading-none">0</span>
                         </button>
                         <!-- Dropdown -->
                         <div id="notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-zinc-900 border border-zinc-700 rounded-3xl shadow-2xl z-[99999] max-h-96 overflow-auto">
@@ -149,7 +156,7 @@
                 </div>
 
                 <!-- Mobile menu button -->
-                <button onclick="toggleMobileMenu()" id="mobile-menu-btn" class="md:hidden ml-auto p-2 flex-shrink-0">
+                <button onclick="toggleMobileMenu()" id="mobile-menu-btn" class="md:hidden ml-auto p-2 flex-shrink-0" aria-label="Menu" aria-controls="mobile-menu">
                     <i class="fa-solid fa-bars text-xl"></i>
                 </button>
 
@@ -168,6 +175,7 @@
 </div>
 
 <div id="mobile-menu" class="hidden md:hidden bg-zinc-900 border-b border-zinc-800 px-6 py-4 space-y-4 sticky top-[72px] z-40">    
+    <a onclick="closeMobileMenu(); ecoA11yToggleMenu(event)" class="block py-2 hover:text-cyan-400 cursor-pointer">♿ Accessibility</a>
     <a onclick="navigateTo('ecosystem'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🪐 NQVerse</a>
     <a onclick="navigateTo('marketplace'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏪 Marketplace</a>
     <a onclick="navigateTo('advertise'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">📢 Advertise</a>
@@ -198,11 +206,11 @@
         <div class="flex flex-col gap-3 mb-8">
             <!-- Search + Post -->
             <div class="flex gap-3">
-                <input id="search-input" type="text"
+                <input aria-label="Search the marketplace" id="search-input" type="text"
                        placeholder="Search marketplace..."
                        oninput="applyMarketplaceFilters()"
                        onkeyup="if(event.key === 'Enter') applyMarketplaceFilters()"
-                       class="flex-1 bg-zinc-900 border border-zinc-700 rounded-2xl px-6 py-3 outline-none">
+                       class="flex-1 min-w-0 bg-zinc-900 border border-zinc-700 rounded-2xl px-6 py-3 outline-none">
                 <button onclick="navigateTo('studio')"
                         class="bg-zinc-800 border border-cyan-400 text-cyan-400 font-semibold px-5 py-3 rounded-2xl flex items-center gap-2 hover:bg-cyan-400/10 transition-colors flex-shrink-0">
                     <i class="fa-solid fa-diagram-project"></i>
@@ -214,13 +222,13 @@
             <div class="flex flex-wrap gap-2 items-center">
                 <span class="text-xs text-zinc-500 mr-1">Filter:</span>
                 <!-- Sort -->
-                <select id="filter-sort" onchange="applyMarketplaceFilters()"
+                <select aria-label="Sort listings" id="filter-sort" onchange="applyMarketplaceFilters()"
                         class="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 outline-none text-sm">
                     <option value="newest">⬆️ Newest First</option>
                     <option value="oldest">⬇️ Oldest First</option>
                 </select>
                 <!-- Age filter -->
-                <select id="filter-age" onchange="applyMarketplaceFilters()"
+                <select aria-label="Posted within" id="filter-age" onchange="applyMarketplaceFilters()"
                         class="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 outline-none text-sm">
                     <option value="">Any Age</option>
                     <option value="1">Last 24 hours</option>
@@ -229,7 +237,7 @@
                     <option value="90">Last 90 days</option>
                 </select>
                 <!-- Category -->
-                <select id="filter-category" onchange="applyMarketplaceFilters()"
+                <select aria-label="Category" id="filter-category" onchange="applyMarketplaceFilters()"
                         class="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 outline-none text-sm">
                     <option value="">All Categories</option>
                     <option value="AI/ML">AI / ML</option>
@@ -241,7 +249,7 @@
                     <option value="Other">Other</option>
                 </select>
                 <!-- Compensation type -->
-                <select id="filter-comp-type" onchange="applyMarketplaceFilters()"
+                <select aria-label="Compensation type" id="filter-comp-type" onchange="applyMarketplaceFilters()"
                         class="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 outline-none text-sm">
                     <option value="">Any Compensation</option>
                     <option value="cash">💵 Cash Only</option>
@@ -249,7 +257,7 @@
                     <option value="mixed">💵+🏛️ Mixed</option>
                 </select>
                 <!-- Compensation range -->
-                <select id="filter-comp-range" onchange="applyMarketplaceFilters()"
+                <select aria-label="Compensation range" id="filter-comp-range" onchange="applyMarketplaceFilters()"
                         class="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 outline-none text-sm">
                     <option value="">Any Amount</option>
                     <option value="0-500">$0 – $500</option>
@@ -258,7 +266,7 @@
                     <option value="10000+">$10,000+</option>
                 </select>
                 <!-- Skill tag filter -->
-                <select id="filter-tag" onchange="applyMarketplaceFilters()"
+                <select aria-label="Tag" id="filter-tag" onchange="applyMarketplaceFilters()"
                         class="bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 outline-none text-sm">
                     <option value="">Any Skill</option>
                     <optgroup label="Engineering">
@@ -444,13 +452,13 @@
         <div id="bounty-step-2" class="hidden">
             <p id="bounty-project-label" class="text-cyan-400 font-medium mb-4"></p>
 
-            <input id="bounty-title" type="text" placeholder="Task Title"
+            <input aria-label="Task Title" id="bounty-title" type="text" placeholder="Task Title"
                    class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
 
-            <textarea id="bounty-desc" placeholder="Describe what you need built..." rows="3"
+            <textarea aria-label="Describe what you need built" id="bounty-desc" placeholder="Describe what you need built..." rows="3"
                       class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-4"></textarea>
 
-            <select id="bounty-category" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+            <select aria-label="Category" id="bounty-category" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
                 <option value="">Select Category</option>
                 <option value="AI/ML">AI / Machine Learning</option>
                 <option value="Blockchain">Crypto / Blockchain</option>
@@ -479,7 +487,7 @@
             <!-- Cash compensation -->
             <div id="comp-field-cash" class="mb-4">
                 <p class="text-xs text-zinc-500 mb-1">Minimum bounty: <span class="text-cyan-400">$20.00 USDC</span></p>
-                <input id="bounty-compensation-cash" type="text" placeholder="Minimum $20.00 USDC"
+                <input aria-label="Cash amount in USDC" id="bounty-compensation-cash" type="text" placeholder="Minimum $20.00 USDC"
                        oninput="this.value = this.value.replace(/[^0-9.]/g, ''); updateBondPreview();"
                        onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : '$' + n.toFixed(6).replace(/\.?0+$/, '') + ' USDC'; }"
                        onfocus="this.value = this.value.replace(/[^0-9.]/g, '')"
@@ -490,14 +498,14 @@
             <div id="comp-field-equity" class="hidden mb-4">
                 <p class="text-xs text-zinc-400 mb-2">Equity Percentage Offered</p>
                 <div class="flex gap-3 items-center">
-                    <input id="bounty-compensation-equity-pct" type="number" placeholder="e.g. 5.00" min="0.01" max="100" step="0.01"
+                    <input aria-label="Equity Percentage Offered" id="bounty-compensation-equity-pct" type="number" placeholder="e.g. 5.00" min="0.01" max="100" step="0.01"
                            onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : n.toFixed(2); }"                        
                            class="flex-1 bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
                     <span class="text-zinc-400 font-semibold text-lg">%</span>
                 </div>
                 <p class="text-xs text-zinc-500 mt-2">Equity transfers on-chain automatically when work is approved.</p>
                 <p class="text-xs text-zinc-400 mt-3 mb-1">Estimated value of the equity offered</p>
-                <input id="bounty-equity-usd" type="text" placeholder="$0.00"
+                <input aria-label="Estimated value of the equity offered" id="bounty-equity-usd" type="text" placeholder="$0.00"
                        oninput="this.value = this.value.replace(/[^0-9.]/g, ''); updateBondPreview();"
                        class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
                 <p class="text-xs text-zinc-500 mt-1">Used only to size the builder's stake. Understate it and you get less
@@ -508,7 +516,7 @@
             <div id="comp-field-mixed" class="hidden mb-4 space-y-3">
                 <div>
                     <p class="text-xs text-zinc-400 mb-1">Cash Amount <span class="text-zinc-500">(minimum $20.00 USDC)</span></p>
-                    <input id="bounty-compensation-mixed-cash"
+                    <input aria-label="Cash amount in USDC" id="bounty-compensation-mixed-cash"
                            oninput="this.value = this.value.replace(/[^0-9.]/g, ''); updateBondPreview();"
                            onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : '$' + n.toFixed(2) + ' USDC'; }"
                            onfocus="this.value = this.value.replace(/[^0-9.]/g, '')"
@@ -517,14 +525,14 @@
                 <div>
                     <p class="text-xs text-zinc-400 mb-1">Equity Percentage</p>
                     <div class="flex gap-3 items-center">
-                        <input id="bounty-compensation-mixed-pct" type="number" placeholder="e.g. 2" min="0.01" max="100" step="0.01"
+                        <input aria-label="Equity Percentage" id="bounty-compensation-mixed-pct" type="number" placeholder="e.g. 2" min="0.01" max="100" step="0.01"
                                class="flex-1 bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
                         <span class="text-zinc-400 font-semibold text-lg">%</span>
                     </div>
                 </div>
                 <div>
                     <p class="text-xs text-zinc-400 mb-1">Estimated value of the equity portion</p>
-                    <input id="bounty-mixed-equity-usd" type="text" placeholder="$0.00"
+                    <input aria-label="Estimated value of the equity portion" id="bounty-mixed-equity-usd" type="text" placeholder="$0.00"
                            oninput="this.value = this.value.replace(/[^0-9.]/g, ''); updateBondPreview();"
                            class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
                 </div>
@@ -539,7 +547,7 @@
 
             <!-- Target timeframe -->
             <p class="text-sm text-zinc-400 mb-2">Target Timeframe</p>
-            <select id="bounty-target-timeframe" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+            <select aria-label="Target Timeframe" id="bounty-target-timeframe" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
                 <option value="1day">1 day</option>
                 <option value="3days">3 days</option>
                 <option value="1week" selected>1 week</option>
@@ -557,7 +565,7 @@
             <div class="mb-4">
                 <p class="text-sm text-zinc-400 mb-2">Preferred Builder <span class="text-zinc-500">(optional — invite a specific builder)</span></p>
                 <div class="relative">
-                    <input id="bounty-preferred-builder" type="text" placeholder="Search by username..."
+                    <input aria-label="Preferred builder, optional" id="bounty-preferred-builder" type="text" placeholder="Search by username..."
                            oninput="searchPreferredBuilder(this.value)"
                            class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none text-sm">
                     <div id="preferred-builder-results" class="hidden absolute z-10 w-full bg-zinc-800 border border-zinc-700 rounded-2xl mt-1 max-h-40 overflow-auto"></div>
@@ -598,10 +606,10 @@
             </div>
             <p class="text-zinc-400 mb-6">Projects are your portfolio. Free to create. Attach marketplace postings to them later.</p>
     
-            <input id="new-project-name" type="text" placeholder="Project Name"
+            <input aria-label="Project name" id="new-project-name" type="text" placeholder="Project Name"
                    class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
     
-            <select id="new-project-category" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+            <select aria-label="Project category" id="new-project-category" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
                 <option value="">Select Category</option>
                 <option value="AI/ML">AI / Machine Learning</option>
                 <option value="Blockchain">Crypto / Blockchain</option>
@@ -612,14 +620,14 @@
                 <option value="Other">Other</option>
             </select>
     
-            <textarea id="new-project-desc" placeholder="Brief description of the project..." rows="3"
+            <textarea aria-label="Brief description of the project" id="new-project-desc" placeholder="Brief description of the project..." rows="3"
                       class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-2"></textarea>
             <p class="text-xs text-zinc-500 mb-4">💡 This description is used to generate your investor deck — be specific about what your product does, how it makes money, and who it serves.</p>
     
             <!-- Entity type (optional) -->
             <div class="mb-4">
                 <p class="text-sm text-zinc-400 mb-3">Entity Type (optional — required for equity features)</p>
-                <select id="new-project-entity-type" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                <select aria-label="Entity type" id="new-project-entity-type" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
                     <option value="">No entity / Solo project</option>
                     <option value="LLC">LLC</option>
                     <option value="SPV">SPV</option>
@@ -736,14 +744,14 @@
             <button onclick="startFundingDeckGeneration()" class="mt-3 px-4 py-2 bg-amber-500 text-black text-xs font-semibold rounded-xl">Generate Investor Deck</button>
         </div>
 
-        <input id="funding-ask" type="text" placeholder="e.g. $50,000.00 USDC"
+        <input aria-label="Amount to raise in USDC" id="funding-ask" type="text" placeholder="e.g. $50,000.00 USDC"
                oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
                onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : '$' + n.toFixed(2) + ' USDC'; }"
                onfocus="this.value = this.value.replace(/[^0-9.]/g, '')"
                class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
 
         <div class="relative mb-4">
-            <input id="funding-equity-pct" type="number" min="0.01" max="100" step="0.01" placeholder="Equity offered (e.g. 10.00)"
+            <input aria-label="Equity offered, percent" id="funding-equity-pct" type="number" min="0.01" max="100" step="0.01" placeholder="Equity offered (e.g. 10.00)"
                    onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : n.toFixed(2); }"                
                    oninput="updateFundingUnitsPreview(this.value)"
                    class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none pr-12">
@@ -752,7 +760,7 @@
         <p id="funding-units-preview" class="text-xs text-zinc-500 mb-4 -mt-2"></p>
 
         <p class="text-sm text-zinc-400 mb-2">Round stage</p>
-        <select id="funding-stage" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
+        <select aria-label="Round stage" id="funding-stage" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
             <option value="">Select stage</option>
             <option value="Pre-seed">Pre-seed</option>
             <option value="Seed">Seed</option>
@@ -763,25 +771,25 @@
         </select>
 
         <p class="text-sm text-zinc-400 mb-2">Use of funds <span class="text-red-400">*</span></p>
-        <textarea id="funding-use" rows="3"
+        <textarea aria-label="Use of funds" id="funding-use" rows="3"
                   placeholder="Break down exactly where the capital goes — e.g. $30k engineering (2 devs, 6 months), $15k smart contract audit, $5k legal and entity costs"
                   class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-4 outline-none mb-4"></textarea>
 
         <p class="text-sm text-zinc-400 mb-2">What this funding unlocks <span class="text-red-400">*</span></p>
-        <textarea id="funding-milestones" rows="3"
+        <textarea aria-label="Milestones" id="funding-milestones" rows="3"
                   placeholder="Concrete milestones — e.g. ship V2 contracts, reach 1,000 active users, complete security audit before mainnet"
                   class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-4 outline-none mb-4"></textarea>
 
         <p class="text-sm text-zinc-400 mb-2">Traction so far <span class="text-zinc-600">(optional)</span></p>
-        <textarea id="funding-traction" rows="2"
+        <textarea aria-label="Traction, optional" id="funding-traction" rows="2"
                   placeholder="e.g. 400 waitlist signups, $2k MRR, 3 pilot customers"
                   class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-4 outline-none mb-4"></textarea>
 
         <p class="text-sm text-zinc-400 mb-2">Target close date <span class="text-zinc-600">(optional)</span></p>
-        <input id="funding-timeline" type="text" placeholder="e.g. December 2026"
+        <input aria-label="Timeline, optional" id="funding-timeline" type="text" placeholder="e.g. December 2026"
                class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
 
-        <textarea id="funding-desc" rows="3"
+        <textarea aria-label="Anything else investors should know, optional" id="funding-desc" rows="3"
                   placeholder="Anything else investors should know (optional)"
                   class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-4 outline-none mb-4"></textarea>
 
@@ -809,17 +817,17 @@
                     <div class="space-y-4 mb-6">
                         <div>
                             <p class="text-sm text-zinc-400 mb-2">Articles of Incorporation / Formation</p>
-                            <input type="file" id="doc-incorporation" accept=".pdf,.jpg,.png" 
+                            <input aria-label="Articles of Incorporation / Formation" type="file" id="doc-incorporation" accept=".pdf,.jpg,.png" 
                                    class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none">
                         </div>
                         <div>
                             <p class="text-sm text-zinc-400 mb-2">EIN / Tax ID Document</p>
-                            <input type="file" id="doc-ein" accept=".pdf,.jpg,.png" 
+                            <input aria-label="EIN / Tax ID Document" type="file" id="doc-ein" accept=".pdf,.jpg,.png" 
                                    class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none">
                         </div>
                         <div>
                             <p class="text-sm text-zinc-400 mb-2">Government-Issued ID (Authorized Representative)</p>
-                            <input type="file" id="doc-id" accept=".pdf,.jpg,.png" 
+                            <input aria-label="Government-Issued ID (Authorized Representative)" type="file" id="doc-id" accept=".pdf,.jpg,.png" 
                                    class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none">
                         </div>
                     </div>
@@ -905,10 +913,10 @@
             <h2 id="submit-modal-title" class="text-3xl font-bold mb-2"></h2>
             <p id="submit-modal-subtitle" class="text-zinc-400 mb-6"></p>
 
-            <textarea id="submit-desc" placeholder="Describe your submission..." 
+            <textarea aria-label="Describe your submission" id="submit-desc" placeholder="Describe your submission..." 
                       class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6" rows="4"></textarea>
 
-            <input id="submit-link" type="text" placeholder="GitHub / Demo / Document Link (optional)" 
+            <input aria-label="GitHub / Demo / Document Link (optional)" id="submit-link" type="text" placeholder="GitHub / Demo / Document Link (optional)" 
                    class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-6">
 
             <!-- Boilerplate button (only for funding) -->
@@ -921,7 +929,7 @@
             <!-- File Upload -->
             <div class="mb-6">
                 <p class="text-sm text-zinc-400 mb-3" id="file-label">Attach files</p>
-                <input id="submit-files" type="file" multiple class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                <input aria-label="Attach files" id="submit-files" type="file" multiple class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
             </div>
 
             <div class="flex gap-3">
@@ -964,7 +972,7 @@
                 <!-- Stars populated by JS -->
             </div>
 
-            <textarea id="review-text" placeholder="Leave a review about working with the other party..." 
+            <textarea aria-label="Your review" id="review-text" placeholder="Leave a review about working with the other party..." 
                       class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6" rows="4"></textarea>
 
             <button onclick="submitReview()" 
@@ -987,13 +995,13 @@
         
                 <!-- Title: shown for Idea and Project, hidden for News -->
                 <div id="title-group">
-                    <input id="idea-title" type="text" placeholder="Title"
+                    <input aria-label="Title" id="idea-title" type="text" placeholder="Title"
                            class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
                 </div>
         
                 <!-- Link: shown for News and Project -->
                 <div id="link-group" class="hidden">
-                    <input id="idea-link" type="text" placeholder="Paste URL here..."
+                    <input aria-label="Link URL" id="idea-link" type="text" placeholder="Paste URL here..."
                            oninput="debounceNewsPreview()"
                            class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-3">
                     <!-- Live link preview (News only) -->
@@ -1012,7 +1020,7 @@
                     </div>
                 </div>
         
-                <textarea id="idea-desc" placeholder="Your comment or description..." rows="4"
+                <textarea aria-label="Your comment or description" id="idea-desc" placeholder="Your comment or description..." rows="4"
                           class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-6"></textarea>
         
                 <div class="flex gap-3">
@@ -1078,12 +1086,12 @@
                 <p class="text-zinc-400 text-xs mt-1">Plus earn 1,000 NQV8 for every 5 users you refer — no limit</p>
             </div>
             <div class="grid grid-cols-2 gap-4">
-                <input id="first-name" type="text" placeholder="First Name" class="bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
-                <input id="last-name" type="text" placeholder="Last Name" class="bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                <input aria-label="First name" id="first-name" type="text" placeholder="First Name" class="bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                <input aria-label="Last name" id="last-name" type="text" placeholder="Last Name" class="bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
             </div>
-                <input id="create-username" type="text" placeholder="Username (unique)" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
-                <input id="create-email" type="email" placeholder="Email Address" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
-                <input id="create-password" type="password" placeholder="Password (min 6 chars)" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                <input aria-label="Username" id="create-username" type="text" placeholder="Username (unique)" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                <input aria-label="Email address" id="create-email" type="email" placeholder="Email Address" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                <input aria-label="Password, at least 6 characters" id="create-password" type="password" placeholder="Password (min 6 chars)" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
 
                 <!-- Wallet Connection -->
                 <div class="mt-6 p-5 bg-zinc-800 border border-zinc-600 rounded-3xl">
@@ -1110,8 +1118,8 @@
             </div>
 
             <div id="login-form" class="hidden">
-                <input id="login-email" type="email" placeholder="Email Address" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
-                <input id="login-password" type="password" placeholder="Password" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                <input aria-label="Email Address" id="login-email" type="email" placeholder="Email Address" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
+                <input aria-label="Password" id="login-password" type="password" placeholder="Password" class="w-full mt-4 bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none">
                 <button onclick="loginWithEmail()" class="w-full mt-6 py-5 bg-white text-black font-semibold rounded-2xl text-lg">Login</button>
                 <p onclick="resetPassword()" class="text-center text-cyan-400 text-sm mt-4 cursor-pointer hover:underline">Forgot Password?</p>
             </div>
@@ -1152,7 +1160,7 @@
                     <div onclick="document.getElementById('profile-upload').click()" class="cursor-pointer">
                         <div id="profile-avatar-large" class="w-32 h-32 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-3xl flex items-center justify-center text-6xl font-bold ring-4 ring-cyan-400 overflow-hidden mx-auto"></div>
                     </div>
-                    <input id="profile-upload" type="file" accept="image/*" class="hidden" onchange="uploadProfilePicture()">
+                    <input aria-label="Upload a profile photo" id="profile-upload" type="file" accept="image/*" class="hidden" onchange="uploadProfilePicture()">
                     <p onclick="document.getElementById('profile-upload').click()" class="text-xs text-cyan-400 mt-3 cursor-pointer hover:underline">Upload new photo</p>
                 </div>
 
@@ -1251,7 +1259,7 @@
             </div>
 
             <div class="bg-black/50 rounded-2xl p-4 mb-4 flex items-center gap-3">
-                <input id="referral-link-input" type="text" readonly
+                <input aria-label="Your referral link" id="referral-link-input" type="text" readonly
                        class="flex-1 bg-transparent text-cyan-400 text-sm font-mono outline-none truncate">
                 <button onclick="copyReferralLink()"
                         class="px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-black text-sm font-semibold rounded-xl flex-shrink-0">
@@ -1301,11 +1309,14 @@
 
         <!-- My Companies -->
         <div class="mb-6">
-            <button onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('span').textContent = this.nextElementSibling.classList.contains('hidden') ? '▸' : '▾'"
-                    class="w-full flex justify-between items-center mb-3">
-                <h2 class="text-2xl font-semibold">My Companies</h2>
+            <div class="w-full flex justify-between items-center gap-3 mb-3">
+                <button onclick="const box = this.parentElement.nextElementSibling; box.classList.toggle('hidden'); this.querySelector('span').textContent = box.classList.contains('hidden') ? '▸' : '▾'"
+                        class="flex-1 flex justify-between items-center gap-3 text-left">
+                    <h2 class="text-2xl font-semibold">My Companies</h2>
+                    <span class="text-zinc-400 text-lg">▾</span>
+                </button>
                 <div class="flex items-center gap-3">
-                    <label class="flex items-center gap-2 cursor-pointer" onclick="event.stopPropagation()">
+                    <label class="flex items-center gap-2 cursor-pointer">
                         <span class="text-xs text-zinc-400">Show inactive</span>
                         <div class="relative">
                             <input type="checkbox" id="show-inactive-toggle" class="sr-only" onchange="toggleInactiveCompanies()">
@@ -1313,9 +1324,8 @@
                             <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform" id="toggle-thumb"></div>
                         </div>
                     </label>
-                    <span class="text-zinc-400 text-lg">▾</span>
                 </div>
-            </button>
+            </div>
             <div>
                 <div id="my-companies" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-80 overflow-y-auto pr-1">
                     <!-- Populated by JS -->
@@ -1353,11 +1363,14 @@
 
         <!-- Completed Projects -->
         <div class="mb-6">
-            <button onclick="this.nextElementSibling.classList.toggle('hidden'); this.querySelector('span.arrow').textContent = this.nextElementSibling.classList.contains('hidden') ? '▸' : '▾'"
-                    class="w-full flex justify-between items-center mb-3">
-                <h2 class="text-2xl font-semibold">Completed Postings</h2>
+            <div class="w-full flex justify-between items-center gap-3 mb-3">
+                <button onclick="const box = this.parentElement.nextElementSibling; box.classList.toggle('hidden'); this.querySelector('span.arrow').textContent = box.classList.contains('hidden') ? '▸' : '▾'"
+                        class="flex-1 flex justify-between items-center gap-3 text-left">
+                    <h2 class="text-2xl font-semibold">Completed Postings</h2>
+                    <span class="arrow text-zinc-400 text-lg">▾</span>
+                </button>
                 <div class="flex items-center gap-3">
-                    <label class="flex items-center gap-2 cursor-pointer" onclick="event.stopPropagation()">
+                    <label class="flex items-center gap-2 cursor-pointer">
                         <span class="text-xs text-zinc-400">Show on profile</span>
                         <div class="relative">
                             <input type="checkbox" id="show-completed-toggle" checked class="sr-only" onchange="toggleCompletedPostings()">
@@ -1365,9 +1378,8 @@
                             <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full transition-transform" id="completed-toggle-thumb" style="transform: translateX(20px)"></div>
                         </div>
                     </label>
-                    <span class="arrow text-zinc-400 text-lg">▾</span>
                 </div>
-            </button>
+            </div>
             <div>
                 <div id="completed-projects" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-80 overflow-y-auto pr-1">
                     <!-- Populated by JS -->
@@ -1563,9 +1575,9 @@
             </div>
             <p class="text-zinc-500 text-sm mb-5">1 NQV8 per person</p>
     
-            <input id="group-chat-name" type="text" placeholder="Group name (optional)"
+            <input aria-label="Group name, optional" id="group-chat-name" type="text" placeholder="Group name (optional)"
                    class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 outline-none mb-4">
-            <input id="group-user-search" type="text" placeholder="Search users to add..."
+            <input aria-label="Search users to add" id="group-user-search" type="text" placeholder="Search users to add..."
                    oninput="searchGroupUsers()"
                    class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 outline-none mb-3">
     
@@ -1604,16 +1616,19 @@
 <!-- The NQVerse: the landing page. Internally still "ecosystem". -->
 <style>
     .nqv-stage { height: 62vh; min-height: 420px; }
-    /* ── Accessibility: always on ───────────────────────────────────────── */
-    /* The faint greys measured 3.7:1 on these backgrounds; this is 5.9:1. */
-    #ecosystem-page .text-zinc-500:not([class*="hover:text-"]), #ecosystem-page .text-zinc-600:not([class*="hover:text-"]),
-    #studio-page .text-zinc-500:not([class*="hover:text-"]), #studio-page .text-zinc-600:not([class*="hover:text-"]),
-    #ecosystem-page .text-zinc-500[class*="hover:text-"]:not(:hover), #ecosystem-page .text-zinc-600[class*="hover:text-"]:not(:hover),
-    #studio-page .text-zinc-500[class*="hover:text-"]:not(:hover), #studio-page .text-zinc-600[class*="hover:text-"]:not(:hover) { color: #9c9ca8; }
-    #ecosystem-page ::placeholder { color: #9c9ca8; opacity: 1; }
-    #eco-keys:focus-visible { outline: 3px solid #22d3ee; outline-offset: -3px; }
-    #eco-panel:focus-visible, #eco-list:focus-visible { outline: 2px solid #22d3ee; outline-offset: -2px; }
-    #ecosystem-page input:focus-visible, #ecosystem-page select:focus-visible, #studio-page select:focus-visible { outline: 2px solid #facc15; outline-offset: 1px; }
+    /* ── Accessibility: always on, across the site ──────────────────────── */
+    /* The faint greys measured 3.1–3.7:1 on the dark backgrounds; this is 5.5–6:1. */
+    body .text-zinc-500:not([class*="hover:text-"]), body .text-zinc-600:not([class*="hover:text-"]),
+    body .text-zinc-500[class*="hover:text-"]:not(:hover), body .text-zinc-600[class*="hover:text-"]:not(:hover) { color: #9c9ca8; }
+    body ::placeholder { color: #9c9ca8; opacity: 1; }
+    /* A visible ring on whatever the keyboard is on. Many fields had their outline removed. */
+    a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible, [tabindex]:focus-visible { outline: 2px solid #facc15 !important; outline-offset: 2px !important; }
+    #eco-keys:focus-visible { outline: 3px solid #22d3ee !important; outline-offset: -3px !important; }
+    #eco-panel:focus-visible, #eco-list:focus-visible, div[id$="-page"]:focus-visible, div[id$="-modal"]:focus-visible { outline: 2px solid #22d3ee !important; outline-offset: -2px !important; }
+    div[id$="-page"]:focus, div[id$="-modal"]:focus { outline: none; }
+    input.sr-only:focus-visible + div, input.sr-only:focus-visible ~ #toggle-track { outline: 2px solid #facc15; outline-offset: 2px; }
+    /* Links inside sentences are underlined, so they do not rely on colour. */
+    p a, li a, label a, td a, span a { text-decoration: underline; text-underline-offset: 2px; }
     .eco-shape { display: none; }
     .nqv-a11y-list .eco-nolist { display: none !important; }
 
@@ -1628,10 +1643,12 @@
     .nqv-a11y-contrast .bg-zinc-900, .nqv-a11y-contrast .bg-zinc-900\/90, .nqv-a11y-contrast .bg-zinc-900\/85, .nqv-a11y-contrast .bg-zinc-900\/60, .nqv-a11y-contrast .bg-zinc-950 { background-color: #000 !important; }
     .nqv-a11y-contrast :focus-visible { outline: 3px solid #fde047 !important; outline-offset: 2px !important; }
 
-    .nqv-a11y-large .text-\[10px\], .nqv-a11y-large .text-\[11px\] { font-size: 0.875rem !important; line-height: 1.3rem !important; }
-    .nqv-a11y-large .text-xs { font-size: 0.95rem !important; line-height: 1.4rem !important; }
-    .nqv-a11y-large .text-sm { font-size: 1.0625rem !important; line-height: 1.55rem !important; }
-    .nqv-a11y-large .text-base { font-size: 1.2rem !important; line-height: 1.7rem !important; }
+    /* (the top bar keeps its size: it has no room to grow on a phone) */
+    .nqv-a11y-large .text-\[10px\]:not(nav *), .nqv-a11y-large .text-\[11px\]:not(nav *) { font-size: 0.875rem !important; line-height: 1.3rem !important; }
+    .nqv-a11y-large .text-xs:not(nav *) { font-size: 0.95rem !important; line-height: 1.4rem !important; }
+    .nqv-a11y-large .text-sm:not(nav *) { font-size: 1.0625rem !important; line-height: 1.55rem !important; }
+    .nqv-a11y-large .text-base:not(nav *) { font-size: 1.2rem !important; line-height: 1.7rem !important; }
+    .nqv-a11y-large .font-mono { overflow-wrap: anywhere; word-break: break-all; }      /* wallet and contract addresses wrap instead of pushing the page wide */
     .nqv-a11y-large #eco-panel { width: auto; }
     @media (max-width: 767px) { .nqv-a11y-large #eco-counts { display: inline-block; max-width: calc(100% - 1rem); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; } }
     @media (min-width: 768px) { .nqv-a11y-large #eco-panel { width: 24rem; } }
@@ -1640,6 +1657,7 @@
     .nqv-a11y-targets input[type="checkbox"] { width: 1.5rem; height: 1.5rem; }
     .nqv-a11y-targets #nqv-side-tabs, .nqv-a11y-targets #nqv-side > :first-child > div:first-child { flex-wrap: wrap; }
     .nqv-a11y-targets .nqv-searchrow { flex-wrap: wrap; }
+    @media (max-width: 767px) { .nqv-a11y-targets nav > div { padding-left: 0.75rem; padding-right: 0.75rem; } .nqv-a11y-targets #right-section, .nqv-a11y-targets nav > div > div { gap: 0.25rem; } }
 
     .nqv-a11y-calm *, .nqv-a11y-calm *::before, .nqv-a11y-calm *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 
@@ -1697,11 +1715,8 @@
 
         <!-- Search and reset -->
         <div class="nqv-searchrow eco-main-ui absolute z-10 top-[4.5rem] left-3 right-3 md:top-4 md:left-auto md:right-4 flex gap-2">
-            <!-- First in the page order so a keyboard or screen-reader user meets it first; shown last in the row. -->
-            <button onclick="ecoA11yToggleMenu(event)" aria-haspopup="true" aria-expanded="false" aria-controls="eco-a11y-menu" aria-label="Accessibility options" title="Accessibility options"
-                    class="eco-a11y-btn order-last px-3 py-2 rounded-xl bg-zinc-900/90 border border-zinc-700 ring-yellow-400 text-sm hover:border-yellow-400 whitespace-nowrap"><span aria-hidden="true">♿</span><span class="hidden 2xl:inline"> Accessibility</span></button>
             <div class="relative flex-1 md:flex-none">
-                <input id="eco-search" type="search" placeholder="Find a person or company" autocomplete="off"
+                <input aria-label="Find a person or company" id="eco-search" type="search" placeholder="Find a person or company" autocomplete="off"
                        oninput="ecoSearch(this.value)"
                        class="w-full md:w-64 px-3 py-2 rounded-xl bg-zinc-900/90 border border-zinc-700 text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-yellow-400">
                 <div id="eco-search-results" class="hidden absolute left-0 md:left-auto md:right-0 mt-1 w-64 max-h-64 overflow-y-auto rounded-xl bg-zinc-900 border border-zinc-700 text-sm z-10"></div>
@@ -1714,9 +1729,6 @@
                 <div id="eco-mine-list" class="hidden absolute right-0 mt-1 w-64 max-h-64 overflow-y-auto rounded-xl bg-zinc-900 border border-zinc-700 text-sm z-10"></div>
             </div>
         </div>
-
-        <div id="eco-a11y-menu" role="group" aria-labelledby="eco-a11y-title"
-             class="hidden fixed inset-x-3 top-24 max-h-[calc(100dvh-7rem)] md:absolute md:inset-x-auto md:top-16 md:right-4 md:w-72 md:max-h-[85%] overflow-y-auto rounded-2xl bg-zinc-900 border border-zinc-700 p-3 text-sm z-40"></div>
 
         <!-- Where the keyboard holds the map: see-through, and clicks pass straight through it -->
         <div id="eco-keys" tabindex="0" role="application" aria-label="The NQVerse map" aria-describedby="eco-keys-help" class="absolute inset-0 pointer-events-none rounded-3xl"></div>
@@ -1749,8 +1761,6 @@
             <div class="pointer-events-auto flex gap-2">
                 <button onclick="addFlowNode()" class="px-3 py-2 rounded-xl bg-white text-black text-sm font-semibold hover:bg-cyan-300">+ Add a part</button>
                 <button onclick="ecoLayerBoard()" class="px-3 py-2 rounded-xl bg-zinc-900/90 border border-zinc-700 text-sm hover:border-yellow-400">🗂 Board</button>
-                <button onclick="ecoA11yToggleMenu(event)" aria-haspopup="true" aria-expanded="false" aria-controls="eco-a11y-menu" aria-label="Accessibility options" title="Accessibility options"
-                        class="eco-a11y-btn px-3 py-2 rounded-xl bg-zinc-900/90 border border-zinc-700 ring-yellow-400 text-sm hover:border-yellow-400"><span aria-hidden="true">♿</span></button>
             </div>
         </div>
         <div class="eco-layer-ui eco-nolist hidden absolute bottom-3 left-3 md:bottom-4 md:left-4 rounded-2xl bg-zinc-900/85 border border-zinc-800 px-3 py-2 text-[11px] text-zinc-300 space-y-1 pointer-events-none">
@@ -1816,7 +1826,7 @@
             <!-- Sidebar — full height on mobile, fixed width on desktop -->
             <div id="chat-sidebar" class="w-full md:w-80 border-b md:border-b-0 md:border-r border-zinc-700 flex flex-col md:h-auto h-full">
                 <div class="p-4 border-b border-zinc-700 space-y-2">
-                    <input id="chat-search" type="text" placeholder="Search by username..."
+                    <input aria-label="Search by username" id="chat-search" type="text" placeholder="Search by username..."
                            onkeyup="searchUsersForChat()"
                            class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 outline-none">
                     <button onclick="showGroupChatModal()"
@@ -1852,7 +1862,7 @@
 
                 <div class="p-4 border-t border-zinc-700 bg-zinc-900">
                     <div class="flex gap-3">
-                        <input id="chat-input" type="text" placeholder="Type a message..." 
+                        <input aria-label="Type a message" id="chat-input" type="text" placeholder="Type a message..." 
                                onkeypress="if(event.key==='Enter') sendMessage()"
                                class="flex-1 bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-4 outline-none">
                         <button onclick="sendMessage()" class="px-8 bg-white text-black rounded-3xl font-medium">Send</button>
@@ -2092,7 +2102,7 @@
                     <li>✓ Goes live immediately</li>
                 </ul>
                 <button onclick="loadMyPostsForSponsoring()"
-                        class="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-semibold rounded-2xl transition-colors">
+                        class="w-full py-3 bg-cyan-700 hover:bg-cyan-600 text-white font-semibold rounded-2xl transition-colors">
                     Sponsor a Post
                 </button>
             </div>
@@ -2204,22 +2214,22 @@
         <div class="space-y-4 mb-6">
             <div>
                 <label class="text-sm text-zinc-400 block mb-1">Company / Brand Name</label>
-                <input id="banner-company" type="text" placeholder="Your company name"
+                <input aria-label="Company / Brand Name" id="banner-company" type="text" placeholder="Your company name"
                        class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm">
             </div>
             <div>
                 <label class="text-sm text-zinc-400 block mb-1">Headline</label>
-                <input id="banner-headline" type="text" placeholder="Short, punchy headline (max 60 chars)" maxlength="60"
+                <input aria-label="Headline" id="banner-headline" type="text" placeholder="Short, punchy headline (max 60 chars)" maxlength="60"
                        class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm">
             </div>
             <div>
                 <label class="text-sm text-zinc-400 block mb-1">Body Copy</label>
-                <textarea id="banner-body" rows="2" placeholder="Brief description of your product or offer (max 120 chars)" maxlength="120"
+                <textarea aria-label="Body Copy" id="banner-body" rows="2" placeholder="Brief description of your product or offer (max 120 chars)" maxlength="120"
                           class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm"></textarea>
             </div>
             <div>
                 <label class="text-sm text-zinc-400 block mb-1">Destination URL</label>
-                <input id="banner-url" type="url" placeholder="https://yoursite.com"
+                <input aria-label="Destination URL" id="banner-url" type="url" placeholder="https://yoursite.com"
                        class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm">
             </div>
             <div>
@@ -2431,7 +2441,7 @@
             </div>
 
             <div class="flex flex-col sm:flex-row gap-2">
-                <input id="stake-amount" type="text" inputmode="decimal" placeholder="Amount in NQV8"
+                <input aria-label="Amount of NQV8 to stake" id="stake-amount" type="text" inputmode="decimal" placeholder="Amount in NQV8"
                        oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
                        class="flex-1 bg-zinc-900 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
                 <div class="flex gap-2">
@@ -2744,7 +2754,7 @@
     <div class="text-center text-xs text-zinc-600">
         NQV8 Token:
         <a href="https://arbiscan.io/token/0x02b3EF81d6577507114BB26F91F1a8d0A7bB1B67"
-           target="_blank" class="text-cyan-400/50 hover:text-cyan-400 font-mono">
+           target="_blank" class="text-cyan-400/80 hover:text-cyan-400 font-mono">
             0x02b3EF81d6577507114BB26F91F1a8d0A7bB1B67
         </a>
         · Arbitrum One · Treasury verified on-chain
@@ -2756,11 +2766,11 @@
         <div class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-4 md:p-8">
             <h2 class="text-3xl font-bold mb-6">Add Task</h2>
             
-            <input id="new-sub-title" type="text" placeholder="Task Title" 
+            <input aria-label="Task title" id="new-sub-title" type="text" placeholder="Task Title" 
                    class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
-            <textarea id="new-sub-desc" placeholder="Describe the task..." rows="3" 
+            <textarea aria-label="Describe the task" id="new-sub-desc" placeholder="Describe the task..." rows="3" 
                       class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-4"></textarea>
-            <select id="new-sub-category" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
+            <select aria-label="Task category" id="new-sub-category" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
                 <option value="">Select Category</option>
                 <option value="AI/ML">AI / Machine Learning</option>
                 <option value="Blockchain">Crypto / Blockchain</option>
@@ -2770,7 +2780,7 @@
                 <option value="Social">Social / Community</option>
                 <option value="Other">Other</option>
             </select>
-            <input id="new-sub-comp" type="text" placeholder="Compensation (e.g. $500 USDC)" 
+            <input aria-label="Compensation" id="new-sub-comp" type="text" placeholder="Compensation (e.g. $500 USDC)" 
                    class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-6">
 
             <div class="flex gap-3">
@@ -2801,7 +2811,7 @@
         <div id="equity-listing-form" class="hidden">
             <p id="equity-selected-company-label" class="text-cyan-400 font-medium mb-4"></p>
 
-            <input id="equity-percentage" type="text" placeholder="Equity % being sold (e.g. 1.5%)"
+            <input aria-label="Equity percent being sold" id="equity-percentage" type="text" placeholder="Equity % being sold (e.g. 1.5%)"
                    class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4"
 
             <input id="equity-ask-price" type="text" placeholder="e.g. $5,000.00 USDC"
@@ -2810,7 +2820,7 @@
                onfocus="this.value = this.value.replace(/[^0-9.]/g, '')"
                class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-5 outline-none mb-4">
 
-            <textarea id="equity-desc" placeholder="Describe the stake and why it's valuable..." rows="3"
+            <textarea aria-label="Describe the stake" id="equity-desc" placeholder="Describe the stake and why it's valuable..." rows="3"
                       class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-5 outline-none mb-4"></textarea>
 
             <div class="bg-zinc-800 rounded-2xl p-4 mb-6">
@@ -4146,7 +4156,7 @@ async function loadSavedBounties() {
                     <p class="text-xs text-zinc-500 mt-1">${p.bids?.length || 0} bids</p>
                 </div>
                 <button onclick="toggleBookmark('${postingId}', this); this.closest('.bg-zinc-800').remove()"
-                        class="text-amber-400 ml-3 flex-shrink-0">🔖</button>
+                        class="text-amber-400 ml-3 flex-shrink-0 min-w-[28px] min-h-[28px]" aria-label="Remove from saved">🔖</button>
             `;
             container.appendChild(card);
         }
@@ -7952,7 +7962,7 @@ async function createProfile() {
                         </p>
                         ${currentUser ? `
                         <button onclick="event.stopPropagation(); toggleBookmark('${p.id}', this)"
-                                class="text-zinc-500 hover:text-amber-400 transition-colors text-sm bookmark-btn"
+                                class="text-zinc-500 hover:text-amber-400 transition-colors text-sm bookmark-btn min-w-[28px] min-h-[28px]" aria-label="Save this listing"
                                 data-id="${p.id}">
                             🔖
                         </button>` : ''}
@@ -19102,7 +19112,7 @@ async function loadSupportQueue(status = 'open') {
                               class="w-full bg-zinc-900 border border-zinc-600 rounded-xl px-4 py-3 outline-none text-sm mb-3">${t.response || ''}</textarea>
                     <div class="flex gap-2">
                         <button onclick="respondToTicket('${doc.id}', '${status}')"
-                                class="flex-1 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-semibold rounded-xl transition-colors">
+                                class="flex-1 py-2 bg-cyan-700 hover:bg-cyan-600 text-white text-sm font-semibold rounded-xl transition-colors">
                             Send Response
                         </button>
                         <button onclick="closeTicket('${doc.id}', '${t.status}')"
@@ -21960,6 +21970,223 @@ function ecoStop() {
     });
 })();
 
+// ====================== SITE ACCESSIBILITY ======================
+// The whole site, not only the NQVerse. Nearly all of the page is built from
+// templates as people use it, so most of this works on the page as it
+// stands at any moment rather than on the markup:
+//
+//   · anything clickable that is not a real button or link becomes reachable
+//     and usable from the keyboard (the top navigation was not)
+//   · every field, dropdown and icon button gets a name a screen reader can say
+//   · every pop-up is announced as a dialog, takes focus, keeps Tab inside it,
+//     closes on Escape and hands focus back
+//   · the page in view is the "main" landmark, changing page is announced, and
+//     there is a Skip to content link
+//
+// It only ever adds attributes; it changes nothing people can see.
+const NQV_A11Y = { kbd: false, stack: [], timer: 0 };
+const NQV_A11Y_CLOSE = /^(×|✕|✖|✗|x)$/i;
+const NQV_A11Y_ICONS = { 'fa-bell': 'Notifications', 'fa-bars': 'Menu', 'fa-xmark': 'Close', 'fa-times': 'Close', 'fa-wallet': 'Wallet', 'fa-copy': 'Copy', 'fa-trash': 'Delete', 'fa-pen': 'Edit', 'fa-share': 'Share', 'fa-arrow-left': 'Back', 'fa-paper-plane': 'Send', 'fa-video': 'Video call', 'fa-paperclip': 'Attach a file', 'fa-magnifying-glass': 'Search', 'fa-gear': 'Settings', 'fa-bookmark': 'Save' };
+
+function nqvSay(text) {
+    const el = document.getElementById('nqv-say');
+    if (!el) return;
+    el.textContent = '';
+    setTimeout(() => { el.textContent = String(text || ''); }, 40);
+}
+
+function nqvA11yShown(el) { return !!(el && (el.offsetWidth || el.offsetHeight || el.getClientRects().length)); }
+function nqvA11yFocusable(root) {
+    return [...root.querySelectorAll('a[href], button, input:not([type="hidden"]), select, textarea, summary, [tabindex]')]
+        .filter(el => !el.disabled && el.tabIndex >= 0 && nqvA11yShown(el));
+}
+
+/// A name for a field that has none: the label written beside it, else its
+/// placeholder, else its id in plain words.
+function nqvA11yNameField(c) {
+    if (c.getAttribute('aria-label') || c.getAttribute('aria-labelledby') || c.title || (c.labels && c.labels.length)) return;
+    let text = '', prev = c.previousElementSibling;
+    for (let hops = 0; prev && hops < 2 && !text; hops++, prev = prev.previousElementSibling) {
+        if (/^(LABEL|P|SPAN|H[1-6])$/.test(prev.tagName) && !prev.querySelector('input, select, textarea, button')) text = prev.textContent.trim();
+    }
+    const ph = (c.getAttribute('placeholder') || '').replace(/(\.\.\.|…)$/, '').trim();
+    const example = /^(e\.g\.|\$|0x|https?:|\()/i.test(ph);
+    if (!text || text.length > 70 || /^\(/.test(text)) text = example ? '' : ph;
+    if (!text && ph) text = ph;
+    if (!text && c.id) text = c.id.replace(/[-_]+/g, ' ').replace(/\b(input|select|field|toggle)\b/g, '').trim();
+    if (!text) text = c.tagName === 'SELECT' ? 'Choose an option' : c.type === 'file' ? 'Choose a file' : c.type === 'checkbox' ? 'Option' : 'Text field';
+    c.setAttribute('aria-label', (text.charAt(0).toUpperCase() + text.slice(1)).replace(/\s+/g, ' ').slice(0, 80));
+}
+
+/// One pass over the page as it stands. Safe to run again and again.
+function nqvA11yPass() {
+    const body = document.body;
+    if (!body) return;
+    // 1. Clickable things that are not controls: reachable and named as what they are.
+    body.querySelectorAll('[onclick]:not([data-a11y])').forEach(el => {
+        if (/^(BUTTON|INPUT|SELECT|TEXTAREA|SUMMARY|LABEL|OPTION|BODY|HTML)$/.test(el.tagName)) return;
+        if (el.tagName === 'A' && el.hasAttribute('href')) return;
+        const code = el.getAttribute('onclick') || '';
+        el.setAttribute('data-a11y', '1');
+        if (/^\s*event\.stopPropagation\(\);?\s*$/.test(code)) return;                    // only there to swallow the click
+        if (/-modal$/.test(el.id) || (el.classList.contains('fixed') && el.classList.contains('inset-0'))) return;      // a pop-up's backdrop
+        if (el.closest('button, a[href]')) return;
+        el.setAttribute('data-a11y', 'go');
+        if (!el.hasAttribute('tabindex')) el.tabIndex = 0;
+        // A card with its own buttons inside cannot itself be a button; it stays a plain, focusable region.
+        if (!el.hasAttribute('role') && !el.querySelector('button, a[href], input, select, textarea, [onclick]')) el.setAttribute('role', el.tagName === 'A' ? 'link' : 'button');
+    });
+    // 2. Fields and dropdowns.
+    body.querySelectorAll('input:not([type="hidden"]):not([data-a11y-n]), select:not([data-a11y-n]), textarea:not([data-a11y-n])').forEach(c => { c.setAttribute('data-a11y-n', '1'); nqvA11yNameField(c); });
+    // 3. Buttons that are only an icon or a cross.
+    body.querySelectorAll('button:not([data-a11y-n]), [role="button"]:not([data-a11y-n])').forEach(b => {
+        b.setAttribute('data-a11y-n', '1');
+        if (b.getAttribute('aria-label') || b.getAttribute('aria-labelledby')) return;
+        const t = (b.textContent || '').replace(/\s+/g, ' ').trim();
+        if (NQV_A11Y_CLOSE.test(t)) return b.setAttribute('aria-label', 'Close');
+        if (t && /[\p{L}\p{N}]/u.test(t)) return;                                              // it has words
+        const icon = b.querySelector('i[class*="fa-"]');
+        const known = icon && Object.keys(NQV_A11Y_ICONS).find(k => icon.classList.contains(k));
+        let name = b.title || (known && NQV_A11Y_ICONS[known]) || (t === '🔖' ? 'Save this listing' : t === '🔔' ? 'Notifications' : '');
+        if (!name && b.tagName !== 'BUTTON') {
+            // Something made into a button with no words in it: say what it does.
+            const code = b.getAttribute('onclick') || '';
+            const file = /getElementById\('([^']+)'\)\.click\(\)/.exec(code), target = file && document.getElementById(file[1]);
+            const fn = /([A-Za-z_]\w*)\s*\(/.exec(code);
+            name = /toggleProfileMenu/.test(code) ? 'Account menu'
+                 : target ? (target.getAttribute('aria-label') || 'Choose a file')
+                 : fn ? fn[1].replace(/([a-z])([A-Z])/g, '$1 $2').replace(/^./, c => c.toUpperCase()) : 'Open';
+        }
+        if (name) b.setAttribute('aria-label', name);
+    });
+    // 4. Pictures: decorative unless they say otherwise.
+    body.querySelectorAll('img:not([alt])').forEach(img => img.setAttribute('alt', img.title || ''));
+    // 5. Lists that scroll must be scrollable from the keyboard.
+    body.querySelectorAll('.overflow-y-auto:not([data-a11y-s]), .overflow-x-auto:not([data-a11y-s]), .overflow-auto:not([data-a11y-s])').forEach(el => {
+        if (!nqvA11yShown(el) || (el.scrollHeight <= el.clientHeight + 4 && el.scrollWidth <= el.clientWidth + 4)) return;      // looked at again once it has something in it
+        el.setAttribute('data-a11y-s', '1');
+        if (!el.hasAttribute('tabindex') && !el.querySelector('a[href], button, input, select, textarea, [tabindex]')) el.tabIndex = 0;
+    });
+    // 6. The page in view is the main landmark.
+    document.querySelectorAll('div[id$="-page"]').forEach(pg => {
+        if (pg.classList.contains('hidden')) pg.removeAttribute('role'); else pg.setAttribute('role', 'main');
+    });
+}
+function nqvA11ySoon() { clearTimeout(NQV_A11Y.timer); NQV_A11Y.timer = setTimeout(nqvA11yPass, 200); }
+
+// ── Pop-ups ──────────────────────────────────────────────────────────────
+function nqvModalOpen(m) { return !m.classList.contains('hidden') && getComputedStyle(m).display !== 'none'; }
+function nqvModalTop() {
+    NQV_A11Y.stack = NQV_A11Y.stack.filter(m => document.contains(m) && nqvModalOpen(m));
+    return NQV_A11Y.stack[NQV_A11Y.stack.length - 1] || null;
+}
+function nqvModalSync(m) {
+    const open = nqvModalOpen(m);
+    if (open === !!m._a11yOpen) return;
+    m._a11yOpen = open;
+    if (open) {
+        m.setAttribute('role', 'dialog');
+        m.setAttribute('aria-modal', 'true');
+        const h = m.querySelector('h1, h2, h3');
+        if (h) { if (!h.id) h.id = m.id + '-title'; m.setAttribute('aria-labelledby', h.id); }
+        else m.setAttribute('aria-label', m.id.replace(/-modal$/, '').replace(/-/g, ' '));
+        m._a11yFrom = document.activeElement;
+        NQV_A11Y.stack.push(m);
+        nqvA11ySoon();
+        // Whatever the pop-up focuses for itself wins; otherwise focus goes to the pop-up.
+        setTimeout(() => {
+            if (!nqvModalOpen(m) || m.contains(document.activeElement)) return;
+            if (!m.hasAttribute('tabindex')) m.tabIndex = -1;
+            m.focus({ preventScroll: true });
+        }, 80);
+    } else {
+        NQV_A11Y.stack = NQV_A11Y.stack.filter(x => x !== m);
+        const back = m._a11yFrom;
+        m._a11yFrom = null;
+        if (back && document.contains(back) && nqvA11yShown(back) && (m.contains(document.activeElement) || document.activeElement === document.body)) back.focus({ preventScroll: true });
+    }
+}
+/// The pop-up's own way out, if it offers one. A pop-up with no way out (a
+/// required step) is left alone.
+function nqvModalCloser(m) {
+    return [...m.querySelectorAll('button, [role="button"]')].filter(nqvA11yShown).find(b => {
+        const t = (b.textContent || '').replace(/\s+/g, ' ').trim();
+        return b.getAttribute('aria-label') === 'Close' || NQV_A11Y_CLOSE.test(t) || /^(close|cancel|done|not now|maybe later|skip|no thanks)$/i.test(t)
+            || /^\s*(close|hide)\w*\(\)\s*;?\s*$/.test(b.getAttribute('onclick') || '');      // a button that does nothing but close it
+    }) || null;
+}
+
+function nqvA11yKey(e) {
+    if (e.key === 'Tab') {
+        const m = nqvModalTop();
+        if (!m) return;
+        const f = nqvA11yFocusable(m);
+        if (!f.length) { e.preventDefault(); return; }
+        const first = f[0], last = f[f.length - 1], at = document.activeElement;
+        if (!m.contains(at) || at === m) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+        else if (e.shiftKey && at === first) { e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && at === last) { e.preventDefault(); first.focus(); }
+        return;
+    }
+    if (e.key === 'Escape') {
+        const done = () => { e.stopImmediatePropagation(); };
+        const menu = document.getElementById('eco-a11y-menu');
+        if (menu && !menu.classList.contains('hidden')) { ecoA11yMenu(false); return done(); }
+        const m = nqvModalTop();
+        if (m) { const c = nqvModalCloser(m); if (c) { c.click(); done(); } return; }
+        for (const [id, opener] of [['notif-dropdown', 'button[onclick^="toggleNotifications"]'], ['profile-dropdown', '[onclick^="toggleProfileMenu()"]'], ['mobile-menu', '#mobile-menu-btn']]) {
+            const d = document.getElementById(id);
+            if (d && !d.classList.contains('hidden') && nqvA11yShown(d)) {
+                d.classList.add('hidden');
+                const o = document.querySelector(opener);
+                if (o && nqvA11yShown(o)) o.focus();
+                return done();
+            }
+        }
+        return;
+    }
+    // Enter or Space on something we made reachable does what a click does.
+    if ((e.key === 'Enter' || e.key === ' ') && e.target && e.target.getAttribute && e.target.getAttribute('data-a11y') === 'go') {
+        e.preventDefault();
+        e.target.click();
+    }
+}
+
+function nqvSkipToMain(ev) {
+    if (ev) ev.preventDefault();
+    const pg = [...document.querySelectorAll('div[id$="-page"]')].find(p => !p.classList.contains('hidden'));
+    if (!pg) return;
+    if (!pg.hasAttribute('tabindex')) pg.tabIndex = -1;
+    pg.focus();
+}
+
+function nqvA11yAfterNav(page) {
+    nqvA11yPass();
+    const pg = document.getElementById(page + '-page');
+    if (!pg || pg.classList.contains('hidden')) return;
+    const h = pg.querySelector('h1');
+    nqvSay(((h && h.textContent.trim()) || page) + ' page');
+    if (NQV_A11Y.kbd && !nqvModalTop()) { if (!pg.hasAttribute('tabindex')) pg.tabIndex = -1; pg.focus({ preventScroll: true }); }
+}
+
+function nqvA11yInit() {
+    if (NQV_A11Y.on) return;
+    NQV_A11Y.on = true;
+    document.addEventListener('keydown', e => { if (!['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) { NQV_A11Y.kbd = true; ECO.kbdMode = true; } }, true);
+    document.addEventListener('pointerdown', () => { NQV_A11Y.kbd = false; }, true);
+    document.addEventListener('keydown', nqvA11yKey);
+    document.querySelectorAll('[id$="-modal"]').forEach(m => {
+        new MutationObserver(() => nqvModalSync(m)).observe(m, { attributes: true, attributeFilter: ['class', 'style'] });
+        nqvModalSync(m);
+    });
+    new MutationObserver(nqvA11ySoon).observe(document.body, { childList: true, subtree: true });
+    const go = navigateTo;
+    navigateTo = function (page) { const r = go.apply(this, arguments); try { nqvA11yAfterNav(page); } catch (e) { console.warn('a11y:', e.message); } return r; };
+    ecoA11yApply();
+    nqvA11yPass();
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', nqvA11yInit); else setTimeout(nqvA11yInit, 0);
+
 // ====================== NQVERSE ACCESSIBILITY ======================
 // Two layers.
 //
@@ -21979,9 +22206,9 @@ function ecoStop() {
 //   targets    44px buttons
 const ECO_A11Y_KEY = 'nqvA11y';
 const ECO_A11Y_OPTS = [
-    ['list',     'List view',                'The map as a list of companies and people'],
+    ['list',     'List view',                'The NQVerse map as a list of companies and people'],
     ['contrast', 'High contrast',            'Brighter text, stronger outlines, solid label backgrounds'],
-    ['large',    'Larger text',              'Bigger text in panels, the side column and map labels'],
+    ['large',    'Larger text',              'Bigger small print across the site, and bigger map labels'],
     ['shapes',   'Shapes as well as colour', 'Symbols for open listings, highlights and stages'],
     ['calm',     'Reduce motion',            'No orbiting, camera glides or transitions'],
     ['targets',  'Larger buttons',           'Bigger buttons and tap targets']
@@ -22023,10 +22250,7 @@ function ecoDescribe(node) {
 /// if any, so only what depends on it is redrawn.
 function ecoA11yApply(changed) {
     const a = ECO.a11y;
-    ['ecosystem-page', 'studio-page'].forEach(id => {
-        const el = document.getElementById(id);
-        if (el) ECO_A11Y_OPTS.forEach(([k]) => el.classList.toggle('nqv-a11y-' + k, !!a[k]));
-    });
+    ECO_A11Y_OPTS.forEach(([k]) => document.body.classList.toggle('nqv-a11y-' + k, !!a[k]));      // the whole site, not only this page
     const system = !!(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
     ECO.reduceMotion = system || a.calm;
     const wrap = document.getElementById('eco-keys');
@@ -22061,7 +22285,7 @@ function ecoA11yMenu(open, from) {
     if (open) {
         ECO.a11yFrom = from || document.activeElement;
         menu.innerHTML = `<p id="eco-a11y-title" class="font-semibold mb-1">Accessibility</p>
-            <p class="text-xs text-zinc-400 mb-2">Remembered on this device. The map also works from the keyboard: arrows to move, Enter to open, Escape to close.</p>` +
+            <p class="text-xs text-zinc-400 mb-2">These apply across the site and are remembered on this device. The NQVerse map also works from the keyboard: arrows to move, Enter to open, Escape to close.</p>` +
             ECO_A11Y_OPTS.map(([k, label, hint]) => `<label class="flex items-start gap-3 py-2 px-1 rounded-lg hover:bg-zinc-800 cursor-pointer">
                 <input type="checkbox" class="mt-1 w-4 h-4 shrink-0 accent-yellow-400" ${ECO.a11y[k] ? 'checked' : ''} onchange="ecoA11ySet('${k}', this.checked)" aria-describedby="eco-a11y-h-${k}">
                 <span><span class="block font-medium">${label}</span><span id="eco-a11y-h-${k}" class="block text-xs text-zinc-400">${hint}</span></span></label>`).join('') +
@@ -23372,7 +23596,7 @@ async function showsAdminRemove(postId) {
             
             <div class="mb-6">
                 <label class="block text-sm text-zinc-400 mb-2">Amount in USDC</label>
-                <input id="buy-amount-input" type="number" step="1" min="1"
+                <input aria-label="Amount in USDC" id="buy-amount-input" type="number" step="1" min="1"
                        oninput="updateBuyPreview()" 
                        class="w-full bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-4 text-3xl outline-none">
             </div>
@@ -23417,12 +23641,12 @@ async function showsAdminRemove(postId) {
             <p id="req-special" class="text-red-400">✗ At least 1 special character (!@#$%^&*)</p>
         </div>
 
-        <input id="current-password" type="password" placeholder="Current Password"
+        <input aria-label="Current password" id="current-password" type="password" placeholder="Current Password"
                class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
-        <input id="new-password" type="password" placeholder="New Password"
+        <input aria-label="New password" id="new-password" type="password" placeholder="New Password"
                oninput="checkPasswordStrength()"
                class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
-        <input id="confirm-new-password" type="password" placeholder="Confirm New Password"
+        <input aria-label="Confirm new password" id="confirm-new-password" type="password" placeholder="Confirm New Password"
                class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-6">
 
         <div class="flex gap-3">
@@ -23443,9 +23667,9 @@ async function showsAdminRemove(postId) {
         </div>
         <p class="text-zinc-400 text-sm mb-6">A verification email will be sent to your new address.</p>
 
-        <input id="new-email" type="email" placeholder="New Email Address"
+        <input aria-label="New email address" id="new-email" type="email" placeholder="New Email Address"
                class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
-        <input id="email-change-password" type="password" placeholder="Current Password (to confirm)"
+        <input aria-label="Current password, to confirm" id="email-change-password" type="password" placeholder="Current Password (to confirm)"
                class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-6">
 
         <div class="flex gap-3">
@@ -23469,9 +23693,9 @@ async function showsAdminRemove(postId) {
             <p class="text-zinc-400 text-xs mt-2">Your profile, postings, and account data will be deleted. Any funds locked in escrow must be resolved first.</p>
         </div>
 
-        <input id="delete-confirm-password" type="password" placeholder="Enter your password to confirm"
+        <input aria-label="Your password, to confirm" id="delete-confirm-password" type="password" placeholder="Enter your password to confirm"
                class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
-        <input id="delete-confirm-text" type="text" placeholder='Type "DELETE" to confirm'
+        <input aria-label="Type DELETE to confirm" id="delete-confirm-text" type="text" placeholder='Type "DELETE" to confirm'
                class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-6">
 
         <div class="flex gap-3">
@@ -23557,22 +23781,22 @@ async function showsAdminRemove(postId) {
         <div class="space-y-4 mb-6">
             <div>
                 <p class="text-sm text-zinc-400 mb-2">Revenue Proof <span class="text-zinc-500">(Stripe, PayPal, bank statement, etc.)</span> <span class="text-zinc-600 text-xs">— optional for pre-revenue</span></p>
-                <input type="file" id="metric-revenue-doc" accept=".pdf,.jpg,.png" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
+                <input aria-label="Revenue document" type="file" id="metric-revenue-doc" accept=".pdf,.jpg,.png" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
             </div>
             <div>
                 <p class="text-sm text-zinc-400 mb-2">User/Customer Proof <span class="text-zinc-500">(Google Analytics, App Store, CRM, etc.)</span> <span class="text-zinc-600 text-xs">— optional for pre-launch</span></p>
-                <input type="file" id="metric-users-doc" accept=".pdf,.jpg,.png" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
+                <input aria-label="User count document" type="file" id="metric-users-doc" accept=".pdf,.jpg,.png" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
             </div>
             <div>
                 <p class="text-sm text-zinc-400 mb-2">Additional Proof <span class="text-zinc-500">(optional)</span></p>
-                <input type="file" id="metric-optional-doc" accept=".pdf,.jpg,.png" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
+                <input aria-label="Other supporting document, optional" type="file" id="metric-optional-doc" accept=".pdf,.jpg,.png" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
             </div>
         </div>
 
         <div class="grid grid-cols-2 gap-4 mb-6">
             <div>
                 <p class="text-sm text-zinc-400 mb-2">Your claimed monthly revenue</p>
-                <select id="metric-claimed-revenue" class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none text-sm">
+                <select aria-label="Your claimed monthly revenue" id="metric-claimed-revenue" class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none text-sm">
                     <option value="Pre-revenue">Pre-revenue</option>
                     <option value="$1-$500/mo">$1-$500/mo</option>
                     <option value="$500-$2,000/mo">$500-$2,000/mo</option>
@@ -23584,7 +23808,7 @@ async function showsAdminRemove(postId) {
             </div>
             <div>
                 <p class="text-sm text-zinc-400 mb-2">Your claimed user count</p>
-                <select id="metric-claimed-users" class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none text-sm">
+                <select aria-label="Your claimed user count" id="metric-claimed-users" class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none text-sm">
                     <option value="Pre-launch">Pre-launch</option>
                     <option value="1-50 users">1-50 users</option>
                     <option value="50-250 users">50-250 users</option>
@@ -23727,7 +23951,7 @@ async function showsAdminRemove(postId) {
         <div id="flowmap-step-2" class="hidden">
             <p id="flowmap-selected-label" class="text-cyan-400 font-medium mb-4"></p>
 
-            <select id="flowmap-stack" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 outline-none text-sm mb-4">
+            <select aria-label="Tech stack" id="flowmap-stack" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 outline-none text-sm mb-4">
                 <option value="">Tech stack (optional)</option>
                 <option value="React + Firebase">React + Firebase</option>
                 <option value="Next.js + Supabase">Next.js + Supabase</option>
@@ -23739,7 +23963,7 @@ async function showsAdminRemove(postId) {
                 <option value="Other">Other / Mixed</option>
             </select>
 
-            <textarea id="flowmap-description" rows="5"
+            <textarea aria-label="Describe what you are building" id="flowmap-description" rows="5"
                       placeholder="Describe what you're building — only needed if you want Claude to generate nodes. What does it do? Who is it for? What are the core features?"
                       class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm mb-4"></textarea>
 
@@ -24461,19 +24685,19 @@ async function showsAdminRemove(postId) {
             <button onclick="hideEditPostingModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
         </div>
 
-        <input id="edit-posting-title" type="text" placeholder="Title"
+        <input aria-label="Title" id="edit-posting-title" type="text" placeholder="Title"
                class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
 
-        <textarea id="edit-posting-desc" rows="4" placeholder="Description"
+        <textarea aria-label="Description" id="edit-posting-desc" rows="4" placeholder="Description"
                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4"></textarea>
 
-        <input id="edit-posting-compensation" type="text" placeholder="e.g. $500.00 USDC"
+        <input aria-label="Compensation" id="edit-posting-compensation" type="text" placeholder="e.g. $500.00 USDC"
                oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
                onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : '$' + n.toFixed(2) + ' USDC'; }"
                onfocus="this.value = this.value.replace(/[^0-9.]/g, '')"
                class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
 
-        <select id="edit-posting-category" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
+        <select aria-label="Category" id="edit-posting-category" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-6 py-4 outline-none mb-4">
             <option value="">Select Category</option>
             <option value="AI/ML">AI / Machine Learning</option>
             <option value="Blockchain">Crypto / Blockchain</option>
@@ -24505,7 +24729,7 @@ async function showsAdminRemove(postId) {
         </div>
 
         <label class="block text-sm text-zinc-400 mb-2">Bio</label>
-        <textarea id="edit-bio-input" rows="4" placeholder="Tell the community who you are and what you build..."
+        <textarea aria-label="Bio" id="edit-bio-input" rows="4" placeholder="Tell the community who you are and what you build..."
                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm mb-6"></textarea>
 
         <label class="block text-sm text-zinc-400 mb-2">Skills <span class="text-zinc-500">(select all that apply)</span></label>
@@ -24515,7 +24739,7 @@ async function showsAdminRemove(postId) {
 
 <label class="block text-sm text-zinc-400 mb-2">Custom skill <span class="text-zinc-500">(optional)</span></label>
         <div class="flex gap-2 mb-6">
-            <input id="custom-skill-input" type="text" placeholder="e.g. Rust, Product Design..."
+            <input aria-label="Add a skill" id="custom-skill-input" type="text" placeholder="e.g. Rust, Product Design..."
                    class="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none text-sm">
             <button onclick="addCustomSkill()"
                     class="px-4 py-3 bg-zinc-700 hover:bg-zinc-600 text-white rounded-xl text-sm font-medium">
@@ -24539,22 +24763,22 @@ async function showsAdminRemove(postId) {
         <div class="space-y-3 mb-6">
             <div class="flex items-center gap-2">
                 <span class="text-zinc-500 w-6 text-center"><i class="fa-brands fa-github"></i></span>
-                <input id="edit-github-input" type="text" placeholder="GitHub username"
+                <input aria-label="GitHub username" id="edit-github-input" type="text" placeholder="GitHub username"
                        class="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 outline-none text-sm">
             </div>
             <div class="flex items-center gap-2">
                 <span class="text-zinc-500 w-6 text-center"><i class="fa-brands fa-gitlab"></i></span>
-                <input id="edit-gitlab-input" type="text" placeholder="GitLab username"
+                <input aria-label="GitLab username" id="edit-gitlab-input" type="text" placeholder="GitLab username"
                        class="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 outline-none text-sm">
             </div>
             <div class="flex items-center gap-2">
                 <span class="text-zinc-500 w-6 text-center"><i class="fa-brands fa-dribbble"></i></span>
-                <input id="edit-dribbble-input" type="text" placeholder="Dribbble profile URL"
+                <input aria-label="Dribbble profile URL" id="edit-dribbble-input" type="text" placeholder="Dribbble profile URL"
                        class="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 outline-none text-sm">
             </div>
             <div class="flex items-center gap-2">
                 <span class="text-zinc-500 w-6 text-center"><i class="fa-brands fa-behance"></i></span>
-                <input id="edit-behance-input" type="text" placeholder="Behance profile URL"
+                <input aria-label="Behance profile URL" id="edit-behance-input" type="text" placeholder="Behance profile URL"
                        class="flex-1 bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-2.5 outline-none text-sm">
             </div>
         </div>
@@ -24724,11 +24948,11 @@ async function showsAdminRemove(postId) {
         <!-- Step 2: creative -->
         <div id="campaign-step-creative" class="hidden">
             <p class="text-sm font-semibold text-zinc-400 mb-3">2. Your creative</p>
-            <input id="campaign-headline" maxlength="80" placeholder="Headline" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none mb-3">
-            <textarea id="campaign-body" maxlength="200" rows="3" placeholder="Body text" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none mb-3"></textarea>
-            <input id="campaign-target-url" placeholder="Link when clicked (https://...)" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none mb-3">
+            <input aria-label="Headline" id="campaign-headline" maxlength="80" placeholder="Headline" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none mb-3">
+            <textarea aria-label="Body text" id="campaign-body" maxlength="200" rows="3" placeholder="Body text" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none mb-3"></textarea>
+            <input aria-label="Link when clicked" id="campaign-target-url" placeholder="Link when clicked (https://...)" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none mb-3">
             <label class="block text-xs text-zinc-500 mb-2">Image (optional, shown in Explore cards)</label>
-            <input id="campaign-image-file" type="file" accept="image/*" class="w-full text-sm text-zinc-400 mb-4">
+            <input aria-label="Campaign image, optional" id="campaign-image-file" type="file" accept="image/*" class="w-full text-sm text-zinc-400 mb-4">
             <div class="flex gap-3">
                 <button onclick="showCampaignStep('placement')" class="flex-1 py-3 bg-zinc-800 text-zinc-300 font-semibold rounded-2xl">Back</button>
                 <button onclick="showCampaignStep('duration')" class="flex-1 py-3 bg-white text-black font-semibold rounded-2xl">Next</button>
@@ -24804,7 +25028,7 @@ async function showsAdminRemove(postId) {
             <p class="text-sm font-semibold mb-1">Release NQV8 to Founder Wallet</p>
             <p class="text-xs text-zinc-500 mb-4">Tokens transfer from the lockup contract to your founder wallet. Sell on a DEX afterward.</p>
             <div class="flex gap-3">
-                <input id="fc-amount-input" type="number" placeholder="Amount (NQV8)"
+                <input aria-label="Amount of NQV8 to release" id="fc-amount-input" type="number" placeholder="Amount (NQV8)"
                        class="flex-1 bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
                 <button onclick="founderRelease()"
                         class="px-6 py-3 bg-white text-black font-semibold rounded-2xl hover:bg-cyan-400 transition-colors text-sm whitespace-nowrap">
@@ -24831,7 +25055,7 @@ async function showsAdminRemove(postId) {
         <div class="space-y-4 mb-6">
             <div>
                 <label class="text-sm text-zinc-400 block mb-1">Category</label>
-                <select id="support-category" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm">
+                <select aria-label="Category" id="support-category" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm">
                     <option value="bug">🐛 Bug / Something broken</option>
                     <option value="payment">💸 Payment / Escrow issue</option>
                     <option value="account">👤 Account issue</option>
@@ -24842,12 +25066,12 @@ async function showsAdminRemove(postId) {
             </div>
             <div>
                 <label class="text-sm text-zinc-400 block mb-1">Subject</label>
-                <input id="support-subject" type="text" placeholder="Brief summary of your issue"
+                <input aria-label="Subject" id="support-subject" type="text" placeholder="Brief summary of your issue"
                        class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm">
             </div>
             <div>
                 <label class="text-sm text-zinc-400 block mb-1">Description</label>
-                <textarea id="support-description" rows="4" placeholder="Describe the issue in detail. Include any relevant transaction hashes, usernames, or steps to reproduce..."
+                <textarea aria-label="Description" id="support-description" rows="4" placeholder="Describe the issue in detail. Include any relevant transaction hashes, usernames, or steps to reproduce..."
                           class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm"></textarea>
             </div>
         </div>
@@ -24870,7 +25094,7 @@ async function showsAdminRemove(postId) {
         <p class="text-zinc-400 text-sm mb-6" id="counter-bid-context"></p>
         <div id="counter-cash-field" class="mb-4">
             <p class="text-xs text-zinc-400 mb-1">Counter cash amount <span class="text-zinc-600">(leave blank to remove cash)</span></p>
-            <input id="counter-cash-input" type="text" placeholder="e.g. $1,500.00 USDC"
+            <input aria-label="Counter-offer cash amount" id="counter-cash-input" type="text" placeholder="e.g. $1,500.00 USDC"
                    oninput="this.value = this.value.replace(/[^0-9.]/g, '')"
                    onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : '$' + n.toFixed(2) + ' USDC'; }"
                    onfocus="this.value = this.value.replace(/[^0-9.]/g, '')"
@@ -24879,7 +25103,7 @@ async function showsAdminRemove(postId) {
         <div id="counter-equity-field" class="mb-6">
             <p class="text-xs text-zinc-400 mb-1">Counter equity % <span class="text-zinc-600">(leave blank to remove equity)</span></p>
             <div class="flex gap-3 items-center">
-                <input id="counter-equity-input" type="number" placeholder="e.g. 1.50" min="0.001" max="100" step="0.001"
+                <input aria-label="Counter-offer equity percent" id="counter-equity-input" type="number" placeholder="e.g. 1.50" min="0.001" max="100" step="0.001"
                        onblur="if(this.value) { const n = parseFloat(this.value); this.value = isNaN(n) ? '' : n.toFixed(2); }"                    
                        class="flex-1 bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm">
                 <span class="text-zinc-400 font-semibold pr-2">%</span>
@@ -24888,7 +25112,7 @@ async function showsAdminRemove(postId) {
         <!-- Payment wallet for counter -->
         <div class="mb-4 bg-zinc-800 border border-zinc-700 rounded-2xl p-4">
             <p class="text-xs text-zinc-400 mb-2">💳 Payment wallet</p>
-            <input id="counter-payment-wallet" type="text"
+            <input aria-label="Payment wallet address" id="counter-payment-wallet" type="text"
                    placeholder="0x... (leave blank to use your connected wallet)"
                    class="w-full bg-zinc-900 border border-zinc-600 rounded-xl px-4 py-2 outline-none text-sm font-mono">
             <p class="text-xs text-zinc-500 mt-1">Leave blank to use your connected wallet</p>
