@@ -1619,7 +1619,17 @@
     @media (min-width: 1024px) {
         #nqv-side.nqv-wide { width: min(68%, 1150px); }
         /* The map is narrow while the column is wide: stack its search under its title, as on a phone. */
-        .nqv-widemode .nqv-searchrow { top: 7.25rem; left: 1rem; right: 1rem; }
+        .nqv-widemode:not(.nqv-minmode) .nqv-searchrow { top: 7.25rem; left: 1rem; right: 1rem; }
+        /* Minimised on a desktop: the column folds to a slim rail of icons down
+           the right-hand side, and the map takes the rest of the width. */
+        #nqv-side.nqv-min { width: 3.75rem !important; }
+        #nqv-side.nqv-min > :not(:first-child), #nqv-side.nqv-min #nqv-feed-tabs, #nqv-side.nqv-min #nqv-wide-btn,
+        #nqv-side.nqv-min #nqv-side-tabs span { display: none !important; }
+        #nqv-side.nqv-min > :first-child { border-bottom-width: 0; padding: 0.75rem 0; height: 100%; }
+        #nqv-side.nqv-min > :first-child > div:first-child,
+        #nqv-side.nqv-min #nqv-side-tabs,
+        #nqv-side.nqv-min > :first-child > div:first-child > div:last-child { flex-direction: column; align-items: center; gap: 0.5rem; }
+        #nqv-side.nqv-min > :first-child > div:first-child { height: 100%; justify-content: flex-start; gap: 1rem; }
     }
     /* Chat inside the side column. It was built as a page of its own, switching
        from one pane to two by the width of the window; here it goes by the
@@ -1695,10 +1705,10 @@
                 <div class="relative flex items-center gap-1.5 shrink-0">
                     <button onclick="ecoToggleCreate(event)" title="Create" aria-label="Create a post, episode or stream" aria-haspopup="true"
                             class="h-9 px-3 rounded-lg bg-white text-black hover:bg-cyan-400 text-sm font-bold whitespace-nowrap">+<span class="hidden 2xl:inline ml-1">Create</span></button>
-                    <button id="nqv-min-btn" onclick="ecoToggleMin()" title="Minimise" aria-label="Minimise this section to see more of the map" aria-expanded="true"
-                            class="lg:hidden inline-flex items-center justify-center h-9 w-9 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-lg leading-none">▾</button>
                     <button id="nqv-wide-btn" onclick="ecoToggleWide()" title="Widen this column" aria-label="Widen this column"
                             class="hidden lg:inline-flex items-center justify-center h-9 w-9 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200">⤢</button>
+                    <button id="nqv-min-btn" onclick="ecoToggleMin()" title="Minimise" aria-label="Minimise this section to see more of the map" aria-expanded="true"
+                            class="inline-flex items-center justify-center h-9 w-9 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-lg leading-none">▾</button>
                     <div id="nqv-create-menu" class="hidden absolute right-0 top-full mt-2 z-30 w-56 rounded-xl border border-zinc-700 bg-zinc-900 shadow-xl overflow-hidden text-sm">
                         <button onclick="ecoCreate('post')"    class="w-full text-left px-4 py-2.5 hover:bg-zinc-800">💬 New post</button>
                         <button onclick="ecoCreate('live')"    class="w-full text-left px-4 py-2.5 hover:bg-zinc-800">🔴 Go live</button>
@@ -21377,6 +21387,7 @@ function ecoOpenChat() {
 
 function ecoToggleCreate(ev) {
     if (ev) ev.stopPropagation();
+    ecoToggleMin(false);                 // the menu needs the column open to have room
     const menu = document.getElementById('nqv-create-menu');
     if (!menu) return;
     const open = menu.classList.toggle('hidden') === false;
@@ -21398,22 +21409,29 @@ function ecoToggleKey() {
     btn.setAttribute('aria-expanded', String(open));
 }
 
-/// Phones: fold the side column down to its row of tabs so the map has the
-/// screen, or open it again. Remembered between visits. On a desktop the
-/// column sits beside the map and this does nothing.
+/// Fold the side column away so the map has the screen, or open it again.
+/// On a phone it folds down to its row of tabs under the map; on a desktop
+/// it folds to a slim rail of icons down the right-hand side. Remembered
+/// between visits.
+function ecoMinBtnSync() {
+    const btn = document.getElementById('nqv-min-btn');
+    if (!btn) return;
+    const desk = window.innerWidth >= 1024, min = ECO.min;
+    // The arrow points the way the column will move.
+    btn.textContent = desk ? (min ? '«' : '»') : (min ? '▴' : '▾');
+    btn.title = min ? 'Show' : 'Minimise';
+    btn.setAttribute('aria-label', min ? 'Show this section again' : 'Minimise this section to see more of the map');
+    btn.setAttribute('aria-expanded', String(!min));
+}
+
 function ecoToggleMin(force) {
     const want = typeof force === 'boolean' ? force : !ECO.min;
     if (want === ECO.min) return;
     ECO.min = want;
-    const side = document.getElementById('nqv-side'), page = document.getElementById('ecosystem-page'), btn = document.getElementById('nqv-min-btn');
+    const side = document.getElementById('nqv-side'), page = document.getElementById('ecosystem-page');
     if (side) side.classList.toggle('nqv-min', want);
     if (page) page.classList.toggle('nqv-minmode', want);
-    if (btn) {
-        btn.textContent = want ? '▴' : '▾';
-        btn.title = want ? 'Show' : 'Minimise';
-        btn.setAttribute('aria-label', want ? 'Show this section again' : 'Minimise this section to see more of the map');
-        btn.setAttribute('aria-expanded', String(!want));
-    }
+    ecoMinBtnSync();
     try { localStorage.setItem('nqvSideMin', want ? '1' : '0'); } catch (e) {}
     // The map's box has changed size; tell the renderer once it has settled.
     setTimeout(ecoResize, 30); setTimeout(ecoResize, 320);
@@ -22072,7 +22090,8 @@ function ecoStop() {
             main.classList.remove('hidden'); main.classList.add('flex');
         };
     }
-    window.addEventListener('resize', () => { if (ECO.side === 'chat') ecoChatLayout(); });
+    window.addEventListener('resize', () => { if (ECO.side === 'chat') ecoChatLayout(); ecoMinBtnSync(); });
+    ecoMinBtnSync();
     // Phones: start folded if that is how it was left.
     try { if (localStorage.getItem('nqvSideMin') === '1') ecoToggleMin(true); } catch (e) {}
     // Profile: fill the education and work rows whenever the editor opens.
