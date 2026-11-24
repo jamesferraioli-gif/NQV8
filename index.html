@@ -2368,7 +2368,7 @@
                 <div class="mt-3 space-y-3 text-xs text-zinc-400 leading-relaxed">
                     <div>
                         <p class="text-zinc-300 font-semibold mb-1">Why stake</p>
-                        <p>Every month, 20% of all platform fees collected go back to the people who paid them, split in proportion to the NQV8 fees each wallet paid. Only wallets that paid fees that month earn a share. Staking decides how much of your share you collect: cover your slice and you collect all of it, cover half and you collect half. Whatever is not collected rolls into the next month's pool.</p>
+                        <p>Every month, 20% of all platform fees collected go back to the people who generated them, split in proportion to each wallet's fees: the NQV8 fees it paid, plus its credited share of the USDC fee on bounties (poster and builder) and creator memberships (member and creator). Only wallets with fees that month earn a share. Staking decides how much of your share you collect: cover your slice and you collect all of it, cover half and you collect half. Whatever is not collected rolls into the next month's pool.</p>
                     </div>
                     <div>
                         <p class="text-zinc-300 font-semibold mb-1">How much you need</p>
@@ -19642,6 +19642,10 @@ function refreshFeatureBadges() {
     set(document.querySelector('button[onclick*="showPostFundingModal()"] p.font-bold'), !NQV_FEATURES.fundingRequests);
     set(document.getElementById('tab-equity-market'), !NQV_FEATURES.equityExchange);
     set(document.querySelector('button[onclick*="showPostEquityModal()"] p.font-bold'), !NQV_FEATURES.equityExchange);
+    // About page: the same two features are described there.
+    set(document.getElementById('about-fund-title'), !NQV_FEATURES.fundingRequests);
+    set(document.getElementById('about-exchange-title'), !NQV_FEATURES.equityExchange);
+    set(document.getElementById('about-raise-line'), !(NQV_FEATURES.fundingRequests && NQV_FEATURES.equityExchange));
 }
 
 /// Ask the server which switches are on. Until it answers — and if it never
@@ -23276,7 +23280,7 @@ async function showsAdminRemove(postId) {
                         </div>
                     </div>
                     <div class="bg-zinc-800 rounded-2xl p-5">
-                        <p class="font-semibold text-violet-400 mb-3">💰 Funding Requests</p>
+                        <p id="about-fund-title" class="font-semibold text-violet-400 mb-3">💰 Funding Requests</p>
                         <p class="text-zinc-400 text-sm leading-relaxed">Seeking investment for your project? Post a funding request outlining what you're raising and what you're offering. Investors browse and submit funding proposals. Equity terms are locked on-chain when accepted, giving investors a permanent, verifiable ownership stake.</p>
                         <div class="mt-4 p-3 bg-black/30 rounded-xl border border-zinc-700">
                             <p class="text-xs text-zinc-500 mb-2">Example posting:</p>
@@ -23288,7 +23292,11 @@ async function showsAdminRemove(postId) {
                 </div>
                 <div class="bg-amber-500/10 border border-amber-500/20 rounded-2xl p-4">
                     <p class="text-amber-400 text-sm font-semibold mb-1">💡 How escrow works</p>
-                    <p class="text-zinc-400 text-sm">When you accept a bid, the agreed payment is automatically locked in the NQVate Escrow smart contract on Arbitrum. The builder does the work, submits it, and you review it. If you approve — funds release instantly to the builder. If there's a dispute, Claude AI acts as the arbitrator and splits funds fairly. No humans, no delays.</p>
+                    <p class="text-zinc-400 text-sm">When you accept a bid, the agreed payment is automatically locked in the NQVate Escrow smart contract on Arbitrum. The builder does the work, submits it, and you review it. If you approve — funds release instantly to the builder. If you don't respond within 7 days of a submission, they release to the builder automatically; if the deadline passes with nothing submitted, your escrow is refunded. If there's a dispute, Claude AI acts as the arbitrator and splits funds fairly. No humans, no delays. NQVate never holds the money — it sits in the contract.</p>
+                </div>
+                <div class="bg-cyan-500/10 border border-cyan-500/20 rounded-2xl p-4 mt-4">
+                    <p class="text-cyan-400 text-sm font-semibold mb-1">🔒 Builders stake a refundable bond to bid</p>
+                    <p class="text-zinc-400 text-sm">To place a bid, a builder stakes NQV8 as a delivery commitment — 10–25% of the posting's value depending on its scope, with a 500 NQV8 minimum. It comes straight back if you aren't chosen, you withdraw your bid, or the posting is cancelled, and it is returned in full when you win and deliver. Part of it can be forfeited only if you win and then miss the deadline or lose a dispute. NQVate never receives it.</p>
                 </div>
             </div>
 
@@ -23297,7 +23305,7 @@ async function showsAdminRemove(postId) {
                 <div class="flex items-start gap-4 mb-6">
                     <div class="w-12 h-12 bg-pink-500/20 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0">📈</div>
                     <div>
-                        <h3 class="text-xl font-bold">Equity Exchange</h3>
+                        <h3 id="about-exchange-title" class="text-xl font-bold">Equity Exchange</h3>
                         <p class="text-zinc-400 mt-1">Buy and sell ownership stakes in projects — all on-chain.</p>
                     </div>
                 </div>
@@ -23350,22 +23358,42 @@ async function showsAdminRemove(postId) {
                 </div>
             </div>
 
-            <!-- Explore & Chat -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800">
-                    <div class="flex items-start gap-3 mb-4">
-                        <div class="w-10 h-10 bg-emerald-500/20 rounded-xl flex items-center justify-center text-xl flex-shrink-0">🔎</div>
-                        <h3 class="text-lg font-bold mt-1">Explore</h3>
+            <!-- NQVerse -->
+            <div class="bg-zinc-900 rounded-3xl p-6 md:p-8 mb-6 border border-zinc-800">
+                <div class="flex items-start gap-4 mb-6">
+                    <div class="w-12 h-12 bg-emerald-500/20 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0">🪐</div>
+                    <div>
+                        <h3 class="text-xl font-bold">The NQVerse — Your Home Base</h3>
+                        <p class="text-zinc-400 mt-1">A live map of everyone and everything on NQVate, with the feed, rankings, listings and chat beside it.</p>
                     </div>
-                    <p class="text-zinc-400 text-sm leading-relaxed">Share ideas, news, and projects with the community. Upvote, comment, and discover what builders are working on. Each post costs 1 NQV8 to keep the feed high quality.</p>
                 </div>
-                <div class="bg-zinc-900 rounded-3xl p-6 border border-zinc-800">
-                    <div class="flex items-start gap-3 mb-4">
-                        <div class="w-10 h-10 bg-cyan-500/20 rounded-xl flex items-center justify-center text-xl flex-shrink-0">💬</div>
-                        <h3 class="text-lg font-bold mt-1">Chat</h3>
+                <p class="text-zinc-300 leading-relaxed mb-4">Every company is a planet and every member orbits the companies they founded, hold a stake in, or built for. The busier a company or a person, the bigger they appear — and a red halo marks a company with open listings, brighter and larger the more there are or the more they are worth. Click anyone to see their headline: focus, schools, professional experience and rating. Click a school or company on it and everyone connected to it lights up on the map.</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-zinc-800 rounded-2xl p-5">
+                        <p class="font-semibold text-emerald-400 mb-2">📰 Feed &amp; 🔥 Trending</p>
+                        <p class="text-zinc-400 text-sm">Share ideas, news and projects, and see what has been most active over the last 7 days — companies, people, posts, podcasts and streams, from everyone or just the people you follow. A post or comment costs 1 NQV8 to keep the feed high quality.</p>
                     </div>
-                    <p class="text-zinc-400 text-sm leading-relaxed">Direct message any user on the platform. Chat is automatically opened when you accept a bid, so you can coordinate with your builder or client. Video calls powered by Daily.co are built in.</p>
+                    <div class="bg-zinc-800 rounded-2xl p-5">
+                        <p class="font-semibold text-amber-400 mb-2">🏆 Rankings &amp; 🛒 Marketplace</p>
+                        <p class="text-zinc-400 text-sm">Rank people, companies, schools and past employers, and resize the map by any of them. Search open listings without leaving the map, or jump to the full Marketplace in one click.</p>
+                    </div>
+                    <div class="bg-zinc-800 rounded-2xl p-5">
+                        <p class="font-semibold text-cyan-400 mb-2">💬 Chat</p>
+                        <p class="text-zinc-400 text-sm">Message any member or start a group — 1 NQV8 per person to open a chat. A chat is opened automatically when you accept a bid, so you can coordinate with your builder or client. Video calls are built in.</p>
+                    </div>
                 </div>
+            </div>
+
+            <!-- Podcasts & Streams -->
+            <div class="bg-zinc-900 rounded-3xl p-6 md:p-8 mb-6 border border-zinc-800">
+                <div class="flex items-start gap-4 mb-4">
+                    <div class="w-12 h-12 bg-pink-500/20 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0">🎙️</div>
+                    <div>
+                        <h3 class="text-xl font-bold">Podcasts &amp; Streams</h3>
+                        <p class="text-zinc-400 mt-1">Publish episodes, go live, and build a paying audience.</p>
+                    </div>
+                </div>
+                <p class="text-zinc-300 leading-relaxed text-sm">Posting an episode or going live costs 1 NQV8, the same as any other post, and the same content rules apply. Creators can offer a paid 30-day membership in USDC for subscribers-only episodes and streams. The member pays the creator wallet to wallet — 96.5% to the creator and a 3.5% platform fee — and NQVate never holds the money. Creators and their members both earn a share of the monthly rewards from that fee.</p>
             </div>
 
             <!-- NQV8 Token -->
@@ -23380,7 +23408,7 @@ async function showsAdminRemove(postId) {
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div>
                         <p class="text-zinc-300 leading-relaxed text-sm mb-4">NQV8 is used for all platform fees — posting bounties, submitting bids, verifying your entity, generating AI flow maps, and more. Fees are fixed in NQV8 (most actions cost 1–500 NQV8), so they do not change when the token price does.</p>
-                        <p class="text-zinc-300 leading-relaxed text-sm">Every month, 20% of all platform fees are redistributed back to active NQV8 users, proportional to their on-chain activity. The more you use the platform, the more you earn back.</p>
+                        <p class="text-zinc-300 leading-relaxed text-sm">Every month, 20% of all platform fees go back to the people who generated them: the NQV8 fees you paid, plus your share of the USDC fee on bounties you posted or completed and on memberships you bought or sold. Staking NQV8 decides how much of your share you collect. The more you use the platform, the more you earn back.</p>
                     </div>
                     <div class="space-y-3">
                         <div class="bg-zinc-800 rounded-2xl p-4 flex justify-between items-center">
@@ -23516,7 +23544,7 @@ async function showsAdminRemove(postId) {
                 </div>
                 <div class="bg-cyan-500/10 border border-cyan-500/20 rounded-2xl p-4">
                     <p class="text-cyan-400 font-semibold text-sm">🎁 Signup bonus</p>
-                    <p class="text-zinc-400 text-sm mt-1">Every new account gets 1,000 NQV8 (worth $10 at the $0.01 peg) claimed directly to your wallet — enough to post several bounties, bids, and explore posts right away.</p>
+                    <p class="text-zinc-400 text-sm mt-1">Every new account gets 1,000 NQV8 (worth $10 at the $0.01 peg) claimed directly to your wallet — enough for your first postings, posts and comments, and to cover the refundable stake on a small bounty bid.</p>
                 </div>
             </div>
         </div>
@@ -23530,7 +23558,7 @@ async function showsAdminRemove(postId) {
                 <h3 class="text-xl font-bold">Set up a crypto wallet</h3>
             </div>
             <div class="ml-14">
-                <p class="text-zinc-300 mb-2">A wallet is like a bank account for crypto — it holds your tokens and signs transactions. You need one to use NQVate. <strong class="text-white">MetaMask</strong> is the most popular and easiest to set up.</p>
+                <p class="text-zinc-300 mb-2">A wallet is like a bank account for crypto — it holds your tokens and signs transactions. You need one to use NQVate. <strong class="text-white">MetaMask</strong> is the most popular and easiest to set up; Coinbase Wallet and any WalletConnect-compatible wallet work too.</p>
                 <div class="bg-zinc-900 rounded-2xl p-5 mb-4 border border-zinc-800">
                     <p class="font-semibold mb-3 text-cyan-400">Setting up MetaMask (5 minutes)</p>
                     <ol class="space-y-3 text-sm text-zinc-300">
@@ -23565,20 +23593,23 @@ async function showsAdminRemove(postId) {
         <div class="mb-8">
             <div class="flex items-center gap-4 mb-4">
                 <div class="w-10 h-10 rounded-full bg-cyan-500 flex items-center justify-center text-black font-bold text-lg flex-shrink-0">3</div>
-                <h3 class="text-xl font-bold">Add Arbitrum to your wallet</h3>
+                <h3 class="text-xl font-bold">Connect your wallet — Arbitrum is set up for you</h3>
             </div>
             <div class="ml-14">
-                <p class="text-zinc-300 mb-4">NQVate runs on <strong class="text-white">Arbitrum One</strong> — a fast, cheap version of Ethereum. You need to add it to MetaMask before you can use it.</p>
-                <div class="bg-zinc-900 rounded-2xl p-5 mb-4 border border-zinc-800">
-                    <p class="font-semibold mb-3 text-violet-400">Adding Arbitrum to MetaMask</p>
-                    <ol class="space-y-3 text-sm text-zinc-300">
+                <p class="text-zinc-300 mb-4">NQVate runs on <strong class="text-white">Arbitrum One</strong> — a fast, cheap network built on Ethereum. There is nothing to configure: most wallets already include Arbitrum, and when you connect, NQVate asks your wallet to switch to it — and adds it for you if it is missing. Just approve the prompt.</p>
+                <details class="bg-zinc-900 rounded-2xl p-5 mb-4 border border-zinc-800 group">
+                    <summary class="font-semibold cursor-pointer flex justify-between items-center text-sm text-violet-400">
+                        Wallet didn't switch? Add Arbitrum manually
+                        <span class="text-zinc-400 group-open:rotate-180 transition-transform">▾</span>
+                    </summary>
+                    <ol class="space-y-3 text-sm text-zinc-300 mt-4">
                         <li class="flex items-start gap-3">
                             <span class="bg-zinc-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">1</span>
-                            <span>Go to <a href="https://chainlist.org/chain/42161" target="_blank" class="text-cyan-400 hover:underline">chainlist.org/chain/42161</a> and click <strong>Add to MetaMask</strong>. This adds Arbitrum One automatically.</span>
+                            <span>Open the network list in your wallet and choose <strong>Arbitrum One</strong> if it is there.</span>
                         </li>
                         <li class="flex items-start gap-3">
                             <span class="bg-zinc-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">2</span>
-                            <span>Or: in MetaMask, click the network dropdown at the top → <strong>Add a custom network</strong> and enter these details manually:</span>
+                            <span>If it is not, go to <a href="https://chainlist.org/chain/42161" target="_blank" rel="noopener" class="text-cyan-400 hover:underline">chainlist.org/chain/42161</a> and add it from there, or add a custom network with these details:</span>
                         </li>
                     </ol>
                     <div class="mt-4 bg-black/40 rounded-xl p-4 font-mono text-xs space-y-1">
@@ -23588,7 +23619,7 @@ async function showsAdminRemove(postId) {
                         <div class="flex justify-between"><span class="text-zinc-500">Symbol</span><span class="text-white">ETH</span></div>
                         <div class="flex justify-between"><span class="text-zinc-500">Explorer</span><span class="text-cyan-400">https://arbiscan.io</span></div>
                     </div>
-                </div>
+                </details>
                 <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4">
                     <p class="text-emerald-400 text-sm font-semibold">💡 Why Arbitrum?</p>
                     <p class="text-zinc-400 text-sm mt-1">Arbitrum is built on top of Ethereum but transactions cost a fraction of a cent (vs. $5–$50 on Ethereum mainnet). This makes small actions like posting bids or paying platform fees practical. Your assets are just as secure — Arbitrum settles everything back to Ethereum.</p>
@@ -23635,13 +23666,13 @@ async function showsAdminRemove(postId) {
                 <h3 class="text-xl font-bold">Claim your free NQV8 and start exploring</h3>
             </div>
             <div class="ml-14">
-                <p class="text-zinc-300 mb-4">Once your wallet is connected and you have a little ETH for gas, claim your 1,000 NQV8 signup bonus from your Profile page. Then you're ready to go.</p>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <p class="text-zinc-300 mb-4">Once your wallet is connected and you have a little ETH for gas, claim your 1,000 NQV8 signup bonus from your Profile page. Then you're ready to go — the NQVerse is your home screen, with the feed, rankings, listings and chat beside the map.</p>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                     <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
                         <p class="font-semibold text-cyan-400 mb-3">As a builder 🔨</p>
                         <ul class="space-y-2 text-sm text-zinc-300">
                             <li class="flex items-start gap-2"><span class="text-cyan-400 flex-shrink-0">→</span>Browse the Marketplace for open bounties</li>
-                            <li class="flex items-start gap-2"><span class="text-cyan-400 flex-shrink-0">→</span>Place bids on projects matching your skills</li>
+                            <li class="flex items-start gap-2"><span class="text-cyan-400 flex-shrink-0">→</span>Stake the refundable bid bond and bid on projects matching your skills</li>
                             <li class="flex items-start gap-2"><span class="text-cyan-400 flex-shrink-0">→</span>Get accepted, do the work, submit deliverables</li>
                             <li class="flex items-start gap-2"><span class="text-cyan-400 flex-shrink-0">→</span>Get paid in USDC or earn equity on-chain</li>
                         </ul>
@@ -23652,7 +23683,16 @@ async function showsAdminRemove(postId) {
                             <li class="flex items-start gap-2"><span class="text-violet-400 flex-shrink-0">→</span>Create a project in Studio → Plan</li>
                             <li class="flex items-start gap-2"><span class="text-violet-400 flex-shrink-0">→</span>Post bounties to get tasks built</li>
                             <li class="flex items-start gap-2"><span class="text-violet-400 flex-shrink-0">→</span>Verify your entity to unlock equity features</li>
-                            <li class="flex items-start gap-2"><span class="text-violet-400 flex-shrink-0">→</span>Raise funding or list equity when you're ready</li>
+                            <li class="flex items-start gap-2"><span class="text-violet-400 flex-shrink-0">→</span><span id="about-raise-line">Raise funding or list equity when you're ready</span></li>
+                        </ul>
+                    </div>
+                    <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
+                        <p class="font-semibold text-pink-400 mb-3">As a creator 🎙️</p>
+                        <ul class="space-y-2 text-sm text-zinc-300">
+                            <li class="flex items-start gap-2"><span class="text-pink-400 flex-shrink-0">→</span>Add your schools and work history to your profile</li>
+                            <li class="flex items-start gap-2"><span class="text-pink-400 flex-shrink-0">→</span>Post to the feed from the NQVerse</li>
+                            <li class="flex items-start gap-2"><span class="text-pink-400 flex-shrink-0">→</span>Publish a podcast episode or go live</li>
+                            <li class="flex items-start gap-2"><span class="text-pink-400 flex-shrink-0">→</span>Offer a paid membership in USDC</li>
                         </ul>
                     </div>
                 </div>
@@ -23668,7 +23708,7 @@ async function showsAdminRemove(postId) {
                 <h3 class="text-xl font-bold">Getting USDC for payments (optional but useful)</h3>
             </div>
             <div class="ml-14">
-                <p class="text-zinc-300 mb-4">Most bounties on NQVate are paid in USDC — a stablecoin always worth $1.00. If you're posting bounties or making investments, you'll need USDC on Arbitrum.</p>
+                <p class="text-zinc-300 mb-4">Most bounties on NQVate are paid in USDC — a stablecoin always worth $1.00. If you're posting bounties or joining a creator's membership, you'll need USDC on Arbitrum.</p>
                 <div class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800">
                     <p class="font-semibold mb-3">Getting USDC on Arbitrum:</p>
                     <ol class="space-y-3 text-sm text-zinc-300">
@@ -23678,7 +23718,7 @@ async function showsAdminRemove(postId) {
                         </li>
                         <li class="flex items-start gap-3">
                             <span class="bg-zinc-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">2</span>
-                            <span>When withdrawing, select <strong class="text-white">Arbitrum One</strong> as the network and paste your wallet address. The USDC will arrive in your MetaMask within a few minutes.</span>
+                            <span>When withdrawing, select <strong class="text-white">Arbitrum One</strong> as the network and paste your wallet address. The USDC will arrive in your wallet within a few minutes.</span>
                         </li>
                         <li class="flex items-start gap-3">
                             <span class="bg-zinc-700 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs font-bold flex-shrink-0 mt-0.5">3</span>
@@ -23698,7 +23738,7 @@ async function showsAdminRemove(postId) {
                         Do I need crypto experience to use NQVate?
                         <span class="text-zinc-400 group-open:rotate-180 transition-transform">▾</span>
                     </summary>
-                    <p class="text-zinc-400 text-sm mt-4 leading-relaxed">No. The guide above covers everything from scratch. The only crypto-specific things you need are a MetaMask wallet and a small amount of ETH for gas fees. Everything else — posting, bidding, chatting — works like any other web platform.</p>
+                    <p class="text-zinc-400 text-sm mt-4 leading-relaxed">No. The guide above covers everything from scratch. The only crypto-specific things you need are a wallet and a small amount of ETH for gas fees. Everything else — posting, bidding, chatting — works like any other web platform.</p>
                 </details>
                 <details class="bg-zinc-900 rounded-2xl p-5 border border-zinc-800 group">
                     <summary class="font-semibold cursor-pointer flex justify-between items-center">
@@ -23729,8 +23769,16 @@ async function showsAdminRemove(postId) {
                             <span class="text-white">1 NQV8</span>
                         </div>
                         <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
-                            <span class="text-zinc-400">Post to Explore / comment</span>
+                            <span class="text-zinc-400">Bid bond (refundable stake)</span>
+                            <span class="text-white">10–25% of posting value · min 500 NQV8</span>
+                        </div>
+                        <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
+                            <span class="text-zinc-400">Post, comment, podcast episode or going live</span>
                             <span class="text-white">1 NQV8</span>
+                        </div>
+                        <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
+                            <span class="text-zinc-400">Start a chat</span>
+                            <span class="text-white">1 NQV8 per person</span>
                         </div>
                         <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
                             <span class="text-zinc-400">Entity verification</span>
@@ -23752,6 +23800,10 @@ async function showsAdminRemove(postId) {
                             <span class="text-zinc-400">Equity trade</span>
                             <span class="text-white">3.5% of sale price</span>
                         </div>
+                        <div class="flex justify-between text-sm border-b border-zinc-700 pb-2">
+                            <span class="text-zinc-400">Creator membership</span>
+                            <span class="text-white">3.5% of the membership price</span>
+                        </div>
                         <div class="flex justify-between text-sm">
                             <span class="text-zinc-400">Dispute filing</span>
                             <span class="text-white">1,000 NQV8</span>
@@ -23770,7 +23822,7 @@ async function showsAdminRemove(postId) {
                         What happens if there's a dispute?
                         <span class="text-zinc-400 group-open:rotate-180 transition-transform">▾</span>
                     </summary>
-                    <p class="text-zinc-400 text-sm mt-4 leading-relaxed">Either party can file a dispute for 1,000 NQV8. Claude AI immediately reviews the project description, the accepted bid, all submitted deliverables, and any evidence provided by both parties. Claude issues a binding ruling, splitting the escrow funds proportionally — typically within minutes. There is no appeals process and NQVate is not involved. This keeps things fast and unbiased.</p>
+                    <p class="text-zinc-400 text-sm mt-4 leading-relaxed">Either party can file a dispute for 1,000 NQV8. Claude AI immediately reviews the project description, the accepted bid, all submitted deliverables, and any evidence provided by both parties. Claude issues a binding ruling, splitting the escrow funds proportionally — typically within minutes. There is no appeals process and NQVate is not involved. This keeps things fast and unbiased. A ruling also settles the builder's bid bond: nothing is forfeited if the builder is awarded 75% or more, and a larger part is forfeited the less of the work was delivered.</p>
                 </details>
             </div>
         </div>
