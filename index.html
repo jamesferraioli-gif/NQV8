@@ -93,7 +93,6 @@
                 <div class="hidden md:flex flex-1 justify-center items-center gap-3 text-xs font-medium">
                     <a onclick="navigateTo('ecosystem')" class="hover:text-cyan-400 cursor-pointer whitespace-nowrap">NQVerse</a>
                     <a onclick="navigateTo('marketplace')" class="hover:text-cyan-400 cursor-pointer whitespace-nowrap">Marketplace</a>
-                    <a onclick="navigateToChat()" class="hover:text-cyan-400 cursor-pointer">Chat</a>
                     <a onclick="navigateTo('tokenomics')" class="hover:text-cyan-400 cursor-pointer whitespace-nowrap">
                         NQV8 Tokenomics
                     </a>
@@ -172,7 +171,6 @@
     <a onclick="navigateTo('ecosystem'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🪐 NQVerse</a>
     <a onclick="navigateTo('marketplace'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🏪 Marketplace</a>
     <a onclick="navigateTo('advertise'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">📢 Advertise</a>
-    <a onclick="navigateToChat(); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">💬 Chat</a>
     <a onclick="navigateTo('tokenomics'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🪙 NQV8 Tokenomics</a>
     <a onclick="navigateTo('studio'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">🗺️ Studio</a>
     <a onclick="navigateTo('about'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer">ℹ️ About</a>
@@ -1165,6 +1163,7 @@
                     <div id="profile-reputation" class="mt-4 hidden"></div>
                     <p id="profile-bio" class="mt-3 text-zinc-300 leading-relaxed"></p>
                     <div id="profile-skills" class="flex flex-wrap gap-2 mt-3"></div>
+                    <div id="profile-history" class="mt-4"></div>
                     <div id="profile-portfolio" class="mt-3"></div>
                     <button onclick="showEditProfileModal()"
                             class="mt-4 px-4 py-2 border border-zinc-600 text-zinc-400 rounded-xl text-xs hover:bg-zinc-800 flex items-center gap-2 w-fit">
@@ -1503,6 +1502,7 @@
                     <div id="user-profile-reputation" class="mt-3 flex justify-center md:justify-start"></div>
                     <p id="user-profile-bio" class="mt-3 text-zinc-300 leading-relaxed text-sm"></p>
                     <div id="user-profile-skills" class="flex flex-wrap gap-2 mt-3 justify-center md:justify-start"></div>
+                    <div id="user-profile-history" class="mt-4 text-left"></div>
                     <div id="user-profile-portfolio" class="mt-3"></div>
                 </div>
             </div>
@@ -1548,57 +1548,10 @@
     </div>
     
     <!-- ==================== CHAT PAGE ==================== -->
+    <!-- Retired: chat now lives in the NQVerse's side column, and anything
+         that asks for this page is sent there. An unused shell. -->
     <div id="chat-page" class="max-w-6xl mx-auto pt-6 px-4 md:px-6 hidden">
 
-        <div class="flex flex-col md:flex-row h-[calc(100vh-120px)] bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-700">
-
-            <!-- Sidebar — full height on mobile, fixed width on desktop -->
-            <div id="chat-sidebar" class="w-full md:w-80 border-b md:border-b-0 md:border-r border-zinc-700 flex flex-col md:h-auto h-full">
-                <div class="p-4 border-b border-zinc-700 space-y-2">
-                    <input id="chat-search" type="text" placeholder="Search by username..."
-                           onkeyup="searchUsersForChat()"
-                           class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 outline-none">
-                    <button onclick="showGroupChatModal()"
-                            class="w-full py-2.5 bg-zinc-800 border border-cyan-400/40 text-cyan-400 rounded-2xl text-sm font-medium hover:bg-cyan-400/10 transition-colors flex items-center justify-center gap-2">
-                        <i class="fa-solid fa-users"></i> New Group Chat
-                    </button>
-                </div>
-                <div id="chat-list" class="flex-1 overflow-auto p-2"></div>
-            </div>
-
-            <!-- Main Chat Area — hidden on mobile until chat selected -->
-            <div id="chat-main" class="hidden md:flex flex-1 flex-col min-h-0">
-                <div id="chat-header" class="px-4 py-4 border-b border-zinc-700 flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <!-- Back button — mobile only -->
-                        <button onclick="showChatSidebar()" class="md:hidden mr-1 text-zinc-400 hover:text-white">
-                            <i class="fa-solid fa-arrow-left text-lg"></i>
-                        </button>
-                        <div id="chat-avatar" class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"></div>
-                        <div class="min-w-0">
-                            <p id="chat-with-name" class="font-semibold truncate">Select a chat</p>
-                            <p id="chat-with-username" class="text-xs text-zinc-400 truncate"></p>
-                        </div>
-                    </div>
-                    <button onclick="startVideoCall()" class="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-600 text-black px-3 md:px-5 py-2 rounded-2xl text-sm font-medium flex-shrink-0">
-                        <i class="fa-solid fa-video"></i><span class="hidden md:inline ml-1">Video Call</span>
-                    </button>
-                </div>
-
-                <div id="chat-messages" class="flex-1 overflow-auto p-6 space-y-4 bg-black">
-                    <!-- Messages populated by JS -->
-                </div>
-
-                <div class="p-4 border-t border-zinc-700 bg-zinc-900">
-                    <div class="flex gap-3">
-                        <input id="chat-input" type="text" placeholder="Type a message..." 
-                               onkeypress="if(event.key==='Enter') sendMessage()"
-                               class="flex-1 bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-4 outline-none">
-                        <button onclick="sendMessage()" class="px-8 bg-white text-black rounded-3xl font-medium">Send</button>
-                    </div>
-                </div>
-            </div>
-        </div>
     </div>
 
     <!-- GROUP CHAT MODAL -->
@@ -1658,8 +1611,18 @@
     @media (min-width: 1024px) {
         #nqv-side.nqv-wide { width: min(68%, 1150px); }
         /* The map is narrow while the column is wide: stack its search under its title, as on a phone. */
-        .nqv-widemode .nqv-searchrow { top: 7.25rem; left: 1rem; right: 1rem; }
+        .nqv-widemode .nqv-searchrow { top: 9.75rem; left: 1rem; right: 1rem; }
     }
+    /* Chat inside the side column. It was built as a page of its own, switching
+       from one pane to two by the width of the window; here it goes by the
+       width of the column instead. */
+    #nqv-chat-root { height: 100% !important; border: 0 !important; border-radius: 0 !important; }
+    #nqv-chat-root.nqv-chat-single { flex-direction: column !important; }
+    .nqv-chat-single #chat-sidebar { width: 100% !important; height: 100% !important; border-right-width: 0 !important; }
+    .nqv-chat-single #chat-sidebar.hidden, .nqv-chat-single #chat-main.hidden { display: none !important; }
+    .nqv-chat-single #chat-header button.md\:hidden { display: inline-block !important; }
+    .nqv-chat-single #chat-messages { padding: 1rem; }
+    .nqv-chat-single #chat-main .px-8 { padding-left: 1.1rem; padding-right: 1.1rem; }
     @media (min-width: 1024px) {
         .nqv-stage, .nqv-feed { height: calc(100vh - 150px); min-height: 480px; max-height: none; }
     }
@@ -1681,6 +1644,12 @@
                 <select id="eco-sizeby" onchange="ecoSizeBy(this.value)" aria-label="Size the map by"
                         class="px-2 py-1 rounded-lg bg-zinc-900/90 border border-zinc-700 text-xs text-white focus:outline-none focus:border-yellow-400"></select>
             </label>
+            <!-- Light up everyone who shares a school, a past employer, or work for one company. -->
+            <label class="hidden md:flex items-center gap-2 mt-1.5 pointer-events-auto w-fit">
+                <span class="text-[11px] text-zinc-400">Group</span>
+                <select id="eco-groupby" onchange="ecoGroupMenu(this.value)" aria-label="Group members by"
+                        class="max-w-[15rem] px-2 py-1 rounded-lg bg-zinc-900/90 border border-zinc-700 text-xs text-white focus:outline-none focus:border-pink-400"></select>
+            </label>
         </div>
 
         <!-- Search and reset -->
@@ -1698,8 +1667,9 @@
         <div class="absolute bottom-3 left-3 md:bottom-4 md:left-4 rounded-2xl bg-zinc-900/85 border border-zinc-800 px-3 py-2 text-[11px] text-zinc-300 space-y-1 pointer-events-none">
             <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#ffd60a"></span>NQVate (the sun)</p>
             <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#34d399"></span>Green glow: verified company · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#60a5fa"></span>Blue glow: unverified</p>
-            <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#fbbf24"></span>Founder · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#a78bfa"></span>Equity holder · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#22d3ee"></span>Builder</p>
-            <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#a1a1aa"></span>Member not yet tied to a company</p>
+            <div id="eco-legend-groups" class="hidden space-y-1"></div>
+            <p class="eco-legend-role"><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#fbbf24"></span>Founder · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#a78bfa"></span>Equity holder · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#22d3ee"></span>Builder</p>
+            <p class="eco-legend-role"><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#a1a1aa"></span>Member not yet tied to a company</p>
             <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#ef4444;box-shadow:0 0 7px 2px #ef4444"></span>Red halo: open listings — bigger and brighter = more, or worth more</p>
             <p id="eco-legend-top" class="hidden"><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#ffd60a;box-shadow:0 0 6px #ffd60a"></span>Gold glow and number: top 10 in the ranking</p>
             <p id="eco-legend-size" class="text-zinc-500">Bigger = more value, work, stakes and followers</p>
@@ -1736,6 +1706,59 @@
         </div>
         <div id="nqv-feed-list" class="flex-1 overflow-y-auto">
             <p class="text-sm text-zinc-500 px-4 py-6">Loading…</p>
+        </div>
+        <!-- Chat: the conversation list and the open conversation. One at a
+             time in the narrow column; side by side when it is widened. -->
+        <div id="nqv-chat" class="hidden flex-1 min-h-0">
+        <div id="nqv-chat-root" class="flex flex-col md:flex-row h-[calc(100vh-120px)] bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-700">
+
+            <!-- Sidebar — full height on mobile, fixed width on desktop -->
+            <div id="chat-sidebar" class="w-full md:w-80 border-b md:border-b-0 md:border-r border-zinc-700 flex flex-col md:h-auto h-full">
+                <div class="p-4 border-b border-zinc-700 space-y-2">
+                    <input id="chat-search" type="text" placeholder="Search by username..."
+                           onkeyup="searchUsersForChat()"
+                           class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 outline-none">
+                    <button onclick="showGroupChatModal()"
+                            class="w-full py-2.5 bg-zinc-800 border border-cyan-400/40 text-cyan-400 rounded-2xl text-sm font-medium hover:bg-cyan-400/10 transition-colors flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-users"></i> New Group Chat
+                    </button>
+                </div>
+                <div id="chat-list" class="flex-1 overflow-auto p-2"></div>
+            </div>
+
+            <!-- Main Chat Area — hidden on mobile until chat selected -->
+            <div id="chat-main" class="hidden md:flex flex-1 flex-col min-h-0">
+                <div id="chat-header" class="px-4 py-4 border-b border-zinc-700 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <!-- Back button — mobile only -->
+                        <button onclick="showChatSidebar()" class="md:hidden mr-1 text-zinc-400 hover:text-white">
+                            <i class="fa-solid fa-arrow-left text-lg"></i>
+                        </button>
+                        <div id="chat-avatar" class="w-9 h-9 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0"></div>
+                        <div class="min-w-0">
+                            <p id="chat-with-name" class="font-semibold truncate">Select a chat</p>
+                            <p id="chat-with-username" class="text-xs text-zinc-400 truncate"></p>
+                        </div>
+                    </div>
+                    <button onclick="startVideoCall()" class="flex items-center gap-2 bg-cyan-500 hover:bg-cyan-600 text-black px-3 md:px-5 py-2 rounded-2xl text-sm font-medium flex-shrink-0">
+                        <i class="fa-solid fa-video"></i><span class="hidden md:inline ml-1">Video Call</span>
+                    </button>
+                </div>
+
+                <div id="chat-messages" class="flex-1 overflow-auto p-6 space-y-4 bg-black">
+                    <!-- Messages populated by JS -->
+                </div>
+
+                <div class="p-4 border-t border-zinc-700 bg-zinc-900">
+                    <div class="flex gap-3">
+                        <input id="chat-input" type="text" placeholder="Type a message..." 
+                               onkeypress="if(event.key==='Enter') sendMessage()"
+                               class="flex-1 bg-zinc-800 border border-zinc-700 rounded-3xl px-6 py-4 outline-none">
+                        <button onclick="sendMessage()" class="px-8 bg-white text-black rounded-3xl font-medium">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
         </div>
         <!-- Posts, and Podcasts & Streams: the sections that used to be the
              Explore page, shown here when the Feed is filtered to them. -->
@@ -7353,6 +7376,7 @@ function navigateTo(page) {
             // Bio
             const bioEl = document.getElementById('profile-bio');
             if (bioEl) bioEl.textContent = currentUser.bio || 'No bio yet. Click "Edit Bio & Skills" to add one.';
+            if (typeof profRenderHistory === 'function') profRenderHistory('profile-history', currentUser);
 
             // Skills tags
             const skillsEl = document.getElementById('profile-skills');
@@ -8854,6 +8878,8 @@ async function saveProfileBioSkills() {
         await db.collection('users').doc(currentUser.uid).update({
             bio,
             skills: _selectedSkills,
+            education: profCollect('edu'),
+            workHistory: profCollect('work'),
             githubUsername: githubUsername || null,
             gitlabUsername: gitlabUsername || null,
             dribbbleUrl: dribbbleUrl || null,
@@ -8862,6 +8888,9 @@ async function saveProfileBioSkills() {
 
         currentUser.bio    = bio;
         currentUser.skills = _selectedSkills;
+        currentUser.education   = profCollect('edu');
+        currentUser.workHistory = profCollect('work');
+        profRenderHistory('profile-history', currentUser);
         currentUser.githubUsername = githubUsername;
         currentUser.gitlabUsername = gitlabUsername;
         currentUser.dribbbleUrl    = dribbbleUrl;
@@ -11727,6 +11756,7 @@ async function viewUserProfile(uid) {
                 }
 
                 document.getElementById('user-profile-bio').textContent = user.bio || '';
+                if (typeof profRenderHistory === 'function') profRenderHistory('user-profile-history', user);
 
                 // Skills
                 const userSkillsEl = document.getElementById('user-profile-skills');
@@ -19837,13 +19867,15 @@ const ECO = {
     promoted: [], near: new Set(), nearKey: '', nearAt: 0, lodTick: 0, focusKey: null,   // which distant companies are drawn in full
     minors: [], moonSets: [], marks: [], labelTex: new Map(),
     feedMode: null, feedUid: undefined, notifUnsub: null, feedItems: [],
-    side: 'feed',                                                  // which tab the side column shows: 'feed', 'trend', 'rank' or 'market'
+    side: 'feed',                                                  // which tab the side column shows: 'feed', 'trend', 'rank', 'market' or 'chat'
     market: { q: '', type: 'all', sort: 'new', mine: false },      // the Marketplace tab's search, filter and order
     feedContent: 'all',                                            // the Feed tab's content filter: all, posts, shows or activity
     trend: { type: 'all', aud: null }, trendRows: [],              // the Trending tab's filters
     wide: false, exploreKey: '',
     marketRows: [],
-    rank: { kind: 'people', people: 'overall', companies: 'overall' },   // the measure each ranking (and the map) uses
+    rank: { kind: 'people', people: 'overall', companies: 'overall', schools: 'members', employers: 'members' },   // the measure each ranking (and the map) uses
+    group: null,                                                   // what is lit up: { mode: 'one', kind, id } or { mode: 'all', kind }
+    glinks: null, chatOpen: false,
     rankRows: [],
     model: null, nodes: [], byId: new Map(),
     selected: null, hovered: null, follow: null, links: null,
@@ -19860,6 +19892,78 @@ const ECO_LOD = {
     nearMax: 12, promoted: 8, labels: 600
 };
 const ECO_COLORS = { verified: 0x34d399, unverified: 0x60a5fa, founder: 0xfbbf24, holder: 0xa78bfa, builder: 0x22d3ee, belt: 0xa1a1aa };
+
+// ── Groups: schools, past employers, and who has worked for a company ────
+// Members list where they studied and worked on their profiles. The map can
+// light up everyone who shares one of those, or colour everybody by school
+// or by employer at once. Both are self-reported and unchecked, and say so.
+//
+// A third kind is not self-reported at all: the people who have actually
+// worked on a company's bounties here, which the platform knows for itself.
+const ECO_GROUP_KIND = {
+    school:   { icon: '🎓', one: 'School',        many: 'Schools',        list: 'schools',   note: 'Self-reported on members\' profiles' },
+    employer: { icon: '💼', one: 'Past employer', many: 'Past employers', list: 'employers', note: 'Self-reported on members\' profiles' },
+    company:  { icon: '🏢', one: 'Worked for',    many: 'Worked on bounties for', list: null, note: 'Members who have worked on this company\'s bounties' }
+};
+const ECO_GROUP_ONE = 0xff4dd2;                                    // the glow of a single lit-up group
+const ECO_GROUP_COLORS = [0xf472b6, 0x38bdf8, 0xa3e635, 0xfb923c, 0xc084fc, 0x2dd4bf, 0xfacc15, 0xf87171];   // the eight largest, when colouring everyone
+const ECO_GROUP_OTHER = 0x8b8b94, ECO_GROUP_NONE = 0x45454d;
+const ecoHex = n => '#' + n.toString(16).padStart(6, '0');
+
+// The same reduction the server uses to decide that two spellings are one
+// place (api/nqverse.js, groupKey). Kept in step with it by hand.
+const ECO_SCHOOL_ALIASES = {
+    'mit': 'massachusetts institute of technology', 'nyu': 'new york university', 'cmu': 'carnegie mellon university',
+    'ucla': 'university of california los angeles', 'uc berkeley': 'university of california berkeley',
+    'berkeley': 'university of california berkeley', 'usc': 'university of southern california',
+    'upenn': 'university of pennsylvania', 'penn': 'university of pennsylvania', 'caltech': 'california institute of technology',
+    'georgia tech': 'georgia institute of technology', 'gatech': 'georgia institute of technology',
+    'ut austin': 'university of texas austin', 'umich': 'university of michigan', 'lse': 'london school of economics'
+};
+const ECO_GROUP_FILLER = {
+    school:   new Set(['the', 'of', 'at', 'and', 'in']),
+    employer: new Set(['the', 'and', 'inc', 'incorporated', 'llc', 'ltd', 'limited', 'corp', 'corporation', 'co', 'company', 'plc', 'gmbh', 'sa', 'ag'])
+};
+function ecoGroupKey(kind, name) {
+    let t = String(name == null ? '' : name).toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+        .replace(/[.'’]/g, '').replace(/&/g, ' and ').replace(/[^a-z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+    if (kind === 'school' && ECO_SCHOOL_ALIASES[t]) t = ECO_SCHOOL_ALIASES[t];
+    return t.split(' ').filter(w => w && !ECO_GROUP_FILLER[kind].has(w)).sort().join(' ');
+}
+
+/// Work out what is lit up right now, from ECO.group and the fresh model.
+/// Returns null when nothing is, or when the chosen group no longer exists.
+function ecoGroupResolve(model) {
+    const want = ECO.group;
+    if (!want) return null;
+    if (want.mode === 'all') {
+        const list = model.groups[want.kind] || [];
+        if (!list.length) return null;
+        // Everyone takes the colour of the largest group they belong to.
+        const top = list.slice(0, ECO_GROUP_COLORS.length), colorOf = new Map(), field = ECO_GROUP_KIND[want.kind].list;
+        const rankOf = new Map(top.map((g, i) => [g, i]));
+        let other = 0, none = 0;
+        model.people.forEach(p => {
+            const mine = p[field];
+            if (!mine.length) { none++; colorOf.set(p.key, ECO_GROUP_NONE); return; }
+            const best = mine.reduce((a, b) => (b.count > a.count ? b : a));
+            if (rankOf.has(best)) colorOf.set(p.key, ECO_GROUP_COLORS[rankOf.get(best)]);
+            else { other++; colorOf.set(p.key, ECO_GROUP_OTHER); }
+        });
+        return { mode: 'all', kind: want.kind, top, colorOf, other, none };
+    }
+    let group = null;
+    if (want.kind === 'company') {
+        const pl = model.planetById.get(want.id);
+        if (pl) {
+            const members = [...pl.members.values()].filter(m => m.roles.has('builder')).map(m => m.person);
+            group = { kind: 'company', id: pl.id, name: pl.name, members, count: members.length,
+                      done: members.reduce((t, p) => t + p.stats.done, 0), usdc: members.reduce((t, p) => t + p.stats.usdc, 0) };
+        }
+    } else group = (model.groups[want.kind] || []).find(g => g.key === want.id) || null;
+    if (!group) return null;
+    return { mode: 'one', kind: want.kind, group, set: new Set(group.members.map(p => p.key)) };
+}
 
 // ── Marketplace listings ─────────────────────────────────────────────────
 // The Marketplace page stays where it is. The map shows the same open
@@ -19915,11 +20019,18 @@ const ECO_MEASURES = {
                      offNote: 'Funding is switched off for now. This ranking fills in when it returns.' }
     }
 };
+const ECO_GROUP_MEASURES = () => ({
+    members: { label: 'Members',            get: g => g.count, fmt: ecoCount },
+    done:    { label: 'Bounties completed', get: g => g.done,  fmt: ecoCount },
+    usdc:    { label: 'USDC earned',        get: g => g.usdc,  fmt: ecoMoney }
+});
+ECO_MEASURES.schools = ECO_GROUP_MEASURES();
+ECO_MEASURES.employers = ECO_GROUP_MEASURES();
 const ECO_RANK_SHOWN = 50, ECO_RANK_TOP = 10;
 /// A label mid-sentence: 'Bounties completed' → 'bounties completed', 'USDC earned' stays.
 const ecoLow = t => String(t).replace(/^[A-Z](?=[a-z])/, c => c.toLowerCase());
 
-function ecoMeasure(kind, key) { const set = ECO_MEASURES[kind]; return set[key] || set.overall; }
+function ecoMeasure(kind, key) { const set = ECO_MEASURES[kind]; return set[key] || set.overall || set[Object.keys(set)[0]]; }
 /// True when every feature the measure rests on is switched off.
 function ecoMeasureOff(m) {
     return !!(m.needs && typeof NQV_FEATURES !== 'undefined' && NQV_FEATURES && !m.needs.some(f => NQV_FEATURES[f]));
@@ -19932,17 +20043,18 @@ function ecoRankModel(model) {
     const lists = {
         // Only who is actually on the map, and never the platform's own wallet.
         people: [...model.people.values()].filter(p => !p.ops && (p.known || p.appearances.length)),
-        companies: model.planets
+        companies: model.planets,
+        schools: model.groups.school, employers: model.groups.employer
     };
     Object.keys(lists).forEach(kind => {
-        const key = ECO_MEASURES[kind][ECO.rank[kind]] ? ECO.rank[kind] : 'overall';
+        const key = ECO_MEASURES[kind][ECO.rank[kind]] ? ECO.rank[kind] : Object.keys(ECO_MEASURES[kind])[0];
         const m = ecoMeasure(kind, key), off = ecoMeasureOff(m);
         const val = e => { const v = off ? 0 : Number(m.get(e)); return v > 0 && isFinite(v) ? v : 0; };
         const name = e => String(e.label || e.name || '');
         const rows = lists[kind].map(e => ({ e, v: val(e) })).filter(x => x.v > 0)
             .sort((a, b) => b.v - a.v || name(a.e).localeCompare(name(b.e)));
         rows.forEach((x, i) => { x.e.rankPos = i + 1; });
-        if (key !== 'overall') {
+        if (key !== 'overall' && (kind === 'people' || kind === 'companies')) {
             // Square root, so the leader stands out without the rest vanishing.
             const max = rows.length ? rows[0].v : 0;
             lists[kind].forEach(e => {
@@ -20170,6 +20282,13 @@ function ecoBuildModel() {
         if (f.followingCompanyId) mine.companies.set(f.followingCompanyId, f._id);
     });
 
+    // Schools and past employers, largest first, as the server grouped them.
+    const gsnap = snap.groups || {};
+    const mkGroups = (kind, arr) => (arr || []).map(g => ({
+        kind, name: g.n, key: ecoGroupKey(kind, g.n), count: g.c || 0, done: g.d || 0, usdc: g.u || 0, members: [], rankPos: 0 }));
+    const groups = { school: mkGroups('school', gsnap.s), employer: mkGroups('employer', gsnap.e) };
+    const pick = (arr, idx) => (idx || []).map(i => arr[i]).filter(Boolean);
+
     const list = snap.people.map(q => {
         const st = q.st || {};
         return {
@@ -20184,9 +20303,11 @@ function ecoBuildModel() {
             // finished, cash earned, stakes held and their worth, followers.
             score: q.score || 0, size: 1.0 + 2.6 * (1 - Math.exp(-(q.score || 0) / 6)), rankPos: 0,
             // This week: [score, new followers, bounties finished, posts].
-            trend: q.tr || null
+            trend: q.tr || null,
+            schools: pick(groups.school, q.gs), employers: pick(groups.employer, q.ge)
         };
     });
+    list.forEach(p => { p.schools.forEach(g => g.members.push(p)); p.employers.forEach(g => g.members.push(p)); });
     const people = new Map(list.map(p => [p.key, p]));
 
     const ROLE_BITS = [['founder', 1], ['holder', 2], ['builder', 4]];
@@ -20224,8 +20345,10 @@ function ecoBuildModel() {
     listings.forEach(l => { if (l.planet) { l.planet.open.count++; l.planet.open.value += l.value || 0; l.planet.open.items.push(l); } });
     planets.forEach(pl => { pl.open.halo = ecoHaloStrength(pl.open.count, pl.open.value); });
 
-    const model = { planets, planetById, belt, people, mine, listings, counts: snap.counts || {}, hot: snap.hot || [] };
+    const model = { planets, planetById, belt, people, mine, listings, counts: snap.counts || {}, hot: snap.hot || [], groups };
     ecoRankModel(model);          // positions, and sizes when a single measure is chosen
+    model.gnow = ecoGroupResolve(model);
+    if (ECO.group && !model.gnow) ECO.group = null;              // what was lit up has gone
     return model;
 }
 
@@ -20334,6 +20457,10 @@ function ecoInitScene() {
     ECO.rimMats = { verified: rimMat(ECO_COLORS.verified), unverified: rimMat(ECO_COLORS.unverified), pick: rimMat(0xffffff) };
     ECO.rimMats.pick.opacity = 0.4;
     ECO.rimMats.gold = rimMat(0xffd60a);                             // the top 10 in a ranking
+    ECO.rimMats.group = rimMat(ECO_GROUP_ONE);                       // a lit-up school, employer or company's workers
+    // For colouring everyone by group: no shading, so the colours match the legend.
+    ECO.mats.plain = new THREE.MeshBasicMaterial({ color: 0xffffff });
+    ECO.groupLinkMat = new THREE.LineBasicMaterial({ color: ECO_GROUP_ONE, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false });
     // The red halo for a company with open listings: a broad, soft band of
     // light well outside the planet, so it reads at a distance.
     ECO.haloTex = ecoCanvasTexture(128, (g, n) => {
@@ -20417,6 +20544,7 @@ function ecoClearWorld() {
     });
     while (ECO.world.children.length) ECO.world.remove(ECO.world.children[0]);
     if (ECO.links) { ECO.scene.remove(ECO.links); ECO.links.geometry.dispose(); ECO.links = null; }
+    if (ECO.glinks) { ECO.scene.remove(ECO.glinks); ECO.glinks.geometry.dispose(); ECO.glinks = null; }
     // Nothing is using a label now, so if the store has grown large, empty it.
     if (ECO.labelTex.size > ECO_LOD.labels) { ECO.labelTex.forEach(h => h.tex.dispose()); ECO.labelTex.clear(); }
 }
@@ -20434,6 +20562,8 @@ function ecoFullSet(model) {
     ECO.near.forEach(id => full.add(id));
     // While a ranking is on show, its top ten must be findable on the map.
     if (model.showTop) model.rank.people.rows.slice(0, ECO_RANK_TOP).forEach(x => { const a = x.e.appearances[0]; if (a) full.add(a.planet.id); });
+    // And so must the members of a lit-up group, within reason.
+    if (model.gnow && model.gnow.mode === 'one') model.gnow.group.members.slice(0, 40).forEach(p => { const a = p.appearances[0]; if (a) full.add(a.planet.id); });
     return full;
 }
 
@@ -20455,6 +20585,9 @@ function ecoRebuildScene() {
     const top = e => model.showTop && e.rankPos > 0 && e.rankPos <= ECO_RANK_TOP;
     const full = ecoFullSet(model);
     const moons = { founder: [], holder: [], builder: [] };
+    const gnow = model.gnow, lit = gnow && gnow.mode === 'one' ? gnow.set : null, tint = gnow && gnow.mode === 'all' ? gnow.colorOf : null;
+    const litNodes = [];
+    const litGlow = () => new THREE.Sprite(ECO.rimMats.group);
 
     // Planets sit on rings that hold more of them the further out they are,
     // so the system grows outwards slowly instead of in one long line. A
@@ -20516,7 +20649,11 @@ function ecoRebuildScene() {
         const members = [...pl.members.values()].sort((a, b) =>
             (b.roles.has('founder') - a.roles.has('founder')) || (b.units - a.units) || (b.nb - a.nb));
         const shownMembers = members.slice(0, ECO_LOD.moons);
-        members.slice(ECO_LOD.moons).forEach(m => { if (m.person.key === ECO.focusKey || top(m.person)) shownMembers.push(m); });
+        let extra = 0;
+        members.slice(ECO_LOD.moons).forEach(m => {
+            if (m.person.key === ECO.focusKey || top(m.person)) shownMembers.push(m);
+            else if (lit && lit.has(m.person.key) && extra++ < 24) shownMembers.push(m);      // a lit-up group's members, within reason
+        });
         let shell = 0, place = 0;
         shownMembers.forEach(m => {
             const shellCap = 6 + shell * 4;
@@ -20539,6 +20676,13 @@ function ecoRebuildScene() {
                 ECO.world.add(gold); ECO.world.add(tag);
                 ECO.marks.push({ node: mNode, gold, tag });
             }
+            if (lit && lit.has(m.person.key)) {
+                const g = litGlow();
+                g.scale.setScalar(mSize * 4);
+                ECO.world.add(g);
+                ECO.marks.push({ node: mNode, gold: g, tag: null });
+                litNodes.push(mNode);
+            }
             if (++place >= shellCap) { place = 0; shell++; }
         });
     });
@@ -20546,8 +20690,9 @@ function ecoRebuildScene() {
     // Every moon of one role is drawn in a single batch.
     ECO.moonSets = Object.keys(moons).map(role => {
         const list = moons[role];
-        const mesh = new THREE.InstancedMesh(ECO.sphereLo, ECO.mats[role], Math.max(1, list.length));
+        const mesh = new THREE.InstancedMesh(ECO.sphereLo, tint ? ECO.mats.plain : ECO.mats[role], Math.max(1, list.length));
         mesh.count = list.length; mesh.frustumCulled = false;
+        if (tint) { const c = new THREE.Color(); list.forEach((n, i) => mesh.setColorAt(i, c.setHex(tint.get(n.person.key) || ECO_GROUP_NONE))); if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true; }
         ECO.world.add(mesh);
         return { mesh, list };
     });
@@ -20573,7 +20718,8 @@ function ecoRebuildScene() {
     const beltInner = outer + 60;
     // Drawn as ONE batch, so a belt of ten thousand costs about what ten does.
     // In a crowded belt each member is a few pixels, so a simpler sphere will do.
-    const beltMesh = new THREE.InstancedMesh(model.belt.length > 600 ? ECO.sphereTiny : ECO.sphereLo, ECO.mats.belt, Math.max(1, model.belt.length));
+    const beltMesh = new THREE.InstancedMesh(model.belt.length > 600 ? ECO.sphereTiny : ECO.sphereLo, tint ? ECO.mats.plain : ECO.mats.belt, Math.max(1, model.belt.length));
+    const _c = new THREE.Color();
     beltMesh.count = model.belt.length;
     beltMesh.frustumCulled = false;
     const _m = new THREE.Matrix4(), _q = new THREE.Quaternion(), _s = new THREE.Vector3(), _p = new THREE.Vector3();
@@ -20585,6 +20731,13 @@ function ecoRebuildScene() {
         beltMesh.setMatrixAt(i, _m.compose(_p, _q, _s));
         // No object of its own: `local` is where it sits inside the belt.
         p.beltNode = add({ id: 'b:' + p.key, kind: 'person', label: p.label, person: p, local: _p.clone(), radius: p.size });
+        if (tint) beltMesh.setColorAt(i, _c.setHex(tint.get(p.key) || ECO_GROUP_NONE));
+        if (lit && lit.has(p.key)) {
+            const g = litGlow();
+            g.position.copy(_p); g.scale.setScalar(p.size * 4);
+            ECO.belt.add(g);
+            litNodes.push(p.beltNode);
+        }
         if (top(p)) {
             const gold = new THREE.Sprite(ECO.rimMats.gold);
             gold.position.copy(_p); gold.scale.setScalar(p.size * 3.4);
@@ -20595,6 +20748,7 @@ function ecoRebuildScene() {
         }
     });
     beltMesh.instanceMatrix.needsUpdate = true;
+    if (tint && beltMesh.instanceColor) beltMesh.instanceColor.needsUpdate = true;
     ECO.belt.add(beltMesh);
     ECO.extent = beltInner + beltDepth + 15;
     if (ECO.dust) ECO.dust.scale.setScalar(ECO.extent * 1.15);
@@ -20606,13 +20760,28 @@ function ecoRebuildScene() {
     ecoStatus(c.members || model.planets.length ? '' : 'Nothing here yet.');
 
     ecoPlace(ECO.lastT || 0);          // put everything where it belongs before the next frame draws it
+    // A lit-up group is joined by one line that runs through its members in
+    // the order they sit round the sun — a ring, not a tangle.
+    if (litNodes.length > 1) {
+        const v = new THREE.Vector3();
+        const ring = litNodes.slice(0, 160).map(n => { ecoWorldPos(n, v); return [Math.atan2(v.z, v.x), n]; }).sort((a, b) => a[0] - b[0]).map(x => x[1]);
+        const seq = [];
+        ring.forEach((n, i) => { if (ring.length > 2 || i === 0) seq.push(n, ring[(i + 1) % ring.length]); });
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(seq.length * 3), 3));
+        ECO.glinks = new THREE.LineSegments(geo, ECO.groupLinkMat);
+        ECO.glinks.userData.nodes = seq;
+        ECO.glinks.frustumCulled = false;
+        ECO.scene.add(ECO.glinks);
+    }
+    ecoSyncGroupUI();
     ecoSyncMeasureUI();
     ecoRenderFeed();
 
     // Keep whatever was selected selected, if it still exists.
     const again = keepId && ECO.byId.get(keepId);
     ECO.selected = null; ECO.follow = null;
-    if (again && !again.minor) ecoSelect(again, true); else if (keepId) ecoSelect(null);
+    if (again && !again.minor) ecoSelect(again, true); else ecoSelect(null);
     if (!ECO.framed) { ECO.framed = true; ecoResetView(); }
 }
 
@@ -20653,7 +20822,7 @@ function ecoPlace(t) {
     // The gold marks travel with the moons they belong to.
     for (const k of ECO.marks) {
         k.gold.position.copy(k.node.pos);
-        k.tag.position.copy(k.node.pos); k.tag.position.y += k.node.radius + 3.2;
+        if (k.tag) { k.tag.position.copy(k.node.pos); k.tag.position.y += k.node.radius + 3.2; }
     }
 
     if (ECO.belt) ECO.belt.rotation.y = tt * 0.006;
@@ -20736,8 +20905,9 @@ function ecoFrame() {
         ECO.haloGlow.visible = true;
     } else { ECO.halo.visible = false; ECO.haloGlow.visible = false; }
 
-    if (ECO.links) {
-        const pos = ECO.links.geometry.attributes.position, pts = ECO.links.userData.nodes;
+    for (const line of [ECO.links, ECO.glinks]) {
+        if (!line) continue;
+        const pos = line.geometry.attributes.position, pts = line.userData.nodes;
         for (let i = 0; i < pts.length; i++) { ecoWorldPos(pts[i], _ecoV.a); pos.setXYZ(i, _ecoV.a.x, _ecoV.a.y, _ecoV.a.z); }
         pos.needsUpdate = true;
     }
@@ -20825,7 +20995,7 @@ function ecoSelect(node, quiet) {
     if (ECO.links) { ECO.scene.remove(ECO.links); ECO.links.geometry.dispose(); ECO.links = null; }
     const panel = document.getElementById('eco-panel');
     document.getElementById('eco-tip').classList.add('hidden');
-    if (!node) { ECO.follow = null; panel.classList.add('hidden'); return; }
+    if (!node) { ECO.follow = null; panel.classList.add('hidden'); ecoGroupPanel(); return; }
 
     if (!quiet) {
         ECO.follow = node.kind === 'sun' ? null : node;
@@ -20952,6 +21122,7 @@ function ecoPanelHtml(node) {
                 `<button onclick="ecoOpenListing('${ecoEsc(l.id)}')" class="w-full flex items-center justify-between gap-3 text-left px-3 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20">
                     <span class="text-sm truncate">${l.type === 'fund' ? '💰' : '📋'} ${ecoEsc(l.title)}</span><span class="text-xs text-red-200 shrink-0">${ecoEsc(l.pay.length > 22 ? l.pay.slice(0, 21) + '…' : l.pay)}</span></button>`).join('')}
             ${pl.open.count > 8 ? `<button onclick="ecoMarketFor('${ecoEsc(pl.id)}')" class="text-xs text-red-300 hover:underline">See all ${pl.open.count} →</button>` : ''}</div>` : ''}
+            ${[...pl.members.values()].some(m => m.roles.has('builder')) ? `<button onclick="ecoSetGroup({ mode: 'one', kind: 'company', id: '${ecoEsc(pl.id)}' })" class="w-full mb-4 py-2 rounded-xl bg-pink-500/15 hover:bg-pink-500/25 text-pink-200 text-sm font-semibold">✨ Light up everyone who has worked on its bounties</button>` : ''}
             <p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">People (${pl.memberCount.toLocaleString()})</p>
             <div class="space-y-1.5 mb-2">${view.slice(0, 60).map(v => row('m:' + pl.id + ':' + v.m.person.key,
                 ecoEsc(v.m.person.label) + ' ' + v.roles.map(r => ecoChip(ECO_ROLE_CHIP[r][0], ECO_ROLE_CHIP[r][1])).join(' '),
@@ -20983,6 +21154,9 @@ function ecoPanelHtml(node) {
         ${p.stats.funded && !ecoMeasureOff(ECO_MEASURES.people.funded) ? `<p class="text-xs text-zinc-400 mb-2">Funded ${p.stats.funded} project${p.stats.funded > 1 ? 's' : ''} · $${Math.round(p.stats.fundedValue).toLocaleString()} provided</p>` : ''}
         ${p.rankPos ? `<p class="text-xs text-yellow-300 mb-2">🏆 #${p.rankPos} for ${ecoEsc(ecoLow(ECO.model.rank.people.m.label))}</p>` : ''}
         <p class="text-[11px] text-zinc-500 mb-4">${ECO.model.rank.people.key === 'overall' ? 'Everything but the rating sets how large this member appears.' : 'Right now members are sized by ' + ecoEsc(ecoLow(ECO.model.rank.people.m.label)) + ' alone.'}</p>
+        ${p.schools.length || p.employers.length ? `<div class="flex flex-wrap gap-1.5 mb-1.5">${
+            p.schools.map(g => ecoGroupChip(g)).join('') + p.employers.map(g => ecoGroupChip(g)).join('')}</div>
+        <p class="text-[10px] text-zinc-600 mb-3">Self-reported. Click one to light up everyone who shares it.</p>` : ''}
         ${ties.length ? `<p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Companies (${ties.length})</p>
         <div class="space-y-1.5 mb-4">${ties.map(t => row('c:' + t.a.planet.id,
             ecoEsc(t.a.planet.name) + ' ' + t.roles.map(r => ecoChip(ECO_ROLE_CHIP[r][0], ECO_ROLE_CHIP[r][1])).join(' '),
@@ -21040,6 +21214,13 @@ function ecoSearch(q) {
             hits.push(["ecoSelectPerson('" + ecoEsc(p.key) + "')", p.label, 'Member']);
         }
     }
+    // Schools and past employers, so a group can be found by name.
+    ['school', 'employer'].forEach(kind => {
+        let n = 0;
+        ECO.model.groups[kind].forEach((g, i) => {
+            if (n < 3 && g.name.toLowerCase().includes(term)) { n++; hits.push(["ecoPickGroup('" + kind + "'," + i + ")", ECO_GROUP_KIND[kind].icon + ' ' + g.name, ECO_GROUP_KIND[kind].one + ' · ' + g.count]); }
+        });
+    });
     box.innerHTML = hits.map(([go, label, kind]) =>
         `<button onclick="${go}; document.getElementById('eco-search-results').classList.add('hidden'); document.getElementById('eco-search').value='';"
                  class="w-full flex justify-between gap-3 px-3 py-2 text-left hover:bg-zinc-800"><span class="truncate">${ecoEsc(label)}</span><span class="text-xs text-zinc-500">${kind}</span></button>`).join('')
@@ -21075,7 +21256,7 @@ function ecoSetFeedMode(mode) { ECO.feedMode = mode === 'everyone' ? 'everyone' 
 /// Feed or Rankings. The gold top-10 marks depend on which is open, so the
 /// map is redrawn too.
 function ecoSetSide(side) {
-    ECO.side = side === 'rank' || side === 'market' || side === 'trend' ? side : 'feed';
+    ECO.side = ['rank', 'market', 'trend', 'chat'].includes(side) ? side : 'feed';
     if (ECO.model) ecoRebuildScene(); else ecoRenderFeed();
 }
 
@@ -21083,7 +21264,7 @@ function ecoSetSide(side) {
 function ecoSetMeasure(kind, key) {
     if (!ECO_MEASURES[kind]) return;
     ECO.rank.kind = kind;
-    ECO.rank[kind] = ECO_MEASURES[kind][key] ? key : 'overall';
+    ECO.rank[kind] = ECO_MEASURES[kind][key] ? key : Object.keys(ECO_MEASURES[kind])[0];
     if (ECO.model) ecoRebuildScene(); else ecoRenderFeed();
 }
 /// The "Size by" menu on the map: values look like "people:usdc".
@@ -21097,7 +21278,8 @@ function ecoSyncMeasureUI() {
         const group = (kind, title) => `<optgroup label="${title}">` + Object.entries(ECO_MEASURES[kind])
             .map(([k, m]) => `<option value="${kind}:${k}">${title === 'People' ? 'People' : 'Companies'}: ${ecoEsc(m.label)}</option>`).join('') + '</optgroup>';
         sel.innerHTML = group('people', 'People') + group('companies', 'Companies');
-        sel.value = ECO.rank.kind + ':' + rk[ECO.rank.kind].key;
+        const sized = ECO.rank.kind === 'companies' ? 'companies' : 'people';
+        sel.value = sized + ':' + rk[sized].key;
     }
     const size = document.getElementById('eco-legend-size'), topLine = document.getElementById('eco-legend-top');
     if (size) {
@@ -21123,16 +21305,62 @@ function ecoRenderSideTabs() {
     if (!el) return;
     // Icons, with the name spelled out for the open tab where there is room.
     const t = (id, icon, label) => `<button onclick="ecoSetSide('${id}')" title="${label}" aria-label="${label}" ${ECO.side === id ? 'aria-current="true"' : ''}
-        class="inline-flex items-center shrink-0 whitespace-nowrap h-9 px-2.5 rounded-lg text-base ${ECO.side === id ? 'bg-zinc-800 text-white ring-1 ring-yellow-400/60' : 'text-zinc-400 hover:bg-zinc-800/60'}">${icon}<span class="${ECO.side === id ? 'hidden xl:inline' : 'hidden'} ml-1.5 text-sm">${label}</span></button>`;
-    el.innerHTML = t('feed', '📰', 'Feed') + t('trend', '🔥', 'Trending') + t('rank', '🏆', 'Rankings') + t('market', '🛒', 'Marketplace');
+        class="inline-flex items-center shrink-0 whitespace-nowrap h-9 px-2 rounded-lg text-base ${ECO.side === id ? 'bg-zinc-800 text-white ring-1 ring-yellow-400/60' : 'text-zinc-400 hover:bg-zinc-800/60'}">${icon}<span class="${ECO.side === id ? 'hidden 2xl:inline' : 'hidden'} ml-1.5 text-sm">${label}</span></button>`;
+    el.innerHTML = t('feed', '📰', 'Feed') + t('trend', '🔥', 'Trending') + t('rank', '🏆', 'Rankings') + t('market', '🛒', 'Marketplace') + t('chat', '💬', 'Chat');
 }
 
-/// Show the rows list, or the Posts / Podcasts & Streams sections.
+/// Show the rows list, the Posts / Podcasts & Streams sections, or chat.
 function ecoPane(which) {
-    const list = document.getElementById('nqv-feed-list'), ex = document.getElementById('nqv-explore');
+    const list = document.getElementById('nqv-feed-list'), ex = document.getElementById('nqv-explore'), chat = document.getElementById('nqv-chat');
     if (list) list.classList.toggle('hidden', which !== 'list');
     if (ex) ex.classList.toggle('hidden', which !== 'explore');
+    if (chat) chat.classList.toggle('hidden', which !== 'chat');
     if (which !== 'explore') ECO.exploreKey = '';          // so they reload, fresh, next time they are opened
+    if (which !== 'chat') ECO.chatOpen = false;
+}
+
+// ── Chat tab ─────────────────────────────────────────────────────────────
+// The chat is the same one that used to have a page to itself — same list,
+// same conversations, same video calls — sitting in the side column. In the
+// narrow column it shows one thing at a time, the list or a conversation, as
+// it always has on a phone. Widen the column and both show side by side.
+function ecoChatTwoPane() { const w = window.innerWidth; return (w >= 1024 && ECO.wide) || (w >= 768 && w < 1024); }
+
+function ecoChatLayout() {
+    const root = document.getElementById('nqv-chat-root'), side = document.getElementById('chat-sidebar'), main = document.getElementById('chat-main');
+    if (!root || !side || !main) return;
+    const single = !ecoChatTwoPane();
+    root.classList.toggle('nqv-chat-single', single);
+    if (!single) {
+        side.classList.remove('hidden'); side.classList.add('flex');
+        main.classList.remove('hidden'); main.classList.add('flex');
+    } else if (typeof currentChatId !== 'undefined' && currentChatId && !main.classList.contains('hidden')) {
+        side.classList.add('hidden'); side.classList.remove('flex');           // a conversation is open: keep it
+    } else if (typeof showChatSidebar === 'function') showChatSidebar();
+}
+
+function ecoRenderChat() {
+    const box = document.getElementById('nqv-feed-list'), tabs = document.getElementById('nqv-feed-tabs');
+    const me = (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) || null;
+    tabs.innerHTML = '';
+    if (!me) {
+        ecoPane('list');
+        box.innerHTML = `<div class="px-4 py-10 text-center"><p class="text-sm text-zinc-400 mb-4">Log in to message other members.</p>
+            <button onclick="showAuthModal()" class="px-6 py-3 bg-white text-black font-semibold rounded-2xl">Log in</button></div>`;
+        return;
+    }
+    ecoPane('chat');
+    ecoChatLayout();
+    if (!ECO.chatOpen) { ECO.chatOpen = true; if (typeof loadChatList === 'function') loadChatList(''); }
+}
+
+/// Open the chat from anywhere — where the old Chat link and "Message" buttons land.
+function ecoOpenChat() {
+    ECO.side = 'chat';
+    ECO.chatOpen = false;                // arriving from elsewhere always shows a fresh list
+    navigateTo('ecosystem');
+    ecoRenderFeed();
+    if (window.innerWidth < 1024) setTimeout(() => { const el = document.getElementById('nqv-side'); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 350);
 }
 
 function ecoToggleCreate(ev) {
@@ -21156,6 +21384,7 @@ function ecoToggleWide() {
     if (side) side.classList.toggle('nqv-wide', ECO.wide);
     document.getElementById('ecosystem-page').classList.toggle('nqv-widemode', ECO.wide);
     if (btn) { btn.textContent = ECO.wide ? '⤡' : '⤢'; btn.title = ECO.wide ? 'Narrow this column' : 'Widen this column'; btn.setAttribute('aria-label', btn.title); }
+    if (ECO.side === 'chat') ecoChatLayout();
     // The map's box has changed size; tell the renderer once it has settled.
     setTimeout(ecoResize, 30); setTimeout(ecoResize, 320);
 }
@@ -21175,6 +21404,175 @@ function ecoOpenPost(id) {
     db.collection('posts').doc(id).get()
         .then(snap => { if (snap.exists) viewPostDetail(id, snap.data()); else alert('That post is no longer available.'); })
         .catch(() => {});
+}
+
+// ── Groups: choosing, showing ────────────────────────────────────────────
+function ecoSetGroup(g) {
+    ECO.group = g || null;
+    if (g) ECO.selected = null;          // the panel is the group's until something is clicked
+    if (ECO.model) ecoRebuildScene();
+    if (g && window.innerWidth < 1024) { const st = document.getElementById('eco-canvas'); if (st) st.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+}
+/// The i-th school or employer in the current list.
+function ecoPickGroup(kind, i) {
+    const g = ECO.model && ECO.model.groups[kind] && ECO.model.groups[kind][i];
+    if (g) ecoSetGroup({ mode: 'one', kind, id: g.key });
+}
+/// The Group menu on the map. Values: '', 'all:school', 'one:employer:3', 'one:company:<id>'.
+function ecoGroupMenu(value) {
+    const [mode, kind, id] = String(value || '').split(':');
+    if (mode === 'all') return ecoSetGroup({ mode: 'all', kind });
+    if (mode === 'one' && kind === 'company') return ecoSetGroup({ mode: 'one', kind, id });
+    if (mode === 'one') return ecoPickGroup(kind, Number(id));
+    ecoSetGroup(null);
+}
+/// From a profile page: go to the map and light up that school or employer.
+function ecoOpenGroup(kind, name) {
+    ECO.group = { mode: 'one', kind, id: ecoGroupKey(kind, name) };
+    ECO.selected = null;
+    navigateTo('ecosystem');
+    if (ECO.model) {
+        ecoRebuildScene();
+        if (!ECO.group) ecoStatus('That group is not on the map yet. New profile details appear within a few minutes.');
+    }
+}
+
+function ecoGroupChip(g) {
+    return `<button onclick="ecoSetGroup({ mode: 'one', kind: '${g.kind}', id: '${ecoEsc(g.key)}' })" title="${ECO_GROUP_KIND[g.kind].one}: light up everyone who lists it"
+        class="px-2.5 py-1 rounded-full bg-pink-500/15 hover:bg-pink-500/25 text-pink-200 text-xs">${ECO_GROUP_KIND[g.kind].icon} ${ecoEsc(g.name)}</button>`;
+}
+
+/// Keep the Group menu and the legend in step with what is lit up.
+function ecoSyncGroupUI() {
+    const m = ECO.model, g = m.gnow, sel = document.getElementById('eco-groupby');
+    if (sel) {
+        const opt = (v, label) => `<option value="${ecoEsc(v)}">${ecoEsc(label)}</option>`;
+        const some = (kind, title) => m.groups[kind].length ? `<optgroup label="${title}">` + m.groups[kind].slice(0, 25).map((x, i) => opt('one:' + kind + ':' + i, x.name + ' (' + x.count + ')')).join('') + '</optgroup>' : '';
+        const cos = m.planets.map(pl => [pl, [...pl.members.values()].filter(x => x.roles.has('builder')).length]).filter(x => x[1] > 0).sort((a, b) => b[1] - a[1]).slice(0, 25);
+        sel.innerHTML = opt('', 'None') + opt('all:school', 'Colour everyone by school') + opt('all:employer', 'Colour everyone by past employer')
+            + some('school', 'Schools') + some('employer', 'Past employers')
+            + (cos.length ? '<optgroup label="Worked on bounties for">' + cos.map(x => opt('one:company:' + x[0].id, x[0].name + ' (' + x[1] + ')')).join('') + '</optgroup>' : '');
+        let v = '';
+        if (g && g.mode === 'all') v = 'all:' + g.kind;
+        else if (g && g.kind === 'company') v = 'one:company:' + g.group.id;
+        else if (g) v = 'one:' + g.kind + ':' + m.groups[g.kind].indexOf(g.group);
+        sel.value = v;
+        // A group beyond the 25 listed can still be lit up, from search or a profile; show it as chosen.
+        if (g && sel.value !== v) { sel.insertAdjacentHTML('beforeend', opt(v, g.group.name + ' (' + g.group.count + ')')); sel.value = v; }
+    }
+    const box = document.getElementById('eco-legend-groups');
+    if (box) {
+        const dot = (hex, glowing) => `<span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:${hex}${glowing ? ';box-shadow:0 0 7px 2px ' + hex : ''}"></span>`;
+        box.innerHTML = !g ? ''
+            : g.mode === 'one' ? `<p>${dot(ecoHex(ECO_GROUP_ONE), true)}${ecoEsc(ECO_GROUP_KIND[g.kind].one)}: ${ecoEsc(g.group.name)}</p>`
+            : `<p class="text-zinc-400">Coloured by ${g.kind === 'school' ? 'school' : 'past employer'} (self-reported)</p>`
+              + g.top.map((x, i) => `<p>${dot(ecoHex(ECO_GROUP_COLORS[i]))}${ecoEsc(x.name)} · ${x.count}</p>`).join('')
+              + (g.other ? `<p>${dot(ecoHex(ECO_GROUP_OTHER))}Another ${g.kind === 'school' ? 'school' : 'employer'} · ${g.other}</p>` : '')
+              + `<p>${dot(ecoHex(ECO_GROUP_NONE))}None listed · ${g.none}</p>`;
+        box.classList.toggle('hidden', !g);
+        // Colouring everyone replaces the role colours, so their legend lines step aside.
+        document.querySelectorAll('.eco-legend-role').forEach(el => el.classList.toggle('hidden', !!(g && g.mode === 'all')));
+    }
+}
+
+/// The side panel for what is lit up — shown whenever nothing else is selected.
+function ecoGroupPanel() {
+    const panel = document.getElementById('eco-panel'), g = ECO.model && ECO.model.gnow;
+    if (!panel || ECO.selected) return;
+    if (!g) return panel.classList.add('hidden');
+    const close = `<button onclick="ecoSetGroup(null)" aria-label="Clear grouping" class="absolute top-3 right-4 text-2xl leading-none text-zinc-500 hover:text-white">&times;</button>`;
+    const K = ECO_GROUP_KIND[g.kind];
+    if (g.mode === 'all') {
+        panel.innerHTML = `${close}<p class="text-xs uppercase tracking-wider text-pink-300 mb-1">Coloured by ${g.kind === 'school' ? 'school' : 'past employer'}</p>
+            <h2 class="text-xl font-bold mb-1">${K.icon} ${K.many}</h2>
+            <p class="text-xs text-zinc-500 mb-4">${K.note}, unchecked. Everyone takes the colour of the largest group they belong to. Click one to light up just its members.</p>
+            <div class="space-y-1.5 mb-4">${g.top.map((x, i) => `<button onclick="ecoSetGroup({ mode: 'one', kind: '${g.kind}', id: '${ecoEsc(x.key)}' })"
+                class="w-full flex items-center justify-between gap-3 text-left px-3 py-2 rounded-xl bg-zinc-800/70 hover:bg-zinc-700/80">
+                <span class="text-sm truncate"><span class="inline-block w-2.5 h-2.5 rounded-full mr-2" style="background:${ecoHex(ECO_GROUP_COLORS[i])}"></span>${ecoEsc(x.name)}</span>
+                <span class="text-xs text-zinc-400 shrink-0">${x.count}</span></button>`).join('')}</div>
+            <p class="text-xs text-zinc-500 mb-4">${g.other ? g.other + ' in other ' + (g.kind === 'school' ? 'schools' : 'employers') + ' · ' : ''}${g.none} with none listed</p>
+            <button onclick="ecoSetGroup(null)" class="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-sm font-semibold">Clear grouping</button>`;
+    } else {
+        const x = g.group, shown = [...x.members].sort((a, b) => b.score - a.score).slice(0, 60);
+        panel.innerHTML = `${close}<p class="text-xs uppercase tracking-wider text-pink-300 mb-1">${K.icon} ${ecoEsc(K.one)}</p>
+            <h2 class="text-xl font-bold mb-1 pr-8 break-words">${ecoEsc(x.name)}</h2>
+            <p class="text-xs text-zinc-500 mb-4">${K.note}${g.kind === 'company' ? '.' : ', unchecked.'}</p>
+            <div class="grid grid-cols-3 gap-2 text-center mb-4">${[[x.count.toLocaleString(), 'Members'], [x.done.toLocaleString(), 'Bounties done'], ['$' + Math.round(x.usdc).toLocaleString(), 'USDC earned']]
+                .map(v => `<div class="rounded-xl bg-zinc-800/70 py-2"><p class="text-lg font-bold">${v[0]}</p><p class="text-[11px] text-zinc-400">${v[1]}</p></div>`).join('')}</div>
+            <p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Members${x.count > shown.length ? ' (leading ' + shown.length + ' of ' + x.count.toLocaleString() + ')' : ''}</p>
+            <div class="space-y-1.5 mb-4">${shown.map(p => `<button onclick="ecoSelectPerson('${ecoEsc(p.key)}')"
+                class="w-full flex items-center justify-between gap-3 text-left px-3 py-2 rounded-xl bg-zinc-800/70 hover:bg-zinc-700/80">
+                <span class="text-sm truncate">${ecoEsc(p.label)}</span><span class="text-xs text-zinc-400 shrink-0">${p.stats.done ? p.stats.done + ' done' : ''}</span></button>`).join('')
+                || '<p class="text-sm text-zinc-500">Nobody the map is showing.</p>'}</div>
+            <button onclick="ecoSetGroup(null)" class="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-sm font-semibold">Clear grouping</button>`;
+    }
+    panel.classList.remove('hidden');
+}
+
+// ── Profile: education and work history ──────────────────────────────────
+// Stored on the member's own record as `education` [{ school, degree, years }]
+// and `workHistory` [{ company, title, years }]. Self-reported; nothing here
+// checks them, and the profile says so.
+const PROF_KINDS = {
+    edu:  { rows: 'edit-edu-rows',  main: 'school',  second: 'degree', list: 'nqv-schools',   ph: ['School or university', 'Degree or course', 'Years'] },
+    work: { rows: 'edit-work-rows', main: 'company', second: 'title',  list: 'nqv-employers', ph: ['Company', 'Role', 'Years'] }
+};
+let _profHist = { edu: [], work: [] };
+
+function profOpenEditor() {
+    const u = (typeof currentUser !== 'undefined' && currentUser) || {};
+    const copy = arr => (Array.isArray(arr) ? arr : []).slice(0, 6).map(e => Object.assign({}, e));
+    _profHist = { edu: copy(u.education), work: copy(u.workHistory) };
+    profRenderRows('edu'); profRenderRows('work');
+    // Suggest the names other members have already used.
+    const fill = (id, arr) => { const el = document.getElementById(id); if (el) el.innerHTML = (arr || []).slice(0, 400).map(g => `<option value="${ecoEsc(g.n)}"></option>`).join(''); };
+    const use = snap => { if (snap && snap.groups) { fill('nqv-schools', snap.groups.s); fill('nqv-employers', snap.groups.e); } };
+    if (ECO.snap) use(ECO.snap); else fetch('/api/nqverse').then(r => r.ok ? r.json() : null).then(use).catch(() => {});
+}
+
+function profRenderRows(kind) {
+    const K = PROF_KINDS[kind], box = document.getElementById(K.rows);
+    if (!box) return;
+    const input = (i, field, ph, extra) => `<input type="text" maxlength="${field === 'years' ? 20 : 80}" placeholder="${ph}" value="${ecoEsc(_profHist[kind][i][field] || '')}" ${extra || ''}
+        oninput="profSet('${kind}', ${i}, '${field}', this.value)" class="min-w-0 bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 outline-none text-sm`;
+    box.innerHTML = _profHist[kind].map((e, i) => `<div class="flex flex-wrap gap-2 items-center">
+            ${input(i, K.main, K.ph[0], `list="${K.list}" autocomplete="off"`)} flex-[2_1_10rem]">
+            ${input(i, K.second, K.ph[1])} flex-[2_1_8rem]">
+            ${input(i, 'years', K.ph[2])} flex-[1_1_5rem]">
+            <button type="button" onclick="profRemoveRow('${kind}', ${i})" aria-label="Remove" class="px-2 text-xl text-zinc-500 hover:text-red-400">&times;</button>
+        </div>`).join('');
+}
+function profSet(kind, i, field, value) { if (_profHist[kind][i]) _profHist[kind][i][field] = value; }
+function profAddRow(kind) {
+    if (_profHist[kind].length >= 6) return alert('You can list up to 6.');
+    _profHist[kind].push({});
+    profRenderRows(kind);
+    const rows = document.getElementById(PROF_KINDS[kind].rows), last = rows && rows.lastElementChild;
+    if (last) last.querySelector('input').focus();
+}
+function profRemoveRow(kind, i) { _profHist[kind].splice(i, 1); profRenderRows(kind); }
+
+/// What gets saved: tidied, and without the rows left blank.
+function profCollect(kind) {
+    const K = PROF_KINDS[kind], tidy = (v, n) => String(v == null ? '' : v).replace(/\s+/g, ' ').trim().slice(0, n);
+    return _profHist[kind].map(e => ({ [K.main]: tidy(e[K.main], 80), [K.second]: tidy(e[K.second], 80), years: tidy(e.years, 20) }))
+        .filter(e => e[K.main]).slice(0, 6);
+}
+
+/// Education and work history on a profile page. Each name is a button that
+/// lights up everyone in the NQVerse who lists the same place.
+function profRenderHistory(elId, user) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    const edu = (user && Array.isArray(user.education) ? user.education : []).filter(e => e && e.school);
+    const work = (user && Array.isArray(user.workHistory) ? user.workHistory : []).filter(e => e && e.company);
+    if (!edu.length && !work.length) { el.innerHTML = ''; return; }
+    const line = (kind, icon, name, second, years) => `<li class="text-sm text-zinc-300">${icon}
+        <button onclick="ecoOpenGroup('${kind}', this.dataset.name)" data-name="${ecoEsc(name)}" title="See everyone in the NQVerse who lists this" class="font-semibold text-pink-200 hover:underline">${ecoEsc(name)}</button>${
+        second ? ' — ' + ecoEsc(second) : ''}${years ? ' <span class="text-zinc-500">· ' + ecoEsc(years) + '</span>' : ''}</li>`;
+    el.innerHTML = (edu.length ? `<p class="text-xs uppercase tracking-wider text-zinc-500 mb-1">Education</p><ul class="space-y-1 mb-3">${edu.map(e => line('school', '🎓', e.school, e.degree, e.years)).join('')}</ul>` : '')
+        + (work.length ? `<p class="text-xs uppercase tracking-wider text-zinc-500 mb-1">Work history</p><ul class="space-y-1 mb-2">${work.map(e => line('employer', '💼', e.company, e.title, e.years)).join('')}</ul>` : '')
+        + `<p class="text-[10px] text-zinc-600">Self-reported</p>`;
 }
 
 // ── Trending tab ─────────────────────────────────────────────────────────
@@ -21373,19 +21771,22 @@ function ecoMarketClick(i) {
 
 function ecoRenderRankings() {
     const box = document.getElementById('nqv-feed-list'), tabs = document.getElementById('nqv-feed-tabs');
-    const kind = ECO.rank.kind === 'companies' ? 'companies' : 'people';
+    const kind = ECO_MEASURES[ECO.rank.kind] ? ECO.rank.kind : 'people';
+    const isGroup = kind === 'schools' || kind === 'employers';
     const rk = ECO.model.rank[kind], m = rk.m;
     const me = (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) || null;
 
     const tab = (id, label) => `<button onclick="ecoSetMeasure('${id}', ECO.rank['${id}'])" class="px-3 py-1 rounded-full text-xs font-semibold ${kind === id ? 'bg-yellow-400 text-black' : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'}">${label}</button>`;
-    tabs.innerHTML = tab('people', 'People') + tab('companies', 'Companies');
+    tabs.innerHTML = tab('people', 'People') + tab('companies', 'Companies') + tab('schools', 'Schools') + tab('employers', 'Employers');
 
     const shown = rk.rows.slice(0, ECO_RANK_SHOWN);
     ECO.rankRows = shown.map(x => x.e);
     const medal = i => i < 3 ? ['🥇', '🥈', '🥉'][i] : '#' + (i + 1);
     const rowHtml = (x, i) => {
         const e = x.e, mine = kind === 'people' && me && e.uid === me;
-        const sub = kind === 'people' ? e.name : [e.entityType || 'Project', e.verified ? 'Verified' : 'Unverified'].join(' · ');
+        const sub = kind === 'people' ? e.name
+                  : isGroup ? e.count.toLocaleString() + (e.count === 1 ? ' member' : ' members')
+                  : [e.entityType || 'Project', e.verified ? 'Verified' : 'Unverified'].join(' · ');
         return `<button onclick="ecoRankClick(${i})" class="w-full text-left flex items-center gap-3 px-4 py-2.5 border-b border-zinc-800 hover:bg-zinc-800/70 ${mine ? 'bg-yellow-400/10' : ''}">
             <span class="w-8 shrink-0 text-center ${i < 3 ? 'text-lg' : 'text-xs font-bold ' + (i < ECO_RANK_TOP ? 'text-yellow-300' : 'text-zinc-500')}">${medal(i)}</span>
             <span class="flex-1 min-w-0"><span class="block text-sm font-semibold text-zinc-100 truncate">${ecoEsc(kind === 'people' ? e.label : e.name)}${mine ? ' <span class="text-[10px] text-yellow-300 font-bold">YOU</span>' : ''}</span>
@@ -21401,6 +21802,7 @@ function ecoRenderRankings() {
         else if (!mePerson || !mePerson.rankPos) foot = `<p class="text-xs text-zinc-500 px-4 py-3">You are not on this ranking yet.</p>`;
     }
     const empty = rk.off ? `<p class="text-sm text-zinc-400 px-4 py-6">${ecoEsc(m.offNote || 'This ranking is switched off for now.')}</p>`
+        : isGroup ? `<p class="text-sm text-zinc-400 px-4 py-6">No member has listed ${kind === 'schools' ? 'a school' : 'a past employer'} yet. Add yours under Profile → Edit.</p>`
         : `<p class="text-sm text-zinc-400 px-4 py-6">Nobody is on this ranking yet.</p>`;
 
     box.innerHTML = `<div class="sticky top-0 z-10 bg-zinc-900 px-4 py-3 border-b border-zinc-800">
@@ -21409,9 +21811,11 @@ function ecoRenderRankings() {
                     class="flex-1 min-w-0 px-2 py-1.5 rounded-lg bg-zinc-800 border border-zinc-700 text-sm text-white focus:outline-none focus:border-yellow-400">
                 ${Object.entries(ECO_MEASURES[kind]).map(([k, mm]) => `<option value="${k}"${k === rk.key ? ' selected' : ''}>${ecoEsc(mm.label)}</option>`).join('')}
             </select></label>
-            <p class="text-[11px] text-zinc-500 mt-2">${rk.key === 'overall'
-                ? 'Overall blends ' + (kind === 'people' ? 'bounties, earnings, stakes and followers' : 'people, work, value and followers') + ' — the same blend that sizes the map.'
-                : 'The map is sized by this too.'} The top ${ECO_RANK_TOP} glow gold. Click a row to fly there.</p>
+            <p class="text-[11px] text-zinc-500 mt-2">${isGroup
+                ? (kind === 'schools' ? 'Schools' : 'Past employers') + ' as members listed them on their profiles — self-reported. Click one to light up its members on the map.'
+                : (rk.key === 'overall'
+                    ? 'Overall blends ' + (kind === 'people' ? 'bounties, earnings, stakes and followers' : 'people, work, value and followers') + ' — the same blend that sizes the map.'
+                    : 'The map is sized by this too.') + ' The top ' + ECO_RANK_TOP + ' glow gold. Click a row to fly there.'}</p>
         </div>`
         + (shown.map(rowHtml).join('') || empty) + foot;
 }
@@ -21419,7 +21823,8 @@ function ecoRenderRankings() {
 function ecoRankClick(i) {
     const e = ECO.rankRows && ECO.rankRows[i];
     if (!e) return;
-    if (ECO.rank.kind === 'companies') ecoSelectId('c:' + e.id); else ecoSelectPerson(e.key);
+    if (ECO.rank.kind === 'schools' || ECO.rank.kind === 'employers') ecoSetGroup({ mode: 'one', kind: e.kind, id: e.key });
+    else if (ECO.rank.kind === 'companies') ecoSelectId('c:' + e.id); else ecoSelectPerson(e.key);
     // On a phone the map is above the list; go back up to watch it fly.
     if (window.innerWidth < 1024) { const st = document.getElementById('eco-canvas'); if (st) st.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
 }
@@ -21439,6 +21844,7 @@ function ecoSyncExplore(content, mode) {
 function ecoRenderFeed() {
     const box = document.getElementById('nqv-feed-list'), tabs = document.getElementById('nqv-feed-tabs');
     ecoRenderSideTabs();
+    if (box && ECO.side === 'chat') return ecoRenderChat();          // chat does not wait for the map's data
     if (!box || !ECO.model) return;
     if (ECO.side !== 'feed') ecoPane('list');
     if (ECO.side === 'market') return ecoRenderMarket();
@@ -21600,11 +22006,30 @@ function ecoStop() {
         if (page === 'leaderboard') return ecoOpenRankings();
         // So has Explore: its posts and shows are the Feed's Posts and Shows.
         if (page === 'ideas') return ecoOpenFeed('posts');
+        // And Chat: the same chat, in the NQVerse's side column.
+        if (page === 'chat') return ecoOpenChat();
         const r = _navigateTo.apply(this, arguments);
         const el = document.getElementById('ecosystem-page');
         if (el && !el.classList.contains('hidden')) { ecoStart(); if (ECO.running) ecoSyncUser(); } else ecoStop();
         return r;
     };
+    // Chat decided "one pane or two" by the width of the window. In the side
+    // column it goes by the width of the column.
+    if (typeof showChatMain === 'function') {
+        const _showChatMain = showChatMain;
+        showChatMain = function () {
+            const side = document.getElementById('chat-sidebar'), main = document.getElementById('chat-main');
+            if (!document.getElementById('nqv-chat-root') || !side || !main || ecoChatTwoPane()) return _showChatMain.apply(this, arguments);
+            side.classList.add('hidden'); side.classList.remove('flex');
+            main.classList.remove('hidden'); main.classList.add('flex');
+        };
+    }
+    window.addEventListener('resize', () => { if (ECO.side === 'chat') ecoChatLayout(); });
+    // Profile: fill the education and work rows whenever the editor opens.
+    if (typeof showEditProfileModal === 'function') {
+        const _showEdit = showEditProfileModal;
+        showEditProfileModal = function () { const out = _showEdit.apply(this, arguments); profOpenEditor(); return out; };
+    }
     document.addEventListener('visibilitychange', () => {
         const el = document.getElementById('ecosystem-page');
         if (document.hidden) { ECO.running = false; cancelAnimationFrame(ECO.raf); }
@@ -23364,6 +23789,16 @@ async function showsAdminRemove(postId) {
         </div>
 
         <div id="selected-skills-preview" class="flex flex-wrap gap-2 mb-6 min-h-8"></div>
+
+        <label class="block text-sm text-zinc-400 mb-2">Education <span class="text-zinc-500">(optional)</span></label>
+        <div id="edit-edu-rows" class="space-y-2 mb-2"></div>
+        <button type="button" onclick="profAddRow('edu')" class="text-sm text-cyan-400 hover:underline mb-6">+ Add a school</button>
+
+        <label class="block text-sm text-zinc-400 mb-2">Work history <span class="text-zinc-500">(optional)</span></label>
+        <div id="edit-work-rows" class="space-y-2 mb-2"></div>
+        <button type="button" onclick="profAddRow('work')" class="text-sm text-cyan-400 hover:underline mb-2">+ Add a company</button>
+        <p class="text-xs text-zinc-500 mb-6">Shown on your public profile as self-reported. Pick a suggestion where one fits, so you are grouped with others from the same place in the NQVerse.</p>
+        <datalist id="nqv-schools"></datalist><datalist id="nqv-employers"></datalist>
 
         <label class="block text-sm text-zinc-400 mb-2">Portfolio Links <span class="text-zinc-500">(optional)</span></label>
         <div class="space-y-3 mb-6">
