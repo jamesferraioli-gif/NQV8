@@ -19120,8 +19120,13 @@ async function showFounderControls() {
         document.getElementById('fc-circulating').textContent = fmt(circulating);
         document.getElementById('fc-allowance').textContent = fmt(allowance);
         document.getElementById('fc-remaining').textContent = fmt(remaining);
-        document.getElementById('fc-window-resets').textContent = new Date(resets.toNumber() * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
-        document.getElementById('fc-sold-window').textContent = fmt(soldWindow) + ' NQV8';
+        // The contract only starts a new window when a release is made, so once
+        // 90 days have passed it keeps reporting the old window's end date.
+        const resetsAt = resets.toNumber() * 1000, windowOver = Date.now() >= resetsAt;
+        document.getElementById('fc-window-resets').textContent = windowOver
+            ? 'Open now · your next release starts a new 90 days'
+            : new Date(resetsAt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+        document.getElementById('fc-sold-window').textContent = (windowOver ? '0' : fmt(soldWindow)) + ' NQV8';
         document.getElementById('fc-contract-link').innerHTML = `
             <a href="https://arbiscan.io/address/${FOUNDER_LOCKUP_ADDRESS}" target="_blank" class="text-cyan-400 hover:underline">
                 View lockup contract on Arbiscan
