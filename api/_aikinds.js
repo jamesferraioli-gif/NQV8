@@ -7,6 +7,8 @@
 // drift out of sync.
 
 import { callAnthropicJSON } from './_ai.js';
+import { runFlowmap } from './_plan.js';
+import { runDeck } from './_deck.js';
 
 export const AI_KINDS = {
 
@@ -15,63 +17,22 @@ export const AI_KINDS = {
         // Small JSON input — safe to store on the job doc, so a dead worker
         // can be retried by the sweep without the user paying again.
         storeInput: true,
-        label: 'development flow map',
-
-        async run({ name, description, stack }) {
-            if (!description || !String(description).trim()) {
-                throw new Error('A project description is required');
-            }
-
-            const parsed = await callAnthropicJSON({
-                // Each node carries a description, multi-sentence instructions,
-                // 3-5 best practices, 2-4 pitfalls and a tools list — roughly
-                // 350 tokens. Sixteen of those needs far more than the 4000
-                // this started with, which truncated mid-node.
-                maxTokens: 16000,
-                messages: [{
-                    role: 'user',
-                    content: `You are a senior software architect and product manager. Generate a detailed development flow map for the following project.
-
-Project Name: ${name || 'Untitled project'}
-Tech Stack: ${stack || 'Not specified'}
-Description: ${description}
-
-Return ONLY a JSON object with this exact structure (no markdown, no explanation):
-{
-  "nodes": [
-    {
-      "title": "Short node title",
-      "description": "2-3 sentence description of what this step involves",
-      "category": "one of: Frontend, Backend, Database, Auth, API, Infrastructure, Testing, Design, Marketing, Legal, Other",
-      "priority": "high or normal",
-      "estimatedHours": number or null,
-      "dependencies": ["titles of nodes this depends on"],
-      "instructions": "Detailed step-by-step instructions for completing this node. Be specific and technical. 3-6 sentences.",
-      "bestPractices": ["array of 3-5 specific best practices for this step"],
-      "pitfalls": ["array of 2-4 common mistakes to avoid"],
-      "tools": ["array of recommended libraries, tools, or services"],
-      "status": "todo"
-    }
-  ]
-}
-
-Generate 8-16 nodes ordered logically from foundation to launch. Each node should be a discrete, buildable unit of work. Be specific to the tech stack and project type described.`
-                }]
-            });
-
-            if (!Array.isArray(parsed?.nodes) || parsed.nodes.length === 0) {
-                throw new Error('Model returned no flow map nodes');
-            }
-            return parsed;
-        }
+        label: 'development plan',
+        // Two passes: an outline of the whole plan, then every part written
+        // up in full, in parallel. See _plan.js.
+        run: (input) => runFlowmap(input)
     },
 
     'verify-metrics': {
         priceNQV8: 100,
-        storeInput: true,
-        label: 'metrics verification'
-        // run() is supplied by verify-metrics.js, which needs Firestore and
-        // chain reads this module deliberately does not import.
+        // The input can carry three base64 documents, far past what a job
+        // document can hold, so it is never stored. The runner retries a busy
+        // upstream itself; a failure it cannot get past refunds the fee.
+        storeInput: false,
+        label: 'metrics verification and investor deck',
+        // Reads the company's site, checks the claimed figures against any
+        // documents, and writes the deck. See _deck.js.
+        run: (input) => runDeck(input)
     },
 
     'verify-docs': {
