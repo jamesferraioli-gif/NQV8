@@ -239,6 +239,14 @@
             "dest": "/api/nqverse.js"
         },
         {
+            "src": "/api/listing-alerts",
+            "dest": "/api/listing-alerts.js"
+        },
+        {
+            "src": "/api/email-prefs",
+            "dest": "/api/email-prefs.js"
+        },
+        {
             "src": "/api/scrub-user-emails",
             "dest": "/api/scrub-user-emails.js"
         },
