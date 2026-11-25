@@ -68,6 +68,18 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    <style>
+        /* Printing one pop-up (the investor deck, the development plan) as a document. */
+        @media print {
+            html, body.nqv-printing { background: #fff !important; }
+            body.nqv-printing > *:not(.nqv-print-root) { display: none !important; }
+            body.nqv-printing .nqv-print-root { position: static !important; display: block !important; inset: auto !important; overflow: visible !important; background: #fff !important; padding: 0 !important; }
+            body.nqv-printing .nqv-print-root * { color: #111 !important; background: transparent !important; background-image: none !important; border-color: #bbb !important; box-shadow: none !important; max-height: none !important; overflow: visible !important; }
+            body.nqv-printing .nqv-print-root .nqv-noprint, body.nqv-printing .nqv-print-root button { display: none !important; }
+            body.nqv-printing .nqv-print-root section, body.nqv-printing .nqv-print-root tr, body.nqv-printing .nqv-print-root li { break-inside: avoid; }
+            body.nqv-printing .nqv-print-root #nqv-sheet-body, body.nqv-printing .nqv-print-root #deck-content { max-width: none !important; width: auto !important; margin: 0 !important; }
+        }
+    </style>
 </head>
 
 <body class="bg-black text-white min-h-screen">
@@ -4342,6 +4354,7 @@ function showVerifyMetricsModal(companyId, company) {
     document.getElementById('metric-revenue-doc').value = '';
     document.getElementById('metric-users-doc').value = '';
     document.getElementById('metric-optional-doc').value = '';
+    deckInputsRender(company);
 }
 
 function hideVerifyMetricsModal() {
@@ -4361,6 +4374,14 @@ async function submitMetricsVerification() {
 
     const claimedRevenue = document.getElementById('metric-claimed-revenue').value;
     const claimedUsers = document.getElementById('metric-claimed-users').value;
+
+    // A figure above the lowest range cannot be verified without proof. Say so
+    // before any NQV8 is spent, not after.
+    const anyOtherProof = !!document.getElementById('metric-optional-doc').files[0];
+    if (claimedRevenue !== 'Pre-revenue' && !revenueDoc && !anyOtherProof) return alert('To verify revenue above pre-revenue, upload a proof document first (a Stripe, PayPal or bank statement). Or choose "Pre-revenue".');
+    if (claimedUsers !== 'Pre-launch' && !usersDoc && !anyOtherProof) return alert('To verify a user count above pre-launch, upload a proof document first (analytics, app store or CRM). Or choose "Pre-launch".');
+    const deckInputs = deckInputsRead();
+    let deckJobStarted = false;      // once true, the job queue owns any refund
 
     const btn = document.getElementById('verify-metrics-btn');
     const banner = document.getElementById('metrics-status-banner');
@@ -4419,11 +4440,11 @@ async function submitMetricsVerification() {
 
         // Call API
         const _voucherMetrics = await claimVoucher(_txHash1, 'verify-metrics');
-        const response = await fetch('/api/verify-metrics', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
-            body: JSON.stringify({
-                voucher: _voucherMetrics,
+        setBanner('Claude is reading your site and writing the deck. This takes about a minute — keep this window open.', 'bg-cyan-500/10 border border-cyan-500/30 text-cyan-300');
+        const result = await runPaidAIJob({
+            kind:    'verify-metrics',
+            voucher: _voucherMetrics,
+            input: Object.assign({
                 revenueBase64,
                 revenueMediaType: revenueDoc?.type || null,
                 usersBase64,
@@ -4436,10 +4457,14 @@ async function submitMetricsVerification() {
                 website: verifyMetricsCompany.website || '',
                 claimedRevenue,
                 claimedUsers
-            })
+            }, deckInputs),
+            onProgress: (s) => {
+                deckJobStarted = true;
+                if (s === 'pending') btn.textContent = '⏳ Queued…';
+                if (s === 'running') btn.textContent = '⏳ Writing your deck…';
+            }
         });
-
-        const result = await response.json();
+        banner.classList.add('hidden');
 
         // Route technical API errors to catch block so refund triggers
             if (result.summary?.includes('API error') || result.summary?.includes('overloaded') || result.summary?.includes('Service error')) {
@@ -4469,6 +4494,7 @@ async function submitMetricsVerification() {
                 revenueBucket: result.revenueBucket,
                 usersBucket: result.usersBucket,
                 investorDeck: result.deck,
+                deckInputs,
                 // Keep history of all previous decks
                 deckHistory: deckArchiveEntry
                     ? firebase.firestore.FieldValue.arrayUnion(deckArchiveEntry)
@@ -4498,15 +4524,16 @@ async function submitMetricsVerification() {
 
             btn.disabled = false;
             btn.textContent = `Pay ${NQV8_FEE.VERIFY_METRICS} NQV8 & Verify`;
+            const deckCompanyId = verifyMetricsCompanyId;      // closing the form forgets it
             hideVerifyMetricsModal();
 
             // Fetch fresh company doc and auto-open the new deck
-            const freshDoc = await db.collection('companies').doc(verifyMetricsCompanyId).get();
+            const freshDoc = await db.collection('companies').doc(deckCompanyId).get();
             const freshCompany = { id: freshDoc.id, ...freshDoc.data() };
 
             alert(`✅ Metrics verified!\n\nRevenue: ${result.revenueBucket}\nUsers: ${result.usersBucket}\n\nYour investor deck is ready.`);
             loadProfileData();
-            showInvestorDeck(verifyMetricsCompanyId, freshCompany);
+            showInvestorDeck(deckCompanyId, freshCompany);
 
         } else if (result.metricsVerified && result.confidence === 'low') {
             btn.disabled = false;
@@ -4521,6 +4548,10 @@ async function submitMetricsVerification() {
     } catch(e) {
         btn.disabled = false;
         btn.textContent = `Pay ${NQV8_FEE.VERIFY_METRICS} NQV8 & Verify`;
+
+        // Once the job exists, the job queue refunds a failure itself and
+        // says so in the message. Refunding here as well would pay twice.
+        if (deckJobStarted) { setBanner('❌ ' + e.message, 'bg-red-500/10 border border-red-500/30 text-red-400'); return; }
 
         // Auto-refund on technical errors
         try {
@@ -4551,119 +4582,6 @@ async function submitMetricsVerification() {
     }
 }
 
-function showInvestorDeck(companyId, company) {
-    if (!connectedAddress) return alert("Please connect your wallet to view investor decks.");
-
-    const deck = company.investorDeck;
-    if (!deck) return alert("No investor deck available for this company.");
-
-    document.getElementById('deck-company-name').textContent = company.name;
-
-    // Store for save function
-    document.getElementById('investor-deck-modal').dataset.companyId = companyId;
-    document.getElementById('investor-deck-modal').dataset.editing = 'false';
-
-    // Show edit button only to owner
-    const isOwner = currentUser && company.ownerUid === currentUser.uid;
-    document.getElementById('deck-edit-btn').classList.toggle('hidden', !isOwner);
-    document.getElementById('deck-save-btn').classList.add('hidden');
-
-    const revBadge = company.revenueBucket ? `<span class="px-3 py-1 bg-emerald-500/20 text-emerald-400 rounded-full text-sm">💰 ${company.revenueBucket}</span>` : '';
-    const userBadge = company.usersBucket ? `<span class="px-3 py-1 bg-cyan-500/20 text-cyan-400 rounded-full text-sm">👥 ${company.usersBucket}</span>` : '';
-    const verifiedDate = company.metricsVerifiedAt?.toDate ? new Date(company.metricsVerifiedAt.toDate()).toLocaleDateString() : '';
-
-    document.getElementById('deck-content').innerHTML = `
-        <!-- Header -->
-        <div class="text-center py-10 border-b border-zinc-800">
-            <div class="w-20 h-20 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-3xl flex items-center justify-center text-4xl font-bold mx-auto mb-6">
-                ${company.name[0]}
-            </div>
-            <h1 class="text-5xl font-bold mb-4">${company.name}</h1>
-            <p id="deck-field-tagline" class="text-xl text-zinc-300 max-w-2xl mx-auto mb-6">${deck.tagline}</p>
-            <div class="flex gap-3 justify-center flex-wrap">
-                ${revBadge}
-                ${userBadge}
-                ${verifiedDate ? `<span class="px-3 py-1 bg-violet-500/20 text-violet-400 rounded-full text-sm">✅ Claude-verified · ${verifiedDate}</span>` : ''}
-                ${company.website ? `<a href="${company.website}" target="_blank" class="px-3 py-1 bg-zinc-800 text-cyan-400 rounded-full text-sm hover:bg-zinc-700">🌐 ${company.website}</a>` : ''}
-            </div>
-        </div>
-
-        <!-- Highlights -->
-        <div class="bg-gradient-to-br from-cyan-500/10 to-violet-500/10 border border-cyan-500/20 rounded-3xl p-8">
-            <h2 class="text-2xl font-bold mb-6">✨ Highlights</h2>
-            <div id="deck-field-highlights" class="space-y-3">
-                ${(deck.highlights || []).map(h => `
-                    <div class="flex items-start gap-3">
-                        <span class="text-cyan-400 mt-0.5 flex-shrink-0">→</span>
-                        <p class="text-zinc-200">${h}</p>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-
-        <!-- Problem -->
-        <div class="bg-zinc-900 rounded-3xl p-8">
-            <h2 class="text-2xl font-bold mb-4 text-red-400">🎯 The Problem</h2>
-            <p id="deck-field-problem" class="text-zinc-300 leading-relaxed text-lg">${deck.problem}</p>
-        </div>
-
-        <!-- Solution -->
-        <div class="bg-zinc-900 rounded-3xl p-8">
-            <h2 class="text-2xl font-bold mb-4 text-emerald-400">💡 The Solution</h2>
-            <p id="deck-field-solution" class="text-zinc-300 leading-relaxed text-lg">${deck.solution}</p>
-        </div>
-
-        <!-- Traction -->
-        <div class="bg-zinc-900 rounded-3xl p-8">
-            <h2 class="text-2xl font-bold mb-4 text-cyan-400">📈 Traction</h2>
-            <div class="grid grid-cols-2 gap-4 mb-4">
-                ${company.revenueBucket ? `
-                <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 text-center">
-                    <p class="text-xs text-zinc-400 mb-1">Monthly Revenue</p>
-                    <p class="text-2xl font-bold text-emerald-400">${company.revenueBucket}</p>
-                    <p class="text-xs text-emerald-600 mt-1">Claude-verified</p>
-                </div>` : ''}
-                ${company.usersBucket ? `
-                <div class="bg-cyan-500/10 border border-cyan-500/20 rounded-2xl p-4 text-center">
-                    <p class="text-xs text-zinc-400 mb-1">Users / Customers</p>
-                    <p class="text-2xl font-bold text-cyan-400">${company.usersBucket}</p>
-                    <p class="text-xs text-cyan-600 mt-1">Claude-verified</p>
-                </div>` : ''}
-            </div>
-            <p id="deck-field-traction" class="text-zinc-300 leading-relaxed">${deck.traction}</p>
-        </div>
-
-        <!-- Market Opportunity -->
-        <div class="bg-zinc-900 rounded-3xl p-8">
-            <h2 class="text-2xl font-bold mb-4 text-violet-400">🌐 Market Opportunity</h2>
-            <p id="deck-field-marketOpportunity" class="text-zinc-300 leading-relaxed text-lg">${deck.marketOpportunity}</p>
-        </div>
-
-        <!-- Business Model -->
-        <div class="bg-zinc-900 rounded-3xl p-8">
-            <h2 class="text-2xl font-bold mb-4 text-amber-400">💼 Business Model</h2>
-            <p id="deck-field-businessModel" class="text-zinc-300 leading-relaxed text-lg">${deck.businessModel}</p>
-        </div>
-
-        <!-- Why Now -->
-        <div class="bg-zinc-900 rounded-3xl p-8">
-            <h2 class="text-2xl font-bold mb-4 text-pink-400">⚡ Why Now</h2>
-            <p id="deck-field-whyNow" class="text-zinc-300 leading-relaxed text-lg">${deck.whyNow}</p>
-        </div>
-
-        <!-- Use of Funds -->
-        <div class="bg-zinc-900 rounded-3xl p-8">
-            <h2 class="text-2xl font-bold mb-4 text-cyan-400">🎯 Use of Funds</h2>
-            <p id="deck-field-useOfFunds" class="text-zinc-300 leading-relaxed text-lg">${deck.useOfFunds}</p>
-        </div>
-
-        <!-- Disclaimer -->
-        <div class="bg-zinc-800/50 rounded-2xl p-6 text-center">
-            <p class="text-xs text-zinc-500">This investor deck was generated by Claude AI based on founder-submitted information and Claude-verified metrics. NQVate is not a broker, advisor, or party to any investment. Always do your own due diligence.</p>
-        </div>
-    `;
-    document.getElementById('investor-deck-modal').classList.remove('hidden');
-}
         console.log("✅ SCRIPT LOADED SUCCESSFULLY");
 
         const firebaseConfig = {
@@ -4684,85 +4602,6 @@ function showInvestorDeck(companyId, company) {
         let currentMarketplaceFilter = 'build'; // default to Build Requests
 
     // ====================== INVESTOR DECK EDITING ======================
-function toggleDeckEdit() {
-    const modal = document.getElementById('investor-deck-modal');
-    const isEditing = modal.dataset.editing === 'true';
-
-    if (isEditing) {
-        // Cancel — re-render original
-        const companyId = modal.dataset.companyId;
-        modal.dataset.editing = 'false';
-        document.getElementById('deck-edit-btn').textContent = '✏️ Edit';
-        document.getElementById('deck-save-btn').classList.add('hidden');
-        // Reload from Firestore to restore original
-        db.collection('companies').doc(companyId).get().then(doc => {
-            if (doc.exists) showInvestorDeck(companyId, { id: doc.id, ...doc.data() });
-        });
-    } else {
-        // Enter edit mode — replace text with textareas
-        modal.dataset.editing = 'true';
-        document.getElementById('deck-edit-btn').textContent = '✕ Cancel';
-        document.getElementById('deck-save-btn').classList.remove('hidden');
-
-        const fields = ['tagline','problem','solution','traction','marketOpportunity','businessModel','whyNow','useOfFunds'];
-        fields.forEach(field => {
-            const el = document.getElementById(`deck-field-${field}`);
-            if (el) {
-                const current = el.textContent;
-                el.innerHTML = `<textarea
-                    class="w-full bg-zinc-800 border border-zinc-600 rounded-xl px-4 py-3 outline-none text-sm text-zinc-200 leading-relaxed resize-none"
-                    rows="4"
-                    data-field="${field}">${current}</textarea>`;
-            }
-        });
-
-        // Edit highlights as a list
-        const highlightsEl = document.getElementById('deck-field-highlights');
-        if (highlightsEl) {
-            const items = [...highlightsEl.querySelectorAll('p')].map(p => p.textContent).join('\n');
-            highlightsEl.innerHTML = `<textarea
-                class="w-full bg-zinc-800 border border-zinc-600 rounded-xl px-4 py-3 outline-none text-sm text-zinc-200 leading-relaxed resize-none"
-                rows="6"
-                data-field="highlights"
-                placeholder="One highlight per line">${items}</textarea>`;
-        }
-    }
-}
-
-async function saveDeckEdits() {
-    const modal = document.getElementById('investor-deck-modal');
-    const companyId = modal.dataset.companyId;
-    if (!companyId || !currentUser) return;
-
-    const updated = {};
-    document.querySelectorAll('#deck-content textarea[data-field]').forEach(ta => {
-        const field = ta.dataset.field;
-        if (field === 'highlights') {
-            updated[field] = ta.value.split('\n').map(l => l.trim()).filter(Boolean);
-        } else {
-            updated[field] = ta.value.trim();
-        }
-    });
-
-    try {
-        await db.collection('companies').doc(companyId).update({
-            investorDeck: updated,
-            deckUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-
-        modal.dataset.editing = 'false';
-        document.getElementById('deck-edit-btn').textContent = '✏️ Edit';
-        document.getElementById('deck-save-btn').classList.add('hidden');
-
-        // Reload the deck with updated content
-        const doc = await db.collection('companies').doc(companyId).get();
-        showInvestorDeck(companyId, { id: doc.id, ...doc.data() });
-        alert('✅ Deck saved successfully.');
-    } catch(e) {
-        alert('Failed to save: ' + e.message);
-    }
-}
-
 // ============================================================
 // BLOCKCHAIN CONFIG — Arbitrum One
 // ============================================================
@@ -18256,6 +18095,7 @@ async function loadStudioProjectList() {
             if (currentStudioProjectId) sel.value = currentStudioProjectId;
         }
         studioRefresh();
+        planRecover();          // a plan that finished while the page was closed
     } catch(e) {
         console.error('loadStudioProjectList:', e.message);
     }
@@ -18327,80 +18167,6 @@ async function addFlowNode() {
 }
 
 // ── Node detail modal ─────────────────────────────────────────────────
-function showFlowNodeModal(node) {
-    document.getElementById('node-modal-title').textContent = node.title;
-    const effectiveStatus = node.type === 'build' ? 'build' : (node.status || 'open');
-
-    document.getElementById('node-modal-content').innerHTML = `
-        <div class="space-y-5">
-            <div class="flex gap-4 mb-2">
-                <div>
-                    <p class="text-xs text-zinc-400 mb-1">Status</p>
-                    <span class="px-3 py-1 rounded-full text-xs bg-zinc-700 text-zinc-400">To Do</span>
-                </div>
-                <div>
-                    <p class="text-xs text-zinc-400 mb-1">Category</p>
-                    <span class="text-sm font-medium">${node.nodeCategory || 'General'}</span>
-                </div>
-            </div>
-
-            <div>
-                <p class="text-xs text-zinc-400 mb-2">Description</p>
-                <p class="text-zinc-300 text-sm leading-relaxed">${node.description || '—'}</p>
-            </div>
-
-            ${node.instructions ? `
-            <div class="bg-cyan-500/10 border border-cyan-500/20 rounded-2xl p-5">
-                <p class="text-cyan-400 text-xs font-semibold uppercase tracking-wider mb-3">🤖 Claude's Instructions</p>
-                <div class="text-zinc-300 text-sm leading-relaxed whitespace-pre-wrap">${node.instructions}</div>
-            </div>` : ''}
-
-            ${node.bestPractices?.length > 0 ? `
-            <div class="bg-violet-500/10 border border-violet-500/20 rounded-2xl p-5">
-                <p class="text-violet-400 text-xs font-semibold uppercase tracking-wider mb-3">✨ Best Practices</p>
-                <ul class="space-y-2">
-                    ${node.bestPractices.map(bp => `<li class="flex items-start gap-2 text-sm text-zinc-300"><span class="text-violet-400 flex-shrink-0">→</span>${bp}</li>`).join('')}
-                </ul>
-            </div>` : ''}
-
-            ${node.pitfalls?.length > 0 ? `
-            <div class="bg-red-500/10 border border-red-500/20 rounded-2xl p-5">
-                <p class="text-red-400 text-xs font-semibold uppercase tracking-wider mb-3">⚠️ Common Pitfalls</p>
-                <ul class="space-y-2">
-                    ${node.pitfalls.map(p => `<li class="flex items-start gap-2 text-sm text-zinc-300"><span class="text-red-400 flex-shrink-0">✗</span>${p}</li>`).join('')}
-                </ul>
-            </div>` : ''}
-
-            ${node.tools?.length > 0 ? `
-            <div>
-                <p class="text-xs text-zinc-400 mb-2">Recommended Tools</p>
-                <div class="flex flex-wrap gap-2">
-                    ${node.tools.map(t => `<span class="px-3 py-1 bg-zinc-800 rounded-full text-xs text-zinc-300">${t}</span>`).join('')}
-                </div>
-            </div>` : ''}
-
-            <!-- Edit -->
-            <div class="border-t border-zinc-700 pt-5">
-                <p class="text-xs text-zinc-500 mb-3">Edit this node</p>
-                <input id="node-edit-title" type="text" value="${node.title.replace(/"/g,'&quot;')}"
-                       class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none text-sm mb-3">
-                <textarea id="node-edit-desc" rows="3"
-                          class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none text-sm mb-3">${node.description || ''}</textarea>
-                <div class="flex gap-3">
-                    <button onclick="saveNodeEdits('${node.id}')"
-                            class="flex-1 py-3 bg-white text-black font-semibold rounded-xl text-sm">Save</button>
-                    ${node.type !== 'build' ? `
-                    <button onclick="sendNodeToBuild('${node.id}', '${node.title.replace(/'/g,"\\\''")}'); hideFlowNodeModal()"
-                            class="flex-1 py-3 bg-violet-600 text-white font-semibold rounded-xl text-sm">→ Build</button>` : ''}
-                    <button onclick="deleteFlowNode('${node.id}'); hideFlowNodeModal()"
-                            class="py-3 px-4 border border-red-500/30 text-red-400 rounded-xl text-sm">🗑</button>
-                </div>
-            </div>
-        </div>
-    `;
-    document.getElementById('flow-node-modal').classList.remove('hidden');
-}
-
 function hideFlowNodeModal() {
     document.getElementById('flow-node-modal').classList.add('hidden');
 }
@@ -18503,7 +18269,7 @@ async function submitNewFlowMap(useAI = false) {
     const description = document.getElementById('flowmap-description').value.trim();
     const stack = document.getElementById('flowmap-stack').value;
 
-    if (useAI && description.length < 20) return alert('Please describe your project in more detail before using AI generation.');
+    if (useAI && description.length < 80) return alert('Please describe your project in more detail first — at least a few sentences on what it does, who it is for and what it must do at launch. The plan can only be as specific as the description.');
 
     const statusEl = document.getElementById('flowmap-modal-status');
     const setStatus = (msg) => { statusEl.classList.remove('hidden'); statusEl.textContent = msg; };
@@ -18540,9 +18306,11 @@ async function submitNewFlowMap(useAI = false) {
             await confirmTx(_feeTx7);
             const _txHash10 = _feeTx7.hash;
             if (!_txHash10) throw new Error('Payment did not confirm');
+            window._planJobId = String(_txHash10).toLowerCase();      // the job is filed under its payment
+
             await recordProtocolFee(nqv8Amount, 'flow-map-generation', _txHash10, 'NQV8');
 
-            setStatus('🤖 Claude is generating your plan...');
+            setStatus('🤖 Claude is writing your plan. This takes 2 to 3 minutes — keep this window open.');
             if (btnAI) btnAI.textContent = '⏳ Generating...';
 
             // Get company name for context
@@ -18553,14 +18321,16 @@ async function submitNewFlowMap(useAI = false) {
             const parsed = await runPaidAIJob({
                 kind:    'generate-flowmap',
                 voucher: _voucherFlow,
-                input:   { name: companyName, description, stack },
+                input:   Object.assign({ name: companyName, description, stack, companyId: selectedFlowmapProjectId }, planFormExtras()),
+                timeoutMs: 480000,
                 onProgress: (s) => {
-                    if (s === 'running') setStatus('🤖 Claude is generating your plan...');
+                    if (s === 'running') setStatus('🤖 Claude is writing your plan: first the architecture and phases, then every part in detail. 2 to 3 minutes — keep this window open.');
                     if (s === 'pending') setStatus('⏳ Queued — starting shortly...');
                 }
             });
             if (!parsed.nodes || !Array.isArray(parsed.nodes)) throw new Error('Invalid response. Please try again.');
             nodes = parsed.nodes;
+            window._planOverview = parsed.plan || null;
 
         } else {
             // Blank plan — no starter nodes, user adds their own
@@ -18589,37 +18359,8 @@ async function submitNewFlowMap(useAI = false) {
 
         // Save each node as a subproject
         setStatus('💾 Saving...');
-        // Written ten at a time: the database checks each part against the
-        // company's team, and allows a limited number of checks per write.
-        const batches = [];
-        nodes.forEach((node, idx) => {
-            if (idx % 10 === 0) batches.push(db.batch());
-            const batch = batches[batches.length - 1];
-            const ref = db.collection('subprojects').doc();
-            batch.set(ref, {
-                companyId: selectedFlowmapProjectId,
-                ownerUid: currentUser.uid,
-                ownerUsername: currentUser.username || '',
-                posterName: currentUser.fullName || currentUser.username || '',
-                title: node.title,
-                description: node.description || '',
-                planNode: true,
-                nodeOrder: idx,
-                nodeCategory: node.category || node.nodeCategory || 'Other',
-                estimatedHours: node.estimatedHours || null,
-                instructions: node.instructions || '',
-                bestPractices: node.bestPractices || [],
-                pitfalls: node.pitfalls || [],
-                tools: node.tools || [],
-                dependencies: node.dependencies || [],
-                type: 'plan',
-                status: 'open',
-                bids: [],
-                bidsOpen: false,
-                createdAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-        });
-        for (const batch of batches) await batch.commit();
+        await planWriteNodes(selectedFlowmapProjectId, nodes, useAI ? window._planJobId : null);
+        if (useAI) { await planSaveOverview(selectedFlowmapProjectId, window._planOverview, stack); window._planOverview = null; }
 
         // Switch to that project in the plan view
         currentStudioProjectId = selectedFlowmapProjectId;
@@ -18698,7 +18439,7 @@ async function postNodeToMarketplace(nodeId, title) {
 
         // Pre-fill title and description
         document.getElementById('bounty-title').value = node.title || '';
-        document.getElementById('bounty-desc').value = `${node.description || ''}\n\n${node.instructions || ''}`.trim();
+        document.getElementById('bounty-desc').value = planBountyText(node);
 
     } catch(e) {
         alert('Failed: ' + e.message);
@@ -22576,6 +22317,7 @@ function studioRenderBoard() {
                     <p class="text-sm font-semibold leading-snug min-w-0 break-words">${STUDIO_ICONS[n.nodeCategory || n.category] || '📋'} ${ecoEsc(n.title || 'Untitled')}</p>
                 </div>
                 ${desc ? `<p class="text-xs text-zinc-500 mt-1.5 line-clamp-2">${ecoEsc(desc.length > 140 ? desc.slice(0, 139) + '…' : desc)}</p>` : ''}
+                ${n.phase || n.estimatedHours || n.priority === 'critical' ? `<p class="text-[11px] text-zinc-400 mt-1.5">${[n.priority === 'critical' ? '<span class="text-red-300">Critical</span>' : '', ecoEsc(n.phase || ''), n.estimatedHours ? ecoEsc(n.estimatedHours) + ' h' : ''].filter(Boolean).join(' · ')}</p>` : ''}
                 ${stage === 'bids' ? `<p class="text-[11px] mt-1.5" style="color:${st.css}">${n.marketplacePostStatus === 'in-progress' ? '🔨 A builder is working on it' : '🟢 Open for bids on the Marketplace'}</p>` : ''}
                 <div class="flex flex-wrap gap-1.5 mt-2.5" onclick="event.stopPropagation()">${studioActions(n).map(([a, l], j) => btn(n.id, a, l, j === 0 && stage !== 'done')).join('')}</div>
             </article>`;
@@ -23668,6 +23410,442 @@ function platformAnalyticsCsv() {
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
+// ====================== PAID AI: DEVELOPMENT PLAN AND INVESTOR DECK ======================
+// What the server writes (api/_plan.js, api/_deck.js) is drawn here. Every
+// piece of text is escaped: it was written by a model from what a member
+// typed, so it is treated like anything else a member typed.
+const proLead = s => { const t = String(s || ''), i = t.indexOf(' — '); return i > 0 && i < 90 ? `<strong class="text-white">${ecoEsc(t.slice(0, i))}</strong> — ${ecoEsc(t.slice(i + 3))}` : ecoEsc(t); };
+const proList = (items, mark, cls) => (items || []).length ? `<ul class="space-y-1.5">${items.map(x => `<li class="flex items-start gap-2 text-sm text-zinc-300"><span class="${cls || 'text-cyan-400'} shrink-0" aria-hidden="true">${mark || '→'}</span><span class="min-w-0 break-words">${proLead(x)}</span></li>`).join('')}</ul>` : '';
+const proMoney = v => '$' + Math.round(Number(v) || 0).toLocaleString();
+
+/// Print one pop-up as a clean document (or save it as a PDF from the print box).
+function proPrint(rootId) {
+    const root = document.getElementById(rootId);
+    if (!root) return;
+    root.classList.add('nqv-print-root');
+    document.body.classList.add('nqv-printing');
+    const done = () => { document.body.classList.remove('nqv-printing'); root.classList.remove('nqv-print-root'); window.removeEventListener('afterprint', done); };
+    window.addEventListener('afterprint', done);
+    window.print();
+    setTimeout(done, 1500);          // browsers that never fire afterprint
+}
+function proDownload(name, text, type) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([text], { type: type || 'text/plain' }));
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
+// ── the plan: what the founder is asked ─────────────────────────────────
+function planFormExtras() {
+    const v = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
+    return { stage: v('flowmap-stage'), team: v('flowmap-team'), timeline: v('flowmap-timeline'), budget: v('flowmap-budget'), existing: v('flowmap-existing').slice(0, 300) };
+}
+/// The fields of a generated part that are stored on its record.
+function planNodeFields(node) {
+    const arr = (v, n) => Array.isArray(v) ? v.slice(0, n).map(x => String(x).slice(0, 400)) : [];
+    return {
+        phase: String(node.phase || '').slice(0, 60), priority: ['critical', 'high', 'normal'].includes(node.priority) ? node.priority : 'normal',
+        deliverables: arr(node.deliverables, 6), acceptanceCriteria: arr(node.acceptanceCriteria, 7), steps: arr(node.steps, 9), skills: arr(node.skills, 6),
+        budgetLowUSD: Number(node.budgetLowUSD) > 0 ? Number(node.budgetLowUSD) : null, budgetHighUSD: Number(node.budgetHighUSD) > 0 ? Number(node.budgetHighUSD) : null
+    };
+}
+/// The record one part of a plan is stored as.
+function planNodeDoc(companyId, node, idx, jobId) {
+    return {
+        companyId,
+        ownerUid: currentUser.uid,
+        ownerUsername: currentUser.username || '',
+        posterName: currentUser.fullName || currentUser.username || '',
+        title: String(node.title || 'Untitled').slice(0, 120),
+        description: node.description || '',
+        planNode: true,
+        nodeOrder: idx,
+        nodeCategory: node.category || node.nodeCategory || 'Other',
+        estimatedHours: node.estimatedHours || null,
+        instructions: node.instructions || '',
+        bestPractices: node.bestPractices || [],
+        pitfalls: node.pitfalls || [],
+        tools: node.tools || [],
+        dependencies: node.dependencies || [],
+        ...planNodeFields(node),
+        planJobId: jobId || null,        // which paid generation it came from
+        type: 'plan',
+        status: 'open',
+        bids: [],
+        bidsOpen: false,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+}
+/// Write a plan's parts. Ten at a time: the database checks each part against
+/// the company's team, and allows a limited number of checks per write.
+async function planWriteNodes(companyId, nodes, jobId, startAt) {
+    const batches = [];
+    nodes.forEach((node, idx) => {
+        if (idx % 10 === 0) batches.push(db.batch());
+        batches[batches.length - 1].set(db.collection('subprojects').doc(), planNodeDoc(companyId, node, (startAt || 0) + idx, jobId));
+    });
+    for (const batch of batches) await batch.commit();
+}
+/// A plan takes minutes to write. If the member closed the page before it
+/// finished, the finished plan is still on its job record: find it and offer
+/// to put it on the board, so a paid plan is never lost.
+async function planRecover() {
+    const me = nqvMe();
+    if (!me || planRecover.busy) return;
+    planRecover.busy = true;
+    try {
+        const snap = await db.collection('aiJobs').where('uid', '==', me).where('kind', '==', 'generate-flowmap').where('status', '==', 'done').get();
+        for (const doc of snap.docs) {
+            const job = doc.data(), cid = job.input && job.input.companyId, nodes = job.result && job.result.nodes;
+            if (!cid || !Array.isArray(nodes) || !nodes.length) continue;
+            if (Date.now() / 1000 - nqvSecs(job.finishedAt) > 30 * 86400) continue;
+            let skipped = []; try { skipped = JSON.parse(localStorage.getItem('nqvPlanSkipped') || '[]'); } catch (e) {}
+            if (skipped.includes(doc.id)) continue;
+            const have = await db.collection('subprojects').where('planJobId', '==', doc.id).limit(1).get();
+            if (!have.empty) continue;
+            if (!confirm(`Your development plan for ${job.input.name || 'your project'} finished after you left the page.\n\nAdd its ${nodes.length} parts to the board now?`)) {
+                try { localStorage.setItem('nqvPlanSkipped', JSON.stringify(skipped.concat([doc.id]).slice(-20))); } catch (e) {}
+                continue;
+            }
+            const existing = await db.collection('subprojects').where('companyId', '==', cid).where('planNode', '==', true).get();
+            await planWriteNodes(cid, nodes, doc.id, existing.size);
+            await planSaveOverview(cid, job.result.plan, job.input.stack);
+            currentStudioProjectId = cid;
+            await loadStudioProjectList();
+        }
+    } catch (e) { console.warn('Could not check for finished plans:', e.message); }
+    planRecover.busy = false;
+}
+
+/// Keep the plan's overview on the company, so it can be reopened and exported.
+async function planSaveOverview(companyId, plan, stack) {
+    if (!plan || !companyId) return;
+    try {
+        await db.collection('companies').doc(companyId).update({ studioPlan: Object.assign({}, plan, { stack: stack || '', generatedAt: Date.now(), generatedBy: currentUser.username || '' }) });
+    } catch (e) { console.warn('The plan overview could not be saved:', e.message); }
+}
+
+// ── the plan: one part ──────────────────────────────────────────────────
+function showFlowNodeModal(node) {
+    window._nodeOpen = node;
+    document.getElementById('node-modal-title').textContent = node.title;
+    const stage = STUDIO_STAGES[studioStage(node)], steps = Array.isArray(node.steps) && node.steps.length ? node.steps : null;
+    const box = (colour, title, inner) => inner ? `<div class="bg-${colour}-500/10 border border-${colour}-500/20 rounded-2xl p-5"><p class="text-${colour}-300 text-xs font-semibold uppercase tracking-wider mb-3">${title}</p>${inner}</div>` : '';
+    const fact = (label, value) => value ? `<div><p class="text-xs text-zinc-400 mb-1">${label}</p><p class="text-sm font-medium">${value}</p></div>` : '';
+    const budget = node.budgetLowUSD && node.budgetHighUSD ? `${proMoney(node.budgetLowUSD)} – ${proMoney(node.budgetHighUSD)}` : '';
+    const priority = { critical: '<span class="text-red-300">Critical — launch is blocked without it</span>', high: '<span class="text-amber-300">High</span>' }[node.priority] || '';
+
+    document.getElementById('node-modal-content').innerHTML = `
+        <div class="space-y-5">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                ${fact('Stage', `<span style="color:${stage.css}">${stage.label}</span>`)}
+                ${fact('Category', ecoEsc(node.nodeCategory || node.category || 'General'))}
+                ${fact('Phase', ecoEsc(node.phase || ''))}
+                ${fact('Estimate', node.estimatedHours ? ecoEsc(node.estimatedHours) + ' hours' : '')}
+                ${fact('Priority', priority)}
+                ${fact("Claude's price estimate", budget ? `${budget} <span class="text-xs text-zinc-400 font-normal">to hire out</span>` : '')}
+            </div>
+
+            <div>
+                <p class="text-xs text-zinc-400 mb-2">What this part is</p>
+                <p class="text-zinc-300 text-sm leading-relaxed break-words">${ecoEsc(node.description || '—')}</p>
+            </div>
+
+            ${(node.dependencies || []).length ? `<div><p class="text-xs text-zinc-400 mb-2">Needs these finished first</p><div class="flex flex-wrap gap-2">${node.dependencies.map(d => `<span class="px-3 py-1 bg-zinc-800 rounded-full text-xs text-zinc-300">${ecoEsc(d)}</span>`).join('')}</div></div>` : ''}
+
+            ${box('emerald', '📦 Deliverables', proList(node.deliverables, '▪', 'text-emerald-400'))}
+            ${box('cyan', '✅ Done when', proList(node.acceptanceCriteria, '☐', 'text-cyan-400'))}
+            ${steps ? box('zinc', '🛠 How to build it', `<ol class="space-y-2">${steps.map((s, i) => `<li class="flex items-start gap-3 text-sm text-zinc-300"><span class="shrink-0 w-5 h-5 rounded-full bg-zinc-700 text-[11px] font-bold flex items-center justify-center">${i + 1}</span><span class="min-w-0 break-words">${ecoEsc(s)}</span></li>`).join('')}</ol>`)
+                    : node.instructions ? box('zinc', '🛠 How to build it', `<div class="text-zinc-300 text-sm leading-relaxed whitespace-pre-wrap break-words">${ecoEsc(node.instructions)}</div>`) : ''}
+            ${box('violet', '✨ Best practices', proList(node.bestPractices, '→', 'text-violet-400'))}
+            ${box('red', '⚠️ Common pitfalls', proList(node.pitfalls, '✗', 'text-red-400'))}
+
+            ${(node.tools || []).length || (node.skills || []).length ? `<div class="grid md:grid-cols-2 gap-4">
+                ${(node.tools || []).length ? `<div><p class="text-xs text-zinc-400 mb-2">Recommended tools</p><div class="flex flex-wrap gap-2">${node.tools.map(t => `<span class="px-3 py-1 bg-zinc-800 rounded-full text-xs text-zinc-300">${ecoEsc(t)}</span>`).join('')}</div></div>` : ''}
+                ${(node.skills || []).length ? `<div><p class="text-xs text-zinc-400 mb-2">Skills a builder needs</p><div class="flex flex-wrap gap-2">${node.skills.map(t => `<span class="px-3 py-1 bg-cyan-500/15 rounded-full text-xs text-cyan-200">${ecoEsc(t)}</span>`).join('')}</div></div>` : ''}
+            </div>` : ''}
+
+            <div class="border-t border-zinc-700 pt-5">
+                <p class="text-xs text-zinc-400 mb-3">Edit the title and summary</p>
+                <input id="node-edit-title" aria-label="Title" type="text" value="${ecoEsc(node.title)}"
+                       class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none text-sm mb-3">
+                <textarea id="node-edit-desc" aria-label="Summary" rows="3"
+                          class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-4 py-3 outline-none text-sm mb-3">${ecoEsc(node.description || '')}</textarea>
+                <div class="flex flex-wrap gap-3">
+                    <button onclick="saveNodeEdits(window._nodeOpen.id)" class="flex-1 py-3 bg-white text-black font-semibold rounded-xl text-sm">Save</button>
+                    ${studioStage(node) !== 'bids' && studioStage(node) !== 'done' ? `<button onclick="hideFlowNodeModal(); postNodeToMarketplace(window._nodeOpen.id, window._nodeOpen.title)" class="flex-1 py-3 bg-red-600 hover:bg-red-500 text-white font-semibold rounded-xl text-sm">📣 Post for bids</button>` : ''}
+                    ${node.type !== 'build' ? `<button onclick="sendNodeToBuild(window._nodeOpen.id, window._nodeOpen.title); hideFlowNodeModal()" class="flex-1 py-3 bg-violet-600 text-white font-semibold rounded-xl text-sm">→ Build</button>` : ''}
+                    <button onclick="deleteFlowNode(window._nodeOpen.id); hideFlowNodeModal()" aria-label="Delete this part" class="py-3 px-4 border border-red-500/30 text-red-400 rounded-xl text-sm">🗑</button>
+                </div>
+            </div>
+        </div>`;
+    document.getElementById('flow-node-modal').classList.remove('hidden');
+}
+
+/// The text a bounty starts with when it is posted from a part: what to
+/// build, what to hand over, and how it will be checked.
+function planBountyText(node) {
+    const block = (title, items) => (items || []).length ? `\n\n${title}\n${items.map(x => '- ' + x).join('\n')}` : '';
+    const how = (node.steps || []).length ? '' : (node.instructions ? '\n\n' + node.instructions : '');
+    return `${node.description || ''}${how}${block('DELIVERABLES', node.deliverables)}${block('DONE WHEN', node.acceptanceCriteria)}${(node.tools || []).length ? '\n\nSuggested tools: ' + node.tools.join(', ') : ''}`.trim();
+}
+
+// ── the plan: the whole thing ───────────────────────────────────────────
+function planTotals() {
+    const nodes = STUDIO.nodes || [];
+    const hours = nodes.reduce((s, n) => s + (Number(n.estimatedHours) || 0), 0);
+    const low = nodes.reduce((s, n) => s + (Number(n.budgetLowUSD) || 0), 0), high = nodes.reduce((s, n) => s + (Number(n.budgetHighUSD) || 0), 0);
+    return { hours, low, high, weeks: hours ? Math.max(1, Math.round(hours / 30)) : 0 };
+}
+function showPlanOverview() {
+    const c = STUDIO.company, p = c && c.studioPlan, nodes = STUDIO.nodes || [];
+    if (!STUDIO.id) return alert('Choose a project first.');
+    if (!p) return nqvSheet(`<h2 class="text-xl font-bold mb-2">📋 Plan overview</h2>
+        <p class="text-sm text-zinc-300 mb-2">This project has no written plan yet.</p>
+        <p class="text-sm text-zinc-400">Generate one with <strong>✨ AI</strong> under New plan and Claude writes the architecture, phases, fully specified parts, risks and the questions you still need to answer. Plans generated before this update have their parts on the board but no overview.</p>`);
+    const t = planTotals(), k = studioCounts(nodes);
+    const h = s => `<h3 class="text-xs uppercase tracking-wider text-zinc-400 mt-7 mb-2">${s}</h3>`;
+    const tile = (label, value, hint) => `<div class="bg-zinc-800/70 rounded-2xl p-3.5 min-w-0"><p class="text-xs text-zinc-400 mb-1">${label}</p><p class="text-xl font-bold break-words">${value}</p>${hint ? `<p class="text-[11px] text-zinc-400 mt-1">${hint}</p>` : ''}</div>`;
+    const level = v => `<span class="${v === 'high' ? 'text-red-300' : v === 'medium' ? 'text-amber-300' : 'text-zinc-300'}">${ecoEsc(v)}</span>`;
+    const a = p.architecture || {}, maxPhase = Math.max(1, ...(p.phases || []).map(x => x.hours || 0));
+    nqvSheet(`<div class="flex flex-wrap items-start justify-between gap-3 mb-1">
+            <div class="min-w-0"><p class="text-xs uppercase tracking-wider text-cyan-300">Development plan</p><h2 class="text-2xl font-bold break-words">${ecoEsc(c.name || 'Project')}</h2></div>
+            <div class="flex gap-2 nqv-noprint">
+                <button onclick="proPrint('nqv-sheet-modal')" class="px-3 py-1.5 rounded-lg text-xs bg-zinc-800 text-zinc-200 hover:bg-zinc-700">🖨 Print / PDF</button>
+                <button onclick="planDownload()" class="px-3 py-1.5 rounded-lg text-xs bg-zinc-800 text-zinc-200 hover:bg-zinc-700">⬇ Full plan (.md)</button>
+            </div>
+        </div>
+        <p class="text-[11px] text-zinc-400 mb-4">Written by Claude${p.generatedAt ? ' on ' + new Date(p.generatedAt).toLocaleDateString() : ''}${p.stack ? ' · ' + ecoEsc(p.stack) : ''}. Estimates are a starting point, not a quote.</p>
+        <p class="text-sm text-zinc-200 leading-relaxed break-words">${ecoEsc(p.summary)}</p>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 mt-4">
+            ${tile('Parts', nodes.length, `${k.done} done · ${k.pct}%`)}
+            ${tile('Estimated work', t.hours ? t.hours.toLocaleString() + ' h' : '—', t.weeks ? `about ${t.weeks} weeks for one developer` : '')}
+            ${tile('To hire it all out', t.high ? `${proMoney(t.low)} – ${proMoney(t.high)}` : '—', "Claude's estimate")}
+            ${tile('Phases', (p.phases || []).length, `${(p.risks || []).length} risk${(p.risks || []).length === 1 ? '' : 's'} · ${(p.openQuestions || []).length} open question${(p.openQuestions || []).length === 1 ? '' : 's'}`)}
+        </div>
+        ${p.targetUsers || p.successMeasure ? `<div class="grid md:grid-cols-2 gap-4 mt-4">
+            ${p.targetUsers ? `<div class="min-w-0"><p class="text-xs text-zinc-400 mb-1">First users</p><p class="text-sm text-zinc-300 break-words">${ecoEsc(p.targetUsers)}</p></div>` : ''}
+            ${p.successMeasure ? `<div class="min-w-0"><p class="text-xs text-zinc-400 mb-1">The launch worked if</p><p class="text-sm text-zinc-300 break-words">${ecoEsc(p.successMeasure)}</p></div>` : ''}</div>` : ''}
+
+        ${(p.openQuestions || []).length ? `<div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mt-6"><p class="text-amber-300 text-xs font-semibold uppercase tracking-wider mb-2">Decisions only you can make</p>${proList(p.openQuestions, '?', 'text-amber-300')}</div>` : ''}
+
+        ${(p.phases || []).length ? h('Phases') + `<div class="space-y-3">${p.phases.map((ph, i) => `<div class="bg-zinc-800/50 rounded-2xl p-4">
+            <div class="flex items-baseline justify-between gap-3"><p class="font-semibold text-sm">${i + 1}. ${ecoEsc(ph.name)}</p><p class="text-xs text-zinc-400 shrink-0">${ph.parts || 0} part${ph.parts === 1 ? '' : 's'} · ${ph.hours || 0} h</p></div>
+            <div class="h-1.5 bg-zinc-700 rounded-full mt-2 mb-2"><div class="h-1.5 bg-cyan-400 rounded-full" style="width:${Math.round((ph.hours || 0) / maxPhase * 100)}%"></div></div>
+            <p class="text-sm text-zinc-300 break-words">${ecoEsc(ph.goal)}</p>${ph.exitCriteria ? `<p class="text-xs text-zinc-400 mt-1 break-words">Done when: ${ecoEsc(ph.exitCriteria)}</p>` : ''}</div>`).join('')}</div>` : ''}
+
+        ${a.overview ? h('Architecture') + `<p class="text-sm text-zinc-300 leading-relaxed break-words mb-3">${ecoEsc(a.overview)}</p>` : ''}
+        ${(a.components || []).length ? `<div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-left text-xs text-zinc-400"><th class="py-1.5 pr-3 font-medium">Component</th><th class="py-1.5 pr-3 font-medium">What it does</th><th class="py-1.5 font-medium">Built with</th></tr></thead>
+            <tbody>${a.components.map(x => `<tr class="border-t border-zinc-800 align-top"><td class="py-2 pr-3 font-medium">${ecoEsc(x.name)}</td><td class="py-2 pr-3 text-zinc-300">${ecoEsc(x.responsibility)}</td><td class="py-2 text-zinc-300">${ecoEsc(x.tech)}</td></tr>`).join('')}</tbody></table></div>` : ''}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4">
+            ${(a.dataModel || []).length ? `<div class="min-w-0"><p class="text-xs text-zinc-400 mb-2">Data it keeps</p>${proList(a.dataModel, '▪')}</div>` : ''}
+            ${(a.integrations || []).length ? `<div class="min-w-0"><p class="text-xs text-zinc-400 mb-2">Outside services</p>${proList(a.integrations, '▪')}</div>` : ''}
+        </div>
+
+        ${(p.mvpScope || []).length || (p.laterScope || []).length ? h('Scope') + `<div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="min-w-0"><p class="text-xs text-emerald-300 mb-2">In the first launch</p>${proList(p.mvpScope, '✓', 'text-emerald-400')}</div>
+            <div class="min-w-0"><p class="text-xs text-zinc-400 mb-2">Deliberately later</p>${proList(p.laterScope, '…', 'text-zinc-400')}</div></div>` : ''}
+
+        ${h('Every part, in build order')}
+        <div class="overflow-x-auto"><table class="w-full text-sm"><thead><tr class="text-left text-xs text-zinc-400"><th class="py-1.5 pr-2 font-medium">#</th><th class="py-1.5 pr-3 font-medium">Part</th><th class="py-1.5 pr-3 font-medium">Phase</th><th class="py-1.5 pr-3 font-medium">Hours</th><th class="py-1.5 font-medium">Stage</th></tr></thead>
+            <tbody>${nodes.map((n, i) => `<tr class="border-t border-zinc-800 align-top"><td class="py-2 pr-2 text-zinc-400">${i + 1}</td>
+                <td class="py-2 pr-3"><button onclick="nqvSheetClose(); studioAct('${ecoEsc(n.id)}','open')" class="text-left text-cyan-400 hover:underline">${ecoEsc(n.title)}</button>${(n.dependencies || []).length ? `<span class="block text-[11px] text-zinc-400">after ${ecoEsc(n.dependencies.join(', '))}</span>` : ''}</td>
+                <td class="py-2 pr-3 text-zinc-300">${ecoEsc(n.phase || '')}</td><td class="py-2 pr-3 text-zinc-300">${n.estimatedHours || '—'}</td><td class="py-2" style="color:${STUDIO_STAGES[studioStage(n)].css}">${STUDIO_STAGES[studioStage(n)].label}</td></tr>`).join('')}</tbody></table></div>
+
+        ${(p.risks || []).length ? h('Risks') + `<div class="space-y-2">${p.risks.map(r => `<div class="bg-zinc-800/50 rounded-xl p-3"><p class="text-sm font-medium break-words">${ecoEsc(r.risk)}</p>
+            <p class="text-[11px] text-zinc-400 mt-0.5">Likelihood ${level(r.likelihood)} · Impact ${level(r.impact)}</p><p class="text-sm text-zinc-300 mt-1 break-words">${ecoEsc(r.mitigation)}</p></div>`).join('')}</div>` : ''}
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            ${(p.teamRoles || []).length ? `<div class="min-w-0">${h('Who you need')}${proList(p.teamRoles.map(r => r.role + ' — ' + r.why), '▪')}</div>` : ''}
+            ${(p.launchChecklist || []).length ? `<div class="min-w-0">${h('Before you go live')}${proList(p.launchChecklist, '☐')}</div>` : ''}
+        </div>
+        ${(p.assumptions || []).length ? h('Assumptions Claude made') + proList(p.assumptions, '•', 'text-zinc-400') : ''}`, 'xl');
+}
+
+function planMarkdown() {
+    const c = STUDIO.company || {}, p = c.studioPlan || {}, nodes = STUDIO.nodes || [], t = planTotals(), a = p.architecture || {};
+    const ul = xs => (xs || []).map(x => '- ' + x).join('\n'), sec = (title, body) => body ? `\n## ${title}\n\n${body}\n` : '';
+    let md = `# ${c.name || 'Project'} — development plan\n\n${p.summary || ''}\n\n- Parts: ${nodes.length}\n- Estimated work: ${t.hours} hours (about ${t.weeks} weeks for one developer)\n${t.high ? `- Estimate to hire it all out: ${proMoney(t.low)} – ${proMoney(t.high)}\n` : ''}${p.stack ? `- Stack: ${p.stack}\n` : ''}`;
+    md += sec('First users', p.targetUsers) + sec('The launch worked if', p.successMeasure) + sec('Decisions only you can make', ul(p.openQuestions));
+    md += sec('Phases', (p.phases || []).map((x, i) => `${i + 1}. **${x.name}** (${x.parts || 0} parts, ${x.hours || 0} h) — ${x.goal}${x.exitCriteria ? ' Done when: ' + x.exitCriteria : ''}`).join('\n'));
+    md += sec('Architecture', [a.overview, (a.components || []).length ? '| Component | What it does | Built with |\n|---|---|---|\n' + a.components.map(x => `| ${x.name} | ${x.responsibility} | ${x.tech} |`).join('\n') : '', (a.dataModel || []).length ? '**Data it keeps**\n\n' + ul(a.dataModel) : '', (a.integrations || []).length ? '**Outside services**\n\n' + ul(a.integrations) : ''].filter(Boolean).join('\n\n'));
+    md += sec('In the first launch', ul(p.mvpScope)) + sec('Deliberately later', ul(p.laterScope));
+    md += sec('Risks', (p.risks || []).map(r => `- **${r.risk}** (likelihood ${r.likelihood}, impact ${r.impact}) — ${r.mitigation}`).join('\n'));
+    md += sec('Who you need', ul((p.teamRoles || []).map(r => `${r.role} — ${r.why}`))) + sec('Before you go live', ul(p.launchChecklist)) + sec('Assumptions', ul(p.assumptions));
+    md += '\n## Parts\n';
+    nodes.forEach((n, i) => {
+        md += `\n### ${i + 1}. ${n.title}\n\n${[n.phase, n.nodeCategory || n.category, n.estimatedHours ? n.estimatedHours + ' h' : '', n.priority && n.priority !== 'normal' ? n.priority + ' priority' : '', n.budgetHighUSD ? `${proMoney(n.budgetLowUSD)} – ${proMoney(n.budgetHighUSD)} to hire out` : ''].filter(Boolean).join(' · ')}\n\n${n.description || ''}\n`;
+        if ((n.dependencies || []).length) md += `\nNeeds first: ${n.dependencies.join(', ')}\n`;
+        [['Deliverables', n.deliverables], ['Done when', n.acceptanceCriteria], ['Best practices', n.bestPractices], ['Pitfalls', n.pitfalls]].forEach(([title, xs]) => { if ((xs || []).length) md += `\n**${title}**\n\n${ul(xs)}\n`; });
+        if ((n.steps || []).length) md += `\n**How to build it**\n\n${n.steps.map((s, j) => `${j + 1}. ${s}`).join('\n')}\n`; else if (n.instructions) md += `\n**How to build it**\n\n${n.instructions}\n`;
+        if ((n.tools || []).length) md += `\nTools: ${n.tools.join(', ')}\n`;
+    });
+    return md + '\n---\nWritten by Claude on NQVate. Estimates are a starting point, not a quote.\n';
+}
+function planDownload() {
+    const name = String((STUDIO.company && STUDIO.company.name) || 'project').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'project';
+    proDownload(`${name}-development-plan.md`, planMarkdown(), 'text/markdown');
+}
+
+// ── the investor deck ───────────────────────────────────────────────────
+const DECK_TEXT = { tagline: 'Tagline', oneLiner: 'One-line pitch', problem: 'The problem', solution: 'The solution', targetCustomer: 'Target customer', marketOpportunity: 'Market opportunity', businessModel: 'Business model', traction: 'Traction', competition: 'Competition', advantage: 'Why you win', goToMarket: 'Go-to-market', team: 'Team', whyNow: 'Why now', ask: 'The ask', useOfFunds: 'Use of funds' };
+const DECK_LISTS = { highlights: 'Highlights', problemPoints: 'Problem — specific pains', solutionPoints: 'Solution — capabilities', howItWorks: 'How it works — steps', marketSizing: 'Market sizing (Label — figure — reasoning)', revenueStreams: 'Revenue streams (Stream — pricing)', milestones: 'Milestones', competitors: 'Competitors (Name — how you differ)', channels: 'Channels (Channel — why)', roadmap: 'Roadmap (When — what)', useOfFundsBreakdown: 'Use of funds (Percent — area — what it pays for)', risks: 'Risks (Risk — how you handle it)', assumptions: 'Assumptions and estimates', founderNotes: 'Notes to yourself (never shown to investors)' };
+const DECK_INPUTS = { customer: 'Who is the customer?', pricing: 'How do you make money, and what do you charge?', competitors: 'Who or what do customers use today instead?', team: 'Who is on the team, and what is their relevant background?', traction: 'What have you achieved so far? (dates and numbers help)', raise: 'How much are you raising, and what will it get you to?' };
+
+function showInvestorDeck(companyId, company) {
+    if (!connectedAddress) return alert("Please connect your wallet to view investor decks.");
+    const deck = company.investorDeck;
+    if (!deck) return alert("No investor deck available for this company.");
+    const modal = document.getElementById('investor-deck-modal');
+    window._deckOpen = { companyId, company };
+    document.getElementById('deck-company-name').textContent = company.name;
+    modal.dataset.companyId = companyId;
+    modal.dataset.editing = 'false';
+    const isOwner = !!(currentUser && company.ownerUid === currentUser.uid);
+    document.getElementById('deck-edit-btn').classList.toggle('hidden', !isOwner);
+    document.getElementById('deck-edit-btn').textContent = '✏️ Edit';
+    document.getElementById('deck-save-btn').classList.add('hidden');
+
+    const T = k => typeof deck[k] === 'string' ? deck[k].trim() : '', L = k => Array.isArray(deck[k]) ? deck[k].filter(x => typeof x === 'string' && x.trim()) : [];
+    const verifiedDate = company.metricsVerifiedAt && company.metricsVerifiedAt.toDate ? company.metricsVerifiedAt.toDate().toLocaleDateString() : '';
+    const site = portfolioLink(company.website && !/^https?:\/\//i.test(company.website) ? 'https://' + company.website : company.website);
+    let slide = 0;
+    /// One numbered section. Left out entirely when it has nothing in it.
+    const section = (title, colour, ...parts) => { const body = parts.filter(Boolean).join(''); return body ? `<section class="bg-zinc-900 rounded-3xl p-6 md:p-8">
+        <p class="text-xs font-mono text-zinc-400 mb-1">${String(++slide).padStart(2, '0')}</p><h2 class="text-2xl font-bold mb-4 ${colour}">${title}</h2>${body}</section>` : ''; };
+    const para = (k, big) => T(k) ? `<p class="text-zinc-300 leading-relaxed ${big ? 'text-lg' : ''} break-words">${ecoEsc(T(k))}</p>` : '';
+    const cards = k => L(k).length ? `<div class="grid grid-cols-1 md:grid-cols-${Math.min(3, L(k).length)} gap-3 mt-4">${L(k).map(x => `<div class="bg-zinc-800/70 rounded-2xl p-4 text-sm text-zinc-200 break-words">${proLead(x)}</div>`).join('')}</div>` : '';
+    const bullets = (k, mark, cls) => L(k).length ? `<div class="mt-4">${proList(L(k), mark, cls)}</div>` : '';
+    const table = (k, a, b) => { const rows = L(k).map(x => { const i = x.indexOf(' — '); return i > 0 ? [x.slice(0, i), x.slice(i + 3)] : [x, '']; }); return rows.length ? `<div class="overflow-x-auto mt-4"><table class="w-full text-sm"><thead><tr class="text-left text-xs text-zinc-400"><th class="py-1.5 pr-4 font-medium">${a}</th><th class="py-1.5 font-medium">${b}</th></tr></thead><tbody>${rows.map(r => `<tr class="border-t border-zinc-800 align-top"><td class="py-2 pr-4 font-medium text-white break-words">${ecoEsc(r[0])}</td><td class="py-2 text-zinc-300 break-words">${ecoEsc(r[1])}</td></tr>`).join('')}</tbody></table></div>` : ''; };
+    const sizing = L('marketSizing').map(x => x.split(' — ')).filter(x => x.length >= 2);
+    const funds = L('useOfFundsBreakdown').map(x => { const m = /^\s*(\d{1,3})\s*%\s*—\s*(.*)$/.exec(x); return m ? { pct: Math.min(100, +m[1]), text: m[2] } : { pct: null, text: x }; });
+    const metric = (label, value, cls) => value ? `<div class="bg-${cls}-500/10 border border-${cls}-500/20 rounded-2xl p-4 text-center"><p class="text-xs text-zinc-400 mb-1">${label}</p><p class="text-2xl font-bold text-${cls}-400">${ecoEsc(value)}</p><p class="text-xs text-${cls}-300 mt-1">Claude-verified</p></div>` : '';
+
+    document.getElementById('deck-content').innerHTML = `
+        <div class="text-center py-10 border-b border-zinc-800">
+            <div class="w-20 h-20 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-3xl flex items-center justify-center text-4xl font-bold mx-auto mb-6" aria-hidden="true">${ecoEsc(String(company.name || '?')[0])}</div>
+            <h1 class="text-4xl md:text-5xl font-bold mb-4 break-words">${ecoEsc(company.name)}</h1>
+            <p class="text-xl text-zinc-200 max-w-2xl mx-auto mb-3 break-words">${ecoEsc(T('tagline'))}</p>
+            ${T('oneLiner') ? `<p class="text-zinc-400 max-w-2xl mx-auto mb-6 break-words">${ecoEsc(T('oneLiner'))}</p>` : '<div class="mb-6"></div>'}
+            <div class="flex gap-3 justify-center flex-wrap">
+                ${company.revenueBucket ? `<span class="px-3 py-1 bg-emerald-500/20 text-emerald-300 rounded-full text-sm">💰 ${ecoEsc(company.revenueBucket)}</span>` : ''}
+                ${company.usersBucket ? `<span class="px-3 py-1 bg-cyan-500/20 text-cyan-300 rounded-full text-sm">👥 ${ecoEsc(company.usersBucket)}</span>` : ''}
+                ${verifiedDate ? `<span class="px-3 py-1 bg-violet-500/20 text-violet-300 rounded-full text-sm">✅ Claude-verified · ${verifiedDate}</span>` : ''}
+                ${site ? `<a href="${ecoEsc(site)}" target="_blank" rel="noopener nofollow" class="px-3 py-1 bg-zinc-800 text-cyan-400 rounded-full text-sm hover:bg-zinc-700 break-all">🌐 ${ecoEsc(site.replace(/^https?:\/\//, ''))}</a>` : ''}
+            </div>
+        </div>
+
+        ${isOwner && L('founderNotes').length ? `<div class="nqv-noprint bg-amber-500/10 border border-amber-500/30 rounded-3xl p-6">
+            <p class="text-amber-300 text-xs font-semibold uppercase tracking-wider mb-1">Before you send this · only you see this box</p>
+            <p class="text-sm text-zinc-300 mb-3">An investor will ask about these, and the deck cannot answer them yet. Add them with Edit, or run the deck again with more detail.</p>
+            ${proList(L('founderNotes'), '!', 'text-amber-300')}</div>` : ''}
+
+        ${L('highlights').length ? `<section class="bg-gradient-to-br from-cyan-500/10 to-violet-500/10 border border-cyan-500/20 rounded-3xl p-6 md:p-8"><h2 class="text-2xl font-bold mb-5">Highlights</h2>
+            <div class="space-y-3">${L('highlights').map(x => `<div class="flex items-start gap-3"><span class="text-cyan-400 mt-0.5 shrink-0" aria-hidden="true">→</span><p class="text-zinc-100 break-words">${ecoEsc(x)}</p></div>`).join('')}</div></section>` : ''}
+
+        ${section('The problem', 'text-red-400', para('problem', true), cards('problemPoints'))}
+        ${section('The solution', 'text-emerald-400', para('solution', true), cards('solutionPoints'))}
+        ${section('How it works', 'text-cyan-400', L('howItWorks').length ? `<ol class="grid grid-cols-1 md:grid-cols-${Math.min(4, L('howItWorks').length)} gap-3">${L('howItWorks').map((x, i) => `<li class="bg-zinc-800/70 rounded-2xl p-4"><span class="block text-2xl font-bold text-cyan-400 mb-1">${i + 1}</span><span class="text-sm text-zinc-200 break-words">${ecoEsc(x)}</span></li>`).join('')}</ol>` : '')}
+        ${section('Market', 'text-violet-400', para('marketOpportunity', true),
+            T('targetCustomer') ? `<p class="text-sm text-zinc-300 mt-3 break-words"><span class="text-zinc-400">First customer: </span>${ecoEsc(T('targetCustomer'))}</p>` : '',
+            sizing.length ? `<div class="grid grid-cols-1 md:grid-cols-${Math.min(3, sizing.length)} gap-3 mt-4">${sizing.map(x => `<div class="bg-violet-500/10 border border-violet-500/20 rounded-2xl p-4"><p class="text-xs text-zinc-400 mb-1 break-words">${ecoEsc(x[0])}</p><p class="text-2xl font-bold text-violet-300 break-words">${ecoEsc(x[1])}</p>${x[2] ? `<p class="text-xs text-zinc-400 mt-1 break-words">${ecoEsc(x.slice(2).join(' — '))}</p>` : ''}</div>`).join('')}</div>` : '')}
+        ${section('Business model', 'text-amber-400', para('businessModel', true), table('revenueStreams', 'Revenue stream', 'Pricing'))}
+        ${section('Traction', 'text-cyan-400',
+            company.revenueBucket || company.usersBucket ? `<div class="grid grid-cols-2 gap-4 mb-4">${metric('Monthly revenue', company.revenueBucket, 'emerald')}${metric('Users / customers', company.usersBucket, 'cyan')}</div>` : '',
+            para('traction'), bullets('milestones', '✓', 'text-emerald-400'),
+            `<div id="deck-nqvate-facts" class="hidden mt-4 bg-zinc-800/60 rounded-2xl p-4"></div>`)}
+        ${section('Competition', 'text-pink-400', para('competition', true), table('competitors', 'Alternative', 'How this company differs'),
+            T('advantage') ? `<div class="mt-4 border-l-2 border-pink-400 pl-4"><p class="text-xs text-zinc-400 mb-1">Why this company wins</p><p class="text-zinc-200 break-words">${ecoEsc(T('advantage'))}</p></div>` : '')}
+        ${section('Go-to-market', 'text-emerald-400', para('goToMarket', true), table('channels', 'Channel', 'Why it fits'))}
+        ${section('Team', 'text-cyan-400', para('team', true))}
+        ${section('Roadmap', 'text-violet-400', L('roadmap').length ? `<ol class="border-l border-zinc-700 ml-2 space-y-4">${L('roadmap').map(x => { const i = x.indexOf(' — '); return `<li class="pl-5 relative"><span class="absolute -left-[5px] top-1.5 w-2.5 h-2.5 rounded-full bg-violet-400" aria-hidden="true"></span>${i > 0 ? `<p class="text-xs text-violet-300 font-semibold">${ecoEsc(x.slice(0, i))}</p><p class="text-sm text-zinc-200 break-words">${ecoEsc(x.slice(i + 3))}</p>` : `<p class="text-sm text-zinc-200 break-words">${ecoEsc(x)}</p>`}</li>`; }).join('')}</ol>` : '')}
+        ${section('Why now', 'text-pink-400', para('whyNow', true))}
+        ${section('The ask', 'text-cyan-400', para('ask', true), T('useOfFunds') ? `<p class="text-zinc-300 mt-3 break-words">${ecoEsc(T('useOfFunds'))}</p>` : '',
+            funds.length ? `<div class="space-y-3 mt-4">${funds.map(f => `<div><div class="flex items-baseline gap-3"><span class="text-lg font-bold text-cyan-300 shrink-0 w-14">${f.pct === null ? '' : f.pct + '%'}</span><span class="text-sm text-zinc-200 min-w-0 break-words">${proLead(f.text)}</span></div>${f.pct === null ? '' : `<div class="h-1.5 bg-zinc-800 rounded-full mt-1.5"><div class="h-1.5 bg-cyan-400 rounded-full" style="width:${f.pct}%"></div></div>`}</div>`).join('')}</div>` : '')}
+        ${section('Risks', 'text-amber-400', table('risks', 'Risk', 'How it is being handled'))}
+
+        ${L('assumptions').length ? `<div class="rounded-2xl border border-zinc-800 p-5"><p class="text-xs uppercase tracking-wider text-zinc-400 mb-2">Estimates and assumptions</p>${proList(L('assumptions'), '•', 'text-zinc-400')}</div>` : ''}
+        <div class="bg-zinc-800/50 rounded-2xl p-6 text-center">
+            <p class="text-xs text-zinc-400">This deck was written by Claude AI from information the founder supplied, the company's website and any documents provided for verification. Figures marked as estimates are Claude's own and have not been verified. NQVate is not a broker, adviser or party to any investment. Do your own due diligence.</p>
+        </div>`;
+    modal.classList.remove('hidden');
+    deckNqvateFacts(companyId, company);
+}
+
+/// What NQVate itself can vouch for, read live from the company's records.
+async function deckNqvateFacts(companyId, company) {
+    try {
+        const snap = await db.collection('subprojects').where('companyId', '==', companyId).get();
+        let done = 0; const builders = new Set();
+        snap.forEach(d => { const s = d.data(); if (s.planNode === true || s.status !== 'completed' || (s.type && s.type !== 'build')) return; done++; if (s.acceptedBidderUid) builders.add(s.acceptedBidderUid); });
+        const facts = [];
+        if (company.verificationStatus === 'verified' || company.equityUnlocked) facts.push('Legal entity verified');
+        if (done) facts.push(`${done} ${done === 1 ? 'bounty' : 'bounties'} completed and paid through escrow`);
+        if (builders.size) facts.push(`${builders.size} ${builders.size === 1 ? 'builder has' : 'builders have'} delivered work`);
+        if (Array.isArray(company.teamUids) && company.teamUids.length) facts.push(`${company.teamUids.length + 1} people on the team here`);
+        const box = document.getElementById('deck-nqvate-facts');
+        if (!box || !facts.length || !window._deckOpen || window._deckOpen.companyId !== companyId) return;
+        box.innerHTML = `<p class="text-xs text-zinc-400 mb-2">On NQVate · from the platform's own records</p><div class="flex flex-wrap gap-2">${facts.map(f => `<span class="px-3 py-1 bg-zinc-900 rounded-full text-xs text-zinc-200">✓ ${f}</span>`).join('')}</div>`;
+        box.classList.remove('hidden');
+    } catch (e) { /* the deck stands without it */ }
+}
+
+function toggleDeckEdit() {
+    const modal = document.getElementById('investor-deck-modal'), open = window._deckOpen;
+    if (!open) return;
+    if (modal.dataset.editing === 'true') {                      // cancel: draw it again as saved
+        return db.collection('companies').doc(open.companyId).get().then(doc => { if (doc.exists) showInvestorDeck(open.companyId, { id: doc.id, ...doc.data() }); });
+    }
+    modal.dataset.editing = 'true';
+    document.getElementById('deck-edit-btn').textContent = '✕ Cancel';
+    document.getElementById('deck-save-btn').classList.remove('hidden');
+    const deck = open.company.investorDeck || {}, ta = 'w-full bg-zinc-800 border border-zinc-600 rounded-xl px-4 py-3 outline-none text-sm text-zinc-200 leading-relaxed';
+    const order = ['tagline', 'oneLiner', 'highlights', 'problem', 'problemPoints', 'solution', 'solutionPoints', 'howItWorks', 'marketOpportunity', 'targetCustomer', 'marketSizing', 'businessModel', 'revenueStreams', 'traction', 'milestones',
+                   'competition', 'competitors', 'advantage', 'goToMarket', 'channels', 'team', 'roadmap', 'whyNow', 'ask', 'useOfFunds', 'useOfFundsBreakdown', 'risks', 'assumptions', 'founderNotes'];
+    document.getElementById('deck-content').innerHTML = `<div class="bg-zinc-900 rounded-3xl p-6 md:p-8">
+        <h2 class="text-2xl font-bold mb-1">Edit the deck</h2>
+        <p class="text-sm text-zinc-400 mb-6">A section left empty is left out of the deck. In lists, put one item per line; where a label shows “Name — detail”, the part before the dash is shown in bold.</p>
+        <div class="space-y-5">${order.map(k => { const isList = k in DECK_LISTS, value = isList ? (Array.isArray(deck[k]) ? deck[k].join('\n') : '') : (typeof deck[k] === 'string' ? deck[k] : '');
+            return `<div><label for="deck-edit-${k}" class="block text-sm font-medium mb-1.5">${ecoEsc(isList ? DECK_LISTS[k] : DECK_TEXT[k])}${isList ? ' <span class="text-xs text-zinc-400 font-normal">· one per line</span>' : ''}</label>
+                <textarea id="deck-edit-${k}" data-field="${k}" data-list="${isList}" rows="${isList ? 4 : k === 'tagline' || k === 'oneLiner' ? 2 : 4}" maxlength="${isList ? 3000 : 900}" class="${ta}">${ecoEsc(value)}</textarea></div>`; }).join('')}</div></div>`;
+}
+
+async function saveDeckEdits() {
+    const open = window._deckOpen;
+    if (!open || !currentUser) return;
+    const updated = Object.assign({}, open.company.investorDeck || {}, { version: 2 });
+    document.querySelectorAll('#deck-content textarea[data-field]').forEach(ta => {
+        updated[ta.dataset.field] = ta.dataset.list === 'true' ? ta.value.split('\n').map(l => l.trim().slice(0, 320)).filter(Boolean).slice(0, 8) : ta.value.trim().slice(0, 900);
+    });
+    try {
+        await db.collection('companies').doc(open.companyId).update({ investorDeck: updated, deckUpdatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+        const doc = await db.collection('companies').doc(open.companyId).get();
+        showInvestorDeck(open.companyId, { id: doc.id, ...doc.data() });
+    } catch (e) { alert('Failed to save: ' + e.message); }
+}
+
+/// The optional questions on the deck form, with the founder's last answers.
+function deckInputsRender(company) {
+    const box = document.getElementById('metric-deck-inputs');
+    if (!box) return;
+    const saved = (company && company.deckInputs) || {};
+    box.innerHTML = Object.keys(DECK_INPUTS).map(k => `<div><label for="metric-in-${k}" class="block text-sm text-zinc-300 mb-1">${DECK_INPUTS[k]}</label>
+        <textarea id="metric-in-${k}" rows="2" maxlength="700" class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 outline-none text-sm">${ecoEsc(saved[k] || '')}</textarea></div>`).join('');
+}
+function deckInputsRead() {
+    const out = {};
+    Object.keys(DECK_INPUTS).forEach(k => { const el = document.getElementById('metric-in-' + k); out[k] = el ? el.value.trim().slice(0, 700) : ''; });
+    return out;
+}
+
+// Class names built from variables above, written out so a build that scans
+// this file for class names finds them:
+// bg-emerald-500/10 border-emerald-500/20 text-emerald-300 text-emerald-400 bg-cyan-500/10 border-cyan-500/20 text-cyan-300 text-cyan-400
+// bg-zinc-500/10 border-zinc-500/20 text-zinc-300 bg-violet-500/10 border-violet-500/20 text-violet-300 bg-red-500/10 border-red-500/20 text-red-300
+// md:grid-cols-1 md:grid-cols-2 md:grid-cols-3 md:grid-cols-4
+
 // ====================== PODCASTS & STREAMS ======================
 // The "Podcasts & Streams" tab in Explore.
 //
@@ -24415,7 +24593,7 @@ async function showsAdminRemove(postId) {
 </div>
 <!-- INVESTOR DECK MODAL -->
 <div id="investor-deck-modal" class="hidden fixed inset-0 bg-black z-[999999] flex flex-col overflow-auto">
-    <div class="flex items-center justify-between px-6 py-4 bg-zinc-900 border-b border-zinc-800 flex-shrink-0">
+    <div class="nqv-noprint flex flex-wrap items-center justify-between gap-3 px-4 md:px-6 py-4 bg-zinc-900 border-b border-zinc-800 flex-shrink-0">
         <div class="flex items-center gap-3">
             <div class="w-8 h-8 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-xl flex items-center justify-center text-sm font-bold">NQV8</div>
             <div>
@@ -24423,7 +24601,11 @@ async function showsAdminRemove(postId) {
                 <p class="text-xs text-zinc-400">Investor Deck · Confidential · NQVate</p>
             </div>
         </div>
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+            <button onclick="proPrint('investor-deck-modal')"
+                    class="text-zinc-400 hover:text-white px-4 py-2 border border-zinc-700 rounded-xl text-sm">
+                🖨 Print / PDF
+            </button>
             <button id="deck-edit-btn" onclick="toggleDeckEdit()" class="hidden text-zinc-400 hover:text-white px-4 py-2 border border-zinc-700 rounded-xl text-sm">
                 ✏️ Edit
             </button>
@@ -24456,10 +24638,10 @@ async function showsAdminRemove(postId) {
             <h2 class="text-2xl font-bold">Verify Metrics & Generate Deck</h2>
             <button onclick="hideVerifyMetricsModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
         </div>
-        <p class="text-zinc-400 text-sm mb-6">Upload proof of your revenue and user metrics. Documents are reviewed by Claude AI and immediately deleted — only the verified ranges are stored.</p>
+        <p class="text-zinc-400 text-sm mb-6">Claude checks your revenue and user figures against the proof you upload, then writes a full investor deck from your website and your answers below. Documents are read once and not kept — only the verified ranges are stored.</p>
 
         <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 mb-6">
-            <p class="text-amber-400 text-xs">💰 Cost: 100 NQV8 · Includes metric verification + investor deck generation · Automatically refunded on technical errors</p>
+            <p class="text-amber-400 text-xs">💰 Cost: 100 NQV8 · Verification plus a full deck: problem, solution, market, business model, competition, go-to-market, roadmap and risks · Takes about a minute · Refunded automatically if it cannot be completed</p>
         </div>
 
         <div class="space-y-4 mb-6">
@@ -24503,6 +24685,14 @@ async function showsAdminRemove(postId) {
                 </select>
             </div>
         </div>
+
+        <details class="mb-6 bg-zinc-800/40 border border-zinc-700 rounded-2xl" open>
+            <summary class="cursor-pointer px-4 py-3 text-sm font-semibold">Make the deck stronger <span class="text-xs text-zinc-400 font-normal">· optional, but the deck can only be as specific as what you tell it</span></summary>
+            <div class="px-4 pb-4">
+                <p class="text-xs text-zinc-400 mb-3">Claude will not invent customers, revenue or team credentials. Anything you leave out is left out of the deck and listed for you as something an investor will ask.</p>
+                <div id="metric-deck-inputs" class="space-y-3"></div>
+            </div>
+        </details>
 
         <div id="metrics-status-banner" class="hidden mb-4 p-4 rounded-2xl"></div>
 
@@ -24558,6 +24748,10 @@ async function showsAdminRemove(postId) {
                     <p id="flowmap-project-desc" class="text-zinc-400 text-sm mt-1"></p>
                 </div>
                 <div class="flex gap-2 flex-wrap">
+                    <button onclick="showPlanOverview()"
+                            class="px-4 py-2 border border-cyan-400 text-cyan-300 rounded-xl text-sm font-medium hover:bg-cyan-400/10">
+                        📋 Plan overview
+                    </button>
                     <button onclick="showCompanyAnalytics(STUDIO.id)"
                             class="px-4 py-2 border border-zinc-600 text-zinc-200 rounded-xl text-sm font-medium hover:bg-zinc-800">
                         📊 Analytics
@@ -24655,10 +24849,28 @@ async function showsAdminRemove(postId) {
                 <option value="Other">Other / Mixed</option>
             </select>
 
-            <textarea aria-label="Describe what you are building" id="flowmap-description" rows="5"
-                      placeholder="Describe what you're building — only needed if you want Claude to generate nodes. What does it do? Who is it for? What are the core features?"
+            <div class="grid grid-cols-2 gap-3 mb-4">
+                <select aria-label="Stage" id="flowmap-stage" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
+                    <option value="">Stage (optional)</option><option>Idea — nothing built yet</option><option>Prototype or mock-ups exist</option><option>Live product, adding to it</option>
+                </select>
+                <select aria-label="Who is building it" id="flowmap-team" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
+                    <option value="">Who is building it (optional)</option><option>Me, and I can code</option><option>Me, and I cannot code — hiring builders</option><option>A small team</option>
+                </select>
+                <select aria-label="Target launch" id="flowmap-timeline" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
+                    <option value="">Target launch (optional)</option><option>Within 1 month</option><option>1 to 3 months</option><option>3 to 6 months</option><option>No deadline</option>
+                </select>
+                <select aria-label="Budget for outside builders" id="flowmap-budget" class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-4 py-3 outline-none text-sm">
+                    <option value="">Budget for builders (optional)</option><option>Under $2,000</option><option>$2,000 to $10,000</option><option>$10,000 to $50,000</option><option>Over $50,000</option>
+                </select>
+            </div>
+            <input aria-label="What already exists" id="flowmap-existing" maxlength="300" placeholder="What already exists? (optional — a design, a landing page, a database…)"
+                   class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-3 outline-none text-sm mb-4">
+
+            <textarea aria-label="Describe what you are building" id="flowmap-description" rows="6" maxlength="6000"
+                      placeholder="Describe what you're building. What does it do? Who is it for? What must it be able to do on day one? What is special about it? The more you say here, the more specific the plan — a few paragraphs is ideal."
                       class="w-full bg-zinc-800 border border-zinc-700 rounded-2xl px-5 py-4 outline-none text-sm mb-4"></textarea>
 
+            <p class="text-xs text-zinc-400 mb-4">✨ With AI, Claude writes a full plan in 2 to 3 minutes: the architecture, phases, 10 to 22 parts each with deliverables, checkable “done when” criteria, build steps and an estimate, plus the risks and the decisions you still need to make. Refunded automatically if it cannot be completed.</p>
             <div id="flowmap-modal-status" class="hidden mb-4 p-4 rounded-2xl bg-zinc-800 text-sm text-zinc-300 text-center"></div>
 
             <div class="flex gap-3">
