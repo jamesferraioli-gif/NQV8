@@ -13235,16 +13235,16 @@ async function showCompanyDetail(companyId, company) {
                     <div class="bg-zinc-800 rounded-2xl p-5 mb-6">
                         <div class="flex justify-between items-center">
                             <p class="font-semibold">📈 Metrics</p>
-                            <button onclick="hideProjectDetailModal(); showVerifyMetricsModal('${companyId}', ${JSON.stringify(company).replace(/"/g, '&quot;')})" 
+                            <button onclick="hideProjectDetailModal(); deckOpen('${companyId}', 'verify')"
                                     class="px-4 py-2 bg-gradient-to-r from-cyan-400 to-violet-500 text-black text-xs font-semibold rounded-xl">
-                                ${company.metricsVerified ? '🔄 Re-verify & Regenerate Deck ($1 NQV8)' : '✨ Verify Metrics & Generate Deck ($1 NQV8)'}
+                                ${deckVerifyLabel(company)}
                             </button>
                         </div>
                         ${company.metricsVerified ? `
                         <div class="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 mt-3">
                             <p class="text-emerald-400 text-xs font-semibold">✅ Metrics Verified by Claude AI</p>
                             <p class="text-zinc-400 text-xs mt-1">Revenue: ${company.revenueBucket} · Users: ${company.usersBucket}</p>
-                            <button onclick="showInvestorDeck('${companyId}', ${JSON.stringify(company).replace(/"/g, '&quot;')})" 
+                            <button onclick="deckOpen('${companyId}', 'view')"
                                     class="mt-2 px-3 py-1 bg-violet-600 text-white text-xs rounded-lg">
                                 📄 View Investor Deck
                             </button>
@@ -13259,6 +13259,14 @@ async function showCompanyDetail(companyId, company) {
         }
     } catch(e) {
         console.warn('Equity data load failed:', e.message);
+    }
+    if (isOwner && !equityHTML.includes('deckOpen(')) {
+        equityHTML += `
+                    <div class="bg-zinc-800 rounded-2xl p-5 mb-6">
+                        <p class="font-semibold mb-1">📈 Metrics and investor deck</p>
+                        <p class="text-zinc-400 text-xs mb-3">${company.metricsVerified ? `Verified by Claude AI · Revenue: ${ecoEsc(company.revenueBucket || '—')} · Users: ${ecoEsc(company.usersBucket || '—')}` : 'Get Claude-verified metrics and a full investor deck.'}</p>
+                        <div class="space-y-2">${deckButtons(companyId, company, 'hideProjectDetailModal(); ')}</div>
+                    </div>`;
     }
 
     content.innerHTML = `
@@ -18504,15 +18512,7 @@ async function loadGrowTab() {
                     </div>
                 </div>
                 <div class="space-y-2">
-                    ${!c.metricsVerified ? `
-                    <button onclick="showCompanyDetail('${c.id}', ${JSON.stringify(c).replace(/"/g,'&quot;')})"
-                            class="w-full py-3 bg-gradient-to-r from-cyan-400 to-violet-500 text-black text-sm font-semibold rounded-xl">
-                        ✨ Verify Metrics & Generate Deck
-                    </button>` : `
-                    <button onclick="showInvestorDeck('${c.id}', ${JSON.stringify(c).replace(/"/g,'&quot;')})"
-                            class="w-full py-3 bg-violet-600 text-white text-sm font-semibold rounded-xl hover:bg-violet-700">
-                        📄 View Investor Deck
-                    </button>`}
+                    ${deckButtons(c.id, c)}
                     ${isVerified ? `
                     <button onclick="showPostFundingModalForProject('${c.id}', '${(c.name||'').replace(/'/g,"\\'")}', true)"
                             class="w-full py-3 border border-zinc-600 text-zinc-300 text-sm rounded-xl hover:bg-zinc-800">
@@ -18610,10 +18610,7 @@ function showCompanyManageModal(companyId, company) {
             </div>
 
             <div class="space-y-2">
-                <button onclick="document.getElementById('company-manage-modal').remove(); showVerifyMetricsModal(window._manageModalCompanyId, window._manageModalCompany)"
-                        class="w-full py-3 bg-gradient-to-r from-cyan-400 to-violet-500 text-black text-sm font-semibold rounded-xl">
-                    ${company.metricsVerified ? '🔄 Re-verify & Regenerate Deck ($1 NQV8)' : '✨ Verify Metrics & Generate Deck ($1 NQV8)'}
-                </button>
+                ${deckButtons(companyId, company, "document.getElementById('company-manage-modal').remove(); ")}
                 <button onclick="document.getElementById('company-manage-modal').remove(); showPostFundingModalForProject(window._manageModalCompanyId, window._manageModalCompany.name, ${isVerified})"
                         class="w-full py-3 border border-zinc-600 text-zinc-300 text-sm rounded-xl hover:bg-zinc-800">
                     💰 Post Funding Request
@@ -23824,6 +23821,37 @@ async function saveDeckEdits() {
         const doc = await db.collection('companies').doc(open.companyId).get();
         showInvestorDeck(open.companyId, { id: doc.id, ...doc.data() });
     } catch (e) { alert('Failed to save: ' + e.message); }
+}
+
+// The same deck controls wherever a company's owner manages it: the Grow
+// card in Studio, the company pop-up on the profile, and the Manage page.
+function deckVerifyLabel(company) {
+    return `${company && company.metricsVerified ? '🔄 Re-verify & Regenerate Deck' : '✨ Verify Metrics & Generate Deck'} (${NQV8_FEE.VERIFY_METRICS} NQV8)`;
+}
+/// Open the deck, or the form that makes one, from the company as it is now
+/// rather than from a copy written into the page when the button was drawn.
+async function deckOpen(companyId, what) {
+    try {
+        const doc = await db.collection('companies').doc(companyId).get();
+        if (!doc.exists) return alert('This company could not be found.');
+        const company = { id: doc.id, ...doc.data() };
+        if (what === 'verify') return showVerifyMetricsModal(companyId, company);
+        return showInvestorDeck(companyId, company);
+    } catch (e) { alert('Could not open that: ' + e.message); }
+}
+/// View (when a deck exists) and Verify or Re-verify, as full-width buttons.
+/// `before` is run first, to close whatever pop-up the buttons sit in.
+function deckButtons(companyId, company, before) {
+    const id = ecoEsc(companyId), pre = before || '';
+    return `${company && company.investorDeck ? `
+                    <button onclick="${pre}deckOpen('${id}', 'view')"
+                            class="w-full py-3 bg-violet-600 text-white text-sm font-semibold rounded-xl hover:bg-violet-700">
+                        📄 View Investor Deck
+                    </button>` : ''}
+                    <button onclick="${pre}deckOpen('${id}', 'verify')"
+                            class="w-full py-3 bg-gradient-to-r from-cyan-400 to-violet-500 text-black text-sm font-semibold rounded-xl">
+                        ${deckVerifyLabel(company)}
+                    </button>`;
 }
 
 /// The optional questions on the deck form, with the founder's last answers.
