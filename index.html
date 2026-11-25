@@ -353,6 +353,11 @@
                         class="hidden px-3 py-2 bg-red-500/20 text-red-400 rounded-xl text-xs font-medium hover:bg-red-500/30">
                     ✕ Clear
                 </button>
+                <!-- Saved searches that tell you about new listings -->
+                <button onclick="showListingAlerts()"
+                        class="px-3 py-2 bg-zinc-800 text-zinc-200 rounded-xl text-xs font-medium hover:bg-zinc-700">
+                    🔔 Alerts
+                </button>
             </div>
         </div>
 
@@ -1383,6 +1388,23 @@
             <div>
                 <div id="completed-projects" class="grid grid-cols-1 md:grid-cols-2 gap-4 max-h-80 overflow-y-auto pr-1">
                     <!-- Populated by JS -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Portfolio, email and blocked members -->
+        <div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+                <h2 class="text-xl font-semibold mb-1">🎨 Portfolio</h2>
+                <p id="portfolio-own" class="text-xs text-zinc-400 mb-3">Choose which completed work visitors see on your profile.</p>
+                <button onclick="showPortfolioEditor()" class="px-4 py-2 bg-white text-black rounded-xl text-sm font-semibold">Manage portfolio</button>
+            </div>
+            <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
+                <h2 class="text-xl font-semibold mb-1">✉️ Email notifications</h2>
+                <div id="email-prefs-box"></div>
+                <div class="flex flex-wrap gap-2 mt-3">
+                    <button onclick="showListingAlerts()" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm">🔔 Listing alerts</button>
+                    <button onclick="showBlockedMembers()" class="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-xl text-sm">🚫 Blocked members</button>
                 </div>
             </div>
         </div>
@@ -7709,6 +7731,7 @@ async function createProfile() {
             // right-section already visible
             navigateTo('ecosystem');      // the NQVerse is home
             updateProfileUI();
+            communityOnLogin();
             
             // Show welcome popup every time you login
             // setTimeout(showWelcomeModal, 800);
@@ -8472,6 +8495,7 @@ async function loadTotalFundingReceivedStat() {
             <span onclick="viewUserProfile('${project.posterUid}')" class="text-cyan-400 hover:underline cursor-pointer">
                 @${project.posterUsername || project.posterName || 'anonymous'}
             </span>
+            ${currentUser && !isPoster ? `<button onclick="reportListingOpen()" class="ml-3 text-xs text-zinc-400 hover:text-red-400 underline">⚑ Report this listing</button>` : ''}
         </p>
 
         ${project.type === 'fund' ? `
@@ -9656,7 +9680,6 @@ function hideEditPostingModal() {
                         // Update plan node status if this posting came from Studio
                         const nodeSnap = await db.collection('subprojects')
                             .where('marketplacePostId', '==', currentProjectId)
-                            .where('ownerUid', '==', currentUser.uid)
                             .limit(1).get();
                         if (!nodeSnap.empty) {
                             await db.collection('subprojects').doc(nodeSnap.docs[0].id).update({
@@ -9805,7 +9828,6 @@ function hideEditPostingModal() {
                 // Update plan node status if this posting came from Studio
                 const nodeSnap = await db.collection('subprojects')
                     .where('marketplacePostId', '==', currentProjectId)
-                    .where('ownerUid', '==', currentUser.uid)
                     .limit(1).get();
                 if (!nodeSnap.empty) {
                     await db.collection('subprojects').doc(nodeSnap.docs[0].id).update({
@@ -10323,7 +10345,6 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                     // Update plan node status
                     const nodeSnap = await db.collection('subprojects')
                         .where('marketplacePostId', '==', currentProjectId)
-                        .where('ownerUid', '==', currentUser.uid)
                         .limit(1).get();
                     if (!nodeSnap.empty) {
                         await db.collection('subprojects').doc(nodeSnap.docs[0].id).update({
@@ -10388,7 +10409,6 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                     // Update plan node
                     db.collection('subprojects')
                         .where('marketplacePostId', '==', currentProjectId)
-                        .where('ownerUid', '==', currentUser.uid)
                         .limit(1).get()
                         .then(ns => {
                             if (!ns.empty) db.collection('subprojects').doc(ns.docs[0].id).update({ marketplacePostStatus: 'completed', status: 'completed' });
@@ -10584,7 +10604,6 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                 // Update plan node status if from Studio
                 db.collection('subprojects')
                     .where('marketplacePostId', '==', currentProjectId)
-                    .where('ownerUid', '==', currentUser.uid)
                     .limit(1).get()
                     .then(ns => {
                         if (!ns.empty) db.collection('subprojects').doc(ns.docs[0].id).update({ marketplacePostStatus: 'completed', status: 'completed' });
@@ -10774,7 +10793,6 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                             // Mark plan node as completed
                             const completedNodeSnap = await db.collection('subprojects')
                                 .where('marketplacePostId', '==', currentReviewProjectId)
-                                .where('ownerUid', '==', currentUser.uid)
                                 .limit(1).get();
                             if (!completedNodeSnap.empty) {
                                 await db.collection('subprojects').doc(completedNodeSnap.docs[0].id).update({
@@ -10970,6 +10988,7 @@ async function loadChatList(searchTerm = "") {
                 } else {
                     const otherUid = (chat.participants || []).find(uid => uid !== currentUser.uid);
                     if (!otherUid) continue;
+                    if (isBlocked(otherUid)) continue;          // a member you blocked
         
                     // ✅ DEDUP: skip if we already rendered a chat with this person
                     if (seenPartners.has(otherUid)) continue;
@@ -11002,6 +11021,7 @@ async function loadChatList(searchTerm = "") {
     
         async function initiateChat(partnerUid, partnerData) {
             if (partnerUid === currentUser.uid) return alert("You cannot chat with yourself.");
+            if (isBlocked(partnerUid)) return alert("You have blocked this member. Unblock them from your profile to message them.");
 
             try {
                 // Check if a chat already exists between these two users
@@ -11909,6 +11929,8 @@ async function viewUserProfile(uid) {
                     }, 2000);
                 };
 
+                profileSafetyButtons(uid, user.username);
+
                 // Follow button
                 // Remove existing follow button if present (navigating between profiles)
                 const existingFollowBtn = document.getElementById('follow-btn');
@@ -11965,18 +11987,16 @@ async function viewUserProfile(uid) {
                     }
                 }
 
-                // Completed bounties portfolio
-                let portfolioHTML = '';
+                // Portfolio: completed bounties the member has chosen to show, then
+                // work they added themselves. Private bounties never appear.
+                const portfolioDoneList = [];
                 completedSnap.forEach(doc => {
                     const p = doc.data();
-                    if (p.planNode === true) return; // skip studio nodes
-                    portfolioHTML += `
-                        <div class="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
-                            <p class="font-semibold text-sm">${p.title}</p>
-                            <p class="text-xs text-zinc-400 mt-1">${p.category || ''} · ${p.compensation || ''}</p>
-                            <span class="text-xs text-emerald-400">✅ Completed</span>
-                        </div>`;
+                    if (p.planNode === true || p.isPrivate === true) return;
+                    portfolioDoneList.push({ id: doc.id, title: p.title, category: p.category, compensation: p.compensation, at: nqvSecs(p.completedAt || p.createdAt) });
                 });
+                portfolioDoneList.sort((a, b) => b.at - a.at);
+                const portfolioHTML = portfolioHtml(user, portfolioDoneList);
 
                 // Insert portfolio section before reviews
                 const reviewsList = document.getElementById('user-reviews-list');
@@ -11987,10 +12007,7 @@ async function viewUserProfile(uid) {
                     const section = document.createElement('div');
                     section.id = 'user-portfolio-section';
                     section.className = 'mb-8';
-                    section.innerHTML = `
-                        <h2 class="text-2xl font-semibold mb-4">Completed Work</h2>
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">${portfolioHTML}</div>
-                    `;
+                    section.innerHTML = portfolioHTML;
                     reviewsList.parentNode.insertBefore(section, reviewsList.parentNode.querySelector('div:has(#user-reviews-list)') || reviewsList);
                 }
 
@@ -12360,6 +12377,7 @@ async function viewUserProfile(uid) {
 
                 const items = [];
                 snapshot.forEach(doc => {
+                    if (isBlocked(doc.data().posterUid)) return;
                     items.push({ docId: doc.id, post: doc.data() });
                 });
 
@@ -12855,6 +12873,7 @@ async function loadForYouFeed() {
 
         function viewPostDetail(postId, post) {
             currentPostId = postId;
+            window._nqvPost = post;
             const modal = document.getElementById('post-detail-modal');
             const content = document.getElementById('post-detail-content');
 
@@ -12881,7 +12900,8 @@ async function loadForYouFeed() {
                 </div>` : ''}
                 
                 <div class="flex items-center justify-between mt-8">
-                    <p class="text-xs text-violet-400">Posted by @${post.username}</p>
+                    <p class="text-xs text-violet-400">Posted by @${post.username}
+                        ${currentUser && currentUser.uid !== post.posterUid ? `<button onclick="reportPostOpen()" class="ml-3 text-zinc-400 hover:text-red-400 underline">⚑ Report</button>` : ''}</p>
                     ${currentUser && currentUser.uid === post.posterUid && !(post.isSponsoredBoost && post.sponsoredBoostUntil > Date.now()) ? `
                     <button onclick="showBoostExplorePostModal('${postId}')"
                             class="px-4 py-2 bg-amber-500/20 text-amber-400 text-xs font-semibold rounded-xl hover:bg-amber-500/30 transition-colors">
@@ -13861,10 +13881,7 @@ async function populateBountyProjectList() {
     const list = document.getElementById('bounty-project-list');
     list.innerHTML = '<p class="text-zinc-500 text-sm">Loading your projects...</p>';
 
-    const snap = await db.collection("companies")
-        .where("ownerUid", "==", currentUser.uid)
-        .orderBy("createdAt", "desc")
-        .get();
+    const snap = await myCompaniesSnap();          // yours, and those you are on the team of
 
     if (snap.empty) {
         list.innerHTML = '<p class="text-zinc-500 text-sm">No projects yet. Create one first.</p>';
@@ -13880,7 +13897,7 @@ async function populateBountyProjectList() {
             <div class="flex justify-between items-center">
                 <div>
                     <p class="font-semibold">${p.name}</p>
-                    <p class="text-xs text-zinc-400">${p.category || ''} ${p.entityType ? '· ' + p.entityType : ''}</p>
+                    <p class="text-xs text-zinc-400">${p.category || ''} ${p.entityType ? '· ' + p.entityType : ''}${p.mine === false ? ' · 👥 Team — cash bounties only' : ''}</p>
                 </div>
                 <span class="text-xs px-2 py-1 rounded-full ${p.equityUnlocked ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-700 text-zinc-400'}">
                     ${p.equityUnlocked ? '✅ Verified' : 'Unverified'}
@@ -13986,6 +14003,7 @@ async function submitBountyPosting() {
     if (selectedBountyCompType !== 'cash') {
         const projectSnap = await db.collection("companies").doc(selectedBountyProjectId).get();
         const project = projectSnap.data();
+        if (project.ownerUid !== currentUser.uid) return alert("Only the company's owner can offer equity. As a team member you can post cash bounties.");
         if (!project.equityUnlocked) {
             if (confirm("Equity compensation requires a verified entity. Would you like to start verification now?")) {
                 hidePostBountyModal();
@@ -14101,7 +14119,7 @@ async function submitBountyPosting() {
                     window._postingTimeframeEstimate = null;
                     window._postingBond = null;
                     alert("✅ Build request posted!");
-                    notifyMatchingBuilders({ title, compensation }, _bountySelectedTags, category);
+                    announceListing(newPostingRef.id);       // alerts and skill matches, sent by the server
                     hidePostBountyModal();
                     loadMarketplace();
                     refreshProjectDetailModal();
@@ -14770,6 +14788,9 @@ function openGroupChat(chatId, chatData) {
 function renderComments(post) {
             const container = document.getElementById('comments-list');
             if (!container) return;
+            window._nqvPost = post;
+            const flag = (c, args) => currentUser && c.uid && c.uid !== currentUser.uid
+                ? `<button onclick="reportCommentOpen(${args})" class="text-xs text-zinc-400 hover:text-red-400 underline ml-2">⚑ Report</button>` : '';
             if (!post.comments || post.comments.length === 0) {
                 container.innerHTML = '<p class="text-zinc-400">No comments yet. Be the first!</p>';
                 return;
@@ -14780,20 +14801,22 @@ function renderComments(post) {
             const replies  = post.comments.filter(c => c.replyTo);
 
             container.innerHTML = topLevel.map((c, i) => {
-                const commentReplies = replies.filter(r => r.replyTo === i);
+                if (isBlocked(c.uid)) return '';                     // a member you blocked
+                const allReplies = replies.filter(r => r.replyTo === i);
+                const commentReplies = allReplies.map((r, j) => Object.assign({ _j: j }, r)).filter(r => !isBlocked(r.uid));
                 const date = c.createdAt ? new Date(c.createdAt).toLocaleDateString() : '';
                 return `
                 <div class="bg-zinc-800 rounded-2xl p-4">
                     <div class="flex justify-between items-start mb-1">
                         <p class="text-sm font-medium text-cyan-400">@${c.username}</p>
-                        <span class="text-xs text-zinc-600">${date}</span>
+                        <span class="text-xs text-zinc-400">${date}${flag(c, i)}</span>
                     </div>
                     <p class="text-zinc-300 text-sm">${c.text}</p>
                     ${commentReplies.length > 0 ? `
                     <div class="mt-3 ml-4 space-y-2 border-l-2 border-zinc-700 pl-3">
                         ${commentReplies.map(r => `
                         <div>
-                            <p class="text-xs font-medium text-cyan-400">@${r.username}</p>
+                            <p class="text-xs font-medium text-cyan-400">@${r.username}${flag(r, i + ',' + r._j)}</p>
                             <p class="text-zinc-400 text-sm">${r.text}</p>
                         </div>`).join('')}
                     </div>` : ''}
@@ -17924,39 +17947,6 @@ async function notifyChangesRequested(project, feedback) {
     });
 }
 
-// ── Trigger: new bounty matching skills ──────────────────────────────
-// Call this inside submitBountyPosting() after saving to Firestore
-async function notifyMatchingBuilders(posting, tags, category) {
-    if (!tags || tags.length === 0) return;
-    try {
-        // Find users whose skills overlap with the posting's tags
-        const usersSnap = await db.collection('users').get();
-        const matches = [];
-        usersSnap.forEach(doc => {
-            const u = doc.data();
-            if (doc.id === currentUser.uid) return; // skip poster
-            if (!u.skills || u.skills.length === 0) return;
-            const overlap = u.skills.filter(s => tags.includes(s));
-            if (overlap.length > 0) {
-                matches.push({ uid: doc.id, name: u.firstName || u.username || 'there', matchedSkills: overlap });
-            }
-        });
-
-        // Send to up to 50 matching users (avoid spam)
-        for (const match of matches.slice(0, 50)) {
-            sendEmail('new_bounty_match', match.uid, {
-                recipientName:  match.name,
-                postingTitle:   posting.title,
-                compensation:   posting.compensation,
-                category:       category || 'General',
-                matchedSkills:  match.matchedSkills,
-                posterUsername: currentUser.username
-            });
-        }
-    } catch(e) {
-        console.warn('Skill match notification failed:', e.message);
-    }
-}
 // ====================== ESCROW ACTIONS ======================
 async function fileProjectDispute(projectId) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
@@ -18009,6 +17999,7 @@ async function fileProjectDispute(projectId) {
             `A dispute has been filed on: "${currentProject.title}". Claude AI will review both sides and issue a binding ruling automatically.`,
             { projectId }
         );
+        sendEmail('dispute_filed', otherUid, { postingId: projectId, postingTitle: currentProject.title, filerUsername: currentUser.username });
 
         alert(`✅ Dispute filed.\n\nClaude AI is now reviewing the evidence and will issue a binding ruling automatically. Both parties will be notified when resolved.\n\nTx: https://arbiscan.io/tx/${disputeTx.hash}`);
 
@@ -18283,17 +18274,14 @@ async function loadStudioProjectList() {
     sel.innerHTML = '<option value="">— Select a project —</option>';
 
     try {
-        const snap = await db.collection('companies')
-            .where('ownerUid', '==', currentUser.uid)
-            .orderBy('createdAt', 'desc')
-            .get();
+        const snap = await myCompaniesSnap();      // yours, and those you are on the team of
 
         snap.forEach(doc => {
             const c = doc.data();
             if (c.isActive === false) return; // skip inactive
             const opt = document.createElement('option');
             opt.value = doc.id;
-            opt.textContent = c.name;
+            opt.textContent = c.name + (c.mine === false ? ' (team)' : '');
             if (doc.id === currentStudioProjectId) opt.selected = true;
             sel.appendChild(opt);
         });
@@ -18493,10 +18481,7 @@ async function showNewFlowMapModal() {
     list.innerHTML = '<p class="text-zinc-500 text-sm">Loading...</p>';
 
     try {
-        const snap = await db.collection('companies')
-            .where('ownerUid', '==', currentUser.uid)
-            .orderBy('createdAt', 'desc')
-            .get();
+        const snap = await myCompaniesSnap();      // yours, and those you are on the team of
 
         if (snap.empty) {
             list.innerHTML = '<p class="text-zinc-500 text-sm">No projects yet. Create one first.</p>';
@@ -18832,6 +18817,16 @@ async function loadGrowTab() {
                             class="w-full py-3 border border-violet-500/50 text-violet-400 text-sm rounded-xl hover:bg-violet-500/10">
                         🔐 Verify Entity
                     </button>`}
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="showCompanyAnalytics('${c.id}')"
+                                class="w-full py-3 border border-zinc-600 text-zinc-300 text-sm rounded-xl hover:bg-zinc-800">
+                            📊 Analytics
+                        </button>
+                        <button onclick="showTeam('${c.id}')"
+                                class="w-full py-3 border border-zinc-600 text-zinc-300 text-sm rounded-xl hover:bg-zinc-800">
+                            👥 Team
+                        </button>
+                    </div>
                     <button onclick="showCompanyDetail('${c.id}', ${JSON.stringify(c).replace(/\"/g,'&quot;')})"
                             class="w-full py-3 border border-zinc-700 text-zinc-400 text-sm rounded-xl hover:bg-zinc-800">
                         ⚙️ Manage
@@ -18914,6 +18909,16 @@ function showCompanyManageModal(companyId, company) {
                         class="w-full py-3 border border-zinc-600 text-zinc-300 text-sm rounded-xl hover:bg-zinc-800">
                     📊 View Cap Table
                 </button>
+                <div class="grid grid-cols-2 gap-2">
+                    <button onclick="document.getElementById('company-manage-modal').remove(); showCompanyAnalytics(window._manageModalCompanyId)"
+                            class="w-full py-3 border border-zinc-600 text-zinc-300 text-sm rounded-xl hover:bg-zinc-800">
+                        📊 Analytics
+                    </button>
+                    <button onclick="document.getElementById('company-manage-modal').remove(); showTeam(window._manageModalCompanyId)"
+                            class="w-full py-3 border border-zinc-600 text-zinc-300 text-sm rounded-xl hover:bg-zinc-800">
+                        👥 Team
+                    </button>
+                </div>
                 <button onclick="document.getElementById('company-manage-modal').remove(); showCompanyDetail(window._manageModalCompanyId, window._manageModalCompany)"
                         class="w-full py-3 border border-zinc-600 text-zinc-300 text-sm rounded-xl hover:bg-zinc-800">
                     ⚙️ Manage
@@ -21043,7 +21048,12 @@ function ecoPanelHtml(node) {
           : '<p class="text-sm text-zinc-400 mb-4">Not tied to a company yet — no company founded, no stake held, no bounty worked.</p>'}
         ${p.nb ? `<p class="text-xs uppercase tracking-wider text-zinc-500 mb-2">Bounties worked (${done} completed of ${p.nb})</p>
         <ul class="space-y-1 mb-4">${p.bounties.slice(0, 8).map(b => `<li class="text-sm text-zinc-300 flex justify-between gap-3"><span class="truncate">${ecoEsc(b.title)}</span><span class="text-xs text-zinc-500 shrink-0">${b.done ? 'done' : 'in progress'}</span></li>`).join('')}</ul>` : ''}
-        ${p.uid ? `<button onclick="viewUserProfile('${ecoEsc(p.uid)}')" class="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-sm font-semibold">👤 View profile</button>` : ''}`;
+        ${p.uid ? `<button onclick="viewUserProfile('${ecoEsc(p.uid)}')" class="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-sm font-semibold">👤 View profile</button>
+            ${nqvMe() && p.uid !== nqvMe() ? `<div class="flex gap-2 mt-2">
+                ${isBlocked(p.uid) ? `<button onclick="unblockUser('${ecoEsc(p.uid)}')" class="flex-1 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs">Unblock</button>`
+                                   : `<button onclick="blockUser('${ecoEsc(p.uid)}','${ecoEsc(String(p.label || '').replace(/^@/, '').replace(/[^\w.-]/g, ''))}')" class="flex-1 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs">🚫 Block</button>`}
+                <button onclick="reportContent('member','${ecoEsc(p.uid)}','${ecoEsc(p.uid)}','${ecoEsc(String(p.label || '').replace(/[^\w@.-]/g, ''))}')" class="flex-1 py-2 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-xs">⚑ Report</button>
+            </div>` : ''}` : ''}`;
 }
 
 /// Read this company's stakes from the contract and redraw the panel with them.
@@ -21120,6 +21130,7 @@ function ecoFeedEvents() {
     const secs = t => (t && t.seconds) || 0;
     const ev = (ECO.snap.events || []).map(e => Object.assign({}, e));
     ECO.raw.posts.forEach(p => {
+        if (isBlocked(p.posterUid)) return;
         const who = '@' + (p.username || 'user'), title = '“' + (p.title || 'Untitled') + '”';
         const live = p.type === 'stream' && p.liveStatus === 'live' && (!p.liveExpiresAt || Date.now() < p.liveExpiresAt);
         const [icon, text] = p.type === 'stream' ? (live ? ['🔴', `${who} is live: ${title}`] : ['📡', `${who} streamed: ${title}`])
@@ -21127,7 +21138,7 @@ function ecoFeedEvents() {
                            : ['💬', `${who} posted: ${title}`];
         if (secs(p.createdAt) > 0) ev.push({ t: secs(p.createdAt), icon, text, actors: [p.posterUid].filter(Boolean), comps: [], target: { post: p._id } });
     });
-    return ev;
+    return ev.filter(e => !(e.actors && e.actors.length && e.actors.every(isBlocked)));
 }
 
 function ecoSetFeedMode(mode) { ECO.feedMode = mode === 'everyone' ? 'everyone' : 'following'; ecoRenderFeed(); }
@@ -22642,7 +22653,8 @@ function studioOpenInVerse() {
 // left exactly as it was and is simply not drawn while you are inside, so
 // stepping back out costs nothing and loses nothing.
 function ecoIsMine(pl) {
-    return !!(pl && pl.ownerUid && typeof currentUser !== 'undefined' && currentUser && currentUser.uid === pl.ownerUid);
+    if (!pl || typeof currentUser === 'undefined' || !currentUser) return false;
+    return currentUser.uid === pl.ownerUid || (ECO.mine || []).some(m => m.id === pl.id);     // the owner, or on its team
 }
 
 /// The signed-in member's own projects, for the "My projects" menu. Drafts
@@ -22653,11 +22665,11 @@ async function ecoMineLoad() {
     ECO.mine = [];
     if (box && uid) {
         try {
-            const snap = await db.collection('companies').where('ownerUid', '==', uid).get();
+            const snap = await myCompaniesSnap();
             snap.forEach(d => {
                 const c = d.data();
                 if (c.isActive === false) return;
-                ECO.mine.push({ id: d.id, name: c.name || 'Unnamed project', live: c.projectStatus === 'live', at: (c.createdAt && c.createdAt.seconds) || 0 });
+                ECO.mine.push({ id: d.id, name: (c.name || 'Unnamed project') + (c.mine === false ? ' (team)' : ''), live: c.projectStatus === 'live', at: (c.createdAt && c.createdAt.seconds) || 0 });
             });
             ECO.mine.sort((a, b) => b.at - a.at);
         } catch (e) { console.warn('NQVerse: your projects are unavailable:', e.message); }
@@ -22758,9 +22770,9 @@ async function ecoLayerEnter(id, name) {
     ecoLayerClear();
     currentStudioProjectId = id;
     await studioRefresh();
-    // Only the owner may be in here. The map is told who owns what, but a
-    // menu entry is not proof, so the company record has the last word.
-    if (ECO.layer && ECO.layer.id === id && !(STUDIO.company && STUDIO.company.ownerUid === uid)) ecoLayerExit();
+    // Only the owner and the team may be in here. The map is told who owns
+    // what, but a menu entry is not proof, so the company record has the last word.
+    if (ECO.layer && ECO.layer.id === id && !isCompanyTeam(STUDIO.company)) ecoLayerExit();
 }
 
 /// Point the camera at the project from far enough back to see every ring
@@ -22975,6 +22987,573 @@ function ecoLayerPanel() {
 
 function ecoLayerBoard() { if (ECO.layer) currentStudioProjectId = ECO.layer.id; navigateTo('studio'); }
 
+// ====================== COMMUNITY & COMPANY TOOLS ======================
+// Report and block · email settings · listing alerts · portfolio ·
+// company teams · company analytics.
+//
+// Everything here opens in one shared pop-up (#nqv-sheet-modal), so it gets
+// the same focus handling and Escape-to-close as every other pop-up.
+const nqvMe = () => (typeof currentUser !== 'undefined' && currentUser && currentUser.uid) || null;
+const nqvSecs = t => !t ? 0 : t.seconds !== undefined ? t.seconds : t._seconds !== undefined ? t._seconds : t.toMillis ? Math.floor(t.toMillis() / 1000) : t instanceof Date ? Math.floor(t / 1000) : typeof t === 'number' ? Math.floor(t > 1e11 ? t / 1000 : t) : typeof t === 'string' ? Math.floor(Date.parse(t) / 1000) || 0 : 0;
+
+function nqvSheet(html, wide) {
+    const modal = document.getElementById('nqv-sheet-modal'), body = document.getElementById('nqv-sheet-body');
+    if (!modal || !body) return;
+    body.className = 'bg-zinc-900 w-full mx-4 rounded-3xl p-6 max-h-[90vh] overflow-y-auto ' + (wide ? 'max-w-3xl' : 'max-w-lg');
+    body.innerHTML = `<div class="flex justify-end -mt-2 -mr-2"><button onclick="nqvSheetClose()" aria-label="Close" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button></div>` + html;
+    modal.classList.remove('hidden');
+}
+function nqvSheetClose() { const m = document.getElementById('nqv-sheet-modal'); if (m) m.classList.add('hidden'); }
+
+// ── Report ───────────────────────────────────────────────────────────────
+// A report goes to the support queue the admin already works from, as a
+// ticket in the "content-report" category.
+const NQV_REPORT_REASONS = ['Spam or a scam', 'Harassment or hate', 'Sexual or inappropriate content', 'Fraud or misleading claims', 'Copied or stolen work', 'Something else'];
+const NQV_REPORT_KINDS = { post: 'post', comment: 'comment', listing: 'listing', member: 'member', company: 'company' };
+
+function reportContent(kind, id, ownerUid, label) {
+    if (!nqvMe()) return showAuthModal();
+    if (!NQV_REPORT_KINDS[kind]) return;
+    window._nqvReport = { kind, id: String(id || ''), ownerUid: ownerUid || null, label: String(label || '').slice(0, 120) };
+    nqvSheet(`<h2 class="text-xl font-bold mb-1">Report this ${NQV_REPORT_KINDS[kind]}</h2>
+        <p class="text-sm text-zinc-400 mb-4 break-words">${ecoEsc(window._nqvReport.label) || 'No title'}</p>
+        <label class="block text-sm font-medium mb-1" for="nqv-report-reason">What is wrong with it?</label>
+        <select id="nqv-report-reason" class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 text-sm mb-3">${NQV_REPORT_REASONS.map(r => `<option>${r}</option>`).join('')}</select>
+        <label class="block text-sm font-medium mb-1" for="nqv-report-details">Anything that helps us review it (optional)</label>
+        <textarea id="nqv-report-details" rows="3" maxlength="1000" class="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 text-sm mb-4"></textarea>
+        <p class="text-xs text-zinc-400 mb-4">Reports are reviewed by NQVate. The person you report is not told who reported them.</p>
+        <div class="flex gap-2">
+            <button onclick="nqvSheetClose()" class="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-sm">Cancel</button>
+            <button id="nqv-report-send" onclick="reportSend()" class="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-semibold">Send report</button>
+        </div>`);
+}
+
+async function reportSend() {
+    const r = window._nqvReport, me = nqvMe();
+    if (!r || !me) return;
+    const btn = document.getElementById('nqv-report-send');
+    const reason = document.getElementById('nqv-report-reason').value;
+    const details = document.getElementById('nqv-report-details').value.trim().slice(0, 1000);
+    if (btn) { btn.disabled = true; btn.textContent = 'Sending…'; }
+    try {
+        await db.collection('supportTickets').add({
+            uid: me, username: currentUser.username, email: currentUser.email || null,
+            category: 'content-report',
+            subject: `Report: ${NQV_REPORT_KINDS[r.kind]} — ${reason} — “${r.label.slice(0, 80)}”`,
+            description: `${reason}${details ? '\n\n' + details : ''}\n\nReported ${NQV_REPORT_KINDS[r.kind]}: ${r.id}\nBelongs to: ${r.ownerUid || 'unknown'}`,
+            reportKind: r.kind, reportReason: reason, targetId: r.id, reportedUid: r.ownerUid,
+            postId: r.kind === 'post' ? r.id : null,
+            status: 'open', response: null, respondedAt: null,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        const canBlock = r.ownerUid && r.ownerUid !== me && !isBlocked(r.ownerUid);
+        nqvSheet(`<h2 class="text-xl font-bold mb-2">Thank you</h2>
+            <p class="text-sm text-zinc-300 mb-4">Your report has been sent for review.</p>
+            ${canBlock ? `<p class="text-sm text-zinc-400 mb-3">You can also block this member, so you no longer see their posts and comments and they can no longer message you.</p>
+            <button onclick="blockUser('${ecoEsc(r.ownerUid)}')" class="w-full py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-sm font-semibold mb-2">🚫 Block this member</button>` : ''}
+            <button onclick="nqvSheetClose()" class="w-full py-2.5 rounded-xl bg-white text-black text-sm font-semibold">Done</button>`);
+    } catch (e) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Send report'; }
+        alert('Could not send the report: ' + e.message);
+    }
+}
+
+// ── Block ────────────────────────────────────────────────────────────────
+// blocks/{blocker}_{blocked}. Only the blocker can read their own blocks, so
+// nobody can look up who has blocked them. The database refuses a direct
+// message between two members when either has blocked the other.
+const NQV_BLOCKED = new Map();      // uid → username, for the signed-in member
+function isBlocked(uid) { return !!uid && NQV_BLOCKED.has(uid); }
+
+async function loadBlocks() {
+    NQV_BLOCKED.clear();
+    const me = nqvMe();
+    if (!me) return;
+    try {
+        const snap = await db.collection('blocks').where('blockerUid', '==', me).get();
+        snap.forEach(d => { const b = d.data(); if (b.blockedUid) NQV_BLOCKED.set(b.blockedUid, b.blockedUsername || 'member'); });
+    } catch (e) { console.warn('Could not load your blocked list:', e.message); }
+}
+
+/// Redraw whatever on screen might show a blocked member.
+function blocksChanged() {
+    try { if (typeof ECO !== 'undefined' && ECO.running) ecoRenderFeed(); } catch (e) {}
+    try { const pg = document.getElementById('user-profile-page'); if (pg && !pg.classList.contains('hidden') && window._viewingUid) viewUserProfile(window._viewingUid); } catch (e) {}
+    try { if (typeof loadChatList === 'function' && document.getElementById('chat-list')) loadChatList(); } catch (e) {}
+}
+
+async function blockUser(uid, username) {
+    const me = nqvMe();
+    if (!me) return showAuthModal();
+    if (!uid || uid === me) return;
+    if (!username) { try { const d = await db.collection('users').doc(uid).get(); username = (d.exists && d.data().username) || ''; } catch (e) {} }
+    if (!confirm(`Block ${username ? '@' + username : 'this member'}?\n\n• You will no longer see their posts and comments\n• They will not be able to message you, and you will not be able to message them\n• They are not told\n\nYou can unblock them any time from your profile.`)) return;
+    try {
+        await db.collection('blocks').doc(me + '_' + uid).set({ blockerUid: me, blockedUid: uid, blockedUsername: username || '', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        NQV_BLOCKED.set(uid, username || 'member');
+        // Blocking someone also stops following them.
+        try { const f = await db.collection('follows').where('followerUid', '==', me).where('followingUid', '==', uid).get(); f.forEach(d => d.ref.delete()); } catch (e) {}
+        nqvSheetClose();
+        blocksChanged();
+    } catch (e) { alert('Could not block this member: ' + e.message); }
+}
+
+async function unblockUser(uid) {
+    const me = nqvMe();
+    if (!me || !uid) return;
+    try {
+        await db.collection('blocks').doc(me + '_' + uid).delete();
+        NQV_BLOCKED.delete(uid);
+        if (!document.getElementById('nqv-sheet-modal').classList.contains('hidden')) showBlockedMembers();
+        blocksChanged();
+    } catch (e) { alert('Could not unblock: ' + e.message); }
+}
+
+function showBlockedMembers() {
+    const rows = [...NQV_BLOCKED.entries()].map(([uid, name]) => `<li class="flex items-center justify-between gap-3 py-2 border-b border-zinc-800">
+        <span class="truncate">@${ecoEsc(name)}</span>
+        <button onclick="unblockUser('${ecoEsc(uid)}')" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-xs font-semibold shrink-0">Unblock</button></li>`).join('');
+    nqvSheet(`<h2 class="text-xl font-bold mb-1">Blocked members</h2>
+        <p class="text-sm text-zinc-400 mb-4">You do not see their posts or comments, and neither of you can message the other.</p>
+        ${rows ? `<ul class="text-sm">${rows}</ul>` : '<p class="text-sm text-zinc-400">You have not blocked anyone.</p>'}`);
+}
+
+/// The Report and Block buttons shown on someone else's profile.
+function profileSafetyButtons(uid, username) {
+    const old = document.getElementById('profile-safety');
+    if (old) old.remove();
+    window._viewingUid = uid;
+    const me = nqvMe();
+    if (!me || !uid || uid === me) return;
+    const box = document.createElement('div');
+    box.id = 'profile-safety';
+    box.className = 'flex flex-wrap items-center gap-3 mt-3 text-xs';
+    const safe = ecoEsc(uid), name = ecoEsc(String(username || '').replace(/'/g, ''));
+    box.innerHTML = (isBlocked(uid)
+        ? `<span class="px-3 py-1.5 rounded-lg bg-red-500/15 text-red-300">🚫 You have blocked this member</span><button onclick="unblockUser('${safe}')" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 font-semibold">Unblock</button>`
+        : `<button onclick="blockUser('${safe}','${name}')" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300">🚫 Block</button>`)
+        + `<button onclick="reportContent('member','${safe}','${safe}','@${name}')" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300">⚑ Report</button>`;
+    const bio = document.getElementById('user-profile-bio');
+    if (bio) bio.after(box);
+}
+
+// ── Email settings ───────────────────────────────────────────────────────
+function emailPrefsRender() {
+    const box = document.getElementById('email-prefs-box');
+    if (!box || !nqvMe()) return;
+    const p = currentUser.emailPrefs || {};
+    const row = (key, title, hint) => `<label class="flex items-start gap-3 py-2 cursor-pointer">
+        <input type="checkbox" class="mt-1 w-4 h-4 shrink-0 accent-cyan-400" ${p[key] === false ? '' : 'checked'} onchange="emailPrefsSet('${key}', this.checked)">
+        <span><span class="block text-sm font-medium">${title}</span><span class="block text-xs text-zinc-400">${hint}</span></span></label>`;
+    box.innerHTML = row('updates', 'Activity on my bounties', 'A bid, an accepted bid, submitted work, requested changes, a payout, a dispute, an automatic release or refund. New bids on one posting are grouped into one email every six hours.')
+        + row('matches', 'New listings for me', 'Listings that fit an alert you saved or the skills on your profile. At most three a day.')
+        + `<p class="text-xs text-zinc-400 mt-2">Emails go to the address you sign in with. Notifications on the site are not affected by these settings.</p>`;
+}
+async function emailPrefsSet(key, on) {
+    const me = nqvMe();
+    if (!me || !['updates', 'matches'].includes(key)) return;
+    const prefs = Object.assign({}, currentUser.emailPrefs || {}, { [key]: !!on });
+    try {
+        await db.collection('users').doc(me).update({ emailPrefs: prefs });
+        currentUser.emailPrefs = prefs;
+    } catch (e) { alert('Could not save that setting: ' + e.message); emailPrefsRender(); }
+}
+
+// ── Listing alerts ───────────────────────────────────────────────────────
+// A saved set of Marketplace filters. When a listing is posted that fits, the
+// server tells the member (api/listing-alerts.js).
+const NQV_ALERT_MAX = 10;
+function alertFiltersNow() {
+    const v = id => (document.getElementById(id) && document.getElementById(id).value || '').trim();
+    return { q: v('search-input').slice(0, 80), category: v('filter-category'), compType: v('filter-comp-type'), compRange: v('filter-comp-range'), tag: v('filter-tag') };
+}
+function alertDescribe(f) {
+    const range = { '0-500': 'up to $500', '500-2000': '$500 – $2,000', '2000-10000': '$2,000 – $10,000', '10000+': '$10,000 and over' };
+    const type = { cash: 'cash', equity: 'equity', mixed: 'cash and equity' };
+    return [f.q ? `“${f.q}”` : '', f.category, f.tag, type[f.compType] || '', range[f.compRange] || ''].filter(Boolean).join(' · ');
+}
+async function alertsLoad() {
+    const snap = await db.collection('listingAlerts').where('uid', '==', nqvMe()).get();
+    const out = [];
+    snap.forEach(d => out.push(Object.assign({ id: d.id }, d.data())));
+    return out.sort((a, b) => nqvSecs(b.createdAt) - nqvSecs(a.createdAt));
+}
+async function showListingAlerts() {
+    if (!nqvMe()) return showAuthModal();
+    nqvSheet('<p class="text-sm text-zinc-400">Loading…</p>');
+    let alerts = [];
+    try { alerts = await alertsLoad(); } catch (e) { return nqvSheet(`<p class="text-sm text-red-300">Could not load your alerts: ${ecoEsc(e.message)}</p>`); }
+    const now = alertFiltersNow(), desc = alertDescribe(now), full = alerts.length >= NQV_ALERT_MAX;
+    nqvSheet(`<h2 class="text-xl font-bold mb-1">🔔 Listing alerts</h2>
+        <p class="text-sm text-zinc-400 mb-4">Be told when a new listing fits. You get a notification here, and an email if you want one.</p>
+        <div class="bg-zinc-800/70 rounded-2xl p-4 mb-5">
+            <p class="text-xs uppercase tracking-wider text-zinc-400 mb-1">The filters you have set now</p>
+            ${desc ? `<p class="text-sm font-medium mb-3 break-words">${ecoEsc(desc)}</p>
+                <label class="block text-xs text-zinc-400 mb-1" for="nqv-alert-name">Name this alert</label>
+                <input id="nqv-alert-name" maxlength="60" value="${ecoEsc(desc.slice(0, 60))}" class="w-full bg-zinc-900 border border-zinc-700 rounded-xl px-3 py-2 text-sm mb-3">
+                <button onclick="alertSave()" ${full ? 'disabled' : ''} class="w-full py-2.5 rounded-xl bg-white text-black text-sm font-semibold disabled:opacity-40">${full ? `You have the most alerts allowed (${NQV_ALERT_MAX})` : 'Save as an alert'}</button>`
+            : `<p class="text-sm text-zinc-300">Search or choose a category, skill or amount on the Marketplace first, then come back here to save it as an alert.</p>`}
+        </div>
+        <p class="text-xs uppercase tracking-wider text-zinc-400 mb-2">Your alerts (${alerts.length})</p>
+        ${alerts.length ? `<ul class="space-y-2">${alerts.map(a => `<li class="bg-zinc-800/50 rounded-xl p-3">
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0"><p class="text-sm font-semibold break-words">${ecoEsc(a.name || 'Alert')}</p><p class="text-xs text-zinc-400 break-words">${ecoEsc(alertDescribe(a.filters || {}))}</p></div>
+                <button onclick="alertDelete('${ecoEsc(a.id)}')" class="px-2.5 py-1.5 rounded-lg bg-zinc-800 hover:bg-red-500/30 text-xs shrink-0">Delete</button>
+            </div>
+            <label class="flex items-center gap-2 mt-2 text-xs text-zinc-300 cursor-pointer"><input type="checkbox" class="w-4 h-4 accent-cyan-400" ${a.email === false ? '' : 'checked'} onchange="alertEmail('${ecoEsc(a.id)}', this.checked)"> Email me too</label>
+        </li>`).join('')}</ul>` : '<p class="text-sm text-zinc-400">None yet.</p>'}`);
+}
+async function alertSave() {
+    const f = alertFiltersNow();
+    if (!alertDescribe(f)) return;
+    const name = (document.getElementById('nqv-alert-name').value || '').trim().slice(0, 60) || alertDescribe(f).slice(0, 60);
+    try {
+        await db.collection('listingAlerts').add({ uid: nqvMe(), name, filters: f, email: true, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+        showListingAlerts();
+    } catch (e) { alert('Could not save the alert: ' + e.message); }
+}
+async function alertDelete(id) {
+    try { await db.collection('listingAlerts').doc(id).delete(); showListingAlerts(); } catch (e) { alert('Could not delete the alert: ' + e.message); }
+}
+async function alertEmail(id, on) {
+    try { await db.collection('listingAlerts').doc(id).update({ email: !!on }); } catch (e) { alert('Could not save that: ' + e.message); }
+}
+/// Ask the server to tell the members a new listing fits. Never holds up posting.
+async function announceListing(subprojectId) {
+    if (!subprojectId) return;
+    try {
+        await fetch('/api/listing-alerts', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` }, body: JSON.stringify({ subprojectId }) });
+    } catch (e) { console.warn('Listing alerts could not be sent:', e.message); }
+}
+
+// ── Portfolio ────────────────────────────────────────────────────────────
+// users/{uid}.portfolio = { hidden: [posting ids], featured: [posting ids],
+// notes: { postingId: 'caption' }, extra: [{ title, description, link }] }.
+// Completed bounties show unless hidden; featured ones lead; extras are work
+// done elsewhere that the member adds themselves.
+const NQV_PORTFOLIO_EXTRA_MAX = 12;
+function portfolioOf(user) {
+    const p = (user && user.portfolio) || {};
+    return { hidden: Array.isArray(p.hidden) ? p.hidden : [], featured: Array.isArray(p.featured) ? p.featured : [],
+             notes: p.notes && typeof p.notes === 'object' ? p.notes : {}, extra: Array.isArray(p.extra) ? p.extra.slice(0, NQV_PORTFOLIO_EXTRA_MAX) : [] };
+}
+function portfolioLink(url) {
+    const u = String(url || '').trim();
+    return /^https?:\/\/[^\s"'<>]+$/i.test(u) ? u : '';
+}
+/// The portfolio as anyone sees it. `done` = [{ id, title, category, compensation }].
+function portfolioHtml(user, done) {
+    const p = portfolioOf(user);
+    const shown = done.filter(d => !p.hidden.includes(d.id));
+    shown.sort((a, b) => (p.featured.includes(b.id) ? 1 : 0) - (p.featured.includes(a.id) ? 1 : 0));
+    const cards = shown.map(d => `<div class="bg-zinc-900 rounded-2xl p-4 border ${p.featured.includes(d.id) ? 'border-amber-400/60' : 'border-zinc-800'}">
+            ${p.featured.includes(d.id) ? '<p class="text-[11px] font-semibold text-amber-300 mb-1">★ Featured</p>' : ''}
+            <p class="font-semibold text-sm break-words">${ecoEsc(d.title || 'Untitled')}</p>
+            <p class="text-xs text-zinc-400 mt-1">${ecoEsc([d.category, d.compensation].filter(Boolean).join(' · '))}</p>
+            ${p.notes[d.id] ? `<p class="text-sm text-zinc-300 mt-2 break-words">${ecoEsc(p.notes[d.id])}</p>` : ''}
+            <span class="text-xs text-emerald-400">✅ Completed on NQVate</span>
+        </div>`).join('');
+    const extras = p.extra.filter(x => x && x.title).map(x => {
+        const link = portfolioLink(x.link);
+        return `<div class="bg-zinc-900 rounded-2xl p-4 border border-zinc-800">
+            <p class="font-semibold text-sm break-words">${ecoEsc(x.title)}</p>
+            ${x.description ? `<p class="text-sm text-zinc-300 mt-1 break-words">${ecoEsc(x.description)}</p>` : ''}
+            ${link ? `<a href="${ecoEsc(link)}" target="_blank" rel="noopener nofollow" class="text-xs text-cyan-400 break-all">${ecoEsc(link)}</a>` : ''}
+            <p class="text-xs text-zinc-400 mt-1">Added by the member</p>
+        </div>`;
+    }).join('');
+    if (!cards && !extras) return '';
+    return `<h2 class="text-2xl font-semibold mb-4">Portfolio</h2><div class="grid grid-cols-1 md:grid-cols-2 gap-3">${cards}${extras}</div>`;
+}
+async function portfolioDone(uid) {
+    const snap = await db.collection('subprojects').where('acceptedBidderUid', '==', uid).where('status', '==', 'completed').get();
+    const out = [];
+    snap.forEach(d => { const s = d.data(); if (s.planNode === true || s.isPrivate === true) return; out.push({ id: d.id, title: s.title, category: s.category, compensation: s.compensation, at: nqvSecs(s.completedAt || s.createdAt) }); });
+    return out.sort((a, b) => b.at - a.at);
+}
+async function showPortfolioEditor() {
+    const me = nqvMe();
+    if (!me) return showAuthModal();
+    nqvSheet('<p class="text-sm text-zinc-400">Loading…</p>', true);
+    let done = [];
+    try { done = await portfolioDone(me); } catch (e) { return nqvSheet(`<p class="text-sm text-red-300">Could not load your completed work: ${ecoEsc(e.message)}</p>`, true); }
+    const p = portfolioOf(currentUser);
+    window._nqvPortfolio = { done, extra: p.extra.map(x => Object.assign({}, x)) };
+    nqvSheet(`<h2 class="text-xl font-bold mb-1">🎨 Your portfolio</h2>
+        <p class="text-sm text-zinc-400 mb-5">Choose what visitors to your profile see. Private bounties never appear.</p>
+        <p class="text-xs uppercase tracking-wider text-zinc-400 mb-2">Completed on NQVate (${done.length})</p>
+        ${done.length ? `<ul class="space-y-2 mb-6">${done.map(d => `<li class="bg-zinc-800/50 rounded-xl p-3" data-pid="${ecoEsc(d.id)}">
+            <p class="text-sm font-semibold break-words">${ecoEsc(d.title || 'Untitled')}</p>
+            <p class="text-xs text-zinc-400 mb-2">${ecoEsc([d.category, d.compensation].filter(Boolean).join(' · '))}</p>
+            <div class="flex flex-wrap gap-4 text-xs text-zinc-200 mb-2">
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="pf-show w-4 h-4 accent-cyan-400" ${p.hidden.includes(d.id) ? '' : 'checked'}> Show on my profile</label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="pf-feat w-4 h-4 accent-amber-400" ${p.featured.includes(d.id) ? 'checked' : ''}> ★ Feature it first</label>
+            </div>
+            <input class="pf-note w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm" maxlength="200" aria-label="A line about this work" placeholder="A line about what you did (optional)" value="${ecoEsc(p.notes[d.id] || '')}">
+        </li>`).join('')}</ul>` : '<p class="text-sm text-zinc-400 mb-6">Nothing yet. Work you complete on NQVate appears here automatically.</p>'}
+        <p class="text-xs uppercase tracking-wider text-zinc-400 mb-2">Other work</p>
+        <div id="pf-extra" class="space-y-2 mb-3"></div>
+        <button onclick="portfolioExtraAdd()" class="w-full py-2 mb-6 border border-dashed border-zinc-700 text-zinc-300 rounded-xl text-xs font-medium hover:border-cyan-400">+ Add work done elsewhere</button>
+        <div class="flex gap-2">
+            <button onclick="nqvSheetClose()" class="flex-1 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 text-sm">Cancel</button>
+            <button id="pf-save" onclick="portfolioSave()" class="flex-1 py-2.5 rounded-xl bg-white text-black text-sm font-semibold">Save portfolio</button>
+        </div>`, true);
+    portfolioExtraRender();
+}
+function portfolioExtraRead() {
+    const rows = [...document.querySelectorAll('#pf-extra > div')];
+    if (!rows.length) return;
+    window._nqvPortfolio.extra = rows.map(r => ({ title: r.querySelector('.pe-title').value.trim().slice(0, 100), description: r.querySelector('.pe-desc').value.trim().slice(0, 300), link: r.querySelector('.pe-link').value.trim().slice(0, 300) }));
+}
+function portfolioExtraRender() {
+    const box = document.getElementById('pf-extra');
+    if (!box) return;
+    const inp = 'w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm';
+    box.innerHTML = window._nqvPortfolio.extra.map((x, i) => `<div class="bg-zinc-800/50 rounded-xl p-3 space-y-2">
+        <div class="flex gap-2"><input class="pe-title ${inp}" maxlength="100" aria-label="Title" placeholder="Title" value="${ecoEsc(x.title || '')}">
+            <button onclick="portfolioExtraRemove(${i})" aria-label="Remove this item" class="px-3 rounded-lg bg-zinc-800 hover:bg-red-500/30 text-sm shrink-0">×</button></div>
+        <input class="pe-desc ${inp}" maxlength="300" aria-label="What it was" placeholder="What it was and what you did" value="${ecoEsc(x.description || '')}">
+        <input class="pe-link ${inp}" maxlength="300" aria-label="Link" placeholder="https:// link (optional)" value="${ecoEsc(x.link || '')}">
+    </div>`).join('');
+}
+function portfolioExtraAdd() {
+    portfolioExtraRead();
+    if (window._nqvPortfolio.extra.length >= NQV_PORTFOLIO_EXTRA_MAX) return alert(`You can add up to ${NQV_PORTFOLIO_EXTRA_MAX} items.`);
+    window._nqvPortfolio.extra.push({ title: '', description: '', link: '' });
+    portfolioExtraRender();
+}
+function portfolioExtraRemove(i) { portfolioExtraRead(); window._nqvPortfolio.extra.splice(i, 1); portfolioExtraRender(); }
+async function portfolioSave() {
+    const me = nqvMe();
+    if (!me) return;
+    portfolioExtraRead();
+    const hidden = [], featured = [], notes = {};
+    document.querySelectorAll('#nqv-sheet-body li[data-pid]').forEach(li => {
+        const id = li.dataset.pid, note = li.querySelector('.pf-note').value.trim().slice(0, 200);
+        if (!li.querySelector('.pf-show').checked) hidden.push(id);
+        else if (li.querySelector('.pf-feat').checked) featured.push(id);
+        if (note) notes[id] = note;
+    });
+    const extra = window._nqvPortfolio.extra.filter(x => x.title);
+    const bad = extra.find(x => x.link && !portfolioLink(x.link));
+    if (bad) return alert(`“${bad.link}” is not a link we can show. Links must start with https:// or http://`);
+    const portfolio = { hidden, featured, notes, extra };
+    const btn = document.getElementById('pf-save');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving…'; }
+    try {
+        await db.collection('users').doc(me).update({ portfolio });
+        currentUser.portfolio = portfolio;
+        nqvSheetClose();
+        portfolioOwnRender();
+    } catch (e) {
+        if (btn) { btn.disabled = false; btn.textContent = 'Save portfolio'; }
+        alert('Could not save your portfolio: ' + e.message);
+    }
+}
+/// The summary line on your own profile.
+async function portfolioOwnRender() {
+    const box = document.getElementById('portfolio-own');
+    const me = nqvMe();
+    if (!box || !me) return;
+    try {
+        const done = await portfolioDone(me), p = portfolioOf(currentUser);
+        const shown = done.filter(d => !p.hidden.includes(d.id)).length, extras = p.extra.filter(x => x && x.title).length;
+        box.textContent = `${shown} of ${done.length} completed ${done.length === 1 ? 'bounty' : 'bounties'} shown · ${p.featured.length} featured · ${extras} added by you`;
+    } catch (e) { box.textContent = ''; }
+}
+
+// ── Company teams ────────────────────────────────────────────────────────
+// companies/{id}.team = [{ uid, username, addedAt }], teamUids = [uid].
+// A team member can open the company in Studio, work on its plan, and post
+// cash bounties under its name (paid from their own wallet). Equity,
+// funding, verification, the data room, the team itself and deleting the
+// company stay with the owner.
+const NQV_TEAM_MAX = 15;
+function isCompanyOwner(c) { return !!(c && nqvMe() && c.ownerUid === nqvMe()); }
+function isCompanyTeam(c) { return !!(c && nqvMe() && (c.ownerUid === nqvMe() || (Array.isArray(c.teamUids) && c.teamUids.includes(nqvMe())))); }
+
+/// Every company the member owns or is on the team of, newest first.
+async function myCompanies() {
+    const me = nqvMe();
+    if (!me) return [];
+    const [own, team] = await Promise.all([
+        db.collection('companies').where('ownerUid', '==', me).get(),
+        db.collection('companies').where('teamUids', 'array-contains', me).get().catch(() => ({ forEach() {} }))
+    ]);
+    const map = new Map();
+    own.forEach(d => map.set(d.id, Object.assign({ id: d.id, mine: true }, d.data())));
+    team.forEach(d => { if (!map.has(d.id)) map.set(d.id, Object.assign({ id: d.id, mine: false }, d.data())); });
+    return [...map.values()].sort((a, b) => nqvSecs(b.createdAt) - nqvSecs(a.createdAt));
+}
+
+async function showTeam(companyId) {
+    const me = nqvMe();
+    if (!me) return showAuthModal();
+    if (!companyId) return alert('Choose a project first.');
+    nqvSheet('<p class="text-sm text-zinc-400">Loading…</p>');
+    let c;
+    try { const d = await db.collection('companies').doc(companyId).get(); c = d.exists ? d.data() : null; }
+    catch (e) { return nqvSheet(`<p class="text-sm text-red-300">Could not load the team: ${ecoEsc(e.message)}</p>`); }
+    if (!c || !isCompanyTeam(c)) return nqvSheet('<p class="text-sm text-zinc-300">Only the owner and team of this company can see its team.</p>');
+    const owner = isCompanyOwner(c), team = Array.isArray(c.team) ? c.team : [];
+    window._nqvTeam = { id: companyId, company: c };
+    nqvSheet(`<h2 class="text-xl font-bold mb-1">👥 ${ecoEsc(c.name || 'Company')} team</h2>
+        <p class="text-sm text-zinc-400 mb-4">Team members can open this company in Studio, work on its plan, and post cash bounties under its name, paid from their own wallet. Equity, funding, verification and the team itself stay with the owner.</p>
+        <ul class="text-sm mb-5">
+            <li class="flex items-center justify-between gap-3 py-2 border-b border-zinc-800"><span class="truncate">@${ecoEsc(c.ownerUsername || (owner ? currentUser.username : 'owner'))}</span><span class="text-xs text-amber-300 shrink-0">Owner</span></li>
+            ${team.map(m => `<li class="flex items-center justify-between gap-3 py-2 border-b border-zinc-800"><span class="truncate">@${ecoEsc(m.username || 'member')}</span>
+                ${owner ? `<button onclick="teamRemove('${ecoEsc(m.uid)}')" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-red-500/30 text-xs shrink-0">Remove</button>`
+                        : m.uid === me ? `<button onclick="teamRemove('${ecoEsc(m.uid)}')" class="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-red-500/30 text-xs shrink-0">Leave</button>` : '<span class="text-xs text-zinc-400 shrink-0">Team</span>'}</li>`).join('')}
+        </ul>
+        ${owner ? `<label class="block text-sm font-medium mb-1" for="nqv-team-username">Add a member by username</label>
+            <div class="flex gap-2"><input id="nqv-team-username" maxlength="40" placeholder="username" class="flex-1 min-w-0 bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2.5 text-sm"
+                    onkeydown="if (event.key === 'Enter') teamAdd()">
+                <button id="nqv-team-add" onclick="teamAdd()" ${team.length >= NQV_TEAM_MAX ? 'disabled' : ''} class="px-4 rounded-xl bg-white text-black text-sm font-semibold disabled:opacity-40">Add</button></div>
+            <p class="text-xs text-zinc-400 mt-2">${team.length} of ${NQV_TEAM_MAX} places used. They are told by notification and email.</p>` : ''}`);
+}
+async function teamAdd() {
+    const t = window._nqvTeam, me = nqvMe();
+    if (!t || !isCompanyOwner(t.company)) return;
+    const name = (document.getElementById('nqv-team-username').value || '').trim().replace(/^@/, '').toLowerCase();
+    if (!name) return;
+    const team = Array.isArray(t.company.team) ? t.company.team : [];
+    if (team.length >= NQV_TEAM_MAX) return alert(`A team can have up to ${NQV_TEAM_MAX} members.`);
+    try {
+        let snap = await db.collection('users').where('username', '==', name).limit(1).get();
+        if (snap.empty) snap = await db.collection('users').where('username', '==', (document.getElementById('nqv-team-username').value || '').trim().replace(/^@/, '')).limit(1).get();
+        if (snap.empty) return alert(`No member has the username “${name}”.`);
+        const uid = snap.docs[0].id, u = snap.docs[0].data();
+        if (uid === me) return alert('You are the owner.');
+        if (team.some(m => m.uid === uid)) return alert(`@${u.username} is already on the team.`);
+        const next = team.concat([{ uid, username: u.username || name, addedAt: Date.now() }]);
+        await db.collection('companies').doc(t.id).update({ team: next, teamUids: next.map(m => m.uid) });
+        createNotification(uid, 'team', `👥 @${currentUser.username} added you to the team for ${t.company.name}. Open Studio to work on it.`, { companyId: t.id }).catch(() => {});
+        sendEmail('team_added', uid, { recipientName: u.firstName || u.username || 'there', ownerUsername: currentUser.username, companyName: t.company.name });
+        showTeam(t.id);
+    } catch (e) { alert('Could not add them: ' + e.message); }
+}
+async function teamRemove(uid) {
+    const t = window._nqvTeam, me = nqvMe();
+    if (!t) return;
+    const leaving = uid === me && !isCompanyOwner(t.company);
+    if (!leaving && !isCompanyOwner(t.company)) return;
+    if (!confirm(leaving ? `Leave the ${t.company.name} team?` : 'Remove this member from the team?\n\nBounties they have already posted stay theirs.')) return;
+    try {
+        const next = (t.company.team || []).filter(m => m.uid !== uid);
+        await db.collection('companies').doc(t.id).update({ team: next, teamUids: next.map(m => m.uid) });
+        if (leaving) { nqvSheetClose(); if (typeof currentStudioProjectId !== 'undefined' && currentStudioProjectId === t.id) currentStudioProjectId = null; if (typeof loadStudioProjectList === 'function') loadStudioProjectList(); }
+        else showTeam(t.id);
+    } catch (e) { alert('Could not update the team: ' + e.message); }
+}
+
+// ── Company analytics ────────────────────────────────────────────────────
+// Worked out from the company's own postings, as they stand now.
+function analyticsCompute(postings) {
+    const usd = s => { const m = /\$\s*([\d,]+(?:\.\d+)?)/.exec(String(s || '')); return m ? parseFloat(m[1].replace(/,/g, '')) : 0; };
+    const days = (a, b) => a && b && b >= a ? (b - a) / 86400 : null;
+    const avg = xs => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+    const real = postings.filter(p => p.planNode !== true && (p.type === 'build' || !p.type));
+    const out = { total: real.length, open: 0, active: 0, done: 0, refunded: 0, disputed: 0, spent: 0, locked: 0, bids: 0, noBids: 0, firstBid: [], fill: [], deliver: [], builders: new Map(), equityUnits: 0 };
+    real.forEach(p => {
+        const bids = Array.isArray(p.bids) ? p.bids : [];
+        const made = nqvSecs(p.createdAt), accepted = nqvSecs(p.acceptedAt || p.escrowLockedAt || p.startedAt), finished = nqvSecs(p.completedAt);
+        const amount = usd((p.acceptedBid && p.acceptedBid.amount) || p.compensation);
+        out.bids += bids.length;
+        if (p.disputeFiled || p.claudeRuling) out.disputed++;
+        if (p.status === 'completed') {
+            out.done++; out.spent += amount; out.equityUnits += Number(p.equityUnits) || 0;
+            const d = days(accepted || made, finished); if (d !== null) out.deliver.push(d);
+            if (p.acceptedBidderUid) { const b = out.builders.get(p.acceptedBidderUid) || { username: p.acceptedBidderUsername || 'builder', done: 0, paid: 0 }; b.done++; b.paid += amount; out.builders.set(p.acceptedBidderUid, b); }
+        } else if (p.status === 'in-progress') { out.active++; out.locked += amount; }
+        else if (p.status === 'refunded' || p.status === 'cancelled') out.refunded++;
+        else { out.open++; if (!bids.length) out.noBids++; }
+        const first = bids.map(b => nqvSecs(b.createdAt || b.timestamp || b.submittedAt)).filter(Boolean).sort((a, b) => a - b)[0];
+        const fb = days(made, first); if (fb !== null) out.firstBid.push(fb);
+        const fl = days(made, accepted); if (fl !== null && p.acceptedBidderUid) out.fill.push(fl);
+    });
+    const started = out.done + out.active + out.refunded;
+    return Object.assign(out, {
+        avgBids: out.total ? out.bids / out.total : null, avgFirstBid: avg(out.firstBid), avgFill: avg(out.fill), avgDeliver: avg(out.deliver),
+        completion: started ? out.done / started : null, disputeRate: started ? out.disputed / started : null,
+        top: [...out.builders.entries()].map(([uid, b]) => Object.assign({ uid }, b)).sort((a, b) => b.done - a.done || b.paid - a.paid).slice(0, 5)
+    });
+}
+async function showCompanyAnalytics(companyId) {
+    if (!nqvMe()) return showAuthModal();
+    if (!companyId) return alert('Choose a project first.');
+    nqvSheet('<p class="text-sm text-zinc-400">Loading…</p>', true);
+    let c, postings = [];
+    try {
+        const [cd, snap] = await Promise.all([db.collection('companies').doc(companyId).get(), db.collection('subprojects').where('companyId', '==', companyId).get()]);
+        c = cd.exists ? cd.data() : null;
+        snap.forEach(d => postings.push(Object.assign({ id: d.id }, d.data())));
+    } catch (e) { return nqvSheet(`<p class="text-sm text-red-300">Could not load analytics: ${ecoEsc(e.message)}</p>`, true); }
+    if (!c || !isCompanyTeam(c)) return nqvSheet('<p class="text-sm text-zinc-300">Only the owner and team of this company can see its analytics.</p>', true);
+    const a = analyticsCompute(postings);
+    const money = n => '$' + Math.round(n).toLocaleString();
+    const span = d => d === null ? '—' : d < 1 ? Math.max(1, Math.round(d * 24)) + ' h' : d.toFixed(d < 10 ? 1 : 0) + ' days';
+    const pct = v => v === null ? '—' : Math.round(v * 100) + '%';
+    const tile = (label, value, hint) => `<div class="bg-zinc-800/70 rounded-2xl p-4"><p class="text-xs text-zinc-400 mb-1">${label}</p><p class="text-2xl font-bold">${value}</p>${hint ? `<p class="text-[11px] text-zinc-400 mt-1">${hint}</p>` : ''}</div>`;
+    nqvSheet(`<h2 class="text-xl font-bold mb-1">📊 ${ecoEsc(c.name || 'Company')} analytics</h2>
+        <p class="text-sm text-zinc-400 mb-5">Across this company's ${a.total} ${a.total === 1 ? 'bounty' : 'bounties'}, by everyone on the team. Studio plan parts are not counted.</p>
+        ${a.total ? `
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-3">
+            ${tile('Open', a.open, a.noBids ? a.noBids + ' with no bids yet' : 'all have bids')}
+            ${tile('In progress', a.active, money(a.locked) + ' in escrow')}
+            ${tile('Completed', a.done, money(a.spent) + ' paid out')}
+            ${tile('Refunded or cancelled', a.refunded, '')}
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+            ${tile('Bids per bounty', a.avgBids === null ? '—' : a.avgBids.toFixed(1), a.bids + ' bids in all')}
+            ${tile('Time to first bid', span(a.avgFirstBid), 'average')}
+            ${tile('Time to fill', span(a.avgFill), 'posted → bid accepted')}
+            ${tile('Time to deliver', span(a.avgDeliver), 'accepted → completed')}
+        </div>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            ${tile('Completion rate', pct(a.completion), 'of bounties that started')}
+            ${tile('Dispute rate', pct(a.disputeRate), a.disputed + ' disputed')}
+            ${tile('Equity awarded', a.equityUnits ? (a.equityUnits / 100).toFixed(2) + '%' : '—', 'through bounties')}
+            ${tile('Builders used', a.builders.size, 'completed work')}
+        </div>
+        <p class="text-xs uppercase tracking-wider text-zinc-400 mb-2">Builders who have delivered</p>
+        ${a.top.length ? `<ul class="text-sm">${a.top.map(b => `<li class="flex items-center justify-between gap-3 py-2 border-b border-zinc-800">
+            <button onclick="nqvSheetClose(); viewUserProfile('${ecoEsc(b.uid)}')" class="text-cyan-400 hover:underline truncate">@${ecoEsc(b.username)}</button>
+            <span class="text-xs text-zinc-300 shrink-0">${b.done} completed · ${money(b.paid)}</span></li>`).join('')}</ul>` : '<p class="text-sm text-zinc-400">No completed bounties yet.</p>'}
+        <p class="text-[11px] text-zinc-400 mt-5">Dollar figures are read from the cash amount on each bounty; equity-only bounties add nothing to them. Times are blank where a posting has no record of that step.</p>`
+        : '<p class="text-sm text-zinc-300">No bounties posted for this company yet. Post one from the board and its numbers will appear here.</p>'}`, true);
+}
+
+/// The same list, shaped like a query result, for code written against one.
+async function myCompaniesSnap() {
+    const docs = (await myCompanies()).map(c => ({ id: c.id, data: () => c }));
+    return { empty: !docs.length, size: docs.length, docs, forEach: f => docs.forEach(f) };
+}
+
+// Report buttons that read what is on screen, so nothing a member typed has
+// to be written into an onclick.
+function reportPostOpen() {
+    const p = window._nqvPost;
+    if (p && typeof currentPostId !== 'undefined') reportContent('post', currentPostId, p.posterUid, p.title);
+}
+function reportCommentOpen(i, j) {
+    const p = window._nqvPost;
+    if (!p || !Array.isArray(p.comments)) return;
+    // Same split as renderComments(), so the numbers line up.
+    const top = p.comments.filter(c => !c.replyTo)[i];
+    const c = j === undefined ? top : p.comments.filter(r => r.replyTo && r.replyTo === i)[j];
+    if (c) reportContent('comment', currentPostId + '#' + (c.createdAt && c.createdAt.seconds ? c.createdAt.seconds : String(c.createdAt || '')), c.uid, '@' + (c.username || 'member') + ': ' + String(c.text || ''));
+}
+function reportListingOpen() {
+    if (typeof currentProject !== 'undefined' && currentProject) reportContent('listing', currentProjectId, currentProject.posterUid || currentProject.ownerUid, currentProject.title);
+}
+
+/// Run once a member is signed in.
+function communityOnLogin() {
+    loadBlocks().then(blocksChanged);
+    emailPrefsRender();
+    portfolioOwnRender();
+}
+
 // ====================== PODCASTS & STREAMS ======================
 // The "Podcasts & Streams" tab in Explore.
 //
@@ -23077,7 +23656,7 @@ async function loadShows() {
         });
 
         const items = [];
-        postSnap.forEach(d => items.push({ id: d.id, post: d.data() }));
+        postSnap.forEach(d => { if (!isBlocked(d.data().posterUid)) items.push({ id: d.id, post: d.data() }); });
         items.sort((a, b) => ((b.post.createdAt && b.post.createdAt.seconds) || 0) - ((a.post.createdAt && a.post.createdAt.seconds) || 0));
         SHOWS.items = new Map(items.map(i => [i.id, i.post]));
 
@@ -23531,25 +24110,11 @@ async function showsJoin(creatorUid, reopenPostId) {
 }
 
 /// A report goes to the same support queue the admin already works from.
-async function showsReport(postId) {
+/// Podcasts and streams are reported the same way as everything else.
+function showsReport(postId) {
     if (!currentUser) return showAuthModal();
     const post = SHOWS.viewing && SHOWS.viewing.postId === postId ? SHOWS.viewing.post : null;
-    const reason = prompt('What is wrong with this? (A sentence is enough.)');
-    if (!reason || reason.trim().length < 5) return;
-    try {
-        await db.collection('supportTickets').add({
-            uid: currentUser.uid, username: currentUser.username, email: currentUser.email || null,
-            category: 'content-report',
-            subject: `Report: ${post ? post.type : 'post'} “${post ? String(post.title || '').slice(0, 80) : postId}”`,
-            description: `${reason.trim().slice(0, 1000)}\n\nPost ID: ${postId}\nPosted by: @${post ? post.username : 'unknown'} (${post ? post.posterUid : ''})${post && showsIsLive(post) ? '\nLIVE at the time of the report.' : ''}`,
-            postId, reportedUid: post ? post.posterUid || null : null,
-            status: 'open', response: null, respondedAt: null,
-            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        alert('Thank you — this has been sent for review.');
-    } catch (e) {
-        alert('Could not send the report: ' + e.message);
-    }
+    reportContent('post', postId, post ? post.posterUid : null, post ? (showsIsLive(post) ? 'LIVE: ' : '') + (post.title || '') : postId);
 }
 
 async function showsAdminRemove(postId) {
@@ -23587,6 +24152,11 @@ async function showsAdminRemove(postId) {
 })();
 
     </script>    
+
+    <!-- One shared pop-up: report, blocked members, alerts, portfolio, team, analytics -->
+    <div id="nqv-sheet-modal" class="hidden fixed inset-0 bg-black/90 flex items-center justify-center z-[99999]" onclick="if (event.target === this) nqvSheetClose()">
+        <div id="nqv-sheet-body" class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-6 max-h-[90vh] overflow-y-auto"></div>
+    </div>
 
     <!-- BUY NQV8 MODAL -->
     <div id="buy-nqv8-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999]">
@@ -23874,6 +24444,14 @@ async function showsAdminRemove(postId) {
                     <p id="flowmap-project-desc" class="text-zinc-400 text-sm mt-1"></p>
                 </div>
                 <div class="flex gap-2 flex-wrap">
+                    <button onclick="showCompanyAnalytics(STUDIO.id)"
+                            class="px-4 py-2 border border-zinc-600 text-zinc-200 rounded-xl text-sm font-medium hover:bg-zinc-800">
+                        📊 Analytics
+                    </button>
+                    <button onclick="showTeam(STUDIO.id)"
+                            class="px-4 py-2 border border-zinc-600 text-zinc-200 rounded-xl text-sm font-medium hover:bg-zinc-800">
+                        👥 Team
+                    </button>
                     <button onclick="studioOpenInVerse()"
                             class="px-4 py-2 border border-yellow-400 text-yellow-300 rounded-xl text-sm font-medium hover:bg-yellow-400/10">
                         🪐 Open in the NQVerse
