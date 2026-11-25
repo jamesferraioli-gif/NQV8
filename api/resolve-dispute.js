@@ -20,6 +20,7 @@ import { forwardEscrowFee } from './_rewards.js';
 import { callAnthropicJSON } from './_ai.js';
 import { settleEngagementBond, slashBpsForRuling, bondWalletFor } from './_bonds.js';
 import crypto from 'crypto';
+import { mailNotice } from './_mail.js';
 
 if (!getApps().length) {
     initializeApp({
@@ -411,6 +412,11 @@ Rule on this dispute. Respond with the JSON object only.`;
             type: 'dispute', message: posterMsg, read: false, createdAt: new Date(), projectId
         });
         await batch.commit();
+        // The same words by email, to both sides.
+        await Promise.allSettled([
+            mailNotice(project.acceptedBidderUid, `Dispute resolved on "${project.title}"`, workerMsg, 'dispute:' + projectId),
+            mailNotice(project.ownerUid || project.posterUid, `Dispute resolved on "${project.title}"`, posterMsg, 'dispute:' + projectId)
+        ]);
 
         return res.json({
             success:     true,

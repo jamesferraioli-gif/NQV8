@@ -10,6 +10,7 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { gasOverrides } from './_gas.js';
 import { forwardEscrowFee } from './_rewards.js';
+import { notifyAndMail } from './_mail.js';
 
 if (!getApps().length) {
     initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
@@ -106,7 +107,7 @@ export default async function handler(req, res) {
                 });
 
                 // Notify both parties
-                await db.collection('notifications').add({
+                await notifyAndMail(db, {
                     recipientUid: project.acceptedBidderUid,
                     type:         'auto_release',
                     message:      `✅ Escrow auto-released for "${project.title}". The poster did not respond within ${AUTO_RELEASE_DAYS} days. Funds sent to your wallet. Tx: https://arbiscan.io/tx/${tx.hash}`,
@@ -115,7 +116,7 @@ export default async function handler(req, res) {
                     createdAt:    new Date()
                 });
 
-                await db.collection('notifications').add({
+                await notifyAndMail(db, {
                     recipientUid: project.ownerUid || project.posterUid,
                     type:         'auto_release',
                     message:      `⚠️ Escrow auto-released for "${project.title}". You did not review the submission within ${AUTO_RELEASE_DAYS} days. Funds sent to the builder per NQVate policy.`,

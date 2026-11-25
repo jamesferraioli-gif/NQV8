@@ -41,6 +41,7 @@ import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { verifyCaller } from './_auth.js';
 import { payCreditedUSDCFee, splitTwo, MEMBERSHIP_SUBSCRIBER_BPS } from './_rewards.js';
+import { notifyAndMail } from './_mail.js';
 
 const USDC_ADDRESS     = '0xaf88d065e77c8cC2239327C5EDb3A432268e5831';
 const FEE_WALLET       = '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D';   // Operations
@@ -206,7 +207,7 @@ async function confirm(store, uid, body, res) {
     // The member has their pass. What follows is housekeeping and must not be
     // able to undo it.
     forwardFee(provider, intent, intentId).catch(e => console.error('subscriptions: fee forward failed:', e.message));
-    store.collection('notifications').add({
+    await notifyAndMail(store, {
         recipientUid: intent.creatorUid, type: 'subscription', read: false,
         message: `You have a new paid member — $${Number(intent.price).toFixed(2)} for 30 days.`,
         createdAt: FieldValue.serverTimestamp()

@@ -12,6 +12,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { credential } from 'firebase-admin';
 import { gasOverrides } from './_gas.js';
 import { settleEngagementBond, bondWalletFor } from './_bonds.js';
+import { notifyAndMail } from './_mail.js';
 
 if (!getApps().length) {
     initializeApp({
@@ -182,7 +183,7 @@ export default async function handler(req, res) {
                 }
 
                 // Notify poster
-                await db.collection('notifications').add({
+                await notifyAndMail(db, {
                     recipientUid: project.ownerUid || project.posterUid,
                     type:         'auto_refund',
                     message:      `💸 Your escrow for "${project.title}" was automatically refunded. The deadline passed with no accepted submission. $${amount} USDC returned to your wallet. Tx: https://arbiscan.io/tx/${tx.hash}`,
@@ -193,7 +194,7 @@ export default async function handler(req, res) {
 
                 // Notify builder
                 if (project.acceptedBidderUid) {
-                    await db.collection('notifications').add({
+                    await notifyAndMail(db, {
                         recipientUid: project.acceptedBidderUid,
                         type:         'auto_refund',
                         message:      `⚠️ The escrow for "${project.title}" was automatically refunded to the poster. The deadline passed with no accepted submission.`
