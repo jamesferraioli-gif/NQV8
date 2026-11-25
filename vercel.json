@@ -239,6 +239,10 @@
             "dest": "/api/nqverse.js"
         },
         {
+            "src": "/api/platform-analytics",
+            "dest": "/api/platform-analytics.js"
+        },
+        {
             "src": "/api/listing-alerts",
             "dest": "/api/listing-alerts.js"
         },
