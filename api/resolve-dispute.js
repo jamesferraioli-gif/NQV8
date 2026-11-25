@@ -20,7 +20,7 @@ import { forwardEscrowFee } from './_rewards.js';
 import { callAnthropicJSON } from './_ai.js';
 import { settleEngagementBond, slashBpsForRuling, bondWalletFor } from './_bonds.js';
 import crypto from 'crypto';
-import { mailNotice } from './_mail.js';
+import { mailNotice, opsAlert } from './_mail.js';
 
 if (!getApps().length) {
     initializeApp({
@@ -442,6 +442,7 @@ Rule on this dispute. Respond with the JSON object only.`;
         if (msg.includes('UNPREDICTABLE_GAS_LIMIT') ||
             msg.includes('insufficient funds') ||
             msg.includes('gas required exceeds allowance')) {
+            await opsAlert('resolve-dispute', e.message);
             return res.status(500).json({ error: 'PLATFORM_GAS_ERROR' });
         }
         return res.status(500).json({ error: e.message });

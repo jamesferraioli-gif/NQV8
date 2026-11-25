@@ -11,6 +11,7 @@ import { ethers } from 'ethers';
 import { verifyCaller, assertCompanyOwner } from './_auth.js';
 import { gasOverrides } from './_gas.js';
 import { getFeatures } from './_features.js';
+import { opsAlert } from './_mail.js';
 
 const EQUITY_REGISTRY_ADDRESS = '0x726a5EEa94C6d3117bbCd05336A0Cfdaf3c9327a';
 const PLATFORM_WALLET         = '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D';
@@ -86,6 +87,7 @@ export default async function handler(req, res) {
             e.message.includes('gas required exceeds allowance') ||
             e.message.includes('insufficient funds')) {
             userMessage = 'PLATFORM_GAS_ERROR';
+            await opsAlert('equity-complete', e.message);
         } else if (e.message.includes('No active reservation')) {
             userMessage = 'No active equity reservation found for this bounty.';
         } else if (e.message.includes('Company equity paused')) {

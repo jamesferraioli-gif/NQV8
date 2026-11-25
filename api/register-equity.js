@@ -8,6 +8,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { credential } from 'firebase-admin';
 import { verifyCaller } from './_auth.js';
 import { gasOverrides } from './_gas.js';
+import { opsAlert } from './_mail.js';
 
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
 const EQUITY_REGISTRY_ADDRESS = '0x726a5EEa94C6d3117bbCd05336A0Cfdaf3c9327a';
@@ -105,6 +106,7 @@ export default async function handler(req, res) {
         } else if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') ||
                    e.message.includes('insufficient funds')) {
             userMessage = 'PLATFORM_GAS_ERROR';
+            await opsAlert('register-equity', e.message);
         }
 
         return res.status(500).json({ error: userMessage });

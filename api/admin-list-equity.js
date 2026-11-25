@@ -9,6 +9,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { verifyCaller } from './_auth.js';
 import { equitySalesOff } from './_features.js';
 import { gasOverrides } from './_gas.js';
+import { opsAlert } from './_mail.js';
 
 if (!getApps().length) {
     initializeApp({ credential: cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT)) });
@@ -119,6 +120,7 @@ export default async function handler(req, res) {
             e.message.includes('gas required exceeds allowance') ||
             e.message.includes('insufficient funds')) {
             userMessage = 'PLATFORM_GAS_ERROR';
+            await opsAlert('admin-list-equity', e.message);
         } else if (e.message.includes('Listing exists')) {
             userMessage = 'A listing with this ID already exists.';
         } else if (e.message.includes('Insufficient available equity')) {

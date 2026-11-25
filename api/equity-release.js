@@ -6,6 +6,7 @@
 import { ethers } from 'ethers';
 import { verifyCaller, assertCompanyOwner } from './_auth.js';
 import { gasOverrides } from './_gas.js';
+import { opsAlert } from './_mail.js';
 
 const EQUITY_REGISTRY_ADDRESS = '0x726a5EEa94C6d3117bbCd05336A0Cfdaf3c9327a';
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
@@ -74,6 +75,7 @@ export default async function handler(req, res) {
             e.message.includes('gas required exceeds allowance') ||
             e.message.includes('insufficient funds')) {
             userMessage = 'PLATFORM_GAS_ERROR';
+            await opsAlert('equity-release', e.message);
         }
         return res.status(500).json({ error: userMessage });
     }

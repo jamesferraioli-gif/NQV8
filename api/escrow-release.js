@@ -10,6 +10,7 @@ import { gasOverrides } from './_gas.js';
 import { initializeApp, getApps, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { forwardEscrowFee } from './_rewards.js';
+import { opsAlert } from './_mail.js';
 
 function getAdminDb() {
     if (!getApps().length) {
@@ -79,6 +80,7 @@ export default async function handler(req, res) {
             // emails ops, instead of telling the founder to fund a wallet
             // they do not control.
             userMessage = 'PLATFORM_GAS_ERROR';
+            await opsAlert('escrow-release', e.message);
         } else if (e.message.includes('Not poster')) {
             userMessage = 'Only the posting founder can release escrow.';
         } else if (e.message.includes('Already released') || e.message.includes('Invalid status')) {

@@ -7,6 +7,7 @@
 import { ethers } from 'ethers';
 import { gasOverrides } from './_gas.js';
 import { equitySalesOff } from './_features.js';
+import { opsAlert } from './_mail.js';
 
 const EQUITY_REGISTRY_ADDRESS = '0x726a5EEa94C6d3117bbCd05336A0Cfdaf3c9327a';
 const ARBITRUM_RPC            = 'https://arb1.arbitrum.io/rpc';
@@ -107,6 +108,7 @@ export default async function handler(req, res) {
             e.message.includes('gas required exceeds allowance') ||
             e.message.includes('insufficient funds')) {
             userMessage = 'PLATFORM_GAS_ERROR';
+            await opsAlert('admin-make-offer', e.message);
         } else if (e.message.includes('Listing not active')) {
             userMessage = 'This listing is no longer active.';
         } else if (e.message.includes('Offer exists')) {

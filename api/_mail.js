@@ -391,6 +391,49 @@ export async function sendRaw({ to, subject, html }) {
     return { ok: true, id: result.id };
 }
 
+// ── Alerts to the people who run NQVate ─────────────────────────────────
+// Sent by the server at the moment it sees the problem, so nothing depends on
+// a member's browser passing the message on. Set OPS_ALERT_EMAIL in Vercel to
+// send them somewhere else.
+const OPS_ALERT_EMAIL = process.env.OPS_ALERT_EMAIL || 'james.ferraioli@gmail.com';
+const OPS_WALLET = '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D';
+
+/// Tell the operators that an Operations-wallet transaction could not be paid
+/// for. One email an hour per source, however many members run into it.
+/// Never throws: the caller is already handling a failure.
+export async function opsAlert(source, detail, context = {}) {
+    try {
+        ensureApp();
+        const db = getFirestore(), ref = db.collection('emailLog').doc('_ops'), now = Date.now();
+        const slot = String(source).replace(/[^a-z0-9-]/gi, '_').slice(0, 60);
+        const go = await db.runTransaction(async tx => {
+            const snap = await tx.get(ref);
+            const last = (snap.exists && snap.data()[slot]) || 0;
+            if (now - last < HOUR) return false;
+            tx.set(ref, { [slot]: now }, { merge: true });
+            return true;
+        });
+        if (!go) return { sent: false, why: 'quiet' };
+        const rows = Object.entries(context).filter(([, v]) => v !== undefined && v !== null && v !== '')
+            .map(([k, v]) => `<tr><td style="padding:4px 12px 4px 0;color:#71717a;">${escapeHtml(k)}</td><td style="padding:4px 0;">${escapeHtml(String(v).slice(0, 200))}</td></tr>`).join('');
+        const out = await sendRaw({
+            to: OPS_ALERT_EMAIL,
+            subject: `🚨 NQVate: Operations wallet could not pay gas — ${slot} failed`,
+            html: `<div style="font-family:system-ui,sans-serif;font-size:14px;line-height:1.5;color:#18181b;">
+                <p><strong>${escapeHtml(slot)}</strong> failed because the Operations wallet could not pay for the transaction. It is most likely low on ETH.</p>
+                <p>Top up on Arbitrum One:<br><code>${OPS_WALLET}</code></p>
+                ${rows ? `<table style="font-size:13px;border-collapse:collapse;">${rows}</table>` : ''}
+                <p style="color:#71717a;font-size:12px;">Error: ${escapeHtml(String(detail || '').slice(0, 400))}</p>
+                <p style="color:#71717a;font-size:12px;">The member was told to try again shortly. At most one of these is sent per hour for each kind of action.</p>
+            </div>`
+        });
+        return { sent: !!out.ok };
+    } catch (e) {
+        console.error('opsAlert failed:', e.message);
+        return { sent: false, why: 'error' };
+    }
+}
+
 const NOTICE_HEADINGS = {
     auto_release: 'Escrow released automatically',
     auto_refund:  'Escrow refunded automatically',
