@@ -18808,6 +18808,10 @@ async function loadGrowTab() {
                             class="w-full py-3 bg-zinc-700 hover:bg-zinc-600 text-white text-sm font-semibold rounded-xl transition-colors">
                         🎫 User Support Queue
                     </button>
+                    <button onclick="showPlatformAnalytics()"
+                            class="w-full py-3 bg-zinc-700 hover:bg-zinc-600 text-white text-sm font-semibold rounded-xl transition-colors">
+                        📈 Platform Analytics
+                    </button>
                     <button onclick="showPlatformFeatures()"
                             class="w-full py-3 bg-zinc-700 hover:bg-zinc-600 text-white text-sm font-semibold rounded-xl transition-colors">
                         🎛️ Platform Features
@@ -18899,6 +18903,10 @@ function showCompanyManageModal(companyId, company) {
                 <button onclick="document.getElementById('company-manage-modal').remove(); showAdminSupportQueue()"
                         class="w-full py-3 bg-zinc-700 hover:bg-zinc-600 text-white text-sm rounded-xl">
                     🎫 User Support Queue
+                </button>
+                <button onclick="document.getElementById('company-manage-modal').remove(); showPlatformAnalytics()"
+                        class="w-full py-3 bg-zinc-700 hover:bg-zinc-600 text-white text-sm rounded-xl">
+                    📈 Platform Analytics
                 </button>
                 <button onclick="document.getElementById('company-manage-modal').remove(); showPlatformFeatures()"
                         class="w-full py-3 bg-zinc-700 hover:bg-zinc-600 text-white text-sm rounded-xl">
@@ -22967,7 +22975,7 @@ const nqvSecs = t => !t ? 0 : t.seconds !== undefined ? t.seconds : t._seconds !
 function nqvSheet(html, wide) {
     const modal = document.getElementById('nqv-sheet-modal'), body = document.getElementById('nqv-sheet-body');
     if (!modal || !body) return;
-    body.className = 'bg-zinc-900 w-full mx-4 rounded-3xl p-6 max-h-[90vh] overflow-y-auto ' + (wide ? 'max-w-3xl' : 'max-w-lg');
+    body.className = 'bg-zinc-900 w-full mx-4 rounded-3xl p-6 max-h-[90vh] overflow-y-auto ' + (wide === 'xl' ? 'max-w-5xl' : wide ? 'max-w-3xl' : 'max-w-lg');
     body.innerHTML = `<div class="flex justify-end -mt-2 -mr-2"><button onclick="nqvSheetClose()" aria-label="Close" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button></div>` + html;
     modal.classList.remove('hidden');
 }
@@ -23520,6 +23528,144 @@ function communityOnLogin() {
     loadBlocks().then(blocksChanged);
     emailPrefsRender();
     portfolioOwnRender();
+}
+
+// ====================== PLATFORM ANALYTICS (ADMIN) ======================
+// Everything that has happened on NQVate, counted by the server
+// (api/platform-analytics.js) and drawn here. The server refuses anyone who
+// is not an admin; this only draws what it sends.
+const PA = { days: 30, series: 'signups', data: null };
+const PA_SERIES = { signups: 'Sign-ups', listings: 'Bounties posted', bids: 'Bids', accepted: 'Bids accepted', completed: 'Bounties completed', posts: 'Posts', comments: 'Comments', messages: 'Chat messages', follows: 'Follows' };
+
+async function showPlatformAnalytics(days, fresh) {
+    if (!nqvMe()) return showAuthModal();
+    if ([7, 30, 90, 0].includes(days)) PA.days = days;
+    if (!PA.data || PA.data.days !== PA.days || fresh) nqvSheet('<p class="text-sm text-zinc-400">Counting everything…</p>', 'xl');
+    try {
+        const resp = await fetch(`/api/platform-analytics?days=${PA.days}${fresh ? '&fresh=1' : ''}`, { headers: { 'Authorization': `Bearer ${await authToken()}` } });
+        const data = await resp.json().catch(() => ({}));
+        if (!resp.ok) throw new Error(data.error || 'The report could not be loaded');
+        PA.data = data;
+        platformAnalyticsRender();
+    } catch (e) {
+        nqvSheet(`<h2 class="text-xl font-bold mb-2">📈 Platform analytics</h2><p class="text-sm text-red-300">${ecoEsc(e.message)}</p>`, 'xl');
+    }
+}
+
+function platformAnalyticsChart() {
+    const d = PA.data, key = PA.series, rows = d.daily, max = Math.max(1, ...rows.map(r => r[key]));
+    const W = 900, H = 160, gap = rows.length > 45 ? 1 : 3, bw = (W - gap * (rows.length - 1)) / rows.length;
+    const total = rows.reduce((s, r) => s + r[key], 0), peak = rows.reduce((a, r) => r[key] > a[key] ? r : a, rows[0]);
+    const bars = rows.map((r, i) => { const h = r[key] ? Math.max(2, r[key] / max * (H - 10)) : 0;
+        return `<rect x="${(i * (bw + gap)).toFixed(1)}" y="${(H - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5" fill="#22d3ee"><title>${r.day}: ${r[key]}</title></rect>`; }).join('');
+    return `<svg viewBox="0 0 ${W} ${H}" class="w-full h-40" role="img" aria-label="${ecoEsc(PA_SERIES[key])} per day: ${total} in the last ${rows.length} days, most on ${peak.day} with ${peak[key]}.">
+            <line x1="0" y1="${H - 0.5}" x2="${W}" y2="${H - 0.5}" stroke="#3f3f46"/>${bars}</svg>
+        <div class="flex justify-between text-[11px] text-zinc-400 mt-1"><span>${rows[0].day}</span><span>${total.toLocaleString()} in ${rows.length} days · most in a day: ${max.toLocaleString()}</span><span>${rows[rows.length - 1].day}</span></div>`;
+}
+function platformAnalyticsSeries(key) { if (PA_SERIES[key]) { PA.series = key; const box = document.getElementById('pa-chart'); if (box) box.innerHTML = platformAnalyticsChart(); } }
+
+function platformAnalyticsRender() {
+    const d = PA.data;
+    if (!d) return;
+    const all = !d.days, n = v => (Number(v) || 0).toLocaleString(), money = v => '$' + Math.round(Number(v) || 0).toLocaleString();
+    const pct = v => v === null || v === undefined ? '—' : Math.round(v * 100) + '%';
+    const span = v => v === null || v === undefined ? '—' : v < 1 ? Math.max(1, Math.round(v * 24)) + ' h' : v.toFixed(v < 10 ? 1 : 0) + ' days';
+    const delta = (now, prev, fmt = n) => {
+        if (all || prev === null || prev === undefined) return '';
+        if (!prev) return now ? '<span class="text-emerald-400">new</span>' : '<span class="text-zinc-400">no change</span>';
+        const c = Math.round((now - prev) / prev * 100);
+        return `<span class="${c > 0 ? 'text-emerald-400' : c < 0 ? 'text-red-400' : 'text-zinc-400'}">${c > 0 ? '▲' : c < 0 ? '▼' : '•'} ${Math.abs(c)}%</span> <span class="text-zinc-400">vs ${fmt(prev)} before</span>`;
+    };
+    const tile = (label, value, hint) => `<div class="bg-zinc-800/70 rounded-2xl p-3.5 min-w-0"><p class="text-xs text-zinc-400 mb-1">${label}</p><p class="text-xl font-bold break-words">${value}</p>${hint ? `<p class="text-[11px] text-zinc-400 mt-1">${hint}</p>` : ''}</div>`;
+    const act = (key, label) => tile(label, n(d.activity[key].now), delta(d.activity[key].now, d.activity[key].prev));
+    const h = t => `<h3 class="text-xs uppercase tracking-wider text-zinc-400 mt-7 mb-2">${t}</h3>`;
+    const grid = (cells, cols) => `<div class="grid grid-cols-2 ${cols || 'md:grid-cols-4'} gap-2.5">${cells.join('')}</div>`;
+    const list = (rows, empty) => rows.length ? `<ul class="text-sm">${rows.map(r => `<li class="flex justify-between gap-3 py-1.5 border-b border-zinc-800"><span class="min-w-0 break-words">${r[0]}</span><span class="text-xs text-zinc-300 shrink-0">${r[1]}</span></li>`).join('')}</ul>` : `<p class="text-sm text-zinc-400">${empty}</p>`;
+    const period = all ? 'all time' : `the last ${d.days} days`, m = d.market, f = d.fees;
+    const win = [[7, '7 days'], [30, '30 days'], [90, '90 days'], [0, 'All time']];
+    const ago = t => { const s = Math.max(0, d.generatedAt - t); return s < 3600 ? Math.max(1, Math.round(s / 60)) + 'm' : s < 86400 ? Math.round(s / 3600) + 'h' : Math.round(s / 86400) + 'd'; };
+
+    nqvSheet(`<h2 class="text-xl font-bold mb-1">📈 Platform analytics</h2>
+        <p class="text-sm text-zinc-400 mb-4">Everything on NQVate over ${period}${all ? '' : ', compared with the ' + d.days + ' days before'}. Only you can open this.</p>
+        <div class="flex flex-wrap items-center gap-2 mb-5">
+            ${win.map(([v, l]) => `<button onclick="showPlatformAnalytics(${v})" aria-pressed="${d.days === v}" class="px-3 py-1.5 rounded-lg text-xs font-semibold ${d.days === v ? 'bg-white text-black' : 'bg-zinc-800 text-zinc-200 hover:bg-zinc-700'}">${l}</button>`).join('')}
+            <span class="flex-1"></span>
+            <button onclick="showPlatformAnalytics(PA.days, true)" class="px-3 py-1.5 rounded-lg text-xs bg-zinc-800 text-zinc-200 hover:bg-zinc-700">↻ Refresh</button>
+            <button onclick="platformAnalyticsCsv()" class="px-3 py-1.5 rounded-lg text-xs bg-zinc-800 text-zinc-200 hover:bg-zinc-700">⬇ Daily numbers (CSV)</button>
+        </div>
+
+        ${grid([tile('Members active', n(d.members.active), `of ${n(d.members.total)} members`), act('signups', 'Sign-ups'), act('listings', 'Bounties posted'), act('bids', 'Bids'),
+                act('accepted', 'Bids accepted'), act('completed', 'Bounties completed'), tile('Paid to builders', money(m.paidValue), all ? '' : delta(Math.round(m.paidValue), Math.round(m.prevPaidValue), money)),
+                tile('Fees taken in', `${money(f.usdc)} <span class="text-sm font-semibold text-zinc-300">+ ${n(Math.round(f.nqv8))} NQV8</span>`, all ? '' : `before: ${money(f.prevUsdc)} + ${n(Math.round(f.prevNqv8))} NQV8`),
+                act('posts', 'Posts and shows'), act('comments', 'Comments'), act('messages', 'Chat messages'), act('follows', 'Follows')])}
+
+        ${h('Day by day')}
+        <div class="bg-zinc-800/50 rounded-2xl p-4">
+            <label class="sr-only" for="pa-series">What to chart</label>
+            <select id="pa-series" onchange="platformAnalyticsSeries(this.value)" class="bg-zinc-900 border border-zinc-700 rounded-lg px-2.5 py-1.5 text-xs mb-3">
+                ${Object.keys(PA_SERIES).map(k => `<option value="${k}"${k === PA.series ? ' selected' : ''}>${PA_SERIES[k]}</option>`).join('')}</select>
+            <div id="pa-chart">${platformAnalyticsChart()}</div>
+        </div>
+
+        ${h('Marketplace right now')}
+        ${grid([tile('Open', n(m.open), `${money(m.valueOpen)} on offer · ${n(m.openNoBids)} with no bids`), tile('In progress', n(m.inProgress), `${money(m.valueInEscrow)} in escrow`),
+                tile('Completed', n(m.completed), `${money(m.valuePaidAllTime)} paid, all time`), tile('Refunded or cancelled', n(m.refunded), `${n(m.disputed)} disputed, all time`),
+                tile('Bids per bounty', m.avgBids === null ? '—' : m.avgBids.toFixed(1), `${n(m.bidsTotal)} bids, all time`), tile('Time to fill', span(m.avgFillDays), 'posted → accepted, ' + period),
+                tile('Time to deliver', span(m.avgDeliverDays), 'accepted → completed, ' + period), tile('Completion rate', pct(m.completionRate), `dispute rate ${pct(m.disputeRate)}`)])}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4">
+            <div class="min-w-0"><p class="text-xs text-zinc-400 mb-1">Posted by category, ${period}</p>${list(m.byCategory.map(c => [ecoEsc(c.name), n(c.n)]), 'Nothing posted.')}</div>
+            <div class="min-w-0"><p class="text-xs text-zinc-400 mb-1">Also</p>${list([['Private bounties', n(m.privateListings)], ['Bounties with a bid bond', n(m.bondsRequired)], ['Funding requests', n(m.fundingRequests)], ['Studio plan parts', n(m.planParts)], ['Equity paid through bounties, ' + period, (m.equityUnitsPaid / 100).toFixed(2) + '%']], '')}</div>
+        </div>
+
+        ${h('Fees taken in, ' + period)}
+        ${list(f.byType.map(t => [`${ecoEsc(t.type)} <span class="text-zinc-400">× ${n(t.n)}</span>`, [t.usdc ? money(t.usdc) : '', t.nqv8 ? n(Math.round(t.nqv8)) + ' NQV8' : ''].filter(Boolean).join(' + ')]), 'No fees recorded.')}
+        <p class="text-[11px] text-zinc-400 mt-2">All time: ${money(f.usdcAllTime)} + ${n(Math.round(f.nqv8AllTime))} NQV8. NQV8 fees are recorded by the member's browser as they are paid, so treat that figure as a floor; the contracts are the authority.</p>
+
+        ${h('Members and companies')}
+        ${grid([tile('Members', n(d.members.total), `${n(d.members.withWallet)} with a wallet`), tile('With skills listed', n(d.members.withSkills), `${n(d.members.referred)} came by referral`),
+                tile('Companies', n(d.companies.total), `${n(d.companies.live)} live · ${n(d.companies.verified)} verified`), tile('Companies with a team', n(d.companies.withTeam), `${n(d.companies.teamSeats)} team members`)])}
+
+        ${h('Community')}
+        ${grid([tile('Posts and shows', n(d.content.posts), Object.entries(d.content.byType).map(([k, v]) => `${n(v)} ${ecoEsc(k)}`).join(' · ')), tile('Likes · comments', `${n(d.content.likes)} · ${n(d.content.comments)}`, `${n(d.content.liveNow)} live now`),
+                tile('Chats', n(d.chat.chats), `${n(d.chat.messages)} messages · ${n(d.chat.groups)} groups`), tile('Follows · reviews', `${n(d.social.follows)} · ${n(d.social.reviews)}`, d.social.avgRating ? `average ${d.social.avgRating.toFixed(1)} ★` : 'no ratings yet'),
+                tile('Listing alerts', n(d.social.listingAlerts), `${n(d.social.bookmarks)} saved bounties`), tile('Paid subscriptions', n(d.subs.current), `${n(d.subs.total)} ever`),
+                tile('Ad campaigns', n(d.ads.campaigns), `${n(d.ads.active)} active · ${n(d.ads.impressions)} views · ${n(d.ads.clicks)} clicks`), tile('Referral bonuses', n(d.referrals.claims), `${n(Math.round(d.referrals.nqv8))} NQV8 paid`)])}
+
+        ${h('Safety, support and health')}
+        ${grid([tile('Reports waiting', n(d.support.reportsOpen), `${n(d.support.reports)} ever · ${n(d.content.removed)} posts removed`), tile('Support tickets open', n(d.support.open), `${n(d.support.closed)} closed`),
+                tile('Blocks', n(d.social.blocks), 'members blocking members'), tile('Emails sent today', n(d.emailsToday), 'notification emails'),
+                tile('AI jobs', n(d.ai.jobs), `${n(d.ai.failed)} failed or refunded · ${n(d.ai.nqv8)} NQV8`), tile('Errors logged', n(d.errors.total), period),
+                tile('Equity listings', n(d.equity.activeListings), `${n(d.equity.offers)} offers · ${n(d.equity.transfers)} transfers`), tile('Equity holders', n(d.equity.holders), 'records')])}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-4">
+            <div class="min-w-0"><p class="text-xs text-zinc-400 mb-1">Report reasons, ${period}</p>${list(d.support.byReason.map(r => [ecoEsc(r.name), n(r.n)]), 'No reports.')}</div>
+            <div class="min-w-0"><p class="text-xs text-zinc-400 mb-1">Errors by place, ${period}</p>${list(d.errors.byEndpoint.map(r => [ecoEsc(r.name), n(r.n)]), 'No errors logged.')}</div>
+        </div>
+
+        ${h('Who is driving it, ' + period)}
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="min-w-0"><p class="text-xs text-zinc-400 mb-1">Most active members</p>${list(d.leaders.active.map(x => [`<button onclick="nqvSheetClose(); viewUserProfile('${ecoEsc(x.id)}')" class="text-cyan-400 hover:underline">${ecoEsc(x.label)}</button>`, n(x.n) + ' actions']), 'Nobody yet.')}</div>
+            <div class="min-w-0"><p class="text-xs text-zinc-400 mb-1">Builders by completed work</p>${list(d.leaders.builders.map(x => [ecoEsc(x.label), `${n(x.n)} · ${money(x.usd)}`]), 'None completed.')}</div>
+            <div class="min-w-0"><p class="text-xs text-zinc-400 mb-1">Posters by completed bounties</p>${list(d.leaders.posters.map(x => [ecoEsc(x.label), `${n(x.n)} · ${money(x.usd)}`]), 'None completed.')}</div>
+            <div class="min-w-0"><p class="text-xs text-zinc-400 mb-1">Companies by completed bounties</p>${list(d.leaders.companies.map(x => [ecoEsc(x.label), `${n(x.n)} · ${money(x.usd)}`]), 'None completed.')}</div>
+        </div>
+
+        ${h('Latest activity')}
+        <div tabindex="0" role="region" aria-label="Latest activity" class="max-h-80 overflow-y-auto bg-zinc-800/40 rounded-2xl p-3">
+            ${d.feed.length ? `<ul class="text-sm space-y-1.5">${d.feed.map(e => `<li class="flex gap-2.5"><span class="shrink-0 w-5 text-center" aria-hidden="true">${e.icon || '•'}</span><span class="min-w-0 break-words flex-1">${ecoEsc(e.text)}</span><span class="text-[11px] text-zinc-400 shrink-0">${ago(e.t)} ago</span></li>`).join('')}</ul>` : '<p class="text-sm text-zinc-400">Nothing yet.</p>'}
+        </div>
+        <p class="text-[11px] text-zinc-400 mt-4">Counted ${new Date(d.generatedAt * 1000).toLocaleString()} from ${n(d.scanned)} records; kept for five minutes unless you refresh. Chat is counted, never read. Page views and visits are not recorded on NQVate itself — those are in Google Analytics.</p>`, 'xl');
+}
+
+function platformAnalyticsCsv() {
+    const d = PA.data;
+    if (!d) return;
+    const cols = ['day'].concat(Object.keys(PA_SERIES));
+    const csv = [cols.join(',')].concat(d.daily.map(r => cols.map(c => r[c]).join(','))).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    a.download = `nqvate-daily-${d.daily[0].day}-to-${d.daily[d.daily.length - 1].day}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
 
 // ====================== PODCASTS & STREAMS ======================
