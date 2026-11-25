@@ -17,6 +17,7 @@ const CODE_EXTENSIONS = [
 const IMAGE_TYPES = ['image/jpeg','image/png','image/gif','image/webp'];
 
 import { verifyCaller } from './_auth.js';
+import { AI_MODEL, THINKING_ROOM } from './_ai.js';
 
 export default async function handler(req, res) {
     if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
@@ -121,8 +122,10 @@ export default async function handler(req, res) {
                 'anthropic-version': '2023-06-01'
             },
             body: JSON.stringify({
-                model: 'claude-sonnet-5',
-                max_tokens: 1500,
+                model: AI_MODEL,
+                // 1,500 for the review itself, plus room for the model's
+                // thinking, which counts against the same limit.
+                max_tokens: 1500 + THINKING_ROOM,
                 messages: [{ role: 'user', content: messageContent }]
             })
         });
@@ -137,7 +140,9 @@ export default async function handler(req, res) {
             throw new Error(`Claude API error: ${claudeData.error?.message || 'Unknown error'}`);
         }
 
+        if (claudeData.stop_reason === 'refusal') throw new Error('The reviewer declined to assess this submission');
         const rawText = claudeData.content.filter(b => b.type === 'text').map(b => b.text).join('');
+        if (claudeData.stop_reason === 'max_tokens') throw new Error('The review was cut off before it finished — please try again');
 
         // Claude occasionally prefixes the JSON with prose or a markdown heading,
         // especially when the submission contains a document. Extract the object

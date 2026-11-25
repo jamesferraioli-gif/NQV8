@@ -50,8 +50,8 @@ export default async function handler(req) {
                 "anthropic-version": "2023-06-01"
             },
             body: JSON.stringify({
-                model: "claude-sonnet-5",
-                max_tokens: 500,
+                model: "claude-sonnet-5-5",
+                max_tokens: 500 + 12000,       // the answer, plus room for thinking
                 messages: [{
                     role: "user",
                     content: [
@@ -115,7 +115,7 @@ Respond with JSON only, no other text.`
             });
         }
 
-        const resultText = (anthropicData.content?.[0]?.text?.trim() || '{"approved": false, "summary": "Verification failed"}').replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        const resultText = ((anthropicData.content || []).filter(b => b.type === 'text').map(b => b.text).join('').trim() || '{"approved": false, "summary": "Verification failed"}').replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
 
         try {
             return new Response(JSON.stringify(JSON.parse(resultText)), {

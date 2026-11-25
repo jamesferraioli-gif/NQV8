@@ -168,7 +168,7 @@ export async function runDeck(input, deps = {}) {
 
     const site = input.website ? await readWebsite(input.website, deps.fetch || fetch) : '';
     const parsed = await askJSON({
-        system: SYSTEM, maxTokens: 9000, timeoutMs: 200000,
+        system: SYSTEM, maxTokens: 14000, effort: 'medium', timeoutMs: 200000,
         messages: [{ role: 'user', content: [...docs, { type: 'text', text: deckPrompt(input, site, hasDocuments) }] }]
     }, deps);
 

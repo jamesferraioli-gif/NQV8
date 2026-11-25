@@ -28,8 +28,8 @@ export default async function handler(req) {
                 'anthropic-version': '2023-06-01'
             },
             body: JSON.stringify({
-                model: 'claude-sonnet-5',
-                max_tokens: 4000,
+                model: 'claude-sonnet-5-5',
+                max_tokens: 4000 + 12000,      // the answer, plus room for thinking
                 messages: [{
                     role: 'user',
                     content: `You are a senior software architect and product manager. Generate a detailed development flow map for the following project.

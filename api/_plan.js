@@ -245,14 +245,14 @@ export async function runFlowmap(input, deps = {}) {
     if (description.length < 20) throw new Error('A project description is required');
     const ask = (opts) => askJSON(opts, deps);
 
-    const outline = await ask({ system: SYSTEM, maxTokens: 9000, timeoutMs: 150000, messages: [{ role: 'user', content: outlinePrompt(input) }] });
+    const outline = await ask({ system: SYSTEM, maxTokens: 14000, effort: 'medium', timeoutMs: 150000, messages: [{ role: 'user', content: outlinePrompt(input) }] });
     if (!Array.isArray(outline && outline.nodes) || outline.nodes.length < 3) throw new Error('Model returned no flow map nodes');
     outline.nodes = outline.nodes.filter(n => n && n.title).slice(0, NODES_MAX);
 
     const groups = [];
     for (let i = 0; i < outline.nodes.length; i += GROUP_SIZE) groups.push(outline.nodes.slice(i, i + GROUP_SIZE));
     const written = await Promise.all(groups.map(group =>
-        ask({ system: SYSTEM, maxTokens: 7000, timeoutMs: 130000, messages: [{ role: 'user', content: detailPrompt(input, outline, group) }] })));
+        ask({ system: SYSTEM, maxTokens: 10000, effort: 'medium', timeoutMs: 130000, messages: [{ role: 'user', content: detailPrompt(input, outline, group) }] })));
     const details = written.flatMap(w => Array.isArray(w && w.nodes) ? w.nodes : []);
 
     const out = normalisePlan(outline, details);

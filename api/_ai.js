@@ -14,7 +14,7 @@ const ANTHROPIC_VERSION = '2023-06-01';
 // Keep every feature on one model string so a deprecation is a one-line fix
 // rather than a hunt through five files. generate-flowmap sat on a retired
 // snapshot for months precisely because it was declared locally.
-export const AI_MODEL = 'claude-sonnet-5';
+export const AI_MODEL = 'claude-sonnet-5-5';
 
 /**
  * Errors worth another attempt. Anything else is a bug, not bad luck.
@@ -46,7 +46,20 @@ export function isRetryableAIError(err) {
  * Call Anthropic and return the assistant's text.
  * Throws with a message that names the actual failure.
  */
-export async function callAnthropicText({ messages, system, maxTokens = 4000, model = AI_MODEL, timeoutMs = 240000 }) {
+/**
+ * The API's max_tokens is a ceiling on EVERYTHING the model produces, and on
+ * this model that includes its thinking, which is on by default and is never
+ * returned. A caller's maxTokens here means the size of the ANSWER it expects,
+ * so room for thinking is added on top; without it a long answer, or a short
+ * one after a lot of thought, is cut off part-way. It is a ceiling, not a
+ * cost: only tokens actually produced are billed.
+ *
+ * `effort` ('low' | 'medium' | 'high') sets how much the model thinks; left
+ * out, the model's own default (high) applies.
+ */
+export const THINKING_ROOM = 12000;
+
+export async function callAnthropicText({ messages, system, maxTokens = 4000, model = AI_MODEL, timeoutMs = 240000, effort }) {
     if (!process.env.ANTHROPIC_API_KEY) {
         throw new Error('ANTHROPIC_API_KEY is not configured');
     }
@@ -66,8 +79,9 @@ export async function callAnthropicText({ messages, system, maxTokens = 4000, mo
             },
             body: JSON.stringify({
                 model,
-                max_tokens: maxTokens,
+                max_tokens: maxTokens + THINKING_ROOM,
                 ...(system ? { system } : {}),
+                ...(effort ? { output_config: { effort } } : {}),
                 messages
             })
         });
@@ -93,8 +107,19 @@ export async function callAnthropicText({ messages, system, maxTokens = 4000, mo
     const data = await response.json();
     if (data.error) throw new Error(`Anthropic API error: ${data.error.message || 'unknown'}`);
 
-    const text = data.content?.find(c => c.type === 'text')?.text || '';
-    if (!text) throw new Error('Anthropic returned no text content');
+    // The model can decline a request outright. That is an answer, not an
+    // outage: say so plainly and do not retry it.
+    if (data.stop_reason === 'refusal') {
+        throw new Error('The model declined this request' + (data.stop_details?.category ? ` (${data.stop_details.category})` : ''));
+    }
+
+    // A reply can open with thinking blocks, so the text is found by type and
+    // never by position.
+    const text = (data.content || []).filter(c => c.type === 'text').map(c => c.text).join('');
+    if (!text) {
+        if (data.stop_reason === 'max_tokens') throw new Error(`Response was truncated at the ${maxTokens + THINKING_ROOM}-token limit before any answer was written — raise maxTokens for this job kind`);
+        throw new Error('Anthropic returned no text content');
+    }
 
     // A completion cut off at the token ceiling is the single most confusing
     // failure to debug, because the text that comes back looks fine until the
@@ -102,7 +127,7 @@ export async function callAnthropicText({ messages, system, maxTokens = 4000, mo
     // "did not return valid JSON".
     if (data.stop_reason === 'max_tokens') {
         throw new Error(
-            `Response was truncated at the ${maxTokens}-token limit — raise maxTokens for this job kind ` +
+            `Response was truncated at the ${maxTokens + THINKING_ROOM}-token limit — raise maxTokens for this job kind ` +
             `(received ${text.length} characters)`
         );
     }
