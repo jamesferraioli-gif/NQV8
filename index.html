@@ -138,6 +138,19 @@
         .nq-notice button { flex: none; width: 28px; height: 28px; border-radius: 6px; color: #a1a1aa; font-size: 18px; line-height: 1; }
         .nq-notice button:hover { background: #27272a; color: #fff; }
         @media (prefers-reduced-motion: no-preference) { .nq-notice { animation: nq-in .16s ease-out; } @keyframes nq-in { from { opacity: 0; transform: translateY(-6px); } } }
+        /* Questions (in place of the browser's confirm and prompt boxes). */
+        #nq-ask { position: fixed; inset: 0; z-index: 2147483001; background: rgba(0, 0, 0, .72); display: flex; align-items: center; justify-content: center; padding: 16px; }
+        .nq-ask-box { width: min(460px, 100%); max-height: 86vh; overflow-y: auto; background: #18181b; border: 1px solid #3f3f46; border-radius: 14px; padding: 22px; box-shadow: 0 24px 60px rgba(0, 0, 0, .6); }
+        .nq-ask-box h2 { font-size: 17px; font-weight: 600; color: #fff; margin: 0 0 8px; }
+        .nq-ask-box p { font-size: 14px; line-height: 1.5; color: #d4d4d8; margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+        .nq-ask-box input { width: 100%; margin-top: 14px; background: #09090b; border: 1px solid #3f3f46; border-radius: 8px; padding: 10px 12px; color: #fff; font-size: 14px; }
+        .nq-ask-box input:focus { outline: 2px solid #22d3ee; outline-offset: 1px; }
+        .nq-ask-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+        .nq-ask-actions button { min-height: 40px; padding: 0 16px; border-radius: 8px; font-size: 14px; font-weight: 600; background: #27272a; color: #e4e4e7; }
+        .nq-ask-actions button:hover { background: #3f3f46; }
+        .nq-ask-actions .nq-ask-go { background: #fff; color: #000; } .nq-ask-actions .nq-ask-go:hover { background: #e4e4e7; }
+        .nq-ask-actions .nq-ask-danger { background: #dc2626; color: #fff; } .nq-ask-actions .nq-ask-danger:hover { background: #ef4444; }
+        @media (max-width: 480px) { .nq-ask-actions { flex-direction: column-reverse; } .nq-ask-actions button { width: 100%; } }
     </style>
 </head>
 
@@ -270,7 +283,7 @@
         <div class="mb-10">
             <h1 class="text-3xl md:text-5xl font-bold tracking-tighter mb-1">Marketplace</h1>
             <p class="text-2xl font-semibold text-white max-w-3xl mb-2">The marketplace where founders build companies and builders build ownership.</p>
-            <p class="text-zinc-400 max-w-3xl">Post bounties paid in cash, equity, or both. Bid on work, earn stakes in early-stage startups, and grow a verifiable on-chain portfolio — no middlemen, no paperwork.</p>           
+            <p class="text-zinc-400 max-w-3xl">Post bounties paid in cash, equity, or both. Bid on work, earn stakes in early-stage startups, and grow a verifiable on-chain portfolio, with no middlemen and no paperwork.</p>           
         </div>
 
         <!-- Controls + Live Stats -->
@@ -792,7 +805,7 @@
             <button onclick="hidePostFundingModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
         </div>
         <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 mb-6">
-            <p class="text-amber-400 text-xs">Cost: 100 NQV8 · Only list stakes you legitimately own</p>
+            <p class="text-amber-400 text-xs">Cost: 100 NQV8. Only list stakes you legitimately own.</p>
         </div>
 
         <p id="funding-project-label" class="hidden text-sm font-semibold text-violet-400 mb-4"></p>
@@ -1040,7 +1053,7 @@
         <!-- MUTUAL REVIEW MODAL -->
     <div id="review-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[100000]">
         <div class="bg-zinc-900 w-full max-w-md mx-4 rounded-3xl p-4 md:p-8">
-            <h2 class="text-3xl font-bold mb-2 text-center">Project Complete!</h2>
+            <h2 class="text-3xl font-bold mb-2 text-center">Project Complete.</h2>
             <p id="review-project-name" class="text-center text-zinc-400 mb-8"></p>
 
             <p class="text-center text-sm text-zinc-400 mb-4">Rate your experience (1–5 stars)</p>
@@ -1142,7 +1155,7 @@
 
             <button onclick="closeWelcomeModal()"
                     class="mt-8 w-full py-5 bg-white text-black font-semibold rounded-3xl text-lg hover:bg-cyan-400 transition-colors">
-                Got it, let's build!
+                Got it, let's build.
             </button>
         </div>
     </div>
@@ -1370,7 +1383,7 @@
 
             <div id="referral-claim-container" class="hidden">
                 <div class="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-4 mb-3">
-                    <p class="text-emerald-400 font-semibold">You have a referral bonus ready to claim!</p>
+                    <p class="text-emerald-400 font-semibold">You have a referral bonus ready to claim.</p>
                     <p id="referral-claim-desc" class="text-zinc-400 text-sm mt-1"></p>
                 </div>
                 <button onclick="claimReferralBonus()"
@@ -2119,7 +2132,7 @@
 
     <div class="mb-8">
         <h1 class="text-3xl md:text-5xl font-bold tracking-tighter mb-2">Advertise on NQVate</h1>
-        <p class="text-zinc-400">Reach builders, founders, and investors actively working in Web3.</p>
+        <p class="text-zinc-400">Put your product in front of the builders, founders and investors who use NQVate.</p>
     </div>
 
     <!-- Tab navigation -->
@@ -2355,7 +2368,7 @@
         <h1 class="text-4xl font-bold tracking-tighter mb-3 flex items-center gap-3">
             <i class="fa-solid fa-coins text-amber-400"></i> NQV8 Tokenomics
         </h1>
-        <p class="text-zinc-400">980,000,000 Accessible Supply · 100% Pre-Issued · Demand-Matched Release</p>
+        <p class="text-zinc-400">980,000,000 NQV8 in accessible supply. All of it is already issued, and it is released only as members buy it.</p>
     </div>
 
     <!-- Stats cards -->
@@ -2373,9 +2386,9 @@
         <div class="bg-zinc-900 rounded-3xl p-6">
             <div class="text-emerald-400 text-xs font-semibold uppercase tracking-wider mb-3">Circulating Supply</div>
             <div id="circulating-supply" class="text-4xl font-bold mb-1">Loading...</div>
-            <div class="text-zinc-400 text-sm">True circulating supply · verified on-chain</div>
-            <p class="text-xs text-emerald-400 mt-5">1,000 NQV8 signup bonus · until 10M circulating</p>
-            <p class="text-xs text-violet-400 mt-1">+1,000 NQV8 per 5 referrals · repeatable</p>
+            <div class="text-zinc-400 text-sm">True circulating supply, verified on-chain</div>
+            <p class="text-xs text-emerald-400 mt-5">1,000 NQV8 signup bonus until 10M are circulating</p>
+            <p class="text-xs text-violet-400 mt-1">+1,000 NQV8 for every 5 referrals, with no limit</p>
         </div>
 
         <div class="bg-zinc-900 rounded-3xl p-6" id="peg-status">
@@ -2701,7 +2714,7 @@
                     <div class="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
                         <div class="h-full w-[2%] bg-red-500 rounded-full"></div>
                     </div>
-                    <p class="text-xs text-zinc-500 mt-1">Permanently inaccessible · verified on-chain</p>
+                    <p class="text-xs text-zinc-500 mt-1">Permanently inaccessible, verified on-chain</p>
                 </div>
             </div>
 
@@ -2893,7 +2906,7 @@
             <button onclick="hidePostEquityModal()" class="text-3xl leading-none text-zinc-400 hover:text-white">×</button>
         </div>
         <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 mb-6">
-            <p class="text-amber-400 text-xs">Cost: 100 NQV8 · Only list stakes you legitimately own</p>
+            <p class="text-amber-400 text-xs">Cost: 100 NQV8. Only list stakes you legitimately own.</p>
         </div>
 
         <p class="text-sm text-zinc-400 mb-2">Select a verified company to list a stake for</p>
@@ -3033,7 +3046,7 @@ function showArchivedDeck(deck, revenueBucket, usersBucket) {
     document.getElementById('deck-save-btn')?.classList.add('hidden');
 }
     
-function shareDeckLink() {
+async function shareDeckLink() {
     const modal = document.getElementById('investor-deck-modal');
     const companyId = modal.dataset.companyId;
     if (!companyId) return;
@@ -3042,10 +3055,10 @@ function shareDeckLink() {
     
     if (navigator.clipboard) {
         navigator.clipboard.writeText(shareUrl).then(() => {
-            alert('Deck link copied to clipboard!\n\n' + shareUrl);
+            alert('Deck link copied to clipboard.\n\n' + shareUrl);
         });
     } else {
-        prompt('Copy this link to share the deck:', shareUrl);
+        await nqPrompt('Copy this link to share the deck:', shareUrl);
     }
 }
 
@@ -3317,7 +3330,7 @@ async function approveCampaign(campaignId) {
 }
 
 async function rejectCampaign(campaignId) {
-    const reason = prompt('Reason for rejection (shown to advertiser):');
+    const reason = await nqPrompt('Reason for rejection (shown to advertiser):');
     if (!reason) return;
     await db.collection('adCampaigns').doc(campaignId).update({ status: 'rejected', rejectionReason: reason });
     alert('Campaign rejected.');
@@ -3399,7 +3412,7 @@ async function submitBannerCampaign() {
                 if (adStatus === 'rejected') {
                     alert(`Ad rejected by automated review.\n\nReason: ${rejectionReason}\n\nYour NQV8 payment has been processed but the ad will not run. Please revise and resubmit.`);
                 } else {
-                    alert('Banner campaign is now live! It will appear across the platform immediately.');
+                    alert('Banner campaign is now live. It will appear across the platform immediately.');
                     loadAdBanner();
                 }
                 switchAdvertiseTab('campaigns');
@@ -3491,7 +3504,7 @@ async function confirmSponsorPost(btn) {
                 });
 
                 document.getElementById('sponsor-post-modal')?.remove();
-                alert(`Post sponsored for ${days} days! It will now appear highlighted in the Explore feed.`);
+                alert(`Post sponsored for ${days} days. It will now appear highlighted in the Explore feed.`);
                 loadIdeas();
             } catch(e) {
                 alert('Failed to sponsor post: ' + e.message);
@@ -3643,7 +3656,7 @@ async function confirmBoostExplorePost() {
                 });
 
                 hideBoostExploreModal();
-                alert(`Post boosted for ${_boostDays} days!`);
+                alert(`Post boosted for ${_boostDays} days.`);
                 hidePostDetailModal();
                 loadIdeas();
             } catch(e) {
@@ -3807,7 +3820,7 @@ async function submitNewCampaign() {
                     });
 
                     hideCreateCampaignModal();
-                    alert('Campaign launched!');
+                    alert('Campaign launched.');
                     loadAdvertiseDashboard();
                 } catch (e) {
                     alert('Failed to launch campaign: ' + e.message);
@@ -3895,8 +3908,8 @@ async function loadAdvertiseDashboard() {
 // ====================== BANNER ADS ======================
 const HOUSE_ADS_LOGGED_OUT = [
     {
-        headline: "Get 1,000 NQV8 Free",
-        body: "New here? Create an account and claim your signup bonus instantly.",
+        headline: "1,000 NQV8 when you join",
+        body: "Create an account and claim the signup bonus.",
         action: () => showAuthModal(),
         bg: "from-cyan-500/20 to-violet-500/20",
         border: "border-cyan-500/30"
@@ -3905,22 +3918,22 @@ const HOUSE_ADS_LOGGED_OUT = [
 
 const HOUSE_ADS_LOGGED_IN = [
     {
-        headline: "Promote Your Posting",
+        headline: "Feature your listing",
         body: "Get your bounty or funding request seen first. Featured listings start at $25.",
         action: () => navigateTo('marketplace'),
         bg: "from-amber-500/20 to-orange-500/20",
         border: "border-amber-500/30"
     },
     {
-        headline: "Refer Friends, Earn NQV8",
-        body: "Get 1,000 NQV8 for every 5 verified referrals. Share your link from Profile.",
+        headline: "Earn 1,000 NQV8 for every 5 referrals",
+        body: "Share your referral link from your profile. Referrals count once they are verified.",
         action: () => navigateTo('profile'),
         bg: "from-emerald-500/20 to-cyan-500/20",
         border: "border-emerald-500/30"
     },
     {
-        headline: "Plan Your Project with AI",
-        body: "Studio's AI flow map breaks your idea into a step-by-step build plan.",
+        headline: "Turn an idea into a build plan",
+        body: "Studio writes the architecture, the parts to build and an estimate for each.",
         targetUrl: null,
         action: () => navigateTo('studio'),
         bg: "from-violet-500/20 to-pink-500/20",
@@ -4031,7 +4044,7 @@ async function confirmPromoteListing() {
                 });
 
                 hidePromoteListingModal();
-                alert(`Listing promoted for ${_promoteDays} days!`);
+                alert(`Listing promoted for ${_promoteDays} days.`);
                 hideProjectDetailModal();
                 loadMarketplace();
                 refreshProjectDetailModal();
@@ -4590,7 +4603,7 @@ async function submitMetricsVerification() {
             const freshDoc = await db.collection('companies').doc(deckCompanyId).get();
             const freshCompany = { id: freshDoc.id, ...freshDoc.data() };
 
-            alert(`Metrics verified!\n\nRevenue: ${result.revenueBucket}\nUsers: ${result.usersBucket}\n\nYour investor deck is ready.`);
+            alert(`Metrics verified.\n\nRevenue: ${result.revenueBucket}\nUsers: ${result.usersBucket}\n\nYour investor deck is ready.`);
             loadProfileData();
             showInvestorDeck(deckCompanyId, freshCompany);
 
@@ -5334,7 +5347,7 @@ async function releaseBidBonds(projectId, reason) {
 /// surfaced — the bidder is standing there waiting for their stake back.
 async function withdrawBid(projectId) {
     if (!currentUser) return;
-    if (!confirm('Withdraw your bid?\n\nYour bid is removed and your staked bond is returned in full, available to withdraw straight away.')) return;
+    if (!await nqConfirm('Withdraw your bid?\n\nYour bid is removed and your staked bond is returned in full, available to withdraw straight away.')) return;
     const r = await releaseBidBonds(projectId, 'withdrawn');
     if (!r) return alert('Could not withdraw your bid. Your bond is unchanged — please try again.');
     alert(r.released > 0
@@ -6166,7 +6179,7 @@ function parsePaymentError(e) {
 // lookup and no USD conversion: the fee is the token amount.
 async function showPaymentPicker(label, nqv8Amount, onSuccess) {
     if (!connectedAddress) {
-        if (confirm("You need to connect a wallet to pay fees.\n\nConnect now?")) {
+        if (await nqConfirm("You need to connect a wallet to pay fees.\n\nConnect now?")) {
             connectWallet().then(() => {
                 if (connectedAddress) showPaymentPicker(label, nqv8Amount, onSuccess);
             });
@@ -6183,7 +6196,7 @@ async function showPaymentPicker(label, nqv8Amount, onSuccess) {
         connectedAddress = null;
         localStorage.removeItem('nqvate_wc_connected');
         localStorage.removeItem('nqvate_wc_address');
-        if (confirm("Your wallet session has expired. Reconnect now?")) {
+        if (await nqConfirm("Your wallet session has expired. Reconnect now?")) {
             connectWallet().then(() => {
                 if (connectedAddress) showPaymentPicker(label, nqv8Amount, onSuccess);
             });
@@ -6826,7 +6839,7 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                 document.getElementById('company-name').value = '';
                 document.getElementById('company-type').value = '';
                 await populateCompanyList();
-                alert("Company created!");
+                alert("Company created.");
             } catch(e) {
                 alert("Failed to create company: " + e.message);
             }
@@ -6867,7 +6880,7 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                 const companySnap = await db.collection("companies").doc(selectedCompanyId).get();
                 const company = companySnap.data();
                 if (!company.equityUnlocked) {
-                    if (confirm("Equity features require verification. Would you like to start the verification process now?")) {
+                    if (await nqConfirm("Equity features require verification. Would you like to start the verification process now?")) {
                         const companyIdToVerify = selectedCompanyId;
                         hidePostProjectModal();
                         showVerificationModal(companyIdToVerify);
@@ -6983,7 +6996,7 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                             createdAt: firebase.firestore.FieldValue.serverTimestamp()
                         });
 
-                        alert("Project and first task posted!");
+                        alert("Project and first task posted.");
                         hidePostProjectModal();
                         loadMarketplace();
                         refreshProjectDetailModal();
@@ -7029,7 +7042,7 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
             if (!verificationCompanyId) return alert("No company selected");
             if (!connectedAddress) return alert("Please connect your wallet first");
 
-            if (!confirm(
+            if (!await nqConfirm(
                 `Non-Refundable Fee Confirmation\n\n` +
                 `You are about to pay ${NQV8_FEE.VERIFY_DOCS} NQV8 for entity verification.\n\n` +
                 `This fee is NON-REFUNDABLE regardless of outcome:\n` +
@@ -7212,7 +7225,7 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
 
                     btn.innerHTML = originalText;
                     btn.disabled = false;
-                    alert(`Verification approved!\n\n${result.summary}\n\nEquity features are now unlocked for ${company.name}.`);
+                    alert(`Verification approved.\n\n${result.summary}\n\nEquity features are now unlocked for ${company.name}.`);
                     hideVerificationModal();
                     loadProfileData();
 
@@ -7576,7 +7589,7 @@ async function createProfile() {
         await db.collection("users").doc(user.uid).set(userData);
         currentUser = { ...userData, email: user.email };
         finishLogin();
-        alert("Account created! You have 1,000 NQV8 ready to claim from your profile.");
+        alert("Account created. You have 1,000 NQV8 ready to claim from your profile.");
 
     } catch (error) {
         console.error(error);
@@ -7611,7 +7624,7 @@ async function createProfile() {
                 url: 'https://www.nqvate.com',
                 handleCodeInApp: false
             })
-                .then(() => alert("Password reset email sent! Check your inbox and spam folder."))
+                .then(() => alert("Password reset email sent. Check your inbox and spam folder."))
                 .catch(err => {
                     if (err.code === 'auth/user-not-found') {
                         // Don't reveal whether email exists — security best practice
@@ -8123,7 +8136,7 @@ async function loadTotalFundingReceivedStat() {
                 // Only fetch users we actually have activity for (avoids full table scan)
                 const uids = Object.keys(userMap);
                 if (uids.length === 0) {
-                    grid.innerHTML = `<p class="text-center text-zinc-400 py-12">No completed activity yet — be the first to finish a bounty!</p>`;
+                    grid.innerHTML = `<p class="text-center text-zinc-400 py-12">No completed activity yet — be the first to finish a bounty.</p>`;
                     // Zero out summary stats
                     ['lb-stat-builders','lb-stat-bounties','lb-stat-value','lb-stat-funded'].forEach(id => {
                         document.getElementById(id).textContent = '0';
@@ -8419,7 +8432,7 @@ async function loadTotalFundingReceivedStat() {
                             <span class=\"text-xs text-zinc-400\">Review →</span>
                         </div>` : ''}
                     </div>`).join('')
-                : `<p class=\"text-zinc-400\">No bids yet. Be the first!</p>`
+                : `<p class=\"text-zinc-400\">No bids yet. Be the first.</p>`
             }
         </div>`}
 
@@ -8513,7 +8526,7 @@ async function loadTotalFundingReceivedStat() {
           !(project.reviews || []).find(r => r.reviewerUid === currentUser.uid) ? `
         <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-4">
             <p class="text-amber-400 font-semibold mb-2">★ Leave Your Review</p>
-            <p class="text-zinc-400 text-sm mb-3">Your work was approved! Please leave a review for the poster.</p>
+            <p class="text-zinc-400 text-sm mb-3">Your work was approved. Please leave a review for the poster.</p>
             <button onclick="showReviewModal('${projectId}', '${(project.title||'').replace(/'/g,"\\'")}')"
                     class="w-full py-3 bg-amber-500 text-black font-semibold rounded-xl">
                 Leave Review
@@ -8632,7 +8645,7 @@ async function deletePosting(projectId) {
                 }
             }
         
-            if (!confirm(`Delete "${project.title}"?\n\nThis cannot be undone.`)) return;
+            if (!await nqConfirm(`Delete "${project.title}"?\n\nThis cannot be undone.`)) return;
 
             const doDelete = async () => {
                 try {
@@ -8756,7 +8769,7 @@ async function deletePosting(projectId) {
             const bidCount = p.bids?.length || 0;
 
             if (bidCount > 0) {
-                const proceed = confirm(
+                const proceed = await nqConfirm(
                     `This posting has ${bidCount} bid${bidCount !== 1 ? 's' : ''} on it.\n\n` +
                     `You can only edit the title and description — compensation and category are locked because bidders submitted offers based on those terms.\n\n` +
                     `If you need to change compensation, delete this posting and create a new one.\n\n` +
@@ -8933,7 +8946,7 @@ async function saveProfileBioSkills() {
         loadGithubPortfolio(currentUser.uid, githubUsername, gitlabUsername, dribbbleUrl, behanceUrl, 'profile-portfolio');
 
         hideEditProfileModal();
-        alert('Profile updated!');
+        alert('Profile updated.');
     } catch(e) {
         alert('Failed to save: ' + e.message);
     }
@@ -9111,7 +9124,7 @@ function hideEditPostingModal() {
                         if (freeRaw.lt(needRaw)) {
                             const shortRaw = needRaw.sub(freeRaw);
                             const shortTxt = _nqv8(parseFloat(ethers.utils.formatUnits(shortRaw, 18)));
-                            const ok = confirm(
+                            const ok = await nqConfirm(
                                 `This bid requires ${_nqv8(_bondNQV8)} NQV8 staked as a refundable bond.\n\n` +
                                 `You need to stake ${shortTxt} more. That is two wallet prompts ` +
                                 `(approve, then stake), followed by the ${NQV8_FEE.MICRO} NQV8 bid fee.\n\n` +
@@ -9221,7 +9234,7 @@ function hideEditPostingModal() {
                                 { projectId }
                             );
                             await recordProtocolFee(1, 'bid-placement', txHash, 'NQV8').catch(() => {});
-                            alert("Bid placed!");
+                            alert("Bid placed.");
                             notifyBidReceived(project, projectId);
                             hideProjectDetailModal();
                             loadMarketplace();
@@ -9400,7 +9413,7 @@ function hideEditPostingModal() {
                 });
         
                 alert(response === 'accepted'
-                    ? 'Counter accepted! The poster will be notified.'
+                    ? 'Counter accepted. The poster will be notified.'
                     : 'Counter rejected. The poster has been notified.');
         
                 loadMarketplace();
@@ -9465,7 +9478,7 @@ function hideEditPostingModal() {
             if (!connectedAddress) return alert("Please connect your wallet first.");
             if (!signer) return alert("Wallet not connected properly. Please reconnect.");
 
-            if (!confirm(`Accept this bid?\n\nBuilder: @${_acceptingBid.bidderName}\nAmount: ${_acceptingBid.amount}\nDelivery: ${_tfLabel}${_acceptingBid.timeframe ? '' : ' (the builder did not state one, so your target is used)'}\n\nFunds lock in escrow immediately and the ${_tfLabel} clock starts now. This cannot be undone.`)) return;
+            if (!await nqConfirm(`Accept this bid?\n\nBuilder: @${_acceptingBid.bidderName}\nAmount: ${_acceptingBid.amount}\nDelivery: ${_tfLabel}${_acceptingBid.timeframe ? '' : ' (the builder did not state one, so your target is used)'}\n\nFunds lock in escrow immediately and the ${_tfLabel} clock starts now. This cannot be undone.`)) return;
 
             try {
                 const projectRef = db.collection("subprojects").doc(currentProjectId);
@@ -9588,7 +9601,7 @@ function hideEditPostingModal() {
                         if (btn) { btn.textContent = 'Accept Bid'; btn.disabled = false; }
                         document.getElementById('bid-detail-modal').classList.add('hidden');
 
-                        alert(`Bid accepted!\n\n${equityPct}% equity (${equityUnits} units) reserved on-chain — cannot be double-pledged.\nTx: https://arbiscan.io/tx/${reserveTxHash}${escrowTxHash ? `\n\nUSDC also locked in escrow.\nTx: https://arbiscan.io/tx/${escrowTxHash}` : ''}\n\nEquity transfers automatically when you approve the submitted work.`);
+                        alert(`Bid accepted.\n\n${equityPct}% equity (${equityUnits} units) reserved on-chain — cannot be double-pledged.\nTx: https://arbiscan.io/tx/${reserveTxHash}${escrowTxHash ? `\n\nUSDC also locked in escrow.\nTx: https://arbiscan.io/tx/${escrowTxHash}` : ''}\n\nEquity transfers automatically when you approve the submitted work.`);
 
                         // Notify builder
                         notifyBidAccepted(currentProject, bid);
@@ -9723,7 +9736,7 @@ function hideEditPostingModal() {
                     });
                 }
 
-                alert(`Bid accepted!\n\n$${amountNum} ${isNQV8 ? 'NQV8' : 'USDC'} locked in escrow.\nEscrow tx: https://arbiscan.io/tx/${escrowTx.hash}`);
+                alert(`Bid accepted.\n\n$${amountNum} ${isNQV8 ? 'NQV8' : 'USDC'} locked in escrow.\nEscrow tx: https://arbiscan.io/tx/${escrowTx.hash}`);
                 notifyBidAccepted(currentProject, bid);
 
                 await createNotification(
@@ -9983,7 +9996,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                     ? 'CHANGES SUGGESTED'
                     : 'NOT RECOMMENDED';
 
-                const proceed = confirm(
+                const proceed = await nqConfirm(
                     `Claude Review\n\n${review.summary}\n\n` +
                     `${review.missingItems.length > 0 ? 'Potentially missing:\n• ' + review.missingItems.join('\n• ') + '\n\n' : ''}` +
                     `Recommendation: ${recLabel}\n\n` +
@@ -10082,7 +10095,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
         }
 
         hideProjectDetailModal();
-        alert("Submission sent! The poster will review your work.");
+        alert("Submission sent. The poster will review your work.");
         loadMarketplace();
         refreshProjectDetailModal();
 
@@ -10203,7 +10216,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                     ? `Approve this submission?\n\n${(currentProject.equityUnits / 100).toFixed(2)}% equity agreed — all of it transfers to @${currentProject.acceptedBidderUsername} when you submit your review. NQVate takes no share of the equity. This cannot be undone.`
                     : `Approve this submission?\n\n${(currentProject.equityUnits / 100).toFixed(2)}% equity agreed — ${((currentProject.equityUnits * 0.965) / 100).toFixed(4)}% transfers to @${currentProject.acceptedBidderUsername} and ${((currentProject.equityUnits * 0.035) / 100).toFixed(4)}% to NQVate (3.5% platform fee) when you submit your review. This cannot be undone.`)
                 : "Accept this submission and release funds from escrow?\n\n96.5% goes to the worker. 3.5% platform fee. This cannot be undone.";
-            if (!confirm(confirmMsg)) return;
+            if (!await nqConfirm(confirmMsg)) return;
 
             try {
                 const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
@@ -10247,7 +10260,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                     await db.collection('notifications').add({
                         recipientUid: currentProject.acceptedBidderUid,
                         type: 'leave_review',
-                        message: `Your work on "${currentProject.title}" was approved! Please leave a review for @${currentUser.username}.`,
+                        message: `Your work on "${currentProject.title}" was approved. Please leave a review for @${currentUser.username}.`,
                         projectId: currentProjectId,
                         createdAt: firebase.firestore.FieldValue.serverTimestamp(),
                         read: false
@@ -10421,7 +10434,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                                 });
 
                                 const escrowMsg = releaseTx ? `\n\nFunds released from escrow.\nTx: https://arbiscan.io/tx/${releaseTx.hash}` : '';
-                                alert(`Submission accepted!\n\n${(currentProject.equityUnits / 100).toFixed(2)}% equity transferred on-chain.\nTx: https://arbiscan.io/tx/${completeResult.txHash}${escrowMsg}`);
+                                alert(`Submission accepted.\n\n${(currentProject.equityUnits / 100).toFixed(2)}% equity transferred on-chain.\nTx: https://arbiscan.io/tx/${completeResult.txHash}${escrowMsg}`);
 
                             } else {
                                 // Legacy V1 path
@@ -10454,20 +10467,20 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                                             equityTransferred: true,
                                             equityUnitsTransferred: currentProject.equityUnits
                                         });
-                                        alert(`Submission accepted!\n\nFunds released from escrow.\nTx: https://arbiscan.io/tx/${releaseTx?.hash}\n\nEquity transferred: ${equityResult.percentage}% in ${equityResult.projectName}\nTx: https://arbiscan.io/tx/${equityResult.txHash}`);
+                                        alert(`Submission accepted.\n\nFunds released from escrow.\nTx: https://arbiscan.io/tx/${releaseTx?.hash}\n\nEquity transferred: ${equityResult.percentage}% in ${equityResult.projectName}\nTx: https://arbiscan.io/tx/${equityResult.txHash}`);
                                     } else {
-                                        alert(`Submission accepted! Funds released.\nTx: https://arbiscan.io/tx/${releaseTx?.hash}\n\nEquity transfer failed: ${equityResult.error}\nPlease transfer equity manually.`);
+                                        alert(`Submission accepted. Funds released.\nTx: https://arbiscan.io/tx/${releaseTx?.hash}\n\nEquity transfer failed: ${equityResult.error}\nPlease transfer equity manually.`);
                                     }
                                 } else {
-                                    alert(`Submission accepted! Funds released.\nTx: https://arbiscan.io/tx/${releaseTx?.hash}\n\nCould not auto-transfer equity — wallet not connected. Transfer manually.`);
+                                    alert(`Submission accepted. Funds released.\nTx: https://arbiscan.io/tx/${releaseTx?.hash}\n\nCould not auto-transfer equity — wallet not connected. Transfer manually.`);
                                 }
                             }
                         } catch(equityErr) {
                             console.error('Equity transfer failed:', equityErr);
-                            alert(`Submission accepted!${releaseTx ? ` Funds released.\nTx: https://arbiscan.io/tx/${releaseTx.hash}` : ''}\n\nEquity transfer failed: ${equityErr.message}\nPlease transfer manually.`);
+                            alert(`Submission accepted.${releaseTx ? ` Funds released.\nTx: https://arbiscan.io/tx/${releaseTx.hash}` : ''}\n\nEquity transfer failed: ${equityErr.message}\nPlease transfer manually.`);
                         }
                     } else {
-                        alert(`Submission accepted! Funds released from escrow.\nTx: https://arbiscan.io/tx/${releaseTx?.hash}`);
+                        alert(`Submission accepted. Funds released from escrow.\nTx: https://arbiscan.io/tx/${releaseTx?.hash}`);
                     }
                 } else {
                     // Pre-escrow fallback
@@ -10479,7 +10492,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                         status: "completed",
                         completedAt: firebase.firestore.FieldValue.serverTimestamp()
                     });
-                    alert("Submission accepted! (Pre-escrow posting — please pay worker manually.)");
+                    alert("Submission accepted. (Pre-escrow posting — please pay worker manually.)");
 
                     // If this was a funding request, trigger equity revaluation for the project
                     if (currentProject.type === 'fund' && currentProject.companyId) {
@@ -10516,7 +10529,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
         async function requestChanges(submissionIndex) {
             if (!currentProjectId || !currentProject) return;
 
-            const feedback = prompt("What changes would you like the other party to make?\n\nBe specific:");
+            const feedback = await nqPrompt("What changes would you like the other party to make?\n\nBe specific:");
 
             if (feedback === null || feedback.trim() === "") return;
 
@@ -10718,7 +10731,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                             }
 
                             _releaseOk = true;
-                            alert(`Review submitted!\n\nEquity released on-chain:\n• Builder: ${(workerUnits/100).toFixed(4)}% (${workerUnits} units)\n• NQVate: ${(platformUnits/100).toFixed(4)}% (${platformUnits} units)\n\nTx: https://arbiscan.io/tx/${completeTxHash}`);
+                            alert(`Review submitted.\n\nEquity released on-chain:\n• Builder: ${(workerUnits/100).toFixed(4)}% (${workerUnits} units)\n• NQVate: ${(platformUnits/100).toFixed(4)}% (${platformUnits} units)\n\nTx: https://arbiscan.io/tx/${completeTxHash}`);
                         } else if (!isEquityOnly && workerWallet && proj.acceptedBid?.amount) {
                             // USDC/NQV8 already released via escrow contract (adminRelease)
                             // when founder approved submission — no additional payment needed
@@ -10747,7 +10760,7 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                 // alerted with specifics; saying "✅ Review submitted!" after a
                 // FAILED release tells the founder the bounty is complete when
                 // the equity never moved — which is what happened tonight.
-                if (_releaseOk === null) alert("Review submitted! Thank you.");
+                if (_releaseOk === null) alert("Review submitted. Thank you.");
                 document.getElementById('review-modal').classList.add('hidden');
                 hideProjectDetailModal();
                 loadProfileData();
@@ -11202,7 +11215,7 @@ async function startVideoCall() {
 
                 currentUser.photoURL = photoURL;
                 updateProfileUI();
-                alert("Profile picture updated!");
+                alert("Profile picture updated.");
             } catch (e) {
                 console.error(e);
                 alert("Failed to upload image");
@@ -11718,7 +11731,7 @@ async function startVideoCall() {
                     createdAt: firebase.firestore.FieldValue.serverTimestamp()
                 });
         
-                alert("Task posted!");
+                alert("Task posted.");
                 document.getElementById('add-subproject-modal').classList.add('hidden');
                 showParentProjectDetail(currentParentProjectId, project);
             } catch(e) {
@@ -11794,7 +11807,7 @@ async function viewUserProfile(uid) {
                 copyBtn.innerHTML = '<i class="fa-solid fa-link"></i> Copy Profile Link';
                 copyBtn.onclick = () => {
                     navigator.clipboard.writeText(`https://www.nqvate.com/u/${uid}`);
-                    copyBtn.textContent = 'Copied!';
+                    copyBtn.textContent = 'Copied.';
                     setTimeout(() => {
                         copyBtn.innerHTML = '<i class="fa-solid fa-link"></i> Copy Profile Link';
                     }, 2000);
@@ -12220,7 +12233,7 @@ async function viewUserProfile(uid) {
                         });
                         hidePostIdeaModal();
                         loadIdeas();
-                        if (confirm("Post published!\n\nWant more visibility? Sponsor this post in the Explore feed for as little as $30 — it'll appear highlighted every 8 posts.")) {
+                        if (await nqConfirm("Post published.\n\nWant more visibility? Sponsor this post in the Explore feed for as little as $30 — it'll appear highlighted every 8 posts.")) {
                             showSponsorPostModal(docRef.id, storedTitle);
                         }
                     } catch (e) {
@@ -12239,7 +12252,7 @@ async function viewUserProfile(uid) {
                 grid.innerHTML = '';
 
                 if (snapshot.empty) {
-                    grid.innerHTML = `<p class="col-span-full text-center text-zinc-400 py-12">No posts yet. Be the first!</p>`;
+                    grid.innerHTML = `<p class="col-span-full text-center text-zinc-400 py-12">No posts yet. Be the first.</p>`;
                     return;
                 }
 
@@ -12899,7 +12912,7 @@ async function loadEquityListings() {
             .get();
 
         if (listingsSnap.empty) {
-            grid.innerHTML = `<p class="col-span-full text-center text-zinc-400 py-12">No equity listings yet. Be the first to list a stake!</p>`;
+            grid.innerHTML = `<p class="col-span-full text-center text-zinc-400 py-12">No equity listings yet. Be the first to list a stake.</p>`;
             return;
         }
 
@@ -13052,8 +13065,8 @@ function showEquityDetail(listingId, listing) {
     modal.classList.remove('hidden');
 }
 
-function showAcquireEquityModal(listingId, askPrice, percentage, projectName) {
-    if (!confirm(`Acquire ${percentage} equity in "${projectName}" for ${askPrice}?\n\nThis will notify the seller and open a chat to finalize the transaction. NQVate is not a party to this transaction.`)) return;
+async function showAcquireEquityModal(listingId, askPrice, percentage, projectName) {
+    if (!await nqConfirm(`Acquire ${percentage} equity in "${projectName}" for ${askPrice}?\n\nThis will notify the seller and open a chat to finalize the transaction. NQVate is not a party to this transaction.`)) return;
 
     const listing = currentProject;
 
@@ -13093,8 +13106,8 @@ function showAcquireEquityModal(listingId, askPrice, percentage, projectName) {
     }).catch(e => alert("Failed: " + e.message));
 }
     
-    function showCounterOfferModal(listingId, sellerUid, sellerUsername, askPrice, percentage, projectName) {
-        const offer = prompt(`Make a counter offer for ${percentage} equity in "${projectName}".\n\nSeller is asking ${askPrice}.\n\nEnter your offer amount:`);
+    async function showCounterOfferModal(listingId, sellerUid, sellerUsername, askPrice, percentage, projectName) {
+        const offer = await nqPrompt(`Make a counter offer for ${percentage} equity in "${projectName}".\n\nSeller is asking ${askPrice}.\n\nEnter your offer amount:`);
         if (!offer || !offer.trim()) return;
     
         createNotification(
@@ -13126,7 +13139,7 @@ function showAcquireEquityModal(listingId, askPrice, percentage, projectName) {
     }
 
 async function deleteEquityListing(listingId) {
-    if (!confirm("Remove this equity listing?")) return;
+    if (!await nqConfirm("Remove this equity listing?")) return;
     try {
         await db.collection("equityListings").doc(listingId).update({ status: 'removed' });
         alert("Listing removed.");
@@ -13138,7 +13151,7 @@ async function deleteEquityListing(listingId) {
 }
 
     async function markEquitySold(listingId, askPrice) {
-    const soldPrice = prompt(`Confirm the final sale price:\n(Press OK to confirm at ${askPrice}, or type a different amount)`);
+    const soldPrice = await nqPrompt(`Confirm the final sale price:\n(Press OK to confirm at ${askPrice}, or type a different amount)`);
     if (soldPrice === null) return; // cancelled
 
     const finalPrice = soldPrice.trim() || askPrice;
@@ -13527,7 +13540,7 @@ function showUploadToDataRoomModal(companyId) {
 }
 
 async function removeDataRoomFile(companyId, index) {
-    if (!confirm('Remove this document from the data room?')) return;
+    if (!await nqConfirm('Remove this document from the data room?')) return;
     try {
         const roomDoc = await db.collection('dataRooms').doc(companyId).get();
         const files = roomDoc.data().files || [];
@@ -13629,10 +13642,10 @@ async function revokeDataRoomAccess(companyId, uid) {
     showDataRoomManageModal(companyId);
 }
 
-function showEditCompanyStats(companyId, company) {
-    const website = prompt("Website URL:", company.website || '');
+async function showEditCompanyStats(companyId, company) {
+    const website = await nqPrompt("Website URL:", company.website || '');
     if (website === null) return;
-    const statusStr = prompt("Project status:\n1 = Live (appears in Grow)\n2 = In Development\n3 = Inactive\n\nEnter 1, 2, or 3:", company.projectStatus === 'live' ? '1' : company.projectStatus === 'inactive' ? '3' : '2');
+    const statusStr = await nqPrompt("Project status:\n1 = Live (appears in Grow)\n2 = In Development\n3 = Inactive\n\nEnter 1, 2, or 3:", company.projectStatus === 'live' ? '1' : company.projectStatus === 'inactive' ? '3' : '2');
     if (statusStr === null) return;
     const projectStatus = statusStr.trim() === '1' ? 'live' : statusStr.trim() === '3' ? 'inactive' : 'in-development';
     const isActive = projectStatus !== 'inactive';
@@ -13643,7 +13656,7 @@ function showEditCompanyStats(companyId, company) {
         isActive,
         statsUpdatedAt: new Date().toISOString()
     }).then(() => {
-        alert("Updated!\n\nTo update revenue and users, use \"Verify Metrics & Generate Deck\".");
+        alert("Updated.\n\nTo update revenue and users, use \"Verify Metrics & Generate Deck\".");
         hideProjectDetailModal();
         loadProfileData();
     }).catch(e => alert("Error: " + e.message));
@@ -13702,7 +13715,7 @@ async function submitCreateProject() {
 
         await db.collection("companies").add(projectData);
 
-        alert("Project created! You can now attach marketplace postings to it.");
+        alert("Project created. You can now attach marketplace postings to it.");
         hideCreateProjectModal();
         loadProfileData();
     } catch (e) {
@@ -13884,7 +13897,7 @@ async function submitBountyPosting() {
         const project = projectSnap.data();
         if (project.ownerUid !== currentUser.uid) return alert("Only the company's owner can offer equity. As a team member you can post cash bounties.");
         if (!project.equityUnlocked) {
-            if (confirm("Equity compensation requires a verified entity. Would you like to start verification now?")) {
+            if (await nqConfirm("Equity compensation requires a verified entity. Would you like to start verification now?")) {
                 hidePostBountyModal();
                 showVerificationModal(selectedBountyProjectId);
             }
@@ -13997,7 +14010,7 @@ async function submitBountyPosting() {
                     }
                     window._postingTimeframeEstimate = null;
                     window._postingBond = null;
-                    alert("Build request posted!");
+                    alert("Build request posted.");
                     announceListing(newPostingRef.id);       // alerts and skill matches, sent by the server
                     hidePostBountyModal();
                     loadMarketplace();
@@ -14335,7 +14348,7 @@ async function submitFundingPosting() {
                         }
                     }
 
-                    alert("Funding request posted! Investors can now make offers on your equity stake.");
+                    alert("Funding request posted. Investors can now make offers on your equity stake.");
                     hidePostFundingModal();
                     loadMarketplace();
                     refreshProjectDetailModal();
@@ -14496,7 +14509,7 @@ async function submitEquityListing() {
                     })
                 });
 
-                alert("Equity stake listed!");
+                alert("Equity stake listed.");
                 hidePostEquityModal();
                 document.getElementById('equity-percentage').value = '';
                 document.getElementById('equity-ask-price').value = '';
@@ -14662,7 +14675,7 @@ function renderComments(post) {
             const flag = (c, args) => currentUser && c.uid && c.uid !== currentUser.uid
                 ? `<button onclick="reportCommentOpen(${args})" class="text-xs text-zinc-400 hover:text-red-400 underline ml-2">⚑ Report</button>` : '';
             if (!post.comments || post.comments.length === 0) {
-                container.innerHTML = '<p class="text-zinc-400">No comments yet. Be the first!</p>';
+                container.innerHTML = '<p class="text-zinc-400">No comments yet. Be the first.</p>';
                 return;
             }
 
@@ -14776,7 +14789,7 @@ function renderComments(post) {
                             comments: firebase.firestore.FieldValue.arrayUnion(comment)
                         });
                         document.getElementById('new-comment').value = '';
-                        alert("Comment posted!");
+                        alert("Comment posted.");
                     } catch (e) {
                         alert("Failed to post comment: " + e.message);
                     }
@@ -14832,7 +14845,7 @@ async function claimSignupBonus() {
         currentUser.pendingNQV8Bonus = 0;
 
         alert(
-            `1,000 NQV8 claimed successfully!\n\n` +
+            `1,000 NQV8 claimed successfully.\n\n` +
             `Tx: ${claimTx.hash}\n` +
             `View: https://arbiscan.io/tx/${claimTx.hash}`
         );
@@ -15044,7 +15057,7 @@ async function buyNQV8() {
 
         const nqv8Received = Math.floor(amount * 100).toLocaleString();
         alert(
-            `Purchase complete!\n\n` +
+            `Purchase complete.\n\n` +
             `Sent:     $${amount.toFixed(2)} USDC\n` +
             `Received: ${nqv8Received} NQV8\n\n` +
             `Tx: ${buyTx.hash}\n\n` +
@@ -15477,7 +15490,7 @@ async function changePassword() {
         await auth.currentUser.reauthenticateWithCredential(credential);
         await auth.currentUser.updatePassword(newPw);
         hideChangePasswordModal();
-        alert("Password updated successfully!");
+        alert("Password updated successfully.");
     } catch(e) {
         if (e.code === 'auth/wrong-password') alert("Current password is incorrect.");
         else alert("Failed to update password: " + e.message);
@@ -15507,7 +15520,7 @@ async function changeEmail() {
         document.getElementById('profile-email').textContent = newEmail;
         document.getElementById('settings-email').textContent = newEmail;
         hideChangeEmailModal();
-        alert("Email updated successfully!");
+        alert("Email updated successfully.");
     } catch(e) {
         if (e.code === 'auth/wrong-password') alert("Password is incorrect.");
         else if (e.code === 'auth/email-already-in-use') alert("That email is already in use.");
@@ -15584,7 +15597,7 @@ async function submitMetricsOnChain(companyId) {
         console.log('Metrics hash (Firestore only):', metricsHash);
         const tx = { hash: '0x' + Date.now().toString(16) }; // placeholder
         await confirmTx(tx);
-        alert(`Metrics saved and timestamped on-chain!\nHash: ${metricsHash}\nTx: https://arbiscan.io/tx/${tx.hash}`);
+        alert(`Metrics saved and timestamped on-chain.\nHash: ${metricsHash}\nTx: https://arbiscan.io/tx/${tx.hash}`);
         hideProjectDetailModal();
         loadProfileData();
     } catch(e) {
@@ -15720,7 +15733,7 @@ async function submitEquityListingModal(companyId, availableUnits) {
             active: true,
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
-        alert(`Listing created!\nTx: https://arbiscan.io/tx/${listingTxHash}`);
+        alert(`Listing created.\nTx: https://arbiscan.io/tx/${listingTxHash}`);
         hideProjectDetailModal();
         loadEquityListings();
         loadProfileData();
@@ -15984,7 +15997,7 @@ async function requestUnstakeNQV8() {
     const amt = parseFloat(raw);
     if (!amt || amt <= 0) return alert('Enter an amount to unstake.');
 
-    if (!confirm(`Unstake ${amt} NQV8?\n\nIt enters a 30-day cooldown and stops counting toward rewards immediately — including for the month in progress.`)) return;
+    if (!await nqConfirm(`Unstake ${amt} NQV8?\n\nIt enters a 30-day cooldown and stops counting toward rewards immediately — including for the month in progress.`)) return;
 
     const btn = document.getElementById('unstake-btn');
     const orig = btn.textContent;
@@ -16156,7 +16169,7 @@ async function claimEpoch(epochId) {
         const rw = new ethers.Contract(REWARDS_CONTRACT_ADDRESS, REWARDS_ABI, signer);
         const tx = await rw.claim(epochId);
         await confirmTx(tx);
-        alert(`Reward claimed!\nTx: https://arbiscan.io/tx/${tx.hash}`);
+        alert(`Reward claimed.\nTx: https://arbiscan.io/tx/${tx.hash}`);
         await loadClaims();
         await loadStaking();
     } catch(e) {
@@ -16908,7 +16921,7 @@ function applyInactiveFilter() {
 async function deleteUnverifiedCompany(companyId, companyName) {
     if (!currentUser) return;
 
-    if (!confirm(`Delete "${companyName}"?\n\nThis will permanently remove the project from your profile. This cannot be undone.`)) return;
+    if (!await nqConfirm(`Delete "${companyName}"?\n\nThis will permanently remove the project from your profile. This cannot be undone.`)) return;
 
     try {
         // ── 1. Check for any associated subprojects ───────────────────────
@@ -17035,7 +17048,7 @@ async function loadReferralData() {
             document.getElementById('referral-claim-container').classList.remove('hidden');
             document.getElementById('referral-claim-desc').textContent =
                 `You have ${tiersAvailable} unclaimed bonus${tiersAvailable > 1 ? 'es' : ''} — ${tiersAvailable * 1000} NQV8 ready to claim.`;
-            document.getElementById('referral-progress-label').textContent = 'Bonus ready!';
+            document.getElementById('referral-progress-label').textContent = 'Bonus ready.';
         } else {
             document.getElementById('referral-claim-container').classList.add('hidden');
             const needed = 5 - progressInTier;
@@ -17054,7 +17067,7 @@ function copyReferralLink() {
     navigator.clipboard.writeText(input.value).then(() => {
         const btn = document.querySelector('button[onclick="copyReferralLink()"]');
         if (btn) {
-            btn.textContent = 'Copied!';
+            btn.textContent = 'Copied.';
             setTimeout(() => btn.textContent = 'Copy', 2000);
         }
     }).catch(() => {
@@ -17085,7 +17098,7 @@ async function claimReferralBonus() {
         if (result.success) {
             currentUser.referralBonusesClaimed = (currentUser.referralBonusesClaimed || 0) + result.tiersAwarded;
             currentUser.referralNQV8Earned     = (currentUser.referralNQV8Earned || 0) + result.bonusAmount;
-            alert(`${result.bonusAmount.toLocaleString()} NQV8 sent to your wallet!\n\nTx: https://arbiscan.io/tx/${result.txHash}`);
+            alert(`${result.bonusAmount.toLocaleString()} NQV8 sent to your wallet.\n\nTx: https://arbiscan.io/tx/${result.txHash}`);
             loadReferralData();
             refreshOnChainBalances();
         } else {
@@ -17328,7 +17341,7 @@ async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk, ski
     if (!skipConfirm) {
         const fee = parseFloat(totalAsk) * 0.035;
         const totalWithFee = parseFloat(totalAsk) + fee;
-        if (!confirm(`Buy ${units} units for $${parseFloat(totalAsk).toFixed(4)} USDC.\n\nPlatform fee (3.5%): $${fee.toFixed(4)} USDC\nTotal you pay: $${totalWithFee.toFixed(4)} USDC\nSeller receives: $${parseFloat(totalAsk).toFixed(4)} USDC`)) return;
+        if (!await nqConfirm(`Buy ${units} units for $${parseFloat(totalAsk).toFixed(4)} USDC.\n\nPlatform fee (3.5%): $${fee.toFixed(4)} USDC\nTotal you pay: $${totalWithFee.toFixed(4)} USDC\nSeller receives: $${parseFloat(totalAsk).toFixed(4)} USDC`)) return;
     }
     const pricePerUnit = parseFloat(askPricePerUnit);
     if (isNaN(pricePerUnit) || pricePerUnit <= 0) return alert("Invalid price.");
@@ -17366,7 +17379,7 @@ async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk, ski
 
         // Auto-accept at asking price — skip for funding requests (founder reviews manually)
         if (noAutoAccept) {
-            alert(`Investment offer submitted! The founder will review and respond.\nTx: https://arbiscan.io/tx/${tx.hash}`);
+            alert(`Investment offer submitted. The founder will review and respond.\nTx: https://arbiscan.io/tx/${tx.hash}`);
             hideProjectDetailModal();
             loadMarketplace();
             return;
@@ -17406,7 +17419,7 @@ async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk, ski
             buyerAddress: connectedAddress.toLowerCase()
         }).catch(e => console.warn('Failed to mark listing sold:', e.message));
 
-        alert(`Purchase complete! Equity transferred.\nTx: https://arbiscan.io/tx/${acceptResult.txHash}`);
+        alert(`Purchase complete. Equity transferred.\nTx: https://arbiscan.io/tx/${acceptResult.txHash}`);
         hideProjectDetailModal();
         loadEquityListings();
         loadProfileData();
@@ -17593,7 +17606,7 @@ async function makeFundingOffer(projectId, listingId, units) {
     const fee = totalOffer * 0.035;
     const totalWithFee = totalOffer + fee;
     const pct = (units / 100).toFixed(2);
-    if (!confirm(`Submit investment offer of $${totalOffer.toFixed(2)} USDC for ${pct}% equity.\n\nPlatform fee (3.5%): $${fee.toFixed(2)} USDC\nTotal you pay: $${totalWithFee.toFixed(2)} USDC\nFounder receives: $${totalOffer.toFixed(2)} USDC\n\nYour USDC will be locked until the founder accepts or offer expires in 7 days.`)) return;
+    if (!await nqConfirm(`Submit investment offer of $${totalOffer.toFixed(2)} USDC for ${pct}% equity.\n\nPlatform fee (3.5%): $${fee.toFixed(2)} USDC\nTotal you pay: $${totalWithFee.toFixed(2)} USDC\nFounder receives: $${totalOffer.toFixed(2)} USDC\n\nYour USDC will be locked until the founder accepts or offer expires in 7 days.`)) return;
     const pricePerUnitStr = pricePerUnit.toFixed(6);
     try {
         await makeOfferOnChain(listingId, units, pricePerUnitStr, totalOffer.toFixed(2), true, true);
@@ -17650,7 +17663,7 @@ async function loadFundingOffers(listingId, isPoster) {
 }
 
 async function acceptFundingOffer(firestoreOfferId, offerId) {
-    if (!confirm('Accept this investment offer? Equity will transfer to investor, USDC sent to your wallet.')) return;
+    if (!await nqConfirm('Accept this investment offer? Equity will transfer to investor, USDC sent to your wallet.')) return;
     try {
         const acceptResp = await fetch('/api/accept-offer', {
             method: 'POST',
@@ -17665,10 +17678,10 @@ async function acceptFundingOffer(firestoreOfferId, offerId) {
         const offerDoc = await db.collection('equityOffers').doc(firestoreOfferId).get().catch(() => null);
         if (offerDoc?.data()?.buyerUid) {
             await createNotification(offerDoc.data().buyerUid, 'offer_accepted',
-                `Your investment offer was accepted! Equity has been transferred to your wallet.\nTx: https://arbiscan.io/tx/${result.txHash}`, {});
+                `Your investment offer was accepted. Equity has been transferred to your wallet.\nTx: https://arbiscan.io/tx/${result.txHash}`, {});
         }
 
-        alert(`Investment accepted! Equity transferred.\nTx: https://arbiscan.io/tx/${result.txHash}`);
+        alert(`Investment accepted. Equity transferred.\nTx: https://arbiscan.io/tx/${result.txHash}`);
         hideProjectDetailModal();
         loadMarketplace();
         loadProfileData();
@@ -17678,7 +17691,7 @@ async function acceptFundingOffer(firestoreOfferId, offerId) {
 }
 
 async function rejectFundingOffer(offerId, firestoreOfferId) {
-    if (!confirm('Reject this offer? USDC will be refunded to the investor.')) return;
+    if (!await nqConfirm('Reject this offer? USDC will be refunded to the investor.')) return;
     try {
         const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
         const tx = await equityContract.rejectOffer(toBytes32(offerId));
@@ -17701,7 +17714,7 @@ async function rejectFundingOffer(offerId, firestoreOfferId) {
 
 async function cancelListingOnChain(listingId) {
     if (!connectedAddress) return alert("Please connect your wallet first.");
-    if (!confirm("Cancel this listing? Your units will be returned to you.")) return;
+    if (!await nqConfirm("Cancel this listing? Your units will be returned to you.")) return;
     try {
         const resp = await fetch('/api/cancel-listing', {
             method: 'POST',
@@ -17829,7 +17842,7 @@ async function fileProjectDispute(projectId) {
         return alert(`You need ${disputeNQV8Amount} NQV8 to file a dispute.\nYour balance: ${nqv8Bal.toLocaleString(undefined,{maximumFractionDigits:4})} NQV8\n\nBuy NQV8 from the Treasury on the Tokenomics page.`);
     }
 
-    if (!confirm(`File a Dispute\n\nHow it works:\n• Claude AI reviews all evidence immediately\n• Claude issues a binding ruling — no human review\n• Funds are split on-chain automatically\n• There is no appeals process\n\nNQVate is NOT a party to this dispute. Claude acts as sole arbitrator.\n\nFee: ${disputeNQV8Amount} NQV8 (non-refundable, even if you lose)\n\nContinue?`)) return;
+    if (!await nqConfirm(`File a Dispute\n\nHow it works:\n• Claude AI reviews all evidence immediately\n• Claude issues a binding ruling — no human review\n• Funds are split on-chain automatically\n• There is no appeals process\n\nNQVate is NOT a party to this dispute. Claude acts as sole arbitrator.\n\nFee: ${disputeNQV8Amount} NQV8 (non-refundable, even if you lose)\n\nContinue?`)) return;
 
     try {
         const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
@@ -17976,14 +17989,14 @@ async function loadEscrowActions(projectId, project) {
 
 async function claimAutoReleaseEscrow(projectId) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
-    if (!confirm("Claim auto-release? 7 days have passed since you submitted. 96.5% will be released to you now.")) return;
+    if (!await nqConfirm("Claim auto-release? 7 days have passed since you submitted. 96.5% will be released to you now.")) return;
     try {
         const escrowContract = new ethers.Contract(ESCROW_CONTRACT_ADDRESS, ESCROW_ABI, signer);
         const escrowId = await escrowContract.projectToEscrow(ethers.utils.keccak256(ethers.utils.toUtf8Bytes(projectId)));
         const tx = await escrowContract.claimAutoRelease(escrowId);
         await confirmTx(tx);
         await db.collection("subprojects").doc(projectId).update({ status: "completed", completedAt: firebase.firestore.FieldValue.serverTimestamp(), escrowAutoReleased: true });
-        alert(`Funds released!\nTx: https://arbiscan.io/tx/${tx.hash}`);
+        alert(`Funds released.\nTx: https://arbiscan.io/tx/${tx.hash}`);
         hideProjectDetailModal();
         loadMarketplace();
         refreshProjectDetailModal();
@@ -17996,7 +18009,7 @@ async function claimAutoReleaseEscrow(projectId) {
 
 async function claimEscrowRefund(projectId) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
-    if (!confirm("Claim full refund? The deadline has passed and no deliverables were submitted. 100% will be returned to you.")) return;
+    if (!await nqConfirm("Claim full refund? The deadline has passed and no deliverables were submitted. 100% will be returned to you.")) return;
     try {
         const projectSnap = await db.collection("subprojects").doc(projectId).get();
         const project = projectSnap.data();
@@ -18036,7 +18049,7 @@ async function claimEscrowRefund(projectId) {
             await db.collection("subprojects").doc(projectId).update({ status: "refunded", refundedAt: firebase.firestore.FieldValue.serverTimestamp() });
         }
 
-        alert(`Full refund received!\nTx: https://arbiscan.io/tx/${tx.hash}`);
+        alert(`Full refund received.\nTx: https://arbiscan.io/tx/${tx.hash}`);
         hideProjectDetailModal();
         loadMarketplace();
         refreshProjectDetailModal();
@@ -18194,10 +18207,10 @@ async function sendNodeToBuild(nodeId, title) {
 // ── Add a node manually ───────────────────────────────────────────────
 async function addFlowNode() {
     if (!currentStudioProjectId) return alert('Select a project first.');
-    const title = prompt('Name this part of the project:');
+    const title = await nqPrompt('Name this part of the project:');
     if (!title?.trim()) return;
     if (tooShort(title, 'Node title')) return;
-    const desc = prompt('Brief description (optional):') || '';
+    const desc = await nqPrompt('Brief description (optional):') || '';
 
     try {
         // Get current node count for ordering
@@ -18252,7 +18265,7 @@ async function saveNodeEdits(nodeId) {
 }
 
 async function deleteFlowNode(nodeId) {
-    if (!confirm('Delete this node?')) return;
+    if (!await nqConfirm('Delete this node?')) return;
     try {
         await db.collection('subprojects').doc(nodeId).delete();
         loadStudioProject();
@@ -18411,7 +18424,7 @@ async function submitNewFlowMap(useAI = false) {
             .get();
 
         if (existingSnap.size > 0 && useAI) {
-            const choice = confirm(
+            const choice = await nqConfirm(
                 `This project already has ${existingSnap.size} plan nodes.\n\n` +
                 `OK = Replace all existing nodes with the new AI plan\n` +
                 `Cancel = Add new nodes alongside existing ones`
@@ -18747,7 +18760,7 @@ async function submitSupportTicket() {
         });
 
         document.getElementById('support-modal').classList.add('hidden');
-        alert('Ticket submitted! Check "My Support Tickets" on your profile page for updates.');
+        alert('Ticket submitted. Check "My Support Tickets" on your profile page for updates.');
         loadMySupportTickets();
     } catch(e) {
         alert('Failed to submit ticket: ' + e.message);
@@ -18922,7 +18935,7 @@ async function respondToTicket(ticketId, currentStatus) {
 }
 
 async function closeTicket(ticketId, ticketCurrentStatus) {
-    if (!confirm('Close this ticket?')) return;
+    if (!await nqConfirm('Close this ticket?')) return;
     try {
         await db.collection('supportTickets').doc(ticketId).update({ status: 'closed' });
         loadSupportQueue(ticketCurrentStatus);
@@ -19003,7 +19016,7 @@ async function founderRelease() {
 
     const amountWei = ethers.utils.parseUnits(amountStr, 18);
 
-    if (!confirm(`Release ${amount.toLocaleString()} NQV8 to your founder wallet?\n\nThis is subject to the 90-day volume cap and will be recorded on-chain.`)) return;
+    if (!await nqConfirm(`Release ${amount.toLocaleString()} NQV8 to your founder wallet?\n\nThis is subject to the 90-day volume cap and will be recorded on-chain.`)) return;
 
     try {
         const lockup = new ethers.Contract(FOUNDER_LOCKUP_ADDRESS, FOUNDER_LOCKUP_ABI, signer);
@@ -19351,7 +19364,7 @@ async function showPlatformFeatures() {
 async function setPlatformFeature(key, value) {
     const sw = PLATFORM_SWITCHES.find(s => s.key === key);
     if (!sw) return;
-    if (!confirm(`${sw.title}\n\nChange to:\n${value ? sw.on : sw.off}`)) return;
+    if (!await nqConfirm(`${sw.title}\n\nChange to:\n${value ? sw.on : sw.off}`)) return;
     renderPlatformFeatures('Saving...');
     try {
         const resp = await fetch('/api/features', {
@@ -19489,6 +19502,58 @@ window.addEventListener('pagehide', () => {
 window.addEventListener('DOMContentLoaded', () => {
     try { const kept = JSON.parse(sessionStorage.getItem('nqNotices') || '[]'); sessionStorage.removeItem('nqNotices'); kept.forEach(nqNotice); } catch (e) {}
 });
+
+// ── Questions to the member ─────────────────────────────────────────────
+// In place of the browser's own confirm and prompt boxes. Each returns a
+// promise: nqConfirm → true or false; nqPrompt → the text, or null if the
+// member cancels (the same answers the browser's boxes gave).
+function nqAsk(message, { input = false, value = '' } = {}) {
+    return new Promise(resolve => {
+        const text = String(message == null ? '' : message).trim();
+        // A first line followed by a blank line is the question; the rest explains it.
+        const cut = text.indexOf('\n\n'), title = cut > 0 && cut <= 90 ? text.slice(0, cut) : '', body = title ? text.slice(cut + 2) : text;
+        const danger = /\b(delete|remove|cannot be undone|permanently|non-refundable|block|reject|end the stream|cancel this)\b/i.test(text);
+        const before = document.activeElement;
+        const wrap = document.createElement('div');
+        wrap.id = 'nq-ask';
+        wrap.innerHTML = `<div class="nq-ask-box" role="${input ? 'dialog' : 'alertdialog'}" aria-modal="true" aria-labelledby="nq-ask-title" aria-describedby="nq-ask-body">
+            <h2 id="nq-ask-title"></h2><p id="nq-ask-body"></p>
+            ${input ? '<input id="nq-ask-input" type="text" autocomplete="off">' : ''}
+            <div class="nq-ask-actions"><button type="button" data-a="no">Cancel</button><button type="button" data-a="yes" class="${danger ? 'nq-ask-danger' : 'nq-ask-go'}">${input ? 'OK' : danger ? 'Confirm' : 'Continue'}</button></div></div>`;
+        const h = wrap.querySelector('h2'), p = wrap.querySelector('p'), field = wrap.querySelector('input');
+        if (title) h.textContent = title; else { h.textContent = input ? 'Enter a value' : 'Please confirm'; h.className = 'sr-only'; }
+        p.textContent = body;
+        if (field) { field.value = value == null ? '' : String(value); field.setAttribute('aria-label', title || body.split('\n')[0].slice(0, 120)); }
+        const done = answer => {
+            window.removeEventListener('keydown', onKey, true);
+            wrap.remove();
+            try { if (before && before.focus) before.focus(); } catch (e) {}
+            resolve(answer);
+        };
+        const yes = () => done(input ? field.value : true), no = () => done(input ? null : false);
+        function onKey(e) {
+            if (e.key === 'Escape') { e.preventDefault(); e.stopImmediatePropagation(); no(); }
+            else if (e.key === 'Enter' && (input ? e.target === field : e.target.tagName !== 'BUTTON')) { e.preventDefault(); e.stopImmediatePropagation(); yes(); }
+            else if (e.key === 'Tab') {           // keep the keyboard inside the question
+                const stops = [...wrap.querySelectorAll('input, button')], i = stops.indexOf(document.activeElement);
+                e.preventDefault(); e.stopImmediatePropagation();
+                stops[(i + (e.shiftKey ? -1 : 1) + stops.length) % stops.length].focus();
+            }
+        }
+        window.addEventListener('keydown', onKey, true);       // ahead of every other key handler on the page
+        wrap.addEventListener('mousedown', e => { if (e.target === wrap) no(); });
+        wrap.querySelector('[data-a="yes"]').onclick = yes;
+        wrap.querySelector('[data-a="no"]').onclick = no;
+        document.body.appendChild(wrap);
+        (field || wrap.querySelector(danger ? '[data-a="no"]' : '[data-a="yes"]')).focus();
+        if (field) field.select();
+    });
+}
+function nqConfirm(message) { return nqAsk(message); }
+function nqPrompt(message, value) { return nqAsk(message, { input: true, value }); }
+/// An icon that may have come from the server or from saved data: a name
+/// becomes an icon, markup made here is kept, anything else is left out.
+function nqIcon(v) { v = String(v || ''); return /^[a-z-]+$/.test(v) ? ico(v) : v.charAt(0) === '<' ? v : ''; }
 
 /// Mark the page you are on in the top navigation.
 function nqNavMark(page) {
@@ -21395,7 +21460,7 @@ function ecoRenderTrending() {
         + (rows.map((x, i) => `
         <button onclick="ecoTrendClick(${i})" class="w-full text-left flex items-start gap-3 px-4 py-3 border-b border-zinc-800 hover:bg-zinc-800/70">
             <span class="w-6 shrink-0 text-center text-xs font-bold mt-1 ${i < 3 ? 'text-orange-400' : 'text-zinc-500'}">${i + 1}</span>
-            <span class="text-lg leading-none mt-0.5">${x.icon}</span>
+            <span class="text-lg leading-none mt-0.5">${nqIcon(x.icon)}</span>
             <span class="flex-1 min-w-0"><span class="block text-sm font-semibold text-zinc-100 break-words">${ecoEsc(x.title)}</span>
                 <span class="block text-[11px] text-zinc-500 mt-0.5 break-words">${ecoEsc(x.sub)}</span></span>
             <span class="shrink-0 mt-1.5 h-1.5 w-10 rounded-full bg-zinc-800 overflow-hidden" title="How it compares with the leader of its kind"><span class="block h-full bg-orange-500" style="width:${Math.max(8, Math.round(x.heat * 100))}%"></span></span>
@@ -21646,7 +21711,7 @@ function ecoRenderFeed() {
     box.innerHTML = (me ? '' : `<p class="text-xs text-zinc-400 px-4 py-3 border-b border-zinc-800">Log in to see your notifications and the people you follow.</p>`)
         + (items.map((e, i) => `
         <button onclick="ecoFeedClick(${i})" class="w-full text-left flex items-start gap-3 px-4 py-3 border-b border-zinc-800 hover:bg-zinc-800/70 ${e.unread ? 'bg-zinc-800/40' : ''}">
-            <span class="text-lg leading-none mt-0.5">${e.icon}</span>
+            <span class="text-lg leading-none mt-0.5">${nqIcon(e.icon)}</span>
             <span class="flex-1 min-w-0"><span class="block text-sm text-zinc-100 break-words">${ecoEsc(e.text)}</span>
                 <span class="block text-[11px] text-zinc-500 mt-0.5">${e.target.notif ? 'Notification · ' : ''}${ago(e.t)}</span></span>
             ${e.unread ? '<span class="w-2 h-2 rounded-full bg-yellow-400 mt-1.5 shrink-0"></span>' : ''}
@@ -22910,7 +22975,7 @@ async function blockUser(uid, username) {
     if (!me) return showAuthModal();
     if (!uid || uid === me) return;
     if (!username) { try { const d = await db.collection('users').doc(uid).get(); username = (d.exists && d.data().username) || ''; } catch (e) {} }
-    if (!confirm(`Block ${username ? '@' + username : 'this member'}?\n\n• You will no longer see their posts and comments\n• They will not be able to message you, and you will not be able to message them\n• They are not told\n\nYou can unblock them any time from your profile.`)) return;
+    if (!await nqConfirm(`Block ${username ? '@' + username : 'this member'}?\n\n• You will no longer see their posts and comments\n• They will not be able to message you, and you will not be able to message them\n• They are not told\n\nYou can unblock them any time from your profile.`)) return;
     try {
         await db.collection('blocks').doc(me + '_' + uid).set({ blockerUid: me, blockedUid: uid, blockedUsername: username || '', createdAt: firebase.firestore.FieldValue.serverTimestamp() });
         NQV_BLOCKED.set(uid, username || 'member');
@@ -23260,7 +23325,7 @@ async function teamRemove(uid) {
     if (!t) return;
     const leaving = uid === me && !isCompanyOwner(t.company);
     if (!leaving && !isCompanyOwner(t.company)) return;
-    if (!confirm(leaving ? `Leave the ${t.company.name} team?` : 'Remove this member from the team?\n\nBounties they have already posted stay theirs.')) return;
+    if (!await nqConfirm(leaving ? `Leave the ${t.company.name} team?` : 'Remove this member from the team?\n\nBounties they have already posted stay theirs.')) return;
     try {
         const next = (t.company.team || []).filter(m => m.uid !== uid);
         await db.collection('companies').doc(t.id).update({ team: next, teamUids: next.map(m => m.uid) });
@@ -23610,7 +23675,7 @@ async function planRecover() {
             if (skipped.includes(doc.id)) continue;
             const have = await db.collection('subprojects').where('planJobId', '==', doc.id).limit(1).get();
             if (!have.empty) continue;
-            if (!confirm(`Your development plan for ${job.input.name || 'your project'} finished after you left the page.\n\nAdd its ${nodes.length} parts to the board now?`)) {
+            if (!await nqConfirm(`Your development plan for ${job.input.name || 'your project'} finished after you left the page.\n\nAdd its ${nodes.length} parts to the board now?`)) {
                 try { localStorage.setItem('nqvPlanSkipped', JSON.stringify(skipped.concat([doc.id]).slice(-20))); } catch (e) {}
                 continue;
             }
@@ -24354,7 +24419,7 @@ function showsBroadcast(url, token, title) {
 async function showsEndLive(silent) {
     const live = SHOWS.live;
     if (!live) { document.getElementById('shows-broadcast')?.remove(); return; }
-    if (!silent && !confirm('End the stream for everyone?')) return;
+    if (!silent && !await nqConfirm('End the stream for everyone?')) return;
     document.getElementById('shows-broadcast')?.remove();
     SHOWS.live = null;
     try {
@@ -24452,7 +24517,7 @@ async function showsSetPrice() {
     if (!currentUser) return showAuthModal();
     if (!connectedAddress && !currentUser.walletAddress) return alert('Connect a wallet first — memberships are paid straight to it.');
     const cur = SHOWS.myPrice || '';
-    const ans = prompt(`Price of a 30-day membership, in USDC (1 to 1000).\nEnter 0 to stop offering one.\n\nMembers pay your wallet directly. NQVate's 3.5% fee comes out of the price, so on $10 you receive $9.65.\nExisting members keep the days they have paid for.`, cur);
+    const ans = await nqPrompt(`Price of a 30-day membership, in USDC (1 to 1000).\nEnter 0 to stop offering one.\n\nMembers pay your wallet directly. NQVate's 3.5% fee comes out of the price, so on $10 you receive $9.65.\nExisting members keep the days they have paid for.`, cur);
     if (ans === null) return;
     const price = Math.round(parseFloat(ans) * 100) / 100;
     if (!(price === 0 || (price >= 1 && price <= 1000))) return alert('Enter a number from 1 to 1000, or 0 to turn it off.');
@@ -24476,7 +24541,7 @@ async function showsJoin(creatorUid, reopenPostId) {
     if (!currentUser) return showAuthModal();
     if (creatorUid === currentUser.uid) return;
     if (!connectedAddress || !signer) {
-        if (!confirm('Connect a wallet to pay for a membership?')) return;
+        if (!await nqConfirm('Connect a wallet to pay for a membership?')) return;
         await connectWallet();
         if (!connectedAddress || !signer) return;
     }
@@ -24493,7 +24558,7 @@ async function showsJoin(creatorUid, reopenPostId) {
         }
         const fmt = raw => '$' + parseFloat(Number(ethers.utils.formatUnits(raw, 6)).toFixed(4));
         const until = SHOWS.members.get(creatorUid);
-        if (!pending.feeTx && !confirm(
+        if (!pending.feeTx && !await nqConfirm(
             `${until ? 'Renew' : 'Join'} @${pending.creatorUsername || 'creator'} — ${showsMoney(pending.price)} USDC for 30 days${until ? ', added to the days you have left' : ''}.\n\n` +
             `Your wallet will ask twice:\n  1. ${fmt(pending.feeRaw)} platform fee (3.5%)\n  2. ${fmt(pending.netRaw)} to the creator\n\n` +
             `Paid from your wallet directly. It does not renew by itself.`)) return;
@@ -24546,7 +24611,7 @@ function showsReport(postId) {
 }
 
 async function showsAdminRemove(postId) {
-    const reason = prompt('Remove this post for everyone.\n\nReason (the author is told this):');
+    const reason = await nqPrompt('Remove this post for everyone.\n\nReason (the author is told this):');
     if (!reason || reason.trim().length < 3) return;
     try {
         const resp = await fetch('/api/remove-post', {
@@ -24734,7 +24799,7 @@ async function showsAdminRemove(postId) {
             <div class="w-8 h-8 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-xl flex items-center justify-center text-sm font-bold">NQV8</div>
             <div>
                 <p id="deck-company-name" class="font-bold text-lg"></p>
-                <p class="text-xs text-zinc-400">Investor Deck · Confidential · NQVate</p>
+                <p class="text-xs text-zinc-400">Confidential investor deck</p>
             </div>
         </div>
         <div class="flex flex-wrap items-center gap-2">
@@ -24777,7 +24842,7 @@ async function showsAdminRemove(postId) {
         <p class="text-zinc-400 text-sm mb-6">Claude checks your revenue and user figures against the proof you upload, then writes a full investor deck from your website and your answers below. Documents are read once and not kept — only the verified ranges are stored.</p>
 
         <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 mb-6">
-            <p class="text-amber-400 text-xs">Cost: 100 NQV8 · Verification plus a full deck: problem, solution, market, business model, competition, go-to-market, roadmap and risks · Takes about a minute · Refunded automatically if it cannot be completed</p>
+            <p class="text-amber-400 text-xs">Cost: 100 NQV8. Claude checks your figures and writes a full investor deck in about a minute. Refunded automatically if it cannot be completed.</p>
         </div>
 
         <div class="space-y-4 mb-6">
@@ -24847,7 +24912,7 @@ async function showsAdminRemove(postId) {
 
     <div class="mb-8">
         <h1 class="text-3xl md:text-5xl font-bold tracking-tighter mb-2">Studio</h1>
-        <p class="text-zinc-400">Your end-to-end development workspace. Every part of your build on one board — plan it, build it, post it for bids, finish it — with your live business below. You can also step inside the same project from the NQVerse.</p>
+        <p class="text-zinc-400">Plan a project, build it, post parts for bids and track each one to done, all on one board. Your live companies are below, and the same project opens in the NQVerse.</p>
     </div>
 
     <!-- ===== PLAN TAB ===== -->
@@ -25040,7 +25105,7 @@ async function showsAdminRemove(postId) {
 
     <div class="mb-8">
         <h1 class="text-3xl md:text-5xl font-bold tracking-tighter mb-2">About NQVate</h1>
-        <p class="text-zinc-400">Everything you need to know about the platform and how to get started.</p>
+        <p class="text-zinc-400">What NQVate is, how it works, and how to start using it.</p>
     </div>
 
     <!-- Sub-tabs -->
