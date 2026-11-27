@@ -106,7 +106,7 @@ export function buildAnalytics(raw, days, nowSecs = Math.floor(Date.now() / 1000
         if (Array.isArray(u.skills) && u.skills.length) members.withSkills++;
         if (u.bio) members.withBio++;
         if (u.referredBy || u.referrerUid) members.referred++;
-        hit('signups', secs(u.createdAt), null, '👋', `@${u.username || 'member'} joined`);
+        hit('signups', secs(u.createdAt), null, 'user-plus', `@${u.username || 'member'} joined`);
     });
 
     // ── companies ───────────────────────────────────────────────────────
@@ -119,7 +119,7 @@ export function buildAnalytics(raw, days, nowSecs = Math.floor(Date.now() / 1000
         if (c.metricsVerified) companies.metricsVerified++;
         const seats = Array.isArray(c.teamUids) ? c.teamUids.length : 0;
         if (seats) { companies.withTeam++; companies.teamSeats += seats; }
-        hit('companies', secs(c.createdAt), c.ownerUid, '🏢', `${who(c.ownerUid)} created ${clip(c.name, 40)}`);
+        hit('companies', secs(c.createdAt), c.ownerUid, 'building', `${who(c.ownerUid)} created ${clip(c.name, 40)}`);
     });
 
     // ── the marketplace ─────────────────────────────────────────────────
@@ -135,7 +135,7 @@ export function buildAnalytics(raw, days, nowSecs = Math.floor(Date.now() / 1000
         const funding = p.type === 'fund' || p.type === 'funding';
         const made = secs(p.createdAt), accepted = secs(p.acceptedAt || p.escrowLockedAt), done = secs(p.completedAt), refunded = secs(p.refundedAt);
         const poster = p.posterUid || p.ownerUid, title = '“' + clip(p.title, 50) + '”';
-        if (funding) { market.fundingRequests++; hit('fundingRequests', made, poster, '💰', `${who(poster)} posted a funding request`); return; }
+        if (funding) { market.fundingRequests++; hit('fundingRequests', made, poster, 'coins', `${who(poster)} posted a funding request`); return; }
         market.total++;
         if (p.isPrivate === true) market.privateListings++;
         if (Number(p.bondNQV8) > 0) market.bondsRequired++;
@@ -144,14 +144,14 @@ export function buildAnalytics(raw, days, nowSecs = Math.floor(Date.now() / 1000
         market.bidsTotal += bids.length;
         // A private listing is counted, never named.
         const label = p.isPrivate === true ? 'a private bounty' : title;
-        hit('listings', made, poster, '📋', `${who(poster)} posted ${label}${amount ? ' · $' + Math.round(amount).toLocaleString() : ''}`);
+        hit('listings', made, poster, 'clipboard-list', `${who(poster)} posted ${label}${amount ? ' · $' + Math.round(amount).toLocaleString() : ''}`);
         if (inWin(made)) { market.postedValue += usd(p.compensation); const c = p.category || 'Other'; market.byCategory[c] = (market.byCategory[c] || 0) + 1; }
-        bids.forEach(b => hit('bids', secs(b.timestamp || b.createdAt), b.bidderUid, '🙋', `${who(b.bidderUid)} bid on ${label}`));
-        if (p.acceptedBidderUid) hit('accepted', accepted, poster, '🤝', `${who(poster)} accepted ${who(p.acceptedBidderUid)} on ${label}`);
-        if (p.disputeFiled || p.claudeRuling) { market.disputed++; hit('disputes', secs(p.disputeFiledAt), p.disputeFiledBy, '⚖️', `${who(p.disputeFiledBy)} opened a dispute on ${label}`); }
+        bids.forEach(b => hit('bids', secs(b.timestamp || b.createdAt), b.bidderUid, 'hand', `${who(b.bidderUid)} bid on ${label}`));
+        if (p.acceptedBidderUid) hit('accepted', accepted, poster, 'handshake', `${who(poster)} accepted ${who(p.acceptedBidderUid)} on ${label}`);
+        if (p.disputeFiled || p.claudeRuling) { market.disputed++; hit('disputes', secs(p.disputeFiledAt), p.disputeFiledBy, 'scale-balanced', `${who(p.disputeFiledBy)} opened a dispute on ${label}`); }
         if (p.status === 'completed') {
             market.completed++; market.valuePaidAllTime += amount;
-            hit('completed', done, p.acceptedBidderUid, '✅', `${who(p.acceptedBidderUid)} completed ${label}${amount ? ' · $' + Math.round(amount).toLocaleString() : ''}`);
+            hit('completed', done, p.acceptedBidderUid, 'circle-check', `${who(p.acceptedBidderUid)} completed ${label}${amount ? ' · $' + Math.round(amount).toLocaleString() : ''}`);
             if (inWin(done)) {
                 market.paidValue += amount; market.equityUnitsPaid += Number(p.equityUnits) || 0;
                 if (accepted && done >= accepted) market.deliverDays.push((done - accepted) / DAY);
@@ -160,7 +160,7 @@ export function buildAnalytics(raw, days, nowSecs = Math.floor(Date.now() / 1000
                 bump(companyDone, p.companyId, companyNames.get(p.companyId) || p.projectName || 'a company');
             } else if (inPrev(done)) market.prevPaidValue += amount;
         } else if (p.status === 'in-progress') { market.inProgress++; market.valueInEscrow += amount; }
-        else if (p.status === 'refunded' || p.status === 'cancelled') { market.refunded++; hit('refunds', refunded, null, '↩️', `${label} was refunded`); }
+        else if (p.status === 'refunded' || p.status === 'cancelled') { market.refunded++; hit('refunds', refunded, null, 'rotate-left', `${label} was refunded`); }
         else { market.open++; market.valueOpen += usd(p.compensation); if (!bids.length) market.openNoBids++; }
         if (p.acceptedBidderUid && inWin(accepted) && made && accepted >= made) market.fillDays.push((accepted - made) / DAY);
     });
@@ -182,10 +182,10 @@ export function buildAnalytics(raw, days, nowSecs = Math.floor(Date.now() / 1000
         if (p.type === 'stream' && p.liveStatus === 'live' && (!p.liveExpiresAt || nowSecs * 1000 < p.liveExpiresAt)) content.liveNow++;
         if (p.isSponsoredBoost && p.sponsoredBoostUntil > nowSecs * 1000) content.boosted++;
         const verb = type === 'stream' ? 'went live' : type === 'podcast' ? 'released an episode' : 'posted';
-        hit('posts', secs(p.createdAt), p.posterUid, type === 'stream' ? '📡' : type === 'podcast' ? '🎙️' : '💬', `@${p.username || 'member'} ${verb}: “${clip(p.title, 50)}”`);
-        (Array.isArray(p.comments) ? p.comments : []).forEach(c => { content.comments++; hit('comments', secs(c.createdAt), c.uid, '🗨️', `@${c.username || 'member'} commented on “${clip(p.title, 40)}”`); });
+        hit('posts', secs(p.createdAt), p.posterUid, type === 'stream' ? 'tower-broadcast' : type === 'podcast' ? 'microphone' : 'comment', `@${p.username || 'member'} ${verb}: “${clip(p.title, 50)}”`);
+        (Array.isArray(p.comments) ? p.comments : []).forEach(c => { content.comments++; hit('comments', secs(c.createdAt), c.uid, 'comments', `@${c.username || 'member'} commented on “${clip(p.title, 40)}”`); });
     });
-    R('removedPosts').forEach(p => hit('removals', secs(p.removedAt || p.createdAt), null, '🛑', 'A post was removed by moderation'));
+    R('removedPosts').forEach(p => hit('removals', secs(p.removedAt || p.createdAt), null, 'circle-stop', 'A post was removed by moderation'));
 
     // ── chat: how much, never what ──────────────────────────────────────
     const chat = { chats: R('chats').length, groups: 0, messages: 0 };
@@ -198,7 +198,7 @@ export function buildAnalytics(raw, days, nowSecs = Math.floor(Date.now() / 1000
     // ── follows, reviews, bookmarks ─────────────────────────────────────
     R('follows').forEach(f => hit('follows', secs(f.createdAt), f.followerUid, null, null));
     let stars = 0, rated = 0;
-    R('reviews').forEach(r => { if (r.rating) { stars += Number(r.rating); rated++; } hit('reviews', secs(r.createdAt), r.reviewerUid, '⭐', `${r.reviewerUsername ? '@' + r.reviewerUsername : 'A member'} left a ${r.rating || '?'}-star review`); });
+    R('reviews').forEach(r => { if (r.rating) { stars += Number(r.rating); rated++; } hit('reviews', secs(r.createdAt), r.reviewerUid, 'star', `${r.reviewerUsername ? '@' + r.reviewerUsername : 'A member'} left a ${r.rating || '?'}-star review`); });
     const social = { follows: R('follows').length, reviews: R('reviews').length, avgRating: rated ? stars / rated : null,
                      bookmarks: R('bookmarks').length, blocks: R('blocks').length, listingAlerts: R('listingAlerts').length };
 
@@ -220,12 +220,12 @@ export function buildAnalytics(raw, days, nowSecs = Math.floor(Date.now() / 1000
     // ── equity, subscriptions, ads, referrals ───────────────────────────
     const equity = { listings: R('equityListings').length, activeListings: R('equityListings').filter(l => l.active === true || l.status === 'active').length,
                      offers: R('equityOffers').length, transfers: R('equityTransfers').length, holders: R('equityHolders').length };
-    R('equityListings').forEach(l => hit('equityListings', secs(l.createdAt), null, '📈', 'An equity stake was listed'));
-    R('equityOffers').forEach(o => hit('equityOffers', secs(o.createdAt), null, '📨', 'An offer was made on an equity stake'));
-    R('equityTransfers').forEach(t => hit('equityTransfers', secs(t.createdAt), t.initiatedBy, '🔁', `${(Number(t.units) / 100 || 0).toFixed(2)}% equity changed hands`));
+    R('equityListings').forEach(l => hit('equityListings', secs(l.createdAt), null, 'chart-line', 'An equity stake was listed'));
+    R('equityOffers').forEach(o => hit('equityOffers', secs(o.createdAt), null, 'envelope', 'An offer was made on an equity stake'));
+    R('equityTransfers').forEach(t => hit('equityTransfers', secs(t.createdAt), t.initiatedBy, 'rotate', `${(Number(t.units) / 100 || 0).toFixed(2)}% equity changed hands`));
     const subs = { total: R('subscriptions').length, current: R('subscriptions').filter(s => secs(s.paidUntil) > nowSecs).length };
     const ads = { campaigns: R('adCampaigns').length, active: 0, impressions: 0, clicks: 0 };
-    R('adCampaigns').forEach(a => { if (a.status === 'active') ads.active++; ads.impressions += Number(a.impressions) || 0; ads.clicks += Number(a.clicks) || 0; hit('adCampaigns', secs(a.createdAt), a.advertiserUid, '📢', `${who(a.advertiserUid)} started an ad campaign`); });
+    R('adCampaigns').forEach(a => { if (a.status === 'active') ads.active++; ads.impressions += Number(a.impressions) || 0; ads.clicks += Number(a.clicks) || 0; hit('adCampaigns', secs(a.createdAt), a.advertiserUid, 'bullhorn', `${who(a.advertiserUid)} started an ad campaign`); });
     const referrals = { claims: R('referralBonuses').length, nqv8: R('referralBonuses').reduce((s, r) => s + (Number(r.bonusAmount) || 0), 0) };
 
     // ── support, reports, AI, errors ────────────────────────────────────
@@ -234,7 +234,7 @@ export function buildAnalytics(raw, days, nowSecs = Math.floor(Date.now() / 1000
         const report = t.category === 'content-report', open = t.status === 'open';
         if (report) { support.reports++; if (open) support.reportsOpen++; if (inWin(secs(t.createdAt)) || allTime) { const r = t.reportReason || 'Other'; support.byReason[r] = (support.byReason[r] || 0) + 1; } }
         else if (open) support.open++; else support.closed++;
-        hit(report ? 'reports' : 'tickets', secs(t.createdAt), t.uid, report ? '🚩' : '🎫', report ? `@${t.username || 'member'} reported a ${t.reportKind || 'post'}` : `@${t.username || 'member'} opened a support ticket`);
+        hit(report ? 'reports' : 'tickets', secs(t.createdAt), t.uid, report ? 'flag' : 'ticket', report ? `@${t.username || 'member'} reported a ${t.reportKind || 'post'}` : `@${t.username || 'member'} opened a support ticket`);
     });
     support.byReason = Object.entries(support.byReason).sort((a, b) => b[1] - a[1]).map(([name, n]) => ({ name, n }));
     const ai = { jobs: 0, failed: 0, nqv8: 0, byKind: {} };
