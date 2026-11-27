@@ -24180,7 +24180,7 @@ function audienceOnLogin() {
             audienceSet(currentUser.audience, 'load');
             // The account already answered: do not leave the question on screen.
             const choose = document.getElementById('welcome-choose'), modal = document.getElementById('welcome-modal');
-            if (modal && !modal.classList.contains('hidden') && choose && !choose.classList.contains('hidden')) audienceChosen(currentUser.audience);
+            if (modal && !modal.classList.contains('hidden') && choose && !choose.classList.contains('hidden')) audienceLater();
         }
         else if (currentUser && nqvAudience && !currentUser.audience) audienceSet(nqvAudience, 'saved');
     } catch (e) {}
@@ -24200,7 +24200,7 @@ function showAudienceSwitcher() {
     nqvSheet(`<h2 class="text-xl font-bold mb-1">How should NQVate introduce itself?</h2>
         <p class="text-sm text-zinc-400 mb-5">This changes the tagline, the About page and the intro video. Every feature stays available whichever you pick.</p>
         <div class="space-y-3">${Object.keys(NQV_AUDIENCES).map(k => { const a = NQV_AUDIENCES[k], on = k === audienceNow();
-            return `<button onclick="audienceSet('${k}', 'switch'); nqvSheetClose()" aria-pressed="${on}" class="w-full text-left p-4 rounded-2xl border ${on ? 'border-cyan-400 bg-cyan-400/10' : 'border-zinc-700 bg-zinc-800 hover:bg-zinc-700'}">
+            return `<button onclick="audienceSet('${k}', 'switch'); nqvSheetClose(); audienceShowIntro()" aria-pressed="${on}" class="w-full text-left p-4 rounded-2xl border ${on ? 'border-cyan-400 bg-cyan-400/10' : 'border-zinc-700 bg-zinc-800 hover:bg-zinc-700'}">
                 <span class="block font-semibold text-white">${a.pick}${on ? ' <span class="text-xs font-normal text-cyan-300">· current</span>' : ''}</span><span class="block text-sm text-zinc-300 mt-1">${a.blurb}</span></button>`; }).join('')}</div>`);
 }
 
@@ -24226,12 +24226,14 @@ function audienceWelcomeStep(step) {
 }
 function audienceChosen(key) {
     audienceSet(key, 'welcome');
-    let welcomed = false; try { welcomed = !!localStorage.getItem('nqvate_welcomed'); } catch (e) {}
-    // Someone who has already seen the welcome only needed to choose.
-    if (welcomed) return document.getElementById('welcome-modal').classList.add('hidden');
-    audienceWelcomeStep('intro');
+    audienceWelcomeStep('intro');          // always follow the choice with its introduction and film
 }
 
+/// Open the introduction for the profile in use (after a switch from the menu).
+function audienceShowIntro() {
+    const m = document.getElementById('welcome-modal'); if (!m) return;
+    m.classList.remove('hidden'); audienceWelcomeStep('intro');
+}
 /// Close the question without answering. It is asked again on the next visit.
 function audienceLater() { const m = document.getElementById('welcome-modal'); if (m) m.classList.add('hidden'); }
 
