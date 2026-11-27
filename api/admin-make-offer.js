@@ -85,7 +85,7 @@ export default async function handler(req, res) {
         const tx = await equity.adminMakeOffer(offerIdBytes, listingIdBytes, buyer, units, priceRaw, await gasOverrides(provider));
         await tx.wait();
 
-        console.log(`✅ Offer made: ${units} units at ${pricePerUnit} USDC/unit`);
+        console.log(`Offer made: ${units} units at ${pricePerUnit} USDC/unit`);
         console.log(`   Offer ID: ${offerId}, Listing: ${listingId}`);
         console.log(`   Buyer: ${buyer}`);
         console.log(`   Tx: ${tx.hash}`);

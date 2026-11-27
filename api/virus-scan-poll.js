@@ -85,7 +85,7 @@ export default async function handler(req, res) {
                     await db.collection('subprojects').doc(doc.id).update({ submissions });
 
                     if (finalStatus === 'flagged') {
-                        console.error('🚨 VIRUSTOTAL FLAGGED', {
+                        console.error('VIRUSTOTAL FLAGGED', {
                             projectId: doc.id,
                             flaggedFiles: malicious.map(r => `${r.name} (${r.malicious} engines)`).join(', '),
                             timestamp: new Date().toISOString()
@@ -97,14 +97,14 @@ export default async function handler(req, res) {
                             await db.collection('notifications').add({
                                 recipientUid: posterUid,
                                 type:         'security_flag',
-                                message:      `⚠️ Security scan flagged files in a submission on "${project.title}". Review before accepting.`,
+                                message:      `Security scan flagged files in a submission on "${project.title}". Review before accepting.`,
                                 projectId:    doc.id,
                                 read:         false,
                                 createdAt:    new Date()
                             });
                         }
                     } else {
-                        console.log(`✅ VT scan clean: ${doc.id} submission ${idx}`);
+                        console.log(`VT scan clean: ${doc.id} submission ${idx}`);
                     }
 
                     results.push({ projectId: doc.id, submissionIndex: idx, status: finalStatus });
@@ -116,7 +116,7 @@ export default async function handler(req, res) {
             }
         }
 
-        console.log(`✅ virus-scan-poll complete. Processed ${results.length} submissions.`);
+        console.log(`virus-scan-poll complete. Processed ${results.length} submissions.`);
         return res.status(200).json({ success: true, processed: results.length, results });
 
     } catch(e) {

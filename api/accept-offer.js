@@ -47,7 +47,7 @@ export default async function handler(req, res) {
         const tx = await equity.acceptOffer(toBytes32(offerId), await gasOverrides(provider));
         await tx.wait();
 
-        console.log(`✅ Offer accepted: ${offerId} | Tx: ${tx.hash}`);
+        console.log(`Offer accepted: ${offerId} | Tx: ${tx.hash}`);
 
         // Refund everyone who lost. Competing offers are intended on a funding
         // request, but being outbid should not cost you a week of locked
@@ -77,14 +77,14 @@ export default async function handler(req, res) {
                     await rTx.wait();
                     refundedCount = loserIds.length;
                     refundTxHash  = rTx.hash;
-                    console.log(`💸 Refunded ${refundedCount} losing offer(s) | Tx: ${rTx.hash}`);
+                    console.log(`Refunded ${refundedCount} losing offer(s) | Tx: ${rTx.hash}`);
 
                     await Promise.all(losersSnap.docs
                         .filter(d => (d.data().offerId || d.id) !== offerId)
                         .map(d => d.ref.update({ active: false, status: 'outbid' }).catch(() => {})));
                 }
             } catch (refundErr) {
-                console.error(`⚠️ Losing-offer refunds failed for listing ${listingId}:`, refundErr.message);
+                console.error(`Losing-offer refunds failed for listing ${listingId}:`, refundErr.message);
             }
         }
 
@@ -107,7 +107,7 @@ export default async function handler(req, res) {
 
                 const refundTx = await equity.rejectOffer(toBytes32(offerId), await gasOverrides(provider));
                 await refundTx.wait();
-                console.log(`💸 Auto-refunded buyer for offer ${offerId} | Tx: ${refundTx.hash}`);
+                console.log(`Auto-refunded buyer for offer ${offerId} | Tx: ${refundTx.hash}`);
 
                 return res.status(409).json({
                     error: 'The seller no longer holds enough equity to complete this sale. Your USDC has been refunded in full.',
@@ -115,7 +115,7 @@ export default async function handler(req, res) {
                     refundTxHash: refundTx.hash
                 });
             } catch (refundErr) {
-                console.error(`🚨 REFUND FAILED for offer ${offerId}:`, refundErr.message);
+                console.error(`REFUND FAILED for offer ${offerId}:`, refundErr.message);
                 return res.status(500).json({
                     error: 'This sale could not be completed and the automatic refund also failed. Our team has been notified — your funds are safe and will be returned.',
                     refundFailed: true

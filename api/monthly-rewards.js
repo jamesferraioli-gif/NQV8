@@ -196,19 +196,19 @@ export default async function handler(req, res) {
         const last     = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
         const monthStr = `${last.getUTCFullYear()}-${String(last.getUTCMonth() + 1).padStart(2, '0')}`;
 
-        console.log(`📅 Closing reward epoch for ${monthStr}`);
+        console.log(`Closing reward epoch for ${monthStr}`);
 
         // Before anything can return early: finish settling earlier months,
         // so their forfeits are in the pool this run is about to close.
         const pendingRun = await settlePendingEpochs(db, rewards, provider, MAX_SETTLE_PER_RUN);
-        if (pendingRun.results.length) console.log('♻️ settled from earlier months:', JSON.stringify(pendingRun.results));
+        if (pendingRun.results.length) console.log('settled from earlier months:', JSON.stringify(pendingRun.results));
 
         // ── 2. Already closed? closeEpoch rejects a reused label, but check
         //       first so a re-run is a clean no-op rather than a revert. ────
         try {
             const [existingId, existing] = await rewards.getEpochByLabel(monthStr);
             if (existing.closed) {
-                console.log(`⏭ ${monthStr} already closed as epoch ${existingId}`);
+                console.log(` ${monthStr} already closed as epoch ${existingId}`);
                 return res.json({
                     success: true, skipped: true, reason: 'already closed',
                     month: monthStr, epochId: existingId.toString(),
@@ -239,15 +239,15 @@ export default async function handler(req, res) {
         const nqv8Pool   = stats[3];
         const usdcPool   = stats[4];
 
-        console.log(`💛 ${payerCount} fee payer(s), ${ethers.utils.formatUnits(nqv8Fees, NQV8_DECIMALS)} NQV8 in fees`);
-        console.log(`🏦 Pools: ${ethers.utils.formatUnits(nqv8Pool, NQV8_DECIMALS)} NQV8 / $${ethers.utils.formatUnits(usdcPool, USDC_DECIMALS)}`);
+        console.log(` ${payerCount} fee payer(s), ${ethers.utils.formatUnits(nqv8Fees, NQV8_DECIMALS)} NQV8 in fees`);
+        console.log(`Pools: ${ethers.utils.formatUnits(nqv8Pool, NQV8_DECIMALS)} NQV8 / $${ethers.utils.formatUnits(usdcPool, USDC_DECIMALS)}`);
 
         // A month with no NQV8 fees has no weights, so nothing is claimable.
         // The contract closes it and rolls the pools forward rather than
         // stranding them — but there is no reason to spend gas on that unless
         // something was actually collected.
         if (payerCount === 0 && nqv8Pool.eq(0) && usdcPool.eq(0)) {
-            console.log('⚠️ Nothing collected this month — not closing');
+            console.log('Nothing collected this month — not closing');
             return res.json({
                 success: true, skipped: true, reason: 'no activity', month: monthStr,
                 settledFromEarlierMonths: pendingRun.results
@@ -268,7 +268,7 @@ export default async function handler(req, res) {
             } catch { /* not ours */ }
         }
 
-        console.log(`✅ Epoch ${epochId} closed for ${monthStr}. Tx: ${tx.hash}`);
+        console.log(`Epoch ${epochId} closed for ${monthStr}. Tx: ${tx.hash}`);
 
         // ── 4b. Where this month's fee logs start ──────────────────────────
         // They sit between the previous close and this one.
@@ -312,7 +312,7 @@ export default async function handler(req, res) {
                 settle = await settleZeroCoverage(
                     rewards, provider, Number(epochId), fromBlock, receipt.blockNumber,
                     pendingRun.budgetLeft);
-                console.log(`♻️ ${monthStr}: settled ${settle.settled} zero-payout wallet(s) of ${settle.payersSeen} payer(s)${settle.pending ? ', more next run' : ''}`);
+                console.log(` ${monthStr}: settled ${settle.settled} zero-payout wallet(s) of ${settle.payersSeen} payer(s)${settle.pending ? ', more next run' : ''}`);
             } catch (e) {
                 console.warn('settling failed, will retry next run:', e.message);
             }

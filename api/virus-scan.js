@@ -47,7 +47,7 @@ export default async function handler(req, res) {
             virusScanAt:      new Date()
         });
 
-        console.log(`✅ Uploaded ${analysisIds.length} files to VirusTotal for project ${projectId}`);
+        console.log(`Uploaded ${analysisIds.length} files to VirusTotal for project ${projectId}`);
         return res.status(200).json({ success: true, status: 'pending', analysisIds });
 
     } catch(e) {

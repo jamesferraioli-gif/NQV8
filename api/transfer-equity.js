@@ -171,7 +171,7 @@ export default async function handler(req, res) {
             console.warn('Cap table indexing failed (non-fatal):', indexErr.message);
         }
 
-        console.log(`✅ Equity transferred: ${unitsNum} units (${percentage}%) for company ${projectId}`);
+        console.log(`Equity transferred: ${unitsNum} units (${percentage}%) for company ${projectId}`);
         console.log(`   From: ${founderWallet}`);
         console.log(`   To:   ${workerWallet}`);
         console.log(`   Reason: ${reason}`);

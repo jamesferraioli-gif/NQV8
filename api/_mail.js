@@ -117,7 +117,7 @@ const templates = {
             <div style="text-align:center;margin-bottom:32px;">
                 <div style="background:linear-gradient(135deg,#22d3ee,#8b5cf6);width:56px;height:56px;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;color:#000;">NQV8</div>
             </div>
-            <h1 style="font-size:24px;font-weight:700;margin-bottom:8px;">You received a bid 💰</h1>
+            <h1 style="font-size:24px;font-weight:700;margin-bottom:8px;">You received a bid</h1>
             <p style="color:#a1a1aa;margin-bottom:24px;">Hey ${posterName}, <strong style="color:#f4f4f5;">@${bidderUsername}</strong> placed a bid on your posting.</p>
             <div style="background:#18181b;border:1px solid #3f3f46;border-radius:12px;padding:20px;margin-bottom:24px;">
                 <p style="color:#a1a1aa;font-size:12px;margin:0 0 4px;">Posting</p>
@@ -132,13 +132,13 @@ const templates = {
 
     // Your bid was accepted
     bid_accepted: ({ builderName, posterUsername, postingTitle, compensation, postingId }) => ({
-        subject: `Your bid was accepted on "${postingTitle}" 🎉`,
+        subject: `Your bid was accepted on "${postingTitle}"`,
         html: `
         <div style="font-family:sans-serif;max-width:600px;margin:0 auto;background:#09090b;color:#f4f4f5;padding:32px;border-radius:16px;">
             <div style="text-align:center;margin-bottom:32px;">
                 <div style="background:linear-gradient(135deg,#22d3ee,#8b5cf6);width:56px;height:56px;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;color:#000;">NQV8</div>
             </div>
-            <h1 style="font-size:24px;font-weight:700;margin-bottom:8px;">Bid accepted! 🎉</h1>
+            <h1 style="font-size:24px;font-weight:700;margin-bottom:8px;">Bid accepted.</h1>
             <p style="color:#a1a1aa;margin-bottom:24px;">Hey ${builderName}, <strong style="color:#f4f4f5;">@${posterUsername}</strong> accepted your bid. Funds are now locked in escrow.</p>
             <div style="background:#18181b;border:1px solid #3f3f46;border-radius:12px;padding:20px;margin-bottom:24px;">
                 <p style="color:#a1a1aa;font-size:12px;margin:0 0 4px;">Project</p>
@@ -147,7 +147,7 @@ const templates = {
                 <p style="color:#10b981;font-weight:700;font-size:20px;margin:0;">${compensation}</p>
             </div>
             <div style="background:#052e16;border:1px solid #10b981;border-radius:12px;padding:16px;margin-bottom:24px;">
-                <p style="color:#34d399;font-size:14px;margin:0;">✅ Funds are locked in escrow and will be released automatically when your work is approved.</p>
+                <p style="color:#34d399;font-size:14px;margin:0;">Funds are locked in escrow and will be released automatically when your work is approved.</p>
             </div>
             <a href="${BASE_URL}" style="display:block;background:#fff;color:#000;text-align:center;padding:14px;border-radius:12px;font-weight:600;text-decoration:none;margin-bottom:24px;">Open Project →</a>
             <p style="color:#52525b;font-size:12px;text-align:center;">NQVate · <a href="${BASE_URL}" style="color:#22d3ee;">nqvate.com</a></p>
@@ -162,10 +162,10 @@ const templates = {
             <div style="text-align:center;margin-bottom:32px;">
                 <div style="background:linear-gradient(135deg,#22d3ee,#8b5cf6);width:56px;height:56px;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;color:#000;">NQV8</div>
             </div>
-            <h1 style="font-size:24px;font-weight:700;margin-bottom:8px;">Work submitted for review 📦</h1>
+            <h1 style="font-size:24px;font-weight:700;margin-bottom:8px;">Work submitted for review</h1>
             <p style="color:#a1a1aa;margin-bottom:24px;">Hey ${posterName}, <strong style="color:#f4f4f5;">@${builderUsername}</strong> has submitted deliverables for <strong style="color:#f4f4f5;">${postingTitle}</strong>.</p>
             <div style="background:#1c1400;border:1px solid #f59e0b;border-radius:12px;padding:16px;margin-bottom:24px;">
-                <p style="color:#fbbf24;font-size:14px;margin:0;">⏱ Review within 7 days or funds will auto-release to the builder.</p>
+                <p style="color:#fbbf24;font-size:14px;margin:0;">Review within 7 days or funds will auto-release to the builder.</p>
             </div>
             <a href="${BASE_URL}" style="display:block;background:#fff;color:#000;text-align:center;padding:14px;border-radius:12px;font-weight:600;text-decoration:none;margin-bottom:24px;">Review Submission →</a>
             <p style="color:#52525b;font-size:12px;text-align:center;">NQVate · <a href="${BASE_URL}" style="color:#22d3ee;">nqvate.com</a></p>
@@ -174,13 +174,13 @@ const templates = {
 
     // Submission approved
     submission_approved: ({ builderName, postingTitle, compensation }) => ({
-        subject: `Your work was approved — funds released! 💸`,
+        subject: `Your work was approved — funds released.`,
         html: `
         <div style="font-family:sans-serif;max-width:600px;margin:0 auto;background:#09090b;color:#f4f4f5;padding:32px;border-radius:16px;">
             <div style="text-align:center;margin-bottom:32px;">
                 <div style="background:linear-gradient(135deg,#22d3ee,#8b5cf6);width:56px;height:56px;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;color:#000;">NQV8</div>
             </div>
-            <h1 style="font-size:24px;font-weight:700;margin-bottom:8px;">Work approved! 💸</h1>
+            <h1 style="font-size:24px;font-weight:700;margin-bottom:8px;">Work approved.</h1>
             <p style="color:#a1a1aa;margin-bottom:24px;">Hey ${builderName}, your submission for <strong style="color:#f4f4f5;">${postingTitle}</strong> was approved and funds have been released from escrow.</p>
             <div style="background:#18181b;border:1px solid #3f3f46;border-radius:12px;padding:20px;margin-bottom:24px;">
                 <p style="color:#a1a1aa;font-size:12px;margin:0 0 4px;">Amount Released</p>
@@ -200,7 +200,7 @@ const templates = {
             <div style="text-align:center;margin-bottom:32px;">
                 <div style="background:linear-gradient(135deg,#22d3ee,#8b5cf6);width:56px;height:56px;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;color:#000;">NQV8</div>
             </div>
-            <h1 style="font-size:24px;font-weight:700;margin-bottom:8px;">Changes requested 🔁</h1>
+            <h1 style="font-size:24px;font-weight:700;margin-bottom:8px;">Changes requested</h1>
             <p style="color:#a1a1aa;margin-bottom:24px;">Hey ${builderName}, <strong style="color:#f4f4f5;">@${posterUsername}</strong> has requested changes on <strong style="color:#f4f4f5;">${postingTitle}</strong>.</p>
             <div style="background:#18181b;border:1px solid #3f3f46;border-radius:12px;padding:20px;margin-bottom:24px;">
                 <p style="color:#a1a1aa;font-size:12px;margin:0 0 8px;">Feedback</p>
@@ -219,7 +219,7 @@ const templates = {
             <div style="text-align:center;margin-bottom:32px;">
                 <div style="background:linear-gradient(135deg,#22d3ee,#8b5cf6);width:56px;height:56px;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;color:#000;">NQV8</div>
             </div>
-            <h1 style="font-size:24px;font-weight:700;margin-bottom:8px;">Dispute resolved ⚖️</h1>
+            <h1 style="font-size:24px;font-weight:700;margin-bottom:8px;">Dispute resolved</h1>
             <p style="color:#a1a1aa;margin-bottom:24px;">Hey ${recipientName}, Claude AI has reviewed the dispute for <strong style="color:#f4f4f5;">${postingTitle}</strong> and issued a ruling.</p>
             <div style="background:#18181b;border:1px solid #3f3f46;border-radius:12px;padding:20px;margin-bottom:24px;">
                 <p style="color:#a1a1aa;font-size:12px;margin:0 0 4px;">Your Share</p>
@@ -241,7 +241,7 @@ const templates = {
             <div style="text-align:center;margin-bottom:32px;">
                 <div style="background:linear-gradient(135deg,#22d3ee,#8b5cf6);width:56px;height:56px;border-radius:14px;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:18px;color:#000;">NQV8</div>
             </div>
-            <h1 style="font-size:24px;font-weight:700;margin-bottom:8px;">New bounty matches your skills 🎯</h1>
+            <h1 style="font-size:24px;font-weight:700;margin-bottom:8px;">New bounty matches your skills</h1>
             <p style="color:#a1a1aa;margin-bottom:24px;">Hey ${recipientName}, a new bounty was posted that matches your skills.</p>
             <div style="background:#18181b;border:1px solid #3f3f46;border-radius:12px;padding:20px;margin-bottom:16px;">
                 <p style="font-weight:600;font-size:16px;margin:0 0 8px;">${postingTitle}</p>
@@ -261,7 +261,7 @@ const templates = {
     dispute_filed: ({ recipientName, filerUsername, postingTitle, reason }) => ({
         subject: `A dispute was opened on "${postingTitle}"`,
         html: card({
-            heading: 'A dispute was opened ⚖️',
+            heading: 'A dispute was opened',
             intro: `Hey ${recipientName || 'there'}, <strong style="color:#f4f4f5;">@${filerUsername}</strong> has opened a dispute on <strong style="color:#f4f4f5;">${postingTitle}</strong>. The posting is frozen while Claude reviews the evidence and issues a ruling.`,
             rows: reason ? [['Their reason', reason]] : [],
             ctaLabel: 'View the dispute'
@@ -272,7 +272,7 @@ const templates = {
     team_added: ({ recipientName, ownerUsername, companyName }) => ({
         subject: `You were added to the ${companyName} team`,
         html: card({
-            heading: 'You joined a team 👥',
+            heading: 'You joined a team',
             intro: `Hey ${recipientName || 'there'}, <strong style="color:#f4f4f5;">@${ownerUsername}</strong> added you to the team for <strong style="color:#f4f4f5;">${companyName}</strong>. You can now work on its plan in Studio and post bounties for it.`,
             ctaLabel: 'Open Studio'
         })
@@ -282,7 +282,7 @@ const templates = {
     listing_alert: ({ recipientName, alertName, postingTitle, compensation, category, posterUsername }) => ({
         subject: `New listing for your alert "${alertName}": ${postingTitle}`,
         html: card({
-            heading: 'A listing matches your alert 🔔',
+            heading: 'A listing matches your alert',
             intro: `Hey ${recipientName || 'there'}, <strong style="color:#f4f4f5;">@${posterUsername}</strong> just posted something that fits your alert <strong style="color:#f4f4f5;">${alertName}</strong>.`,
             rows: [['Listing', postingTitle], ['Compensation', compensation || 'See listing'], ['Category', category || 'General']],
             ctaLabel: 'View the listing'
@@ -418,7 +418,7 @@ export async function opsAlert(source, detail, context = {}) {
             .map(([k, v]) => `<tr><td style="padding:4px 12px 4px 0;color:#71717a;">${escapeHtml(k)}</td><td style="padding:4px 0;">${escapeHtml(String(v).slice(0, 200))}</td></tr>`).join('');
         const out = await sendRaw({
             to: OPS_ALERT_EMAIL,
-            subject: `🚨 NQVate: Operations wallet could not pay gas — ${slot} failed`,
+            subject: `NQVate: Operations wallet could not pay gas — ${slot} failed`,
             html: `<div style="font-family:system-ui,sans-serif;font-size:14px;line-height:1.5;color:#18181b;">
                 <p><strong>${escapeHtml(slot)}</strong> failed because the Operations wallet could not pay for the transaction. It is most likely low on ETH.</p>
                 <p>Top up on Arbitrum One:<br><code>${OPS_WALLET}</code></p>

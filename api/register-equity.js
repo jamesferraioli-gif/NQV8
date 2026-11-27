@@ -60,7 +60,7 @@ export default async function handler(req, res) {
         // Check if already registered
         const existing = await equityContract.companies(companyIdBytes).catch(() => null);
         if (existing && existing.registered) {
-            console.log(`⚠️ Company ${projectId} already registered on V4`);
+            console.log(`Company ${projectId} already registered on V4`);
             return res.status(200).json({
                 success: true,
                 alreadyRegistered: true,
@@ -73,7 +73,7 @@ export default async function handler(req, res) {
         const tx      = await equityContract.registerCompany(companyIdBytes, founderWallet, await gasOverrides(provider));
         const receipt = await tx.wait();
 
-        console.log(`✅ Company registered on V4: ${projectId} → ${founderWallet}`);
+        console.log(`Company registered on V4: ${projectId} → ${founderWallet}`);
         console.log(`   Tx: ${receipt.transactionHash}`);
 
         // Index founder as 100% holder for cap table

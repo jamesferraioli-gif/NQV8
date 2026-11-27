@@ -67,7 +67,7 @@ export default async function handler(req, res) {
         const tx = await equity.completeReservation(companyIdBytes, bountyIdBytes, PLATFORM_WALLET, feeBps, await gasOverrides(provider));
         await tx.wait();
 
-        console.log(`✅ Completed reservation for bounty ${bountyId}`);
+        console.log(`Completed reservation for bounty ${bountyId}`);
         console.log(`   Worker: ${workerUnits} units, Platform: ${platformUnits} units`);
         console.log(`   Tx: ${tx.hash}`);
 

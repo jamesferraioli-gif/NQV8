@@ -62,7 +62,7 @@ export default async function handler(req, res) {
         const tx = await equity.reserveEquity(companyIdBytes, bountyIdBytes, beneficiaryWallet, equityUnits, await gasOverrides(provider));
         await tx.wait();
 
-        console.log(`✅ Reserved ${equityUnits} units for bounty ${bountyId} → ${beneficiaryWallet}`);
+        console.log(`Reserved ${equityUnits} units for bounty ${bountyId} → ${beneficiaryWallet}`);
         console.log(`   Tx: ${tx.hash}`);
 
         return res.status(200).json({ success: true, txHash: tx.hash, equityUnits });

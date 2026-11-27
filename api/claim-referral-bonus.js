@@ -114,7 +114,7 @@ export default async function handler(req, res) {
             claimedAt:        new Date()
         });
 
-        console.log(`✅ Referral bonus: ${totalBonus} NQV8 sent to ${user.walletAddress} for ${uid}. Tx: ${tx.hash}`);
+        console.log(`Referral bonus: ${totalBonus} NQV8 sent to ${user.walletAddress} for ${uid}. Tx: ${tx.hash}`);
 
         return res.json({
             success:          true,

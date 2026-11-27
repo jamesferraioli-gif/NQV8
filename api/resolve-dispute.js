@@ -265,13 +265,13 @@ Rule on this dispute. Respond with the JSON object only.`;
         }
         ruling.injectionAttempt = ruling.injectionAttempt === true;
         if (ruling.injectionAttempt) {
-            console.warn(`🚨 ${projectId}: arbitration reported a prompt-injection attempt in the evidence`);
+            console.warn(` ${projectId}: arbitration reported a prompt-injection attempt in the evidence`);
         }
         ruling.keyFindings  = Array.isArray(ruling.keyFindings)  ? ruling.keyFindings  : [];
         ruling.warningFlags = Array.isArray(ruling.warningFlags) ? ruling.warningFlags : [];
         ruling.confidence   = ruling.confidence || 'unknown';
 
-        console.log(`⚖️ Claude ruling for ${projectId}: ${ruling.workerPct}% worker / ${ruling.posterPct}% poster`);
+        console.log(`Claude ruling for ${projectId}: ${ruling.workerPct}% worker / ${ruling.posterPct}% poster`);
 
         await db.collection('subprojects').doc(projectId).update({
             claudeRuling:       ruling.ruling,
@@ -300,14 +300,14 @@ Rule on this dispute. Respond with the JSON object only.`;
             const reservation    = await equityContract.reservations(companyIdBytes, bountyIdBytes);
 
             if (!reservation.active) {
-                console.warn(`⚠️ ${projectId}: equity reservation not active — skipping equity leg`);
+                console.warn(` ${projectId}: equity reservation not active — skipping equity leg`);
             } else {
                 const eqTx = workerWins
                     ? await equityContract.completeReservation(companyIdBytes, bountyIdBytes, PLATFORM_WALLET, PLATFORM_FEE_BPS, await gasOverrides(provider))
                     : await equityContract.releaseReservation(companyIdBytes, bountyIdBytes, await gasOverrides(provider));
                 await eqTx.wait();
                 equityTxHash = eqTx.hash;
-                console.log(`✅ Equity leg resolved (${workerWins ? 'transferred to builder' : 'released to founder'}). Tx: ${eqTx.hash}`);
+                console.log(`Equity leg resolved (${workerWins ? 'transferred to builder' : 'released to founder'}). Tx: ${eqTx.hash}`);
             }
         }
 
@@ -318,7 +318,7 @@ Rule on this dispute. Respond with the JSON object only.`;
 
             if (escrowId === ZERO_BYTES32) {
                 if (!hasEquity) throw new Error('No escrow found for this project');
-                console.warn(`⚠️ ${projectId}: no USDC escrow found — equity leg only`);
+                console.warn(` ${projectId}: no USDC escrow found — equity leg only`);
             } else {
                 const escTx = await escrowContract.resolveDispute(
                     escrowId,
@@ -330,7 +330,7 @@ Rule on this dispute. Respond with the JSON object only.`;
                 );
                 await escTx.wait();
                 escrowTxHash = escTx.hash;
-                console.log(`✅ USDC leg resolved. Tx: ${escTx.hash}`);
+                console.log(`USDC leg resolved. Tx: ${escTx.hash}`);
 
                 // Whatever fee the ruling produced landed in Operations. Move
                 // it into the rewards pool, credited to the poster and the
@@ -360,7 +360,7 @@ Rule on this dispute. Respond with the JSON object only.`;
             slashBps,
             reason:     `Dispute ruling ${ruling.workerPct}/${ruling.posterPct}`
         });
-        console.log(`🔗 bond outcome for ${projectId}:`, JSON.stringify(bondResult));
+        console.log(`bond outcome for ${projectId}:`, JSON.stringify(bondResult));
 
         await db.collection('subprojects').doc(projectId).update({
             status:              'completed',
@@ -399,8 +399,8 @@ Rule on this dispute. Respond with the JSON object only.`;
                 ? ` Your bid bond was returned in full.`
                 : '';
 
-        const workerMsg = `⚖️ Dispute resolved on "${project.title}". Outcome: ${outcome}. Ruling: ${ruling.ruling}${bondMsg}`;
-        const posterMsg = `⚖️ Dispute resolved on "${project.title}". Outcome: ${outcome}. Ruling: ${ruling.ruling}`;
+        const workerMsg = `Dispute resolved on "${project.title}". Outcome: ${outcome}. Ruling: ${ruling.ruling}${bondMsg}`;
+        const posterMsg = `Dispute resolved on "${project.title}". Outcome: ${outcome}. Ruling: ${ruling.ruling}`;
 
         const batch = db.batch();
         batch.set(db.collection('notifications').doc(), {

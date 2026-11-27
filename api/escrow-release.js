@@ -51,13 +51,13 @@ export default async function handler(req, res) {
             return res.status(400).json({ error: 'No escrow found for this project' });
         }
 
-        console.log(`💰 Releasing escrow for project ${projectId}`);
+        console.log(`Releasing escrow for project ${projectId}`);
 
         // Release escrow — contract splits 96.5% to worker, 3.5% to platform
         const tx = await escrowContract.adminRelease(escrowId, await gasOverrides(provider));
         await tx.wait();
 
-        console.log(`✅ Escrow released. Tx: ${tx.hash}`);
+        console.log(`Escrow released. Tx: ${tx.hash}`);
 
         // The 3.5% fee landed in Operations. Move it into the rewards pool,
         // credited to the poster and the worker. The release has happened

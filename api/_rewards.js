@@ -199,7 +199,7 @@ export async function forwardEscrowFee({ db, txHash, subprojectId = null, reques
         }).catch(e => console.warn('forwardEscrowFee: could not mark deposited:', e.message));
 
         const feeUSDC = Number(ethers.utils.formatUnits(fee, 6));
-        console.log(`✅ Deposited $${feeUSDC.toFixed(4)} USDC into rewards pool (${kind}) | payout ${txHash} | deposit ${paid.txHash} | subproject ${subprojectId || '-'}`);
+        console.log(`Deposited $${feeUSDC.toFixed(4)} USDC into rewards pool (${kind}) | payout ${txHash} | deposit ${paid.txHash} | subproject ${subprojectId || '-'}`);
         return { status: 'deposited', platformFeeUSDC: feeUSDC, depositTxHash: paid.txHash, escrowTxHash: txHash, credited: paid.credited };
 
     } catch (e) {

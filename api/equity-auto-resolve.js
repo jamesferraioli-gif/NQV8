@@ -48,7 +48,7 @@ export default async function handler(req, res) {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - AUTO_RELEASE_DAYS);
 
-    console.log(`🕐 equity-auto-resolve: checking for stale equity bounties submitted before ${cutoff.toISOString()}`);
+    console.log(`equity-auto-resolve: checking for stale equity bounties submitted before ${cutoff.toISOString()}`);
 
     try {
         const snap = await db.collection('subprojects')
@@ -88,7 +88,7 @@ export default async function handler(req, res) {
                 const reservation    = await equityContract.reservations(companyIdBytes, bountyIdBytes);
 
                 if (!reservation.active) {
-                    console.log(`⚠️ ${projectId}: reservation not active, skipping`);
+                    console.log(` ${projectId}: reservation not active, skipping`);
                     continue;
                 }
 
@@ -96,7 +96,7 @@ export default async function handler(req, res) {
                 const workerUnits   = Math.round(equityUnits * (10000 - PLATFORM_FEE_BPS) / 10000);
                 const platformUnits = equityUnits - workerUnits;
 
-                console.log(`🔓 Auto-releasing equity for ${projectId}: ${equityUnits} units → builder`);
+                console.log(`Auto-releasing equity for ${projectId}: ${equityUnits} units → builder`);
 
                 const tx = await equityContract.completeReservation(
                     companyIdBytes,
@@ -107,7 +107,7 @@ export default async function handler(req, res) {
                 );
                 await tx.wait();
 
-                console.log(`✅ Auto-released ${projectId}. Tx: ${tx.hash}`);
+                console.log(`Auto-released ${projectId}. Tx: ${tx.hash}`);
 
                 // Update Firestore
                 await db.collection('subprojects').doc(projectId).update({
@@ -158,7 +158,7 @@ export default async function handler(req, res) {
                 await db.collection('notifications').add({
                     recipientUid: project.acceptedBidderUid,
                     type: 'auto_release',
-                    message: `✅ Equity auto-released for "${project.title}". The founder did not respond within ${AUTO_RELEASE_DAYS} days. ${workerUnits / 100}% transferred to your wallet. Tx: https://arbiscan.io/tx/${tx.hash}`,
+                    message: `Equity auto-released for "${project.title}". The founder did not respond within ${AUTO_RELEASE_DAYS} days. ${workerUnits / 100}% transferred to your wallet. Tx: https://arbiscan.io/tx/${tx.hash}`,
                     projectId,
                     read: false,
                     createdAt: new Date()
@@ -167,7 +167,7 @@ export default async function handler(req, res) {
                 await db.collection('notifications').add({
                     recipientUid: project.ownerUid || project.posterUid,
                     type: 'auto_release',
-                    message: `⚠️ Equity auto-released for "${project.title}". You did not review the submission within ${AUTO_RELEASE_DAYS} days. ${workerUnits / 100}% equity transferred to the builder per NQVate policy.`,
+                    message: `Equity auto-released for "${project.title}". You did not review the submission within ${AUTO_RELEASE_DAYS} days. ${workerUnits / 100}% equity transferred to the builder per NQVate policy.`,
                     projectId,
                     read: false,
                     createdAt: new Date()
@@ -179,7 +179,7 @@ export default async function handler(req, res) {
                 if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') ||
                     e.message.includes('gas required exceeds allowance') ||
                     e.message.includes('insufficient funds')) {
-                    console.error(`⚠️ PLATFORM GAS LOW — top up Operations wallet. Failed to auto-release ${projectId}:`, e.message);
+                    console.error(`PLATFORM GAS LOW — top up Operations wallet. Failed to auto-release ${projectId}:`, e.message);
                 } else {
                     console.error(`Failed to auto-release ${projectId}:`, e.message);
                 }
@@ -187,14 +187,14 @@ export default async function handler(req, res) {
             }
         }
 
-        console.log(`✅ equity-auto-resolve complete. Processed ${results.length} projects.`);
+        console.log(`equity-auto-resolve complete. Processed ${results.length} projects.`);
         return res.json({ success: true, processed: results.length, results });
 
     } catch(e) {
         if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') ||
             e.message.includes('gas required exceeds allowance') ||
             e.message.includes('insufficient funds')) {
-            console.error('⚠️ PLATFORM GAS LOW — top up Operations wallet:', e.message);
+            console.error('PLATFORM GAS LOW — top up Operations wallet:', e.message);
         } else {
             console.error('equity-auto-resolve fatal error:', e.message);
         }

@@ -121,7 +121,7 @@ export default async function handler(req, res) {
             }
         }
 
-        if (actions.length) console.log(`🧹 ai-job-sweep: ${JSON.stringify(actions)}`);
+        if (actions.length) console.log(`ai-job-sweep: ${JSON.stringify(actions)}`);
         return res.status(200).json({ success: true, processed: actions.length, actions });
 
     } catch (e) {

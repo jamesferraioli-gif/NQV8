@@ -113,7 +113,7 @@ export default async function handler(req, res) {
                 if (how.alert) {
                     await store.collection('notifications').add({
                         recipientUid: uid, type: 'listing_alert', read: false, projectId: id,
-                        message: `🔔 New listing for your alert "${how.alert}": ${title}`, createdAt: new Date()
+                        message: `New listing for your alert "${how.alert}": ${title}`, createdAt: new Date()
                     }).catch(() => {});
                 }
                 if (!how.email) return;

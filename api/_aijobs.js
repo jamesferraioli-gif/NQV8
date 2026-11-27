@@ -174,7 +174,7 @@ export async function refundJob(jobId) {
             status: 'refunded', refundTxHash: tx.hash,
             refundedAt: new Date(), refundPending: false
         });
-        console.log(`💸 Refunded ${claimed.amount} NQV8 to ${claimed.wallet} for failed ${claimed.kind} (${tx.hash})`);
+        console.log(`Refunded ${claimed.amount} NQV8 to ${claimed.wallet} for failed ${claimed.kind} (${tx.hash})`);
         return tx.hash;
     } catch (e) {
         // Leave the job failed-and-unrefunded so the next sweep retries the

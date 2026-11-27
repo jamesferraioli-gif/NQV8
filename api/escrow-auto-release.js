@@ -40,7 +40,7 @@ export default async function handler(req, res) {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - AUTO_RELEASE_DAYS);
 
-    console.log(`🕐 escrow-auto-release: checking for stale USDC submissions before ${cutoff.toISOString()}`);
+    console.log(`escrow-auto-release: checking for stale USDC submissions before ${cutoff.toISOString()}`);
 
     try {
         const snap = await db.collection('subprojects')
@@ -78,15 +78,15 @@ export default async function handler(req, res) {
                 const escrowId   = await escrowContract.projectToEscrow(projectKey);
 
                 if (escrowId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
-                    console.log(`⚠️ ${projectId}: no escrow found, skipping`);
+                    console.log(` ${projectId}: no escrow found, skipping`);
                     continue;
                 }
 
-                console.log(`🔓 Auto-releasing USDC escrow for ${projectId}`);
+                console.log(`Auto-releasing USDC escrow for ${projectId}`);
                 const tx = await escrowContract.adminRelease(escrowId, await gasOverrides(provider));
                 await tx.wait();
 
-                console.log(`✅ Auto-released ${projectId}. Tx: ${tx.hash}`);
+                console.log(`Auto-released ${projectId}. Tx: ${tx.hash}`);
 
                 // The 3.5% fee landed in Operations. Move it into the rewards
                 // pool, credited to the poster and the worker — an automatic
@@ -110,7 +110,7 @@ export default async function handler(req, res) {
                 await notifyAndMail(db, {
                     recipientUid: project.acceptedBidderUid,
                     type:         'auto_release',
-                    message:      `✅ Escrow auto-released for "${project.title}". The poster did not respond within ${AUTO_RELEASE_DAYS} days. Funds sent to your wallet. Tx: https://arbiscan.io/tx/${tx.hash}`,
+                    message:      `Escrow auto-released for "${project.title}". The poster did not respond within ${AUTO_RELEASE_DAYS} days. Funds sent to your wallet. Tx: https://arbiscan.io/tx/${tx.hash}`,
                     projectId,
                     read:         false,
                     createdAt:    new Date()
@@ -119,7 +119,7 @@ export default async function handler(req, res) {
                 await notifyAndMail(db, {
                     recipientUid: project.ownerUid || project.posterUid,
                     type:         'auto_release',
-                    message:      `⚠️ Escrow auto-released for "${project.title}". You did not review the submission within ${AUTO_RELEASE_DAYS} days. Funds sent to the builder per NQVate policy.`,
+                    message:      `Escrow auto-released for "${project.title}". You did not review the submission within ${AUTO_RELEASE_DAYS} days. Funds sent to the builder per NQVate policy.`,
                     projectId,
                     read:         false,
                     createdAt:    new Date()
@@ -130,7 +130,7 @@ export default async function handler(req, res) {
             } catch(e) {
                 if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') ||
                     e.message.includes('insufficient funds')) {
-                    console.error(`⚠️ PLATFORM GAS LOW — top up Operations wallet. Failed: ${projectId}:`, e.message);
+                    console.error(`PLATFORM GAS LOW — top up Operations wallet. Failed: ${projectId}:`, e.message);
                 } else {
                     console.error(`Failed to auto-release ${projectId}:`, e.message);
                 }
@@ -138,7 +138,7 @@ export default async function handler(req, res) {
             }
         }
 
-        console.log(`✅ escrow-auto-release complete. Processed ${results.length} projects.`);
+        console.log(`escrow-auto-release complete. Processed ${results.length} projects.`);
         return res.json({ success: true, processed: results.length, results });
 
     } catch(e) {

@@ -32,7 +32,7 @@ export default async function handler(req, res) {
             .get();
 
         if (snap.empty) {
-            console.log('✅ error-digest: no errors in the last 24h');
+            console.log('error-digest: no errors in the last 24h');
             return res.json({ success: true, errors: 0 });
         }
 
@@ -63,7 +63,7 @@ export default async function handler(req, res) {
             rows.join('\n') +
             `\n\nFull log: Firebase Console → Firestore → errorLog`;
 
-        console.error(`🚨 error-digest: ${total} failures in 24h`);
+        console.error(`error-digest: ${total} failures in 24h`);
 
         await fetch(`${SITE}/api/send-email`, {
             method: 'POST',
@@ -73,7 +73,7 @@ export default async function handler(req, res) {
             },
             body: JSON.stringify({
                 to: ALERT_EMAIL,
-                subject: `🚨 NQVate: ${total} failures in the last 24h`,
+                subject: `NQVate: ${total} failures in the last 24h`,
                 body
             })
         }).catch(e => console.warn('Digest email failed:', e.message));
@@ -86,7 +86,7 @@ export default async function handler(req, res) {
             const batch = db.batch();
             old.forEach(d => batch.delete(d.ref));
             await batch.commit();
-            console.log(`🧹 pruned ${old.size} old error records`);
+            console.log(`pruned ${old.size} old error records`);
         }
 
         return res.json({ success: true, errors: total, groups: Object.keys(groups).length });

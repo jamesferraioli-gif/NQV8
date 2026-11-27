@@ -502,15 +502,15 @@ export function buildSnapshot(raw, now = Date.now()) {
         const owner = b.ownerUid || b.posterUid, builder = b.acceptedBidderUid;
         const co = shown.has(b.companyId) ? b.companyId : null;
         const title = '“' + clip(b.title || 'Untitled bounty', 100) + '”', forCo = co ? ' for ' + shown.get(co) : '';
-        push(secs(b.createdAt), '📋', `${uname(owner)} posted a bounty: ${title}`, [owner], [co], co ? { node: 'c:' + co } : { uid: owner });
-        if (builder) push(secs(b.acceptedAt), '🤝', `${uname(builder)} was chosen for ${title}${forCo}`, [builder, owner], [co], { uid: builder });
-        if (builder && b.status === 'completed') push(secs(b.completedAt), '✅', `${uname(builder)} completed ${title}${forCo}`, [builder, owner], [co], { uid: builder });
+        push(secs(b.createdAt), 'clipboard-list', `${uname(owner)} posted a bounty: ${title}`, [owner], [co], co ? { node: 'c:' + co } : { uid: owner });
+        if (builder) push(secs(b.acceptedAt), 'handshake', `${uname(builder)} was chosen for ${title}${forCo}`, [builder, owner], [co], { uid: builder });
+        if (builder && b.status === 'completed') push(secs(b.completedAt), 'circle-check', `${uname(builder)} completed ${title}${forCo}`, [builder, owner], [co], { uid: builder });
     });
-    planets.forEach(p => push(p.createdAt, '🚀', `${uname(p.ownerUid)} started ${p.name}`, [p.ownerUid], [p.id], { node: 'c:' + p.id }));
-    sales.forEach(l => { if (l.status === 'sold' && shown.has(l.projectId)) push(secs(l.soldAt), '📈', `A stake in ${shown.get(l.projectId)} changed hands`, [], [l.projectId], { node: 'c:' + l.projectId }); });
+    planets.forEach(p => push(p.createdAt, 'rocket', `${uname(p.ownerUid)} started ${p.name}`, [p.ownerUid], [p.id], { node: 'c:' + p.id }));
+    sales.forEach(l => { if (l.status === 'sold' && shown.has(l.projectId)) push(secs(l.soldAt), 'chart-line', `A stake in ${shown.get(l.projectId)} changed hands`, [], [l.projectId], { node: 'c:' + l.projectId }); });
     funding.forEach(f => {
         const id = f.companyId || f.projectId;
-        if (shown.has(id)) push(secs(f.completedAt) || secs(f.createdAt), '💰', `${shown.get(id)} closed a funding round`, [f.ownerUid], [id], { node: 'c:' + id });
+        if (shown.has(id)) push(secs(f.completedAt) || secs(f.createdAt), 'coins', `${shown.get(id)} closed a funding round`, [f.ownerUid], [id], { node: 'c:' + id });
     });
     events.sort((a, b) => b.t - a.t);
 

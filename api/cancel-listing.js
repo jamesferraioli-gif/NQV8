@@ -52,7 +52,7 @@ export default async function handler(req, res) {
         const tx = await equity.cancelListing(listingIdBytes, await gasOverrides(provider));
         await tx.wait();
 
-        console.log(`✅ Listing cancelled: ${listingId} | Tx: ${tx.hash}`);
+        console.log(`Listing cancelled: ${listingId} | Tx: ${tx.hash}`);
 
         return res.status(200).json({ success: true, txHash: tx.hash });
 

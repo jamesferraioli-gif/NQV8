@@ -57,7 +57,7 @@ export default async function handler(req, res) {
         const tx = await equity.releaseReservation(companyIdBytes, bountyIdBytes, await gasOverrides(provider));
         await tx.wait();
 
-        console.log(`✅ Released ${units} units for bounty ${bountyId}`);
+        console.log(`Released ${units} units for bounty ${bountyId}`);
         console.log(`   Reason: ${reason || 'Not specified'}`);
         console.log(`   Tx: ${tx.hash}`);
 

@@ -105,12 +105,12 @@ export default async function handler(req, res) {
             needsAlert:       runwayDays < ALERT_DAYS
         };
 
-        console.log('📊 Ops Wallet Report:', JSON.stringify(report, null, 2));
+        console.log('Ops Wallet Report:', JSON.stringify(report, null, 2));
 
         // ── 6. Send alert email if runway is low ──────────────────────────
         if (report.needsAlert) {
             const alertBody = `
-⚠️ NQVate Operations Wallet Low ETH Alert
+NQVate Operations Wallet Low ETH Alert
 
 Current Balance: ${report.balanceETH} ETH ($${report.balanceUSD})
 Gas Price: ${report.gasPriceGwei} Gwei
@@ -139,14 +139,14 @@ Bridge ETH to Arbitrum at: https://bridge.arbitrum.io/
                 },
                 body: JSON.stringify({
                     to: 'james.ferraioli@gmail.com',
-                    subject: `⚠️ NQVate Ops Wallet: ${report.runwayDays} days ETH remaining`,
+                    subject: `NQVate Ops Wallet: ${report.runwayDays} days ETH remaining`,
                     body: alertBody
                 })
             });
 
-            console.log(`🚨 Alert sent — ${report.runwayDays} days runway remaining`);
+            console.log(`Alert sent — ${report.runwayDays} days runway remaining`);
         } else {
-            console.log(`✅ Ops wallet healthy — ${report.runwayDays} days runway`);
+            console.log(`Ops wallet healthy — ${report.runwayDays} days runway`);
         }
 
         return res.json({ success: true, ...report });

@@ -85,14 +85,14 @@ export default async function handler(req, res) {
         try {
             const result = await spec.run(payload);
             await completeJob(jobId, result);
-            console.log(`🤖 ${job.kind} job ${jobId} done in ${Date.now() - started}ms (attempt ${job.attempts})`);
+            console.log(` ${job.kind} job ${jobId} done in ${Date.now() - started}ms (attempt ${job.attempts})`);
             return res.status(200).json({ status: 'done', result });
         } catch (e) {
             // A rate limit or an overloaded upstream deserves another attempt.
             // A malformed prompt or a bad model string does not.
             const terminal = !isRetryableAIError(e);
             await failJob(jobId, e.message, { terminal });
-            console.error(`❌ ${job.kind} job ${jobId} attempt ${job.attempts} failed (${terminal ? 'terminal' : 'will retry'}): ${e.message}`);
+            console.error(` ${job.kind} job ${jobId} attempt ${job.attempts} failed (${terminal ? 'terminal' : 'will retry'}): ${e.message}`);
             return res.status(500).json({ status: terminal ? 'failed' : 'pending', error: e.message });
         }
 

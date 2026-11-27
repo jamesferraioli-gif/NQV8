@@ -63,7 +63,7 @@ export default async function handler(req, res) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
 
-    console.log('🕐 escrow-auto-refund: checking for expired escrows...');
+    console.log('escrow-auto-refund: checking for expired escrows...');
 
     try {
         // Find in-progress USDC bounties with no accepted submission
@@ -92,7 +92,7 @@ export default async function handler(req, res) {
                 const submissions = project.submissions || [];
                 const hasUnrejected = submissions.some(s => s.status !== 'rejected');
                 if (hasUnrejected) {
-                    console.log(`⏸ ${projectId}: ${submissions.length} submission(s) not rejected — will not refund`);
+                    console.log(` ${projectId}: ${submissions.length} submission(s) not rejected — will not refund`);
                     continue;
                 }
 
@@ -100,14 +100,14 @@ export default async function handler(req, res) {
                 const projectKey = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(projectId));
                 const escrowId = await escrowContract.projectToEscrow(projectKey);
                 if (escrowId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
-                    console.log(`⚠️ ${projectId}: no escrow found, skipping`);
+                    console.log(` ${projectId}: no escrow found, skipping`);
                     continue;
                 }
 
                 // Check escrow status — only refund if still active (0=Active)
                 const escrow = await escrowContract.escrows(escrowId);
                 if (escrow.status !== 0) {
-                    console.log(`⚠️ ${projectId}: escrow status ${escrow.status}, skipping`);
+                    console.log(` ${projectId}: escrow status ${escrow.status}, skipping`);
                     continue;
                 }
 
@@ -120,18 +120,18 @@ export default async function handler(req, res) {
                 const AUTO_REFUND_GRACE = 3 * 24 * 60 * 60;
                 const refundableAt = Number(escrow.deadline) + AUTO_REFUND_GRACE;
                 if (Math.floor(Date.now() / 1000) < refundableAt) {
-                    console.log(`⏳ ${projectId}: refundable at ${new Date(refundableAt * 1000).toISOString()}`);
+                    console.log(` ${projectId}: refundable at ${new Date(refundableAt * 1000).toISOString()}`);
                     continue;
                 }
 
                 const amount = ethers.utils.formatUnits(escrow.amount, 6);
-                console.log(`💸 Auto-refunding expired escrow for ${projectId}: $${amount} USDC`);
+                console.log(`Auto-refunding expired escrow for ${projectId}: $${amount} USDC`);
 
                 // Claim refund
                 const tx = await escrowContract.adminRefund(escrowId, await gasOverrides(provider));
                 await tx.wait();
 
-                console.log(`✅ Refunded ${projectId}. Tx: ${tx.hash}`);
+                console.log(`Refunded ${projectId}. Tx: ${tx.hash}`);
 
                 // ── Engagement bond ───────────────────────────────────────
                 // Must run BEFORE the update below, which nulls acceptedBid —
@@ -153,7 +153,7 @@ export default async function handler(req, res) {
                         ? 'Deadline passed with no submission'
                         : 'Deadline passed with no accepted submission'
                 });
-                console.log(`🔗 bond outcome for ${projectId}:`, JSON.stringify(_bond));
+                console.log(`bond outcome for ${projectId}:`, JSON.stringify(_bond));
 
                 // Update Firestore
                 await db.collection('subprojects').doc(projectId).update({
@@ -186,7 +186,7 @@ export default async function handler(req, res) {
                 await notifyAndMail(db, {
                     recipientUid: project.ownerUid || project.posterUid,
                     type:         'auto_refund',
-                    message:      `💸 Your escrow for "${project.title}" was automatically refunded. The deadline passed with no accepted submission. $${amount} USDC returned to your wallet. Tx: https://arbiscan.io/tx/${tx.hash}`,
+                    message:      `Your escrow for "${project.title}" was automatically refunded. The deadline passed with no accepted submission. $${amount} USDC returned to your wallet. Tx: https://arbiscan.io/tx/${tx.hash}`,
                     projectId,
                     read:         false,
                     createdAt:    new Date()
@@ -197,7 +197,7 @@ export default async function handler(req, res) {
                     await notifyAndMail(db, {
                         recipientUid: project.acceptedBidderUid,
                         type:         'auto_refund',
-                        message:      `⚠️ The escrow for "${project.title}" was automatically refunded to the poster. The deadline passed with no accepted submission.`
+                        message:      `The escrow for "${project.title}" was automatically refunded to the poster. The deadline passed with no accepted submission.`
                                       + (_bond.action === 'slashed'
                                           ? ` Your bid bond was slashed ${(_bond.bps / 100).toFixed(0)}% — ${_bond.burned} NQV8 burned, ${_bond.returned} NQV8 returned to your stake.`
                                           : ''),
@@ -213,7 +213,7 @@ export default async function handler(req, res) {
                 if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') || 
                     e.message.includes('gas required exceeds allowance') || 
                     e.message.includes('insufficient funds')) {
-                    console.error(`⚠️ PLATFORM GAS LOW — top up Operations wallet. Failed to auto-refund ${projectId}:`, e.message);
+                    console.error(`PLATFORM GAS LOW — top up Operations wallet. Failed to auto-refund ${projectId}:`, e.message);
                 } else {
                     console.error(`Failed to auto-refund ${projectId}:`, e.message);
                 }
@@ -221,14 +221,14 @@ export default async function handler(req, res) {
             }
         }
 
-        console.log(`✅ escrow-auto-refund complete. Processed ${results.length} projects.`);
+        console.log(`escrow-auto-refund complete. Processed ${results.length} projects.`);
         return res.json({ success: true, processed: results.length, results });
 
     } catch(e) {
         if (e.message.includes('UNPREDICTABLE_GAS_LIMIT') || 
             e.message.includes('gas required exceeds allowance') || 
             e.message.includes('insufficient funds')) {
-            console.error('⚠️ PLATFORM GAS LOW — top up Operations wallet:', e.message);
+            console.error('PLATFORM GAS LOW — top up Operations wallet:', e.message);
         } else {
             console.error('escrow-auto-refund fatal error:', e.message);
         }

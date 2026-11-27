@@ -172,7 +172,7 @@ export default async function handler(req, res) {
         result.confidence        = result.confidence || 'low';
 
         if (result.contentFlagged) {
-            console.error('🚨 CONTENT FLAGGED by Claude', {
+            console.error('CONTENT FLAGGED by Claude', {
                 projectTitle,
                 reason: result.contentFlagReason,
                 attachmentNames: attachments.map(a => a.name),
@@ -247,7 +247,7 @@ async function runVirusScanInBackground(projectId, submissionIndex, attachments)
             await projectRef.update({ submissions });
 
             if (status === 'flagged') {
-                console.error('🚨 VIRUSTOTAL FLAGGED', {
+                console.error('VIRUSTOTAL FLAGGED', {
                     projectId,
                     flaggedFiles: malicious.map(r => `${r.name} (${r.malicious} engines)`).join(', '),
                     timestamp: new Date().toISOString()
