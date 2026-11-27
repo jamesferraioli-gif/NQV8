@@ -162,7 +162,7 @@
 
     <!-- NAVBAR (unchanged) -->
 <nav class="bg-black border-b border-zinc-800 sticky top-0 z-50">
-        <div class="max-w-6xl 2xl:max-w-7xl mx-auto px-6 py-4">
+        <div class="max-w-6xl xl:max-w-7xl mx-auto px-6 py-4">
             <div class="flex items-center gap-4">
 
                 <!-- LEFT: Logo -->
@@ -173,12 +173,12 @@
                     <div>
                         <span class="block text-lg md:text-xl font-semibold tracking-tight leading-tight">NQVate</span>
                         <p class="text-[11px] md:text-xs text-zinc-400 leading-tight">Innovate. Incubate. Incuvate.</p>
-                        <p class="hidden 2xl:block text-[11px] text-zinc-500 leading-tight">The operating system for Founders, Builders, Investors &amp; Ideas</p>
+                        <p class="nq-tagline hidden xl:block text-[11px] text-zinc-500 leading-tight">The operating system for Founders, Builders, Investors &amp; Ideas</p>
                     </div>
                 </div>
 
                 <!-- CENTER: Navigation -->
-                <div class="nq-nav hidden md:flex flex-1 justify-center items-center gap-4 lg:gap-6 text-sm font-medium">
+                <div class="nq-nav hidden md:flex flex-1 justify-center items-center gap-4 lg:gap-5 text-sm font-medium">
                     <a onclick="navigateTo('ecosystem')" class="hover:text-cyan-400 cursor-pointer whitespace-nowrap">NQVerse</a>
                     <a onclick="navigateTo('marketplace')" class="hover:text-cyan-400 cursor-pointer whitespace-nowrap">Marketplace</a>
                     <a onclick="navigateTo('tokenomics')" class="hover:text-cyan-400 cursor-pointer whitespace-nowrap">
@@ -228,6 +228,7 @@
                                 <p class="font-semibold" id="dropdown-name">User</p>
                                 <p class="text-xs text-zinc-500" id="dropdown-username"></p>
                             </div>
+                            <button onclick="toggleProfileMenu(); showAudienceSwitcher()" class="w-full text-left px-6 py-3 hover:bg-zinc-800 flex items-center gap-3"><i class="fa-solid fa-eye" aria-hidden="true"></i> <span>Viewing as <span class="nq-audience-name font-semibold">Professional</span></span></button>
                             <button data-requires-auth onclick="toggleProfileMenu(); viewProfile()" class="w-full text-left px-6 py-3 hover:bg-zinc-800 flex items-center gap-3"><i class="fa-solid fa-user" aria-hidden="true"></i> View Profile</button>
                             <button data-requires-auth onclick="toggleProfileMenu(); showSupportModal()" class="w-full text-left px-6 py-3 hover:bg-zinc-800 flex items-center gap-3"><i class="fa-solid fa-ticket" aria-hidden="true"></i> Submit Support Ticket</button>
                             <button id="dropdown-wallet-btn" onclick="toggleProfileMenu(); connectedAddress ? disconnectWallet() : connectWallet()" class="w-full text-left px-6 py-3 text-amber-400 hover:bg-zinc-800 flex items-center gap-3">
@@ -268,12 +269,13 @@
     <a onclick="navigateTo('about'); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer"><i class="fa-solid fa-circle-info" aria-hidden="true"></i> About</a>
     <a onclick="viewProfile(); closeMobileMenu()" class="block py-2 hover:text-cyan-400 cursor-pointer"><i class="fa-solid fa-user" aria-hidden="true"></i> My Profile</a>
     <a onclick="closeMobileMenu(); showSupportModal()" class="block py-2 hover:text-cyan-400 cursor-pointer"><i class="fa-solid fa-ticket" aria-hidden="true"></i> Support</a>
+    <a onclick="closeMobileMenu(); showAudienceSwitcher()" class="block py-2 hover:text-cyan-400 cursor-pointer"><i class="fa-solid fa-eye" aria-hidden="true"></i> Viewing as <span class="nq-audience-name font-semibold">Professional</span></a>
     <a onclick="logout()" class="block py-2 text-red-400 cursor-pointer">Logout</a>
 </div>
 
     <!-- UNIVERSAL AD BANNER — shown on every page -->
     <div class="max-w-6xl mx-auto pt-4 px-4 md:px-6">
-        <p class="md:hidden text-xs text-cyan-400 font-medium tracking-wide uppercase mb-3">THE OPERATING SYSTEM FOR FOUNDERS, BUILDERS, INVESTORS &amp; IDEAS</p>
+        <p class="nq-tagline md:hidden text-xs text-cyan-400 font-medium mb-3">The operating system for Founders, Builders, Investors &amp; Ideas</p>
         <div id="ad-banner-global"></div>
     </div>
 
@@ -1122,6 +1124,16 @@
 <!-- WELCOME MODAL -->
     <div id="welcome-modal" class="hidden fixed inset-0 bg-black/95 flex items-center justify-center z-[99999] overflow-hidden p-4">
         <div class="bg-zinc-900 w-full max-w-2xl mx-4 rounded-3xl p-6 md:p-8 my-auto flex flex-col max-h-[95vh]">
+            <!-- Step 1: who are you here as? -->
+            <div id="welcome-choose" class="hidden">
+                <h2 class="text-3xl font-bold mb-2 text-center">Welcome to NQVate</h2>
+                <p class="text-zinc-300 text-center mb-6">What brings you here? We will show you the introduction that fits. You can change this at any time, and every feature is open to everyone.</p>
+                <div id="welcome-choices" class="space-y-3"></div>
+                <button onclick="audienceLater()" class="mt-4 w-full text-sm text-zinc-400 hover:text-white underline">Not now</button>
+            </div>
+
+            <!-- Step 2: the introduction for that choice -->
+            <div id="welcome-intro" class="flex flex-col min-h-0">
             <h2 class="text-3xl font-bold mb-6 text-center">Welcome to NQVate</h2>
 
             <!-- Bonus callout -->
@@ -1157,6 +1169,8 @@
                     class="mt-8 w-full py-5 bg-white text-black font-semibold rounded-3xl text-lg hover:bg-cyan-400 transition-colors">
                 Got it, let's build.
             </button>
+            <button onclick="pauseIntroVideos(); audienceWelcomeStep('choose')" class="mt-3 w-full text-sm text-zinc-400 hover:text-white underline">This is not the right introduction for me</button>
+            </div><!-- /welcome-intro -->
         </div>
     </div>
     
@@ -7643,6 +7657,7 @@ async function createProfile() {
             navigateTo('ecosystem');      // the NQVerse is home
             updateProfileUI();
             communityOnLogin();
+            audienceOnLogin();
             
             // Show welcome popup every time you login
             // setTimeout(showWelcomeModal, 800);
@@ -12055,10 +12070,7 @@ async function viewUserProfile(uid) {
         };
 
         function showWelcomeModal() {
-            if (localStorage.getItem('nqvate_welcomed')) return;
-            const modal = document.getElementById('welcome-modal');
-            if (modal) modal.classList.remove('hidden');
-            switchWelcomeTab('overview');
+            audienceWelcome();          // asks for a profile first if none is chosen
         }
 
         function closeWelcomeModal() {
@@ -24047,6 +24059,184 @@ function deckInputsRead() {
 // bg-zinc-500/10 border-zinc-500/20 text-zinc-300 bg-violet-500/10 border-violet-500/20 text-violet-300 bg-red-500/10 border-red-500/20 text-red-300
 // md:grid-cols-1 md:grid-cols-2 md:grid-cols-3 md:grid-cols-4
 
+// ====================== SITE PROFILES ======================
+// The same site for everyone, introduced three ways: to students, to
+// professionals and to investors. A profile changes the tagline, the About
+// introduction, the welcome and the intro video. It changes no feature and no
+// permission, and anyone can switch at any time.
+//
+//   nqvate.com/student · /professional · /investor   open on that profile
+//   localStorage 'nqvAudience'                        remembers the choice
+//   users/{uid}.audience                              carries it across devices
+//
+// To change the wording: the three blocks marked data-audience in the About
+// page, and the short lines here.
+const NQV_AUDIENCES = {
+    student: {
+        label: 'Student', pick: 'Student or recent graduate',
+        blurb: 'Get real experience, get paid, and build a portfolio an employer can check.',
+        tagline: 'Real work, real pay and a portfolio that proves it',
+        title: 'NQVate for students — real experience, real pay, a verifiable portfolio',
+        video: '/public/nqvate-intro-student.mp4', poster: '/public/nqvate-intro-student-poster.jpg'
+    },
+    professional: {
+        label: 'Professional', pick: 'Founder or professional',
+        blurb: 'Build a company, hire builders, or take on paid work alongside your job.',
+        tagline: 'The operating system for Founders, Builders, Investors & Ideas',
+        title: 'NQVate — Innovate. Incubate. Incuvate.',
+        video: '/public/nqvate-intro.mp4', poster: '/public/nqvate-intro-poster.jpg'
+    },
+    investor: {
+        label: 'Investor', pick: 'Investor',
+        blurb: 'Find early-stage companies and see their verified work, metrics and ownership.',
+        tagline: 'See what founders have built before you back them',
+        title: 'NQVate for investors — early-stage companies, with the evidence attached',
+        video: '/public/nqvate-intro-investor.mp4', poster: '/public/nqvate-intro-investor-poster.jpg'
+    }
+};
+const NQV_AUDIENCE_DEFAULT = 'professional';
+let nqvAudience = null;          // null until someone or something has chosen
+
+/// The profile a web address asks for: /student, /students, /investor …
+function audienceFromPath(path) {
+    const m = /^\/(student|professional|investor)s?\/?$/i.exec(path || '');
+    return m ? m[1].toLowerCase() : null;
+}
+function audienceNow() { return NQV_AUDIENCES[nqvAudience] ? nqvAudience : NQV_AUDIENCE_DEFAULT; }
+
+/// Draw everything that depends on the profile.
+function audienceApply() {
+    const key = audienceNow(), a = NQV_AUDIENCES[key];
+    document.querySelectorAll('.nq-tagline').forEach(el => { el.textContent = a.tagline; });
+    document.querySelectorAll('[data-audience]').forEach(el => el.classList.toggle('hidden', el.dataset.audience !== key));
+    document.querySelectorAll('[data-audience-pick]').forEach(b => {
+        const on = b.dataset.audiencePick === key;
+        b.setAttribute('aria-pressed', on ? 'true' : 'false');
+        b.classList.toggle('bg-white', on); b.classList.toggle('text-black', on);
+        b.classList.toggle('bg-zinc-800', !on); b.classList.toggle('text-zinc-200', !on);
+    });
+    document.querySelectorAll('.nq-audience-name').forEach(el => { el.textContent = a.label; });
+    document.title = a.title;
+    const meta = document.querySelector('meta[name="description"]'); if (meta) meta.setAttribute('content', a.tagline);
+    audienceVideos();
+}
+/// Point the intro video at this profile's film. If that film has not been
+/// uploaded yet, the general one plays instead.
+function audienceVideos() {
+    const a = NQV_AUDIENCES[audienceNow()], base = NQV_AUDIENCES[NQV_AUDIENCE_DEFAULT];
+    let changed = false;
+    document.querySelectorAll('video.nqv-intro-video').forEach(v => {
+        if (v._audienceSrc === a.video) return;          // a property, so a copied video is set up afresh
+        v._audienceSrc = a.video; changed = true;
+        try { v.pause(); } catch (e) {}
+        v.querySelectorAll('source').forEach(s => s.remove());
+        v.onerror = () => { if (v.getAttribute('src') !== base.video) { v.onerror = null; v.poster = base.poster; v.src = base.video; v.load(); audienceReplay(); } };
+        v.poster = base.poster;
+        if (a.poster !== base.poster) { const probe = new Image(); probe.onload = () => { if (v._audienceSrc === a.video && v.getAttribute('src') === a.video) v.poster = a.poster; }; probe.src = a.poster; }
+        v.src = a.video;
+        v.load();
+    });
+    if (changed) audienceReplay();
+}
+/// Start the intro again where one is on screen (the film was just swapped).
+function audienceReplay() {
+    try {
+        const modal = document.getElementById('welcome-modal'), intro = document.getElementById('welcome-intro');
+        const about = document.getElementById('about-page'), over = document.getElementById('about-overview');
+        if (modal && !modal.classList.contains('hidden') && intro && !intro.classList.contains('hidden')) playIntroVideo('welcome-modal-content');
+        else if (about && !about.classList.contains('hidden') && over && !over.classList.contains('hidden')) playIntroVideo('about-overview');
+    } catch (e) {}
+}
+
+/// Choose a profile. `how` says where the choice came from, for the record.
+function audienceSet(key, how) {
+    if (!NQV_AUDIENCES[key]) return;
+    nqvAudience = key;
+    try { localStorage.setItem('nqvAudience', key); } catch (e) {}
+    // An address that names a profile should keep naming the one in use.
+    try { if (audienceFromPath(location.pathname) && audienceFromPath(location.pathname) !== key) history.replaceState({}, '', '/' + key); } catch (e) {}
+    audienceApply();
+    if (typeof renderWelcomeModalContent === 'function' && !document.getElementById('welcome-modal').classList.contains('hidden')) { renderWelcomeModalContent(); audienceApply(); }
+    if (how !== 'load') {
+        try { if (typeof gtag === 'function') gtag('event', 'audience_select', { audience: key, method: how || 'switch' }); } catch (e) {}
+        try { if (typeof currentUser !== 'undefined' && currentUser && currentUser.uid && currentUser.audience !== key) { currentUser.audience = key; db.collection('users').doc(currentUser.uid).update({ audience: key }).catch(() => {}); } } catch (e) {}
+    }
+}
+/// Work out the profile when the page opens: the address first, then what
+/// this browser chose before.
+function audienceInit() {
+    let key = audienceFromPath(location.pathname), stored = null;
+    try { stored = localStorage.getItem('nqvAudience'); } catch (e) {}
+    if (key) { audienceSet(key, 'link'); return; }
+    if (NQV_AUDIENCES[stored]) nqvAudience = stored;
+    audienceApply();
+}
+/// A member's saved profile follows them to a new browser, unless the address
+/// they arrived on asked for a particular one.
+function audienceOnLogin() {
+    try {
+        if (audienceFromPath(location.pathname)) return audienceSet(nqvAudience, 'link');
+        if (currentUser && NQV_AUDIENCES[currentUser.audience] && currentUser.audience !== nqvAudience) {
+            audienceSet(currentUser.audience, 'load');
+            // The account already answered: do not leave the question on screen.
+            const choose = document.getElementById('welcome-choose'), modal = document.getElementById('welcome-modal');
+            if (modal && !modal.classList.contains('hidden') && choose && !choose.classList.contains('hidden')) audienceChosen(currentUser.audience);
+        }
+        else if (currentUser && nqvAudience && !currentUser.audience) audienceSet(nqvAudience, 'saved');
+    } catch (e) {}
+}
+
+/// The three choices, as buttons. Used by the welcome and by the switcher.
+function audienceChoicesHtml(big) {
+    return Object.keys(NQV_AUDIENCES).map(k => { const a = NQV_AUDIENCES[k];
+        return big
+            ? `<button onclick="audienceChosen('${k}')" class="w-full text-left p-5 rounded-2xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 hover:border-cyan-400 transition-colors">
+                   <span class="block text-lg font-semibold text-white">${a.pick}</span><span class="block text-sm text-zinc-300 mt-1">${a.blurb}</span></button>`
+            : `<button onclick="audienceSet('${k}', 'switch')" data-audience-pick="${k}" aria-pressed="false" class="px-4 py-2 rounded-lg text-sm font-semibold bg-zinc-800 text-zinc-200">${a.label}</button>`;
+    }).join('');
+}
+/// The switcher, opened from the account menu.
+function showAudienceSwitcher() {
+    nqvSheet(`<h2 class="text-xl font-bold mb-1">How should NQVate introduce itself?</h2>
+        <p class="text-sm text-zinc-400 mb-5">This changes the tagline, the About page and the intro video. Every feature stays available whichever you pick.</p>
+        <div class="space-y-3">${Object.keys(NQV_AUDIENCES).map(k => { const a = NQV_AUDIENCES[k], on = k === audienceNow();
+            return `<button onclick="audienceSet('${k}', 'switch'); nqvSheetClose()" aria-pressed="${on}" class="w-full text-left p-4 rounded-2xl border ${on ? 'border-cyan-400 bg-cyan-400/10' : 'border-zinc-700 bg-zinc-800 hover:bg-zinc-700'}">
+                <span class="block font-semibold text-white">${a.pick}${on ? ' <span class="text-xs font-normal text-cyan-300">· current</span>' : ''}</span><span class="block text-sm text-zinc-300 mt-1">${a.blurb}</span></button>`; }).join('')}</div>`);
+}
+
+// ── the welcome: choose first, then the introduction for that choice ────
+/// Show the first-visit welcome. Someone who has not chosen a profile is
+/// asked to; someone who arrived on a profile's address goes straight in.
+function audienceWelcome() {
+    const modal = document.getElementById('welcome-modal');
+    if (!modal) return;
+    let welcomed = false; try { welcomed = !!localStorage.getItem('nqvate_welcomed'); } catch (e) {}
+    if (nqvAudience && welcomed) return;
+    modal.classList.remove('hidden');
+    audienceWelcomeStep(nqvAudience ? 'intro' : 'choose');
+}
+function audienceWelcomeStep(step) {
+    const choose = document.getElementById('welcome-choose'), intro = document.getElementById('welcome-intro');
+    if (!choose || !intro) return;
+    choose.classList.toggle('hidden', step !== 'choose');
+    intro.classList.toggle('hidden', step !== 'intro');
+    if (step === 'choose') { document.getElementById('welcome-choices').innerHTML = audienceChoicesHtml(true); return; }
+    switchWelcomeTab('overview');
+    audienceApply();
+}
+function audienceChosen(key) {
+    audienceSet(key, 'welcome');
+    let welcomed = false; try { welcomed = !!localStorage.getItem('nqvate_welcomed'); } catch (e) {}
+    // Someone who has already seen the welcome only needed to choose.
+    if (welcomed) return document.getElementById('welcome-modal').classList.add('hidden');
+    audienceWelcomeStep('intro');
+}
+
+/// Close the question without answering. It is asked again on the next visit.
+function audienceLater() { const m = document.getElementById('welcome-modal'); if (m) m.classList.add('hidden'); }
+
+window.addEventListener('DOMContentLoaded', audienceInit);
+
 // ====================== PODCASTS & STREAMS ======================
 // The "Podcasts & Streams" tab in Explore.
 //
@@ -25106,6 +25296,12 @@ async function showsAdminRemove(postId) {
     <div class="mb-8">
         <h1 class="text-3xl md:text-5xl font-bold tracking-tighter mb-2">About NQVate</h1>
         <p class="text-zinc-400">What NQVate is, how it works, and how to start using it.</p>
+        <div class="flex flex-wrap items-center gap-2 mt-5" role="group" aria-label="Show the introduction for">
+            <span class="text-sm text-zinc-400 mr-1">Show me NQVate for</span>
+            <button onclick="audienceSet('student', 'switch')" data-audience-pick="student" aria-pressed="false" class="px-4 py-2 rounded-lg text-sm font-semibold bg-zinc-800 text-zinc-200">Students</button>
+            <button onclick="audienceSet('professional', 'switch')" data-audience-pick="professional" aria-pressed="false" class="px-4 py-2 rounded-lg text-sm font-semibold bg-zinc-800 text-zinc-200">Professionals</button>
+            <button onclick="audienceSet('investor', 'switch')" data-audience-pick="investor" aria-pressed="false" class="px-4 py-2 rounded-lg text-sm font-semibold bg-zinc-800 text-zinc-200">Investors</button>
+        </div>
     </div>
 
     <!-- Sub-tabs -->
@@ -25136,6 +25332,56 @@ async function showsAdminRemove(postId) {
             </button>
         </div>
 
+        <!-- ══ The introduction, written three ways. Only the block for the visitor's profile is shown. ══ -->
+
+        <!-- For students and recent graduates -->
+        <div data-audience="student" class="hidden">
+            <div class="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 md:p-12 mb-10">
+                <h2 class="text-3xl md:text-4xl font-bold mb-4">Experience is the hard part of getting hired. Get it here.</h2>
+                <p class="text-zinc-300 text-lg max-w-3xl leading-relaxed">Entry-level jobs now ask for experience that graduates have had no way to get. On NQVate you do paid work for real startups, and every job you finish is recorded where an employer can check it.</p>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-8">
+                    <div class="bg-zinc-800/70 rounded-2xl p-5">
+                        <p class="text-4xl font-bold text-white">5.2%</p>
+                        <p class="text-sm text-zinc-300 mt-1">of recent college graduates are unemployed</p>
+                    </div>
+                    <div class="bg-zinc-800/70 rounded-2xl p-5">
+                        <p class="text-4xl font-bold text-white">42.5%</p>
+                        <p class="text-sm text-zinc-300 mt-1">work in jobs that do not require a degree</p>
+                    </div>
+                </div>
+                <p class="text-xs text-zinc-400 mt-3">Federal Reserve Bank of New York, The Labor Market for Recent College Graduates, third quarter of 2026.</p>
+            </div>
+            <div class="mb-12">
+                <h2 class="text-2xl font-bold mb-6">What you get from NQVate</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6"><h3 class="font-semibold text-lg mb-2">Work on real products</h3><p class="text-zinc-300 leading-relaxed">Founders post bounties: a defined piece of work with a price on it. Bid on the ones that fit your skills, from a logo to a smart contract.</p></div>
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6"><h3 class="font-semibold text-lg mb-2">Get paid, in cash or in equity</h3><p class="text-zinc-300 leading-relaxed">Payment is locked in escrow before you start and released when the work is approved. Some bounties pay a stake in the company instead of, or as well as, cash.</p></div>
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6"><h3 class="font-semibold text-lg mb-2">A portfolio that can be checked</h3><p class="text-zinc-300 leading-relaxed">Completed bounties, the reviews you received and what you were paid appear on your profile. You decide which ones to show.</p></div>
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6"><h3 class="font-semibold text-lg mb-2">Meet the people who hire and fund</h3><p class="text-zinc-300 leading-relaxed">Founders, experienced professionals and investors use the same platform. Follow them, message them and work alongside them.</p></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- For investors -->
+        <div data-audience="investor" class="hidden">
+            <div class="bg-zinc-900 border border-zinc-800 rounded-3xl p-8 md:p-12 mb-10">
+                <h2 class="text-3xl md:text-4xl font-bold mb-4">Early-stage companies, with the evidence attached.</h2>
+                <p class="text-zinc-300 text-lg max-w-3xl leading-relaxed">Most early-stage diligence runs on a pitch deck and the founder's word. On NQVate a company's work history, verified metrics and ownership are on the record, so you can see what has been built and who built it.</p>
+            </div>
+            <div class="mb-12">
+                <h2 class="text-2xl font-bold mb-6">What you can see</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6"><h3 class="font-semibold text-lg mb-2">Verified, not claimed</h3><p class="text-zinc-300 leading-relaxed">Revenue and user ranges are checked against documents before they are shown, and legal entities are verified.</p></div>
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6"><h3 class="font-semibold text-lg mb-2">Work you can inspect</h3><p class="text-zinc-300 leading-relaxed">Every bounty a company has posted, paid for and completed is visible, along with the builders who delivered it.</p></div>
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6"><h3 class="font-semibold text-lg mb-2">Ownership on-chain</h3><p class="text-zinc-300 leading-relaxed">Equity awarded through NQVate is recorded in an on-chain cap table that anyone can read.</p></div>
+                    <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-6"><h3 class="font-semibold text-lg mb-2">Decks and data rooms</h3><p class="text-zinc-300 leading-relaxed">Founders publish an investor deck and can grant you access to a private data room.</p></div>
+                </div>
+                <p class="text-sm text-zinc-400 mt-5">Funding requests and the equity exchange are not open yet. Until they are, you can follow companies and founders, read their decks and watch their progress in the NQVerse.</p>
+            </div>
+        </div>
+
+        <!-- For founders and professionals -->
+        <div data-audience="professional">
         <!-- Hero -->
         <div class="bg-gradient-to-br from-cyan-500/10 to-violet-500/10 border border-cyan-500/20 rounded-3xl p-8 md:p-12 mb-10 text-center">
             <div class="w-20 h-20 bg-gradient-to-br from-cyan-400 to-violet-500 rounded-3xl flex items-center justify-center text-3xl font-bold mx-auto mb-6 shadow-2xl">NQV8</div>
@@ -25155,6 +25401,7 @@ async function showsAdminRemove(postId) {
             <p class="text-zinc-300 leading-relaxed text-lg mb-6">NQVate is the operating system for early-stage startups. It replaces the fragmented stack of cap table software, payroll tools, escrow services, and investor portals that founders cobble together in year one — with a single platform where every tool works together and every transaction settles on-chain.</p>
             <p class="text-zinc-300 leading-relaxed text-lg">Unlike traditional platforms, NQVate lets founders offer real equity stakes in their companies as compensation, lets builders earn ownership in the projects they help build, and lets investors buy and sell those stakes on an integrated exchange — all without lawyers, paperwork, or gatekeepers.</p>
         </div>
+        </div><!-- /professional -->
 
 <!-- Why Build On-Chain -->
         <div class="mb-12">
