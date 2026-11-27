@@ -36,7 +36,7 @@
 
     <!-- PWA -->
     <link rel="manifest" href="/manifest.json">
-    <meta name="theme-color" content="#000000">
+    <meta name="theme-color" content="#0F1A2B">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="NQVate">
@@ -88,7 +88,7 @@
         /* Icons: Font Awesome, sized to the text beside them. */
         i[class*="fa-"][aria-hidden="true"] { font-size: .9em; width: 1.15em; text-align: center; }
         .nq-dot { display: inline-block; width: .5em; height: .5em; border-radius: 50%; vertical-align: .12em; margin-right: .1em; }
-        .nq-dot-green { background: #34d399; } .nq-dot-red { background: #f87171; } .nq-dot-grey { background: #71717a; }
+        .nq-dot-green { background: #34d399; } .nq-dot-red { background: #f87171; } .nq-dot-grey { background: #8799B4; }
 
         /* Corners: three sizes with a job each, in place of pill-round everything. */
         body .rounded-3xl { border-radius: 14px; }
@@ -98,24 +98,24 @@
 
         /* One accent, used flat. */
         body .bg-gradient-to-r.from-cyan-400.to-violet-500,
-        body .bg-gradient-to-r.from-amber-400.to-cyan-400 { background-image: none; background-color: #22d3ee; }
-        body .bg-gradient-to-r.from-violet-600.to-violet-500 { background-image: none; background-color: #7c3aed; }
+        body .bg-gradient-to-r.from-amber-400.to-cyan-400 { background-image: none; background-color: #F2A93B; }
+        body .bg-gradient-to-r.from-violet-600.to-violet-500 { background-image: none; background-color: #4470C2; }
         body .bg-gradient-to-r.from-amber-500.to-amber-400 { background-image: none; background-color: #f59e0b; }
         body .bg-gradient-to-br.from-cyan-400.to-violet-500,
         body .bg-gradient-to-br.from-violet-500.to-cyan-500,
-        body .bg-gradient-to-br.from-emerald-500.to-cyan-500 { background-image: none; background-color: #27272a; box-shadow: inset 0 0 0 1px #3f3f46; }
+        body .bg-gradient-to-br.from-emerald-500.to-cyan-500 { background-image: none; background-color: #223450; box-shadow: inset 0 0 0 1px #2C4060; }
         body [class*="bg-gradient-to-"][class*="/10"] { background-image: none; background-color: rgba(255, 255, 255, .03); }
         body .hover\:scale-105:hover { transform: none; }
 
         /* Small labels: sentence case, one quiet colour. */
         body .uppercase[class*="tracking-wid"] { text-transform: none; letter-spacing: 0; }
-        body p.uppercase[class*="tracking-wid"], body h3.uppercase[class*="tracking-wid"] { color: #a1a1aa; }
+        body p.uppercase[class*="tracking-wid"], body h3.uppercase[class*="tracking-wid"] { color: #A9B6C8; }
 
         /* Top navigation. */
-        nav .nq-mark { width: 40px; height: 40px; border-radius: 9px; background: #0a0a0a; box-shadow: inset 0 0 0 1px #3f3f46; color: #22d3ee; font-weight: 700; font-size: 13px; letter-spacing: -.02em; display: flex; align-items: center; justify-content: center; }
-        nav .nq-nav a { color: #a1a1aa; padding: 6px 0; border-bottom: 2px solid transparent; transition: color .15s; }
+        nav .nq-mark { width: 40px; height: 40px; border-radius: 9px; background: #0B1422; box-shadow: inset 0 0 0 1px #2C4060; color: #F2A93B; font-weight: 700; font-size: 13px; letter-spacing: -.02em; display: flex; align-items: center; justify-content: center; }
+        nav .nq-nav a { color: #A9B6C8; padding: 6px 0; border-bottom: 2px solid transparent; transition: color .15s; }
         nav .nq-nav a:hover { color: #fff; }
-        nav .nq-nav a.nq-on { color: #fff; border-bottom-color: #22d3ee; }
+        nav .nq-nav a.nq-on { color: #fff; border-bottom-color: #F2A93B; }
 
         @media (max-width: 767px) {             /* the phone top bar was a few pixels wider than the screen */
             nav > div { padding-left: 14px; padding-right: 14px; }
@@ -125,32 +125,35 @@
 
         /* Tab rows: the open tab's line sits on the rule beneath the row. */
         .flex.border-b.border-zinc-700 > button, .flex.border-b.border-zinc-700 > div > button { margin-bottom: -1px; }
-        .flex.border-b.border-zinc-700 > button i[class*="fa-"], .flex.border-b.border-zinc-700 > div > button i[class*="fa-"] { color: #71717a; }
-        .flex.border-b.border-zinc-700 > button.border-b-2 i[class*="fa-"] { color: #22d3ee; }
+        .flex.border-b.border-zinc-700 > button i[class*="fa-"], .flex.border-b.border-zinc-700 > div > button i[class*="fa-"] { color: #8799B4; }
+        .flex.border-b.border-zinc-700 > button.border-b-2 i[class*="fa-"] { color: #F2A93B; }
 
         /* Messages (in place of the browser's alert box). */
         #nq-notices { position: fixed; top: 16px; left: 50%; transform: translateX(-50%); z-index: 2147483000; width: min(520px, calc(100vw - 24px)); display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
-        .nq-notice { pointer-events: auto; display: flex; gap: 12px; align-items: flex-start; background: #18181b; color: #f4f4f5; border: 1px solid #3f3f46; border-left: 3px solid #22d3ee; border-radius: 10px; padding: 12px 12px 12px 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, .5); font-size: 14px; line-height: 1.45; }
+        .nq-notice { pointer-events: auto; display: flex; gap: 12px; align-items: flex-start; background: #182840; color: #EEF2F7; border: 1px solid #2C4060; border-left: 3px solid #F2A93B; border-radius: 10px; padding: 12px 12px 12px 14px; box-shadow: 0 10px 30px rgba(0, 0, 0, .5); font-size: 14px; line-height: 1.45; }
         .nq-notice-warn { border-left-color: #f59e0b; }
         .nq-notice p { flex: 1; min-width: 0; margin: 0; white-space: pre-line; overflow-wrap: anywhere; max-height: 50vh; overflow-y: auto; }
-        .nq-notice button { flex: none; width: 28px; height: 28px; border-radius: 6px; color: #a1a1aa; font-size: 18px; line-height: 1; }
-        .nq-notice button:hover { background: #27272a; color: #fff; }
+        .nq-notice button { flex: none; width: 28px; height: 28px; border-radius: 6px; color: #A9B6C8; font-size: 18px; line-height: 1; }
+        .nq-notice button:hover { background: #223450; color: #fff; }
         @media (prefers-reduced-motion: no-preference) { .nq-notice { animation: nq-in .16s ease-out; } @keyframes nq-in { from { opacity: 0; transform: translateY(-6px); } } }
         /* Questions (in place of the browser's confirm and prompt boxes). */
         #nq-ask { position: fixed; inset: 0; z-index: 2147483001; background: rgba(0, 0, 0, .72); display: flex; align-items: center; justify-content: center; padding: 16px; }
-        .nq-ask-box { width: min(460px, 100%); max-height: 86vh; overflow-y: auto; background: #18181b; border: 1px solid #3f3f46; border-radius: 14px; padding: 22px; box-shadow: 0 24px 60px rgba(0, 0, 0, .6); }
+        .nq-ask-box { width: min(460px, 100%); max-height: 86vh; overflow-y: auto; background: #182840; border: 1px solid #2C4060; border-radius: 14px; padding: 22px; box-shadow: 0 24px 60px rgba(0, 0, 0, .6); }
         .nq-ask-box h2 { font-size: 17px; font-weight: 600; color: #fff; margin: 0 0 8px; }
-        .nq-ask-box p { font-size: 14px; line-height: 1.5; color: #d4d4d8; margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
-        .nq-ask-box input { width: 100%; margin-top: 14px; background: #09090b; border: 1px solid #3f3f46; border-radius: 8px; padding: 10px 12px; color: #fff; font-size: 14px; }
-        .nq-ask-box input:focus { outline: 2px solid #22d3ee; outline-offset: 1px; }
+        .nq-ask-box p { font-size: 14px; line-height: 1.5; color: #C9D3E0; margin: 0; white-space: pre-line; overflow-wrap: anywhere; }
+        .nq-ask-box input { width: 100%; margin-top: 14px; background: #0B1422; border: 1px solid #2C4060; border-radius: 8px; padding: 10px 12px; color: #fff; font-size: 14px; }
+        .nq-ask-box input:focus { outline: 2px solid #F2A93B; outline-offset: 1px; }
         .nq-ask-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
-        .nq-ask-actions button { min-height: 40px; padding: 0 16px; border-radius: 8px; font-size: 14px; font-weight: 600; background: #27272a; color: #e4e4e7; }
-        .nq-ask-actions button:hover { background: #3f3f46; }
-        .nq-ask-actions .nq-ask-go { background: #fff; color: #000; } .nq-ask-actions .nq-ask-go:hover { background: #e4e4e7; }
+        .nq-ask-actions button { min-height: 40px; padding: 0 16px; border-radius: 8px; font-size: 14px; font-weight: 600; background: #223450; color: #DDE4EC; }
+        .nq-ask-actions button:hover { background: #2C4060; }
+        .nq-ask-actions .nq-ask-go { background: #fff; color: #000; } .nq-ask-actions .nq-ask-go:hover { background: #DDE4EC; }
         .nq-ask-actions .nq-ask-danger { background: #dc2626; color: #fff; } .nq-ask-actions .nq-ask-danger:hover { background: #ef4444; }
         @media (max-width: 480px) { .nq-ask-actions { flex-direction: column-reverse; } .nq-ask-actions button { width: 100%; } }
     </style>
-    <link rel="stylesheet" href="/public/styles.css?v=a26e252d56">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
+    <link rel="stylesheet" href="/public/styles.css?v=5f6c2eb655">
 </head>
 
 <body class="bg-black text-white min-h-screen">
@@ -1738,12 +1741,12 @@
     /* ── Accessibility: always on, across the site ──────────────────────── */
     /* The faint greys measured 3.1–3.7:1 on the dark backgrounds; this is 5.5–6:1. */
     body .text-zinc-500:not([class*="hover:text-"]), body .text-zinc-600:not([class*="hover:text-"]),
-    body .text-zinc-500[class*="hover:text-"]:not(:hover), body .text-zinc-600[class*="hover:text-"]:not(:hover) { color: #9c9ca8; }
-    body ::placeholder { color: #9c9ca8; opacity: 1; }
+    body .text-zinc-500[class*="hover:text-"]:not(:hover), body .text-zinc-600[class*="hover:text-"]:not(:hover) { color: #A9B6C8; }
+    body ::placeholder { color: #A9B6C8; opacity: 1; }
     /* A visible ring on whatever the keyboard is on. Many fields had their outline removed. */
     a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible, [tabindex]:focus-visible { outline: 2px solid #facc15 !important; outline-offset: 2px !important; }
-    #eco-keys:focus-visible { outline: 3px solid #22d3ee !important; outline-offset: -3px !important; }
-    #eco-panel:focus-visible, #eco-list:focus-visible, div[id$="-page"]:focus-visible, div[id$="-modal"]:focus-visible { outline: 2px solid #22d3ee !important; outline-offset: -2px !important; }
+    #eco-keys:focus-visible { outline: 3px solid #F2A93B !important; outline-offset: -3px !important; }
+    #eco-panel:focus-visible, #eco-list:focus-visible, div[id$="-page"]:focus-visible, div[id$="-modal"]:focus-visible { outline: 2px solid #F2A93B !important; outline-offset: -2px !important; }
     div[id$="-page"]:focus, div[id$="-modal"]:focus { outline: none; }
     input.sr-only:focus-visible + div, input.sr-only:focus-visible ~ #toggle-track { outline: 2px solid #facc15; outline-offset: 2px; }
     /* Links inside sentences are underlined, so they do not rely on colour. */
@@ -1755,9 +1758,9 @@
     .nqv-a11y-shapes span.eco-shape { display: inline; }
     .nqv-a11y-shapes p.eco-shape { display: block; }
 
-    .nqv-a11y-contrast .text-zinc-300, .nqv-a11y-contrast .text-zinc-400, .nqv-a11y-contrast .text-zinc-500, .nqv-a11y-contrast .text-zinc-600 { color: #fafafa !important; }
-    .nqv-a11y-contrast ::placeholder { color: #e4e4e7 !important; }
-    .nqv-a11y-contrast .border-zinc-700, .nqv-a11y-contrast .border-zinc-800 { border-color: #d4d4d8 !important; }
+    .nqv-a11y-contrast .text-zinc-300, .nqv-a11y-contrast .text-zinc-400, .nqv-a11y-contrast .text-zinc-500, .nqv-a11y-contrast .text-zinc-600 { color: #F6F8FB !important; }
+    .nqv-a11y-contrast ::placeholder { color: #DDE4EC !important; }
+    .nqv-a11y-contrast .border-zinc-700, .nqv-a11y-contrast .border-zinc-800 { border-color: #C9D3E0 !important; }
     .nqv-a11y-contrast #eco-panel, .nqv-a11y-contrast #nqv-side, .nqv-a11y-contrast #eco-tip, .nqv-a11y-contrast #eco-legend, .nqv-a11y-contrast #eco-a11y-menu,
     .nqv-a11y-contrast .bg-zinc-900, .nqv-a11y-contrast .bg-zinc-900\/90, .nqv-a11y-contrast .bg-zinc-900\/85, .nqv-a11y-contrast .bg-zinc-900\/60, .nqv-a11y-contrast .bg-zinc-950 { background-color: #000 !important; }
     .nqv-a11y-contrast :focus-visible { outline: 3px solid #fde047 !important; outline-offset: 2px !important; }
@@ -1883,7 +1886,7 @@
             </div>
         </div>
         <div class="eco-layer-ui eco-nolist hidden absolute bottom-3 left-3 md:bottom-4 md:left-4 rounded-2xl bg-zinc-900/85 border border-zinc-800 px-3 py-2 text-[11px] text-zinc-300 space-y-1 pointer-events-none">
-            <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#a1a1aa"></span><span class="eco-shape">○ </span>To do · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#a78bfa"></span><span class="eco-shape">◐ </span>Building</p>
+            <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#A9B6C8"></span><span class="eco-shape">○ </span>To do · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#7FA8E6"></span><span class="eco-shape">◐ </span>Building</p>
             <p><span class="inline-block w-2.5 h-2.5 rounded-full align-middle mr-1.5" style="background:#ef4444"></span><span class="eco-shape">◆ </span>Out for bids · <span class="inline-block w-2.5 h-2.5 rounded-full align-middle mx-1" style="background:#34d399"></span><span class="eco-shape">✓ </span>Done</p>
             <p class="text-zinc-500">The ring fills as parts are finished. Click a part to move it.</p>
         </div>
@@ -9003,7 +9006,7 @@ function renderReputationBadge(score) {
                 </div>
                 <div class="w-32 h-1.5 bg-zinc-700 rounded-full mt-1 overflow-hidden">
                     <div class="h-full rounded-full transition-all" 
-                         style="width:${pct}%;background:linear-gradient(90deg,#22d3ee,#8b5cf6)"></div>
+                         style="width:${pct}%;background:#F2A93B"></div>
                 </div>
             </div>
         </div>`;
@@ -23480,9 +23483,9 @@ function platformAnalyticsChart() {
     const W = 900, H = 160, gap = rows.length > 45 ? 1 : 3, bw = (W - gap * (rows.length - 1)) / rows.length;
     const total = rows.reduce((s, r) => s + r[key], 0), peak = rows.reduce((a, r) => r[key] > a[key] ? r : a, rows[0]);
     const bars = rows.map((r, i) => { const h = r[key] ? Math.max(2, r[key] / max * (H - 10)) : 0;
-        return `<rect x="${(i * (bw + gap)).toFixed(1)}" y="${(H - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5" fill="#22d3ee"><title>${r.day}: ${r[key]}</title></rect>`; }).join('');
+        return `<rect x="${(i * (bw + gap)).toFixed(1)}" y="${(H - h).toFixed(1)}" width="${bw.toFixed(1)}" height="${h.toFixed(1)}" rx="1.5" fill="#F2A93B"><title>${r.day}: ${r[key]}</title></rect>`; }).join('');
     return `<svg viewBox="0 0 ${W} ${H}" class="w-full h-40" role="img" aria-label="${ecoEsc(PA_SERIES[key])} per day: ${total} in the last ${rows.length} days, most on ${peak.day} with ${peak[key]}.">
-            <line x1="0" y1="${H - 0.5}" x2="${W}" y2="${H - 0.5}" stroke="#3f3f46"/>${bars}</svg>
+            <line x1="0" y1="${H - 0.5}" x2="${W}" y2="${H - 0.5}" stroke="#2C4060"/>${bars}</svg>
         <div class="flex justify-between text-[11px] text-zinc-400 mt-1"><span>${rows[0].day}</span><span>${total.toLocaleString()} in ${rows.length} days · most in a day: ${max.toLocaleString()}</span><span>${rows[rows.length - 1].day}</span></div>`;
 }
 function platformAnalyticsSeries(key) { if (PA_SERIES[key]) { PA.series = key; const box = document.getElementById('pa-chart'); if (box) box.innerHTML = platformAnalyticsChart(); } }
