@@ -1496,7 +1496,7 @@
         <div class="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
             <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
                 <h2 class="text-xl font-semibold mb-1">Portfolio</h2>
-                <p id="portfolio-own" class="text-xs text-zinc-400 mb-3">Choose which completed work visitors see on your profile.</p>
+                <p id="portfolio-own" class="text-xs text-zinc-400 mb-3">Choose which companies and completed work visitors see on your profile.</p>
                 <button onclick="showPortfolioEditor()" class="px-4 py-2 bg-white text-black rounded-xl text-sm font-semibold">Manage portfolio</button>
             </div>
             <div class="bg-zinc-900 border border-zinc-800 rounded-2xl p-5">
@@ -1864,7 +1864,7 @@
             <div class="flex items-center gap-2">
                 <h1 class="text-lg md:text-2xl font-bold tracking-tight">The NQVerse</h1>
                 <button onclick="showNqverseInfo()" aria-label="Why the NQVerse" title="Why the NQVerse"
-                        class="pointer-events-auto text-zinc-400 hover:text-amber-400 text-sm md:text-base leading-none"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></button>
+                        class="pointer-events-auto shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-full bg-zinc-900/90 border border-zinc-700 text-zinc-300 text-xs md:text-sm hover:border-amber-400 hover:text-amber-400"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></button>
             </div>
             <p class="text-[11px] md:text-xs text-zinc-400 mt-1">
                 <span id="eco-live-dot" class="inline-block w-2 h-2 rounded-full bg-zinc-600 mr-1.5 align-middle"></span><span id="eco-counts">Loading…</span>
@@ -11219,8 +11219,10 @@ async function viewUserProfile(uid) {
                     }
                 }
 
-                // Portfolio: completed bounties the member has chosen to show, then
-                // work they added themselves. Private bounties never appear.
+                // Portfolio: companies they founded, then completed bounties they
+                // chose to show, then work they added themselves. Private bounties
+                // never appear. Bounties they funded are counted on the company
+                // card rather than listed as work of their own.
                 const portfolioDoneList = [];
                 completedSnap.forEach(doc => {
                     const p = doc.data();
@@ -11228,8 +11230,9 @@ async function viewUserProfile(uid) {
                     portfolioDoneList.push({ id: doc.id, title: p.title, category: p.category, compensation: p.compensation, at: nqvSecs(p.completedAt || p.createdAt) });
                 });
                 portfolioDoneList.sort((a, b) => b.at - a.at);
-                const portfolioHTML = portfolioHtml(user, portfolioDoneList);
-
+                const portfolioCoList = await portfolioCompanies(uid);
+                const portfolioHTML = portfolioHtml(user, portfolioDoneList, portfolioCoList);
+    
                 // Insert portfolio section before reviews
                 const reviewsList = document.getElementById('user-reviews-list');
                 const portfolioSection = document.getElementById('user-portfolio-section');
@@ -22133,11 +22136,64 @@ function portfolioLink(url) {
     const u = String(url || '').trim();
     return /^https?:\/\/[^\s"'<>]+$/i.test(u) ? u : '';
 }
-/// The portfolio as anyone sees it. `done` = [{ id, title, category, compensation }].
-function portfolioHtml(user, done) {
+/// Companies the member founded. Keyed with a `co:` prefix so a company id can
+/// never be mistaken for a posting id in hidden, featured or notes.
+const NQV_PF_CO = 'co:';
+function portfolioCoKey(id) { return NQV_PF_CO + id; }
+function portfolioCoStatus(c) { return c.status === 'live' ? 'Live' : c.status === 'inactive' ? 'Inactive' : 'In development'; }
+/// Each company carries how it got built: completed bounties funded under its
+/// name, and how many different builders were paid. Counts only, never names.
+async function portfolioCompanies(uid) {
+    if (!uid) return [];
+    let snap;
+    try { snap = await db.collection('companies').where('ownerUid', '==', uid).get(); }
+    catch (e) { return []; }
+    const cos = [];
+    snap.forEach(d => {
+        const c = d.data();
+        cos.push({ id: d.id, key: portfolioCoKey(d.id), name: c.name || 'Untitled',
+                   entityType: c.entityType || c.type || 'Project', verified: c.verificationStatus === 'verified',
+                   status: c.projectStatus || '', description: c.description || '',
+                   at: nqvSecs(c.createdAt), bounties: 0, builders: 0 });
+    });
+    // One query per company, run together. If one fails its counts stay at zero.
+    await Promise.all(cos.map(async co => {
+        try {
+            const b = await db.collection('subprojects').where('companyId', '==', co.id).where('status', '==', 'completed').get();
+            const paid = new Set();
+            b.forEach(d => {
+                const s = d.data();
+                if (s.planNode === true) return;
+                co.bounties++;
+                if (s.acceptedBidderUid) paid.add(s.acceptedBidderUid);
+            });
+            co.builders = paid.size;
+        } catch (e) { /* leave the counts at zero */ }
+    }));
+    return cos.sort((a, b) => b.at - a.at);
+}
+/// The portfolio as anyone sees it: companies founded, then work completed on
+/// NQVate, then work the member added themselves. Featured items lead each kind.
+/// `done` = [{ id, title, category, compensation }], `companies` = portfolioCompanies().
+function portfolioHtml(user, done, companies) {
     const p = portfolioOf(user);
-    const shown = done.filter(d => !p.hidden.includes(d.id));
-    shown.sort((a, b) => (p.featured.includes(b.id) ? 1 : 0) - (p.featured.includes(a.id) ? 1 : 0));
+    const lead = (a, b) => (p.featured.includes(b) ? 1 : 0) - (p.featured.includes(a) ? 1 : 0);
+    const cos = (companies || []).filter(c => !p.hidden.includes(c.key)).sort((a, b) => lead(a.key, b.key));
+    const coCards = cos.map(c => {
+        const built = [c.bounties ? c.bounties + (c.bounties === 1 ? ' bounty funded' : ' bounties funded') : '',
+                       c.builders ? c.builders + (c.builders === 1 ? ' builder paid' : ' builders paid') : ''].filter(Boolean).join(' · ');
+        const blurb = p.notes[c.key] || c.description;
+        return `<div class="bg-zinc-900 rounded-2xl p-4 border ${p.featured.includes(c.key) ? 'border-amber-400/60' : 'border-zinc-800'}">
+            ${p.featured.includes(c.key) ? '<p class="text-[11px] font-semibold text-amber-300 mb-1">★ Featured</p>' : ''}
+            <p class="font-semibold text-sm break-words">${ecoEsc(c.name)}</p>
+            <p class="text-xs text-zinc-400 mt-1">${ecoEsc([c.entityType, portfolioCoStatus(c), c.verified ? 'Verified' : ''].filter(Boolean).join(' · '))}</p>
+            ${blurb ? `<p class="text-sm text-zinc-300 mt-2 break-words">${ecoEsc(blurb)}</p>` : ''}
+            ${built ? `<p class="text-xs text-zinc-400 mt-2">${ecoEsc(built)}</p>` : ''}
+            <span class="text-xs text-cyan-400"><i class="fa-solid fa-rocket" aria-hidden="true"></i> Founded on NQVate</span>
+        </div>`;
+    }).join('');
+    const shown = (done || []).filter(d => !p.hidden.includes(d.id));
+    shown.sort((a, b) => lead(a.id, b.id));
     const cards = shown.map(d => `<div class="bg-zinc-900 rounded-2xl p-4 border ${p.featured.includes(d.id) ? 'border-amber-400/60' : 'border-zinc-800'}">
             ${p.featured.includes(d.id) ? '<p class="text-[11px] font-semibold text-amber-300 mb-1">★ Featured</p>' : ''}
             <p class="font-semibold text-sm break-words">${ecoEsc(d.title || 'Untitled')}</p>
@@ -22154,8 +22210,8 @@ function portfolioHtml(user, done) {
             <p class="text-xs text-zinc-400 mt-1">Added by the member</p>
         </div>`;
     }).join('');
-    if (!cards && !extras) return '';
-    return `<h2 class="text-2xl font-semibold mb-4">Portfolio</h2><div class="grid grid-cols-1 md:grid-cols-2 gap-3">${cards}${extras}</div>`;
+    if (!coCards && !cards && !extras) return '';
+    return `<h2 class="text-2xl font-semibold mb-4">Portfolio</h2><div class="grid grid-cols-1 md:grid-cols-2 gap-3">${coCards}${cards}${extras}</div>`;
 }
 async function portfolioDone(uid) {
     const snap = await db.collection('subprojects').where('acceptedBidderUid', '==', uid).where('status', '==', 'completed').get();
@@ -22167,12 +22223,22 @@ async function showPortfolioEditor() {
     const me = nqvMe();
     if (!me) return showAuthModal();
     nqvSheet('<p class="text-sm text-zinc-400">Loading…</p>', true);
-    let done = [];
-    try { done = await portfolioDone(me); } catch (e) { return nqvSheet(`<p class="text-sm text-red-300">Could not load your completed work: ${ecoEsc(e.message)}</p>`, true); }
+    let done = [], cos = [];
+    try { [done, cos] = await Promise.all([portfolioDone(me), portfolioCompanies(me)]); } catch (e) { return nqvSheet(`<p class="text-sm text-red-300">Could not load your completed work: ${ecoEsc(e.message)}</p>`, true); }
     const p = portfolioOf(currentUser);
     window._nqvPortfolio = { done, extra: p.extra.map(x => Object.assign({}, x)) };
     nqvSheet(`<h2 class="text-xl font-bold mb-1">Your portfolio</h2>
         <p class="text-sm text-zinc-400 mb-5">Choose what visitors to your profile see. Private bounties never appear.</p>
+        <p class="text-xs uppercase tracking-wider text-zinc-400 mb-2">Companies you founded (${cos.length})</p>
+        ${cos.length ? `<ul class="space-y-2 mb-6">${cos.map(c => `<li class="bg-zinc-800/50 rounded-xl p-3" data-pid="${ecoEsc(c.key)}">
+            <p class="text-sm font-semibold break-words">${ecoEsc(c.name)}</p>
+            <p class="text-xs text-zinc-400 mb-2">${ecoEsc([c.entityType, portfolioCoStatus(c), c.verified ? 'Verified' : ''].filter(Boolean).join(' · '))}${c.bounties ? ' · ' + c.bounties + (c.bounties === 1 ? ' bounty funded' : ' bounties funded') : ''}</p>
+            <div class="flex flex-wrap gap-4 text-xs text-zinc-200 mb-2">
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="pf-show w-4 h-4 accent-cyan-400" ${p.hidden.includes(c.key) ? '' : 'checked'}> Show on my profile</label>
+                <label class="flex items-center gap-2 cursor-pointer"><input type="checkbox" class="pf-feat w-4 h-4 accent-amber-400" ${p.featured.includes(c.key) ? 'checked' : ''}> ★ Feature it first</label>
+            </div>
+            <input class="pf-note w-full bg-zinc-900 border border-zinc-700 rounded-lg px-3 py-2 text-sm" maxlength="200" aria-label="A line about this company" placeholder="${c.description ? 'A line of your own (replaces the description)' : 'A line about what you built (optional)'}" value="${ecoEsc(p.notes[c.key] || '')}">
+        </li>`).join('')}</ul>` : '<p class="text-sm text-zinc-400 mb-6">Nothing yet. Companies you create in Studio appear here.</p>'}
         <p class="text-xs uppercase tracking-wider text-zinc-400 mb-2">Completed on NQVate (${done.length})</p>
         ${done.length ? `<ul class="space-y-2 mb-6">${done.map(d => `<li class="bg-zinc-800/50 rounded-xl p-3" data-pid="${ecoEsc(d.id)}">
             <p class="text-sm font-semibold break-words">${ecoEsc(d.title || 'Untitled')}</p>
@@ -22248,9 +22314,11 @@ async function portfolioOwnRender() {
     const me = nqvMe();
     if (!box || !me) return;
     try {
-        const done = await portfolioDone(me), p = portfolioOf(currentUser);
-        const shown = done.filter(d => !p.hidden.includes(d.id)).length, extras = p.extra.filter(x => x && x.title).length;
-        box.textContent = `${shown} of ${done.length} completed ${done.length === 1 ? 'bounty' : 'bounties'} shown · ${p.featured.length} featured · ${extras} added by you`;
+        const [done, cos] = await Promise.all([portfolioDone(me), portfolioCompanies(me)]);
+        const p = portfolioOf(currentUser), total = done.length + cos.length;
+        const shown = done.filter(d => !p.hidden.includes(d.id)).length + cos.filter(c => !p.hidden.includes(c.key)).length;
+        const extras = p.extra.filter(x => x && x.title).length;
+        box.textContent = `${shown} of ${total} ${total === 1 ? 'item' : 'items'} shown · ${p.featured.length} featured · ${extras} added by you`;
     } catch (e) { box.textContent = ''; }
 }
 
@@ -23081,7 +23149,8 @@ const NQV_AUDIENCES = {
     investor: {
         label: 'Investor', pick: 'Investor',
         blurb: 'Find early-stage companies and see their verified work, metrics and ownership.',
-        tagline: 'See what founders have built before you back them',
+        tagline: 'The operating system for Founders, Builders, Investors & Ideas',
+        meta: 'Find early-stage companies on NQVate and see their verified work, metrics and ownership before you back them.',
         title: 'NQVate for investors — early-stage companies, with the evidence attached',
         video: '/public/nqvate-intro-investor.mp4', poster: '/public/nqvate-intro-investor-poster.jpg'
     }
@@ -23109,7 +23178,7 @@ function audienceApply() {
     });
     document.querySelectorAll('.nq-audience-name').forEach(el => { el.textContent = a.label; });
     document.title = a.title;
-    const meta = document.querySelector('meta[name="description"]'); if (meta) meta.setAttribute('content', a.tagline);
+    const meta = document.querySelector('meta[name="description"]'); if (meta) meta.setAttribute('content', a.meta || a.tagline);
     audienceVideos();
 }
 /// Point the intro video at this profile's film. If that film has not been
