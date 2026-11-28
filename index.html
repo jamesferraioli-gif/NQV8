@@ -153,7 +153,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap">
-    <link rel="stylesheet" href="/public/styles.css?v=5f6c2eb655">
+    <link rel="stylesheet" href="/public/styles.css?v=95fe32632d">
 </head>
 
 <body class="bg-black text-white min-h-screen">
@@ -2670,7 +2670,6 @@
     </div>
 
 
-
     <!-- Token Distribution -->
     <div class="bg-zinc-900 rounded-3xl p-8 mb-6">
         <h2 class="text-xl font-semibold mb-6">Token Distribution</h2>
@@ -3333,34 +3332,6 @@ async function loadAdminModerationQueue() {
     } catch(e) {
         container.innerHTML = '<p class="text-red-400">Error loading queue.</p>';
     }
-}
-
-async function approveCampaign(campaignId) {
-    const doc = await db.collection('adCampaigns').doc(campaignId).get();
-    const c = doc.data();
-    const startDate = Date.now();
-    const endDate = startDate + (c.days * 24 * 60 * 60 * 1000);
-    await db.collection('adCampaigns').doc(campaignId).update({ status: 'active', startDate, endDate });
-    alert('Campaign approved and now live.');
-    loadAdminModerationQueue();
-}
-
-async function rejectCampaign(campaignId) {
-    const reason = await nqPrompt('Reason for rejection (shown to advertiser):');
-    if (!reason) return;
-    await db.collection('adCampaigns').doc(campaignId).update({ status: 'rejected', rejectionReason: reason });
-    alert('Campaign rejected.');
-    loadAdminModerationQueue();
-}
-
-function showCreateBannerCampaign() {
-    _bannerDays = null;
-    _bannerPrice = null;
-    ['banner-company','banner-headline','banner-body','banner-url'].forEach(id => {
-        document.getElementById(id).value = '';
-    });
-    document.querySelectorAll('[id^="banner-dur-"]').forEach(b => b.classList.remove('border-violet-400','bg-violet-500/10'));
-    document.getElementById('banner-campaign-modal').classList.remove('hidden');
 }
 
 function selectBannerDuration(days, price) {
@@ -4602,7 +4573,6 @@ async function submitMetricsVerification() {
                     const metricsHash = ethers.utils.keccak256(ethers.utils.toUtf8Bytes(JSON.stringify(metricsData)));
                     const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
                         // updateMetrics removed in V4 — metrics stored in Firestore only
-                    console.log('Metrics hash (Firestore only):', metricsHash);
                     const tx = { hash: '0x0' }; // placeholder
                     await confirmTx(tx);
                 } catch(e) {
@@ -4670,7 +4640,6 @@ async function submitMetricsVerification() {
     }
 }
 
-        console.log("SCRIPT LOADED SUCCESSFULLY");
 
         const firebaseConfig = {
           apiKey: "AIzaSyDnUVkD4WZ_jpHK1cY1G_1DOvHSfkUropU",
@@ -4689,7 +4658,6 @@ async function submitMetricsVerification() {
         let currentUser = null;
         let currentMarketplaceFilter = 'build'; // default to Build Requests
 
-    // ====================== INVESTOR DECK EDITING ======================
 // ============================================================
 // BLOCKCHAIN CONFIG — Arbitrum One
 // ============================================================
@@ -4707,12 +4675,6 @@ const USDC_DECIMALS = 6;
 
 // NQV8Treasury smart contract — deployed on Arbitrum One
 const TREASURY_CONTRACT_ADDRESS = '0x75dB1b0a363a6994e4e502Cf201e23B1D93582D8';
-
-// Operations wallet — receives protocol fees (posting fees, micro fees)
-const TREASURY_ADDRESS = '0x2c6309Ed2e36222E7e0Ce3c1376941A0D6340F4D';
-
-// Founder wallet
-const FOUNDER_ADDRESS = '0x0A6090b655A9eB73f85449609eB2336e76d64c47';
 
 // NQVate Escrow contract — deployed on Arbitrum One NEWXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 const ESCROW_CONTRACT_ADDRESS = '0x19E9E191e5F277053Db4373FAbb8fBdEa8A30761';
@@ -4952,17 +4914,6 @@ function bidExpiryDate(project) {
     const days = timeframeDays(project && (project.targetTimeframe || project.deadline) || '1week')
                + BID_EXPIRY_GRACE_DAYS;
     return new Date(Date.now() + days * 86400000);
-}
-
-/// Dollar value of what a posting is offering. Equity-only postings return 0
-/// — there is no USD figure without a registry valuation, so those fall to
-/// the floor until that is wired up.
-function bountyUSDValue(project) {
-    if (!project) return 0;
-    const raw = String(project.compensation || '');
-    if (!raw) return 0;
-    const cash = raw.match(/\$\s*([0-9][0-9,]*(?:\.[0-9]+)?)/);
-    return cash ? parseFloat(cash[1].replace(/,/g, '')) : 0;
 }
 
 /// Same reading, but off the posting form before anything is saved.
@@ -5741,20 +5692,6 @@ function handleWalletError(e) {
     return false;
 }
 
-async function getNQV8Contract(readOnly = false) {
-    const roProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
-    if (readOnly) return new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, roProvider);
-    if (!signer) throw new Error('Wallet not connected');
-    return new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, signer);
-}
-
-async function getUSDCContract(readOnly = false) {
-    const roProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
-    if (readOnly) return new ethers.Contract(USDC_ADDRESS, ERC20_ABI, roProvider);
-    if (!signer) throw new Error('Wallet not connected');
-    return new ethers.Contract(USDC_ADDRESS, ERC20_ABI, signer);
-}
-
 async function connectWallet() {
     if (!currentUser) {
         showAuthModal();
@@ -5840,12 +5777,6 @@ async function connectWithMetaMask() {
     } catch (e) {
         alert('MetaMask connection failed: ' + e.message);
     }
-}
-
-function connectWithMetaMaskMobile() {
-    document.getElementById('wallet-picker-modal')?.remove();
-    const currentUrl = window.location.href.replace(/^https?:\/\//, '');
-    window.location.href = `https://metamask.app.link/dapp/${currentUrl}`;
 }
 
 async function connectWithCoinbase() {
@@ -6031,7 +5962,6 @@ async function onWalletConnected() {
     }
     const walletLabel = document.getElementById('dropdown-wallet-label');
     if (walletLabel) walletLabel.textContent = 'Disconnect Wallet';
-    console.log('Wallet connected:', connectedAddress);
     // Reload profile data to refresh on-chain balances
     if (typeof loadProfileData === 'function') loadProfileData();
 }
@@ -6087,81 +6017,6 @@ async function refreshOnChainBalances() {
 // PAYMENT HELPERS — USDC + NQV8 transfers on Arbitrum
 // ============================================================
 
-// Send USDC — amount in human units (e.g. 1.00 = $1)
-async function sendUSDC(toAddress, amountHuman) {
-    if (!signer) throw new Error('Wallet not connected');
-    usdcContract = new ethers.Contract(USDC_ADDRESS, ERC20_ABI, signer);
-    const amount = ethers.utils.parseUnits(String(amountHuman), USDC_DECIMALS);
-    const tx = await usdcContract.transfer(toAddress, amount);
-    await confirmTx(tx);
-    return tx.hash;
-}
-
-// Send NQV8 — amount in human units
-async function sendNQV8(toAddress, amountHuman) {
-    if (!signer) throw new Error('Wallet not connected');
-    nqv8Contract = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, signer);
-    const amount = ethers.utils.parseUnits(String(amountHuman), NQV8_DECIMALS);
-    const tx = await nqv8Contract.transfer(toAddress, amount);
-    await confirmTx(tx);
-    return tx.hash;
-}
-
-// ── Live balance readers ──────────────────────────────────────
-async function getNQV8Balance() {
-    if (!connectedAddress || NQV8_TOKEN_ADDRESS === 'YOUR_NQV8_CONTRACT_ADDRESS') return 0;
-    const raw = await nqv8Contract.balanceOf(connectedAddress);
-    return parseFloat(ethers.utils.formatUnits(raw, NQV8_DECIMALS));
-}
-
-async function getUSDCBalance() {
-    if (!connectedAddress) return 0;
-    const raw = await usdcContract.balanceOf(connectedAddress);
-    return parseFloat(ethers.utils.formatUnits(raw, USDC_DECIMALS));
-}
-
-async function checkSufficientBalance(preferNQV8, nqv8Required, usdcRequired) {
-    if (preferNQV8) {
-        const bal = await getNQV8Balance();
-        if (bal < nqv8Required) {
-            throw new Error(`Insufficient NQV8. You have ${bal.toLocaleString()} NQV8 but need ${nqv8Required} NQV8.`);
-        }
-    } else {
-        const bal = await getUSDCBalance();
-        if (bal < usdcRequired) {
-            throw new Error(`Insufficient USDC. You have $${bal.toFixed(2)} but need $${usdcRequired.toFixed(2)} USDC.`);
-        }
-    }
-}
-
-// Pay a bounty posting fee ($1 USDC or 100 NQV8)
-async function payPostingFee(preferNQV8 = false) {
-    if (!connectedAddress) {
-        await connectWallet();
-        if (!connectedAddress) throw new Error('Wallet required');
-    }
-    await checkSufficientBalance(preferNQV8, 100, 1.00);
-    if (preferNQV8) {
-        return await sendNQV8(TREASURY_ADDRESS, 100);
-    } else {
-        return await sendUSDC(TREASURY_ADDRESS, 1.00);
-    }
-}
-
-// Pay micro fee (1 NQV8) — bids, posts, deletes, chat
-async function payMicroFee(preferNQV8 = false) {
-    if (!connectedAddress) {
-        await connectWallet();
-        if (!connectedAddress) throw new Error('Wallet required');
-    }
-    await checkSufficientBalance(preferNQV8, 1, 0.01);
-    if (preferNQV8) {
-        return await sendNQV8(TREASURY_ADDRESS, 1);
-    } else {
-        return await sendUSDC(TREASURY_ADDRESS, 0.01);
-    }
-}
-
 
 function parsePaymentError(e) {
     const msg = e.message || '';
@@ -6182,7 +6037,6 @@ function parsePaymentError(e) {
     }
     return 'Transaction failed. Please try again.';
 }
-
 
 
 // ============================================================
@@ -6408,15 +6262,6 @@ async function showPaymentPicker(label, nqv8Amount, onSuccess) {
     });
 }
     
-// Release bounty payment from poster to worker (called on submission acceptance)
-async function releaseBountyPayment(workerAddress, amountHuman, currency = 'USDC') {
-    if (!signer) throw new Error('Wallet not connected');
-    if (currency === 'NQV8') {
-        return await sendNQV8(workerAddress, amountHuman);
-    } else {
-        return await sendUSDC(workerAddress, amountHuman);
-    }
-}
 
 // ============================================================
 // EQUITY STAKE TOKENIZATION
@@ -6427,174 +6272,12 @@ async function releaseBountyPayment(workerAddress, amountHuman, currency = 'USDC
 // For now we record it in Firestore + emit a standard ERC-20 transfer.
 // When the full EquityNFT contract is deployed, swap this out.
 
-async function mintEquityStake(recipientAddress, projectId, percentageBps) {
-    // percentageBps: basis points, e.g. 500 = 5%
-    // We represent equity stakes as NQV8 tokens: 1 bps = 1 NQV8 token
-    // so a 5% stake = 500 NQV8 sent from treasury to recipient
-    if (!signer) throw new Error('Wallet not connected');
-    const stakeTokens = percentageBps; // 1 NQV8 per basis point
-    const txHash = await sendNQV8(recipientAddress, stakeTokens);
-
-    // Record on Firestore for fast querying
-    await db.collection('equityStakes').add({
-        projectId,
-        recipientAddress: recipientAddress.toLowerCase(),
-        percentageBps,
-        nqv8Tokens: stakeTokens,
-        txHash,
-        mintedAt: firebase.firestore.FieldValue.serverTimestamp(),
-        mintedBy: currentUser?.uid || 'system'
-    });
-
-    return txHash;
-}
-
-// Read all historical equity stakes for a wallet address from Firestore
-// (mirrors on-chain Transfer events indexed at account creation / sync)
-async function getEquityStakesForAddress(walletAddress) {
-    const snap = await db.collection('equityStakes')
-        .where('recipientAddress', '==', walletAddress.toLowerCase())
-        .get();
-    return snap.docs.map(d => ({ id: d.id, ...d.data() }));
-}
-
 // ============================================================
 // TOKENOMICS — 20% MONTHLY REVENUE DISTRIBUTION
 // ============================================================
 // Protocol revenue = sum of all posting fees + micro fees collected
 // by the treasury that month. Run this from an admin panel or
 // a scheduled Cloud Function once per month.
-
-async function distributeMonthlyRewards() {
-    if (!signer) throw new Error('Wallet not connected');
-    const signerAddr = await signer.getAddress();
-    if (signerAddr.toLowerCase() !== TREASURY_ADDRESS.toLowerCase()) {
-        throw new Error('Only the treasury wallet can distribute rewards');
-    }
-
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth(); // 0-indexed
-    const monthStr = `${year}-${String(month + 1).padStart(2, '0')}`;
-
-    // ── 1. Calculate reward pool (20% of monthly protocol fees) ──
-    const firstOfMonth = new Date(year, month, 1);
-    const firstOfNextMonth = new Date(year, month + 1, 1);
-
-    const feesSnap = await db.collection('protocolFees')
-        .where('collectedAt', '>=', firstOfMonth)
-        .where('collectedAt', '<', firstOfNextMonth)
-        .get();
-
-    let totalUSDC = 0;
-    feesSnap.forEach(doc => { totalUSDC += doc.data().amountUSDC || 0; });
-
-    const rewardPool = totalUSDC * 0.20;
-    if (rewardPool < 0.01) {
-        console.log('Reward pool too small to distribute');
-        return;
-    }
-
-    // ── 2. Find active wallets this month via on-chain Transfer events ──
-    // We use the NQV8 token contract Transfer event filtered to this month's
-    // block range. Anyone who sent OR received NQV8 is considered active.
-    const arbProvider = new ethers.providers.JsonRpcProvider(ARBITRUM_RPC);
-
-    // Estimate block range for the month (Arbitrum ~4 blocks/sec = ~10M blocks/month)
-    const latestBlock = await arbProvider.getBlockNumber();
-    const latestTimestamp = (await arbProvider.getBlock(latestBlock)).timestamp;
-    const firstOfMonthTs = Math.floor(firstOfMonth.getTime() / 1000);
-    const firstOfNextMonthTs = Math.floor(firstOfNextMonth.getTime() / 1000);
-
-    // Binary search helper to find block closest to a timestamp
-    async function getBlockAtTimestamp(targetTs, low, high) {
-        while (low <= high) {
-            const mid = Math.floor((low + high) / 2);
-            const block = await arbProvider.getBlock(mid);
-            if (block.timestamp < targetTs) low = mid + 1;
-            else high = mid - 1;
-        }
-        return low;
-    }
-
-    const startBlock = await getBlockAtTimestamp(firstOfMonthTs, 0, latestBlock);
-    const endBlock = await getBlockAtTimestamp(firstOfNextMonthTs, startBlock, latestBlock);
-
-    // Query Transfer events on the NQV8 contract for this block range
-    const nqv8ReadOnly = new ethers.Contract(NQV8_TOKEN_ADDRESS, ERC20_ABI, arbProvider);
-    const transferFilter = nqv8ReadOnly.filters.Transfer();
-    const transfers = await nqv8ReadOnly.queryFilter(transferFilter, startBlock, endBlock);
-
-    // ── 3. Count transactions per wallet ──
-    // Each Transfer event counts as 1 transaction for the sender (from)
-    // Recipients are passive — only senders count as "active"
-    const txCounts = {}; // walletAddress → transaction count
-
-    for (const event of transfers) {
-        const from = event.args.from.toLowerCase();
-        const to = event.args.to.toLowerCase();
-
-        // Skip treasury → user transfers (signup bonuses, rewards)
-        if (from === TREASURY_ADDRESS.toLowerCase()) continue;
-        // Skip zero address (minting)
-        if (from === '0x0000000000000000000000000000000000000000') continue;
-
-        // Count the sender as active
-        txCounts[from] = (txCounts[from] || 0) + 1;
-    }
-
-    if (Object.keys(txCounts).length === 0) {
-        console.log('No active users found for this month');
-        return;
-    }
-
-    // ── 4. Calculate total transactions and each wallet's share ──
-    const totalTxs = Object.values(txCounts).reduce((sum, n) => sum + n, 0);
-
-    // ── 5. Match wallet addresses to Firestore users ──
-    const usersSnap = await db.collection('users').get();
-    const walletToUser = {};
-    usersSnap.forEach(doc => {
-        const u = doc.data();
-        if (u.walletAddress) {
-            walletToUser[u.walletAddress.toLowerCase()] = { uid: doc.id, ...u };
-        }
-    });
-
-    // ── 6. Distribute rewards proportionally ──
-    const distributions = [];
-
-    for (const [wallet, txCount] of Object.entries(txCounts)) {
-        const share = (txCount / totalTxs) * rewardPool;
-        if (share < 0.01) continue; // skip dust
-
-        const user = walletToUser[wallet];
-
-        try {
-            const txHash = await sendUSDC(wallet, share.toFixed(6));
-
-            await db.collection('rewardDistributions').add({
-                uid: user?.uid || null,
-                walletAddress: wallet,
-                amountUSDC: share,
-                txCount,
-                sharePercent: ((txCount / totalTxs) * 100).toFixed(2),
-                txHash,
-                month: monthStr,
-                distributedAt: firebase.firestore.FieldValue.serverTimestamp()
-            });
-
-            distributions.push({ wallet, amountUSDC: share, txCount });
-            console.log(`Paid $${share.toFixed(4)} to ${wallet} (${txCount} txs, ${((txCount/totalTxs)*100).toFixed(1)}%)`);
-        } catch (e) {
-            console.error(`Failed to pay ${wallet}:`, e.message);
-        }
-    }
-
-    console.log(`Distributed $${rewardPool.toFixed(2)} USDC to ${distributions.length} active wallets for ${monthStr}`);
-    console.log(`   Based on ${totalTxs} total NQV8 transactions from ${Object.keys(txCounts).length} unique wallets`);
-    return distributions;
-}
 
 // Record a fee collection event (call this every time a fee is charged)
 async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
@@ -6710,7 +6393,6 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
         }
         
         async function handleNotifClick(notifId, notif) {
-            console.log('notif clicked:', notifId, notif);
             // Mark as read (don't await — don't block navigation)
             db.collection("notifications").doc(notifId).update({ read: true }).catch(e => console.warn('mark read failed:', e));
         
@@ -6774,261 +6456,17 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
         let selectedProjectType = 'cash';
         let currentModalStep = 1;
         
-        async function loadUserCompanies() {
-            if (!currentUser) return;
-            const snap = await db.collection("companies")
-                .where("ownerUid", "==", currentUser.uid)
-                .orderBy("createdAt", "desc")
-                .get();
-            return snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        }
         
-        async function showPostProjectModal() {
-            if (!currentUser) return alert("Please log in first");
-            document.getElementById('post-project-modal').classList.remove('hidden');
-            goToStep1();
-            await populateCompanyList();
-        }
         
-        async function populateCompanyList() {
-            const list = document.getElementById('company-list-modal');
-            list.innerHTML = '<p class="text-zinc-500 text-sm">Loading...</p>';
-            
-            const companies = await loadUserCompanies();
-            
-            if (companies.length === 0) {
-                list.innerHTML = '<p class="text-zinc-500 text-sm">No companies yet. Create one below.</p>';
-                return;
-            }
         
-            list.innerHTML = '';
-            companies.forEach(company => {
-                const verifiedBadge = company.equityUnlocked 
-                    ? `<span class="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-1 rounded-full"><i class="fa-solid fa-circle-check" aria-hidden="true"></i> Equity Verified</span>`
-                    : `<span class="text-xs bg-zinc-700 text-zinc-400 px-2 py-1 rounded-full">Cash Only</span>`;
         
-                const div = document.createElement('div');
-                div.className = `p-4 rounded-2xl border cursor-pointer transition-all ${selectedCompanyId === company.id ? 'border-cyan-400 bg-cyan-400/10' : 'border-zinc-700 hover:border-zinc-500'}`;
-                div.innerHTML = `
-                    <div class="flex justify-between items-center">
-                        <div>
-                            <p class="font-semibold">${company.name}</p>
-                            <p class="text-xs text-zinc-400">${company.type}</p>
-                        </div>
-                        ${verifiedBadge}
-                    </div>
-                `;
-                div.onclick = () => {
-                    selectedCompanyId = company.id;
-                    document.querySelectorAll('#company-list-modal > div').forEach(d => {
-                        d.classList.remove('border-cyan-400', 'bg-cyan-400/10');
-                        d.classList.add('border-zinc-700');
-                    });
-                    div.classList.add('border-cyan-400', 'bg-cyan-400/10');
-                    div.classList.remove('border-zinc-700');
-                };
-                list.appendChild(div);
-            });
-        }
         
-        function showCreateCompanyForm() {
-            document.getElementById('create-company-form').classList.toggle('hidden');
-        }
         
-        async function createCompany() {
-            const name = document.getElementById('company-name').value.trim();
-            const type = document.getElementById('company-type').value;
-            if (!name || !type) return alert("Please fill in company name and type");
         
-            try {
-                const ref = await db.collection("companies").add({
-                    ownerUid: currentUser.uid,
-                    name,
-                    type,
-                    verificationStatus: 'unverified',
-                    verificationDocUrls: [],
-                    equityUnlocked: false,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                selectedCompanyId = ref.id;
-                document.getElementById('create-company-form').classList.add('hidden');
-                document.getElementById('company-name').value = '';
-                document.getElementById('company-type').value = '';
-                await populateCompanyList();
-                alert("Company created.");
-            } catch(e) {
-                alert("Failed to create company: " + e.message);
-            }
-        }
         
-        function goToStep1() {
-            currentModalStep = 1;
-            document.getElementById('modal-step-1').classList.remove('hidden');
-            document.getElementById('modal-step-2').classList.add('hidden');
-            document.getElementById('modal-step-3').classList.add('hidden');
-            updateStepDots();
-        }
         
-        async function goToStep2() {
-            if (!selectedCompanyId) return alert("Please select or create a company first");
-            currentModalStep = 2;
-            document.getElementById('modal-step-1').classList.add('hidden');
-            document.getElementById('modal-step-2').classList.remove('hidden');
-            document.getElementById('modal-step-3').classList.add('hidden');
-            
-            // Show company name in step 2
-            const companySnap = await db.collection("companies").doc(selectedCompanyId).get();
-            const company = companySnap.data();
-            document.getElementById('step2-company-label').textContent = `Company: ${company.name}`;
-            
-            // Default to cash
-            selectProjectType('cash');
-            updateStepDots();
-        }
         
-        async function goToStep3() {
-            const title = document.getElementById('project-title').value.trim();
-            const desc = document.getElementById('project-desc').value.trim();
-            if (!title || !desc) return alert("Please fill in project title and description");
         
-            // If equity type, check verification
-            if (selectedProjectType === 'equity') {
-                const companySnap = await db.collection("companies").doc(selectedCompanyId).get();
-                const company = companySnap.data();
-                if (!company.equityUnlocked) {
-                    if (await nqConfirm("Equity features require verification. Would you like to start the verification process now?")) {
-                        const companyIdToVerify = selectedCompanyId;
-                        hidePostProjectModal();
-                        showVerificationModal(companyIdToVerify);
-                    }
-                    return;
-                }
-            }
-        
-            currentModalStep = 3;
-            document.getElementById('modal-step-2').classList.add('hidden');
-            document.getElementById('modal-step-3').classList.remove('hidden');
-            
-            // Show equity comp options if equity project
-            if (selectedProjectType === 'equity') {
-                document.getElementById('cash-comp-option').classList.add('hidden');
-                document.getElementById('equity-comp-option').classList.remove('hidden');
-            } else {
-                document.getElementById('cash-comp-option').classList.remove('hidden');
-                document.getElementById('equity-comp-option').classList.add('hidden');
-            }
-            updateStepDots();
-        }
-        
-        function selectProjectType(type) {
-            selectedProjectType = type;
-            const cashBtn = document.getElementById('type-cash');
-            const equityBtn = document.getElementById('type-equity');
-            const warning = document.getElementById('equity-warning');
-        
-            if (type === 'cash') {
-                cashBtn.classList.add('border-cyan-400', 'bg-cyan-400/10');
-                cashBtn.classList.remove('border-zinc-600', 'opacity-70');
-                equityBtn.classList.remove('border-cyan-400', 'bg-cyan-400/10');
-                equityBtn.classList.add('border-zinc-600', 'opacity-70');
-                warning.classList.add('hidden');
-            } else {
-                equityBtn.classList.add('border-cyan-400', 'bg-cyan-400/10');
-                equityBtn.classList.remove('border-zinc-600', 'opacity-70');
-                cashBtn.classList.remove('border-cyan-400', 'bg-cyan-400/10');
-                cashBtn.classList.add('border-zinc-600', 'opacity-70');
-                warning.classList.remove('hidden');
-            }
-        }
-        
-        function updateStepDots() {
-            for (let i = 1; i <= 3; i++) {
-                const dot = document.getElementById(`step-dot-${i}`);
-                if (i === currentModalStep) {
-                    dot.classList.add('bg-cyan-400');
-                    dot.classList.remove('bg-zinc-600');
-                } else if (i < currentModalStep) {
-                    dot.classList.add('bg-emerald-400');
-                    dot.classList.remove('bg-cyan-400', 'bg-zinc-600');
-                } else {
-                    dot.classList.add('bg-zinc-600');
-                    dot.classList.remove('bg-cyan-400', 'bg-emerald-400');
-                }
-            }
-        }
-        
-        async function submitFullProject() {
-            const projectTitle = document.getElementById('project-title').value.trim();
-            const projectDesc = document.getElementById('project-desc').value.trim();
-            const subTitle = document.getElementById('subproject-title').value.trim();
-            const subDesc = document.getElementById('subproject-desc').value.trim();
-            const category = document.getElementById('subproject-category').value;
-            const compensation = selectedProjectType === 'equity'
-                ? document.getElementById('subproject-compensation-equity').value.trim()
-                : document.getElementById('subproject-compensation').value.trim();
-
-            if (!subTitle || !subDesc || !category || !compensation) {
-                return alert("Please fill in all task fields");
-            }
-
-            const modResult = await moderateContent(`${projectTitle} ${projectDesc} ${subTitle} ${subDesc}`, 'marketplace posting');
-            if (!modResult.approved) {
-                return alert(`Post rejected: ${modResult.reason}`);
-            }
-
-            showPaymentPicker(
-                'Post project & first task — 100 NQV8',
-                NQV8_FEE.POST,
-                async (txHash) => {
-                    try {
-                        const projectRef = await db.collection("projects").add({
-                            companyId: selectedCompanyId,
-                            ownerUid: currentUser.uid,
-                            ownerUsername: currentUser.username,
-                            title: projectTitle,
-                            description: projectDesc,
-                            projectType: selectedProjectType,
-                            status: 'active',
-                            paymentTxHash: txHash,
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-
-                        await db.collection("subprojects").add({
-                            projectId: projectRef.id,
-                            companyId: selectedCompanyId,
-                            ownerUid: currentUser.uid,
-                            ownerUsername: currentUser.username,
-                            posterName: currentUser.fullName || currentUser.username,
-                            title: subTitle,
-                            description: subDesc,
-                            category: category,
-                            compensation: compensation,
-                            compensationType: selectedProjectType,
-                            bids: [],
-                            bidsOpen: true,
-                            status: 'open',
-                            postingCost: '100 NQV8',
-                            paymentTxHash: txHash,
-                            createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                        });
-
-                        alert("Project and first task posted.");
-                        hidePostProjectModal();
-                        loadMarketplace();
-                        refreshProjectDetailModal();
-                    } catch(e) {
-                        console.error(e);
-                        alert("Failed to post: " + e.message);
-                    }
-                }
-            );
-        }
-        
-        function hidePostProjectModal() {
-            document.getElementById('post-project-modal').classList.add('hidden');
-            selectedCompanyId = null;
-            selectedProjectType = 'cash';
-        }
         
         // ====================== VERIFICATION ======================
         let verificationCompanyId = null;
@@ -7109,7 +6547,6 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                 if (!txHash) throw new Error('Payment did not confirm');
                 await recordProtocolFee(verifNQV8Amount, 'verification', txHash, 'NQV8');
 
-                console.log('Payment done:', txHash);
 
                 // Convert docs to base64
                 btn.innerHTML = 'Analyzing documents with AI...';
@@ -7127,8 +6564,6 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                     toBase64(docId)
                 ]);
 
-                console.log('Base64 done, lengths:', incorporationBase64?.length, einBase64?.length, idBase64?.length);
-                console.log('Doc types:', docIncorporation.type, docEin.type, docId.type);
 
                 // Send to Claude
                 const _voucherDocs = await claimVoucher(txHash, 'verify-docs');
@@ -7231,7 +6666,6 @@ async function recordProtocolFee(amount, feeType, txHash, currency = 'USDC') {
                                 equityRegistered: true,
                                 equityMintTxHash: equityResult.txHash
                             });
-                            console.log('Equity registered:', equityResult.txHash);
                         } else {
                             console.error('Equity registration failed:', equityResult.error);
                         }
@@ -7493,7 +6927,6 @@ function navigateTo(page) {
             document.getElementById('wallet-status')?.classList.add('hidden');
             const walletLabel = document.getElementById('dropdown-wallet-label');
             if (walletLabel) walletLabel.textContent = 'Connect Wallet';
-            console.log('Wallet disconnected');
         }
 
         // ====================== AUTH FUNCTIONS ======================
@@ -7661,8 +7094,6 @@ async function createProfile() {
             communityOnLogin();
             audienceOnLogin();
             
-            // Show welcome popup every time you login
-            // setTimeout(showWelcomeModal, 800);
         }
 
         // ====================== MARKETPLACE FUNCTIONS ======================
@@ -7709,108 +7140,6 @@ async function createProfile() {
             } catch(e) {
                 console.error(e);
                 document.getElementById('projects-grid').innerHTML = `<p class="text-red-400">Error loading projects</p>`;
-            }
-        }
-
-        async function loadTrendingSection() {
-            try {
-                // Hot bounties — most bids in last 7 days
-                const hotSnap = await db.collection('subprojects')
-                    .where('status', '==', 'open')
-                    .where('type', '==', 'build')
-                    .orderBy('createdAt', 'desc')
-                    .limit(20)
-                    .get();
-
-                const withBids = hotSnap.docs
-                    .map(d => ({ id: d.id, ...d.data() }))
-                    .filter(p => !p.planNode && (p.bids?.length || 0) > 0)
-                    .sort((a, b) => (b.bids?.length || 0) - (a.bids?.length || 0))
-                    .slice(0, 3);
-
-                const trendingBounties = document.getElementById('trending-bounties');
-                if (withBids.length === 0) {
-                    trendingBounties.innerHTML = '<p class="text-zinc-500 text-sm">No active bounties yet.</p>';
-                } else {
-                    trendingBounties.innerHTML = withBids.map(p => `
-                        <div onclick="showSubprojectDetail('${p.id}', ${JSON.stringify(p).replace(/"/g, '&quot;')})"
-                             class="bg-zinc-900 hover:bg-zinc-800 rounded-2xl p-4 cursor-pointer transition-colors flex justify-between items-center">
-                            <div class="min-w-0 flex-1">
-                                <p class="font-semibold text-sm truncate">${p.title}</p>
-                                <p class="text-xs text-zinc-400 mt-0.5">${p.compensation} · ${p.category || ''}</p>
-                            </div>
-                            <div class="flex items-center gap-2 flex-shrink-0 ml-3">
-                                <span class="text-xs text-amber-400 font-medium">${p.bids.length} bids</span>
-                                <span class="text-lg"><i class="fa-solid fa-fire" aria-hidden="true"></i></span>
-                            </div>
-                        </div>`).join('');
-                }
-
-                // Top builders from leaderboard data
-                const completedSnap = await db.collection('subprojects')
-                    .where('status', '==', 'completed')
-                    .orderBy('createdAt', 'desc')
-                    .limit(50)
-                    .get();
-
-                const builderMap = {};
-                completedSnap.forEach(doc => {
-                    const p = doc.data();
-                    if (!p.acceptedBidderUid || p.planNode) return;
-                    if (!builderMap[p.acceptedBidderUid]) {
-                        builderMap[p.acceptedBidderUid] = {
-                            uid: p.acceptedBidderUid,
-                            username: p.acceptedBidderUsername || 'builder',
-                            count: 0,
-                            value: 0
-                        };
-                    }
-                    builderMap[p.acceptedBidderUid].count++;
-                    builderMap[p.acceptedBidderUid].value += parseFloat((p.acceptedBid?.amount || p.compensation || '0').replace(/[^0-9.]/g, '')) || 0;
-                });
-
-                const topBuilders = Object.values(builderMap)
-                    .sort((a, b) => b.count - a.count)
-                    .slice(0, 4);
-
-                // Hydrate usernames from Firestore
-                for (const builder of topBuilders) {
-                    try {
-                        const userDoc = await db.collection('users').doc(builder.uid).get();
-                        if (userDoc.exists) {
-                            const u = userDoc.data();
-                            builder.username = u.username || builder.username;
-                            builder.photoURL = u.photoURL || null;
-                            builder.skills = u.skills || [];
-                            builder.avgRating = u.avgRating || null;
-                        }
-                    } catch(e) {}
-                }
-
-                const trendingBuilders = document.getElementById('trending-builders');
-                if (topBuilders.length === 0) {
-                    trendingBuilders.innerHTML = '<p class="text-zinc-500 text-sm">No builders yet.</p>';
-                } else {
-                    trendingBuilders.innerHTML = topBuilders.map(b => `
-                        <div onclick="viewUserProfile('${b.uid}')"
-                             class="bg-zinc-900 hover:bg-zinc-800 rounded-2xl p-3 cursor-pointer transition-colors flex items-center gap-3">
-                            <div class="w-8 h-8 bg-gradient-to-br from-violet-500 to-cyan-500 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 overflow-hidden">
-                                ${b.photoURL ? `<img src="${b.photoURL}" class="w-full h-full object-cover">` : b.username[0].toUpperCase()}
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <p class="font-semibold text-sm">@${b.username}</p>
-                                <p class="text-xs text-zinc-400">${b.count} completed${b.avgRating ? ` · ★ ${b.avgRating.toFixed(1)}` : ''}</p>
-                            </div>
-                        </div>`).join('');
-                }
-
-                // Show section only if there's something to show
-                if (withBids.length > 0 || topBuilders.length > 0) {
-                    document.getElementById('trending-section').classList.remove('hidden');
-                }
-
-            } catch(e) {
-                console.warn('Trending section failed:', e.message);
             }
         }
 
@@ -9519,9 +8848,7 @@ function hideEditPostingModal() {
                     if (btn) { btn.textContent = 'Reserving equity...'; btn.disabled = true; }
 
                     try {
-                        console.log('Entering equity path, compensationStr:', compensationStr);
                         const equityMatch = compensationStr.match(/([\d.]+)%/);
-                        console.log('equityMatch:', equityMatch);
                         if (!equityMatch) throw new Error('Could not parse equity percentage from bid.');
                         const equityPct = parseFloat(equityMatch[1]);
                         const equityUnits = Math.round(equityPct * 100);
@@ -9540,13 +8867,6 @@ function hideEditPostingModal() {
                         }
 
                         if (btn) btn.textContent = 'Reserving equity...';
-                            console.log('equity-reserve payload:', {
-                            companyId: project.companyId,
-                            bountyId: currentProjectId,
-                            beneficiaryWallet: workerWallet,
-                            equityUnits,
-                            founderWallet: connectedAddress
-                        });
                         const reserveResp = await fetch('/api/equity-reserve', {
                             method: 'POST',
                             headers: {
@@ -10033,11 +9353,9 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
             try {
                 const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
                 const storagePath = `submissions/${currentSubmitProjectId}/${Date.now()}_${safeName}`;
-                console.log('Uploading to:', storagePath);
                 const storageRef = storage.ref(storagePath);
                 await storageRef.put(file);
                 const url = await storageRef.getDownloadURL();
-                console.log('Upload success, URL:', url);
                 fileUrls.push(url);
             } catch(e) {
                 console.warn('File upload failed:', file.name, e.message);
@@ -10389,7 +9707,6 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                                     })
                                 }).then(r => r.json()).then(result => {
                                     if (result.success) {
-                                        console.log(`$${platformFeeUSDC.toFixed(4)} USDC deposited into rewards pool`);
                                     } else {
                                         console.warn('deposit-escrow-fee failed:', result.error);
                                     }
@@ -10752,7 +10069,6 @@ This is a binding legal agreement. Consult your own attorney before signing.`;
                         } else if (!isEquityOnly && workerWallet && proj.acceptedBid?.amount) {
                             // USDC/NQV8 already released via escrow contract (adminRelease)
                             // when founder approved submission — no additional payment needed
-                            console.log('USDC escrow already released via adminRelease — skipping manual payment');
                         }
                     } catch (payErr) {
                         _releaseOk = false;
@@ -11952,10 +11268,6 @@ async function viewUserProfile(uid) {
             }
         }
 
-        function searchProjects() {
-            applyMarketplaceFilters();
-        }
-
         // ====================== INITIAL LOAD ======================
        window.onload = () => {
         loadAdBanner();
@@ -12023,7 +11335,6 @@ async function viewUserProfile(uid) {
                     connectedAddress = await signer.getAddress();
                     await onWalletConnected();
                     setTimeout(() => refreshOnChainBalances(), 1500);
-                    console.log('WalletConnect auto-reconnected:', connectedAddress);
                 }
             } catch(e) {
                 console.warn('WalletConnect auto-reconnect failed:', e.message);
@@ -13018,107 +12329,6 @@ async function loadEquityListings() {
     }
 }
 
-function showEquityDetail(listingId, listing) {
-    currentProject = listing;
-    currentProjectId = listingId;
-    const modal = document.getElementById('project-detail-modal');
-    const content = document.getElementById('detail-content');
-    const isOwner = currentUser && listing.sellerUid === currentUser.uid;
-
-    content.innerHTML = `
-        <div class="flex justify-between items-start mb-4">
-            <h2 class="text-4xl font-bold">${listing.projectName}</h2>
-            <span class="px-4 py-1 text-xs rounded-full bg-violet-500/20 text-violet-400"><i class="fa-solid fa-chart-line" aria-hidden="true"></i> Equity Stake</span>
-        </div>
-        <div class="grid grid-cols-2 gap-4 mb-8">
-            <div class="bg-zinc-800 rounded-2xl p-5">
-                <p class="text-sm text-zinc-400">Equity Offered</p>
-                <p class="text-2xl font-bold text-violet-400">${listing.percentage}</p>
-            </div>
-            <div class="bg-zinc-800 rounded-2xl p-5">
-                <p class="text-sm text-zinc-400">Asking Price</p>
-                <p class="text-2xl font-bold text-cyan-400">${listing.askPrice}</p>
-            </div>
-        </div>
-        <p class="text-zinc-300 leading-relaxed mb-6">${listing.description}</p>
-        <p class="text-sm text-zinc-400 mb-8">Listed by 
-            <span onclick="viewUserProfile('${listing.sellerUid}')" class="text-cyan-400 hover:underline cursor-pointer">
-                @${listing.sellerUsername || 'anonymous'}
-            </span>
-        </p>
-        <div class="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 mb-8">
-            <p class="text-amber-400 text-sm font-medium">Disclaimer</p>
-            <p class="text-zinc-400 text-xs mt-1">NQVate is not a broker or party to this transaction. Always do your own due diligence and consult a legal professional before purchasing equity.</p>
-        </div>
-        ${!isOwner ? `
-        <div class="space-y-3">
-            <button onclick="showAcquireEquityModal('${listingId}', '${listing.askPrice}', '${listing.percentage}', '${listing.projectName}')"
-                    class="w-full py-5 bg-white text-black font-semibold rounded-3xl">
-                <i class="fa-solid fa-circle-check" aria-hidden="true"></i> Acquire Stake at ${listing.askPrice}
-            </button>
-            <button onclick="showCounterOfferModal('${listingId}', '${listing.sellerUid}', '${listing.sellerUsername}', '${listing.askPrice}', '${listing.percentage}', '${listing.projectName}')"
-                    class="w-full py-5 border border-cyan-400 text-cyan-400 font-semibold rounded-3xl">
-                <i class="fa-solid fa-comment" aria-hidden="true"></i> Make Counter Offer
-            </button>
-            <button onclick="initiateChat('${listing.sellerUid}', { uid: '${listing.sellerUid}', username: '${listing.sellerUsername}', fullName: '${listing.sellerName}' }); hideProjectDetailModal(); navigateToChat();"
-                    class="w-full py-5 border border-zinc-600 text-zinc-400 font-semibold rounded-3xl">
-                <i class="fa-solid fa-comment" aria-hidden="true"></i> Contact Seller
-            </button>
-        </div>` : `
-        <div class="space-y-3">
-            <button onclick="markEquitySold('${listingId}', '${listing.askPrice}')"
-                    class="w-full py-5 bg-emerald-500 hover:bg-emerald-600 text-black font-semibold rounded-3xl">
-                <i class="fa-solid fa-circle-check" aria-hidden="true"></i> Mark as Sold
-            </button>
-            <button onclick="deleteEquityListing('${listingId}')"
-                    class="w-full py-5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-3xl">
-                <i class="fa-solid fa-trash" aria-hidden="true"></i> Remove Listing
-            </button>
-        </div>`}
-    `;
-    modal.classList.remove('hidden');
-}
-
-async function showAcquireEquityModal(listingId, askPrice, percentage, projectName) {
-    if (!await nqConfirm(`Acquire ${percentage} equity in "${projectName}" for ${askPrice}?\n\nThis will notify the seller and open a chat to finalize the transaction. NQVate is not a party to this transaction.`)) return;
-
-    const listing = currentProject;
-
-    db.collection("equityListings").doc(listingId).update({
-        acquisitionPending: true,
-        buyerUid: currentUser.uid,
-        buyerUsername: currentUser.username,
-        buyerName: currentUser.fullName || currentUser.username,
-        acquisitionRequestedAt: firebase.firestore.FieldValue.serverTimestamp()
-    }).then(async () => {
-        // Record buyer as shareholder on the company
-        if (listing.companyId) {
-            await db.collection("companies").doc(listing.companyId).update({
-                shareholders: firebase.firestore.FieldValue.arrayUnion({
-                    uid: currentUser.uid,
-                    username: currentUser.username,
-                    name: currentUser.fullName || currentUser.username,
-                    percentage: percentage,
-                    acquiredVia: 'exchange',
-                    acquiredAt: new Date().toISOString()
-                })
-            });
-        }
-
-        createNotification(
-            listing.sellerUid,
-            'bid',
-            `@${currentUser.username} wants to acquire your ${percentage} equity stake in "${projectName}" at ${askPrice}. Check your chats.`
-        );
-        hideProjectDetailModal();
-        initiateChat(listing.sellerUid, {
-            uid: listing.sellerUid,
-            username: listing.sellerUsername,
-            fullName: listing.sellerName
-        });
-        navigateToChat();
-    }).catch(e => alert("Failed: " + e.message));
-}
     
     async function showCounterOfferModal(listingId, sellerUid, sellerUsername, askPrice, percentage, projectName) {
         const offer = await nqPrompt(`Make a counter offer for ${percentage} equity in "${projectName}".\n\nSeller is asking ${askPrice}.\n\nEnter your offer amount:`);
@@ -13152,79 +12362,6 @@ async function showAcquireEquityModal(listingId, askPrice, percentage, projectNa
         navigateToChat();
     }
 
-async function deleteEquityListing(listingId) {
-    if (!await nqConfirm("Remove this equity listing?")) return;
-    try {
-        await db.collection("equityListings").doc(listingId).update({ status: 'removed' });
-        alert("Listing removed.");
-        hideProjectDetailModal();
-        loadEquityListings();
-    } catch (e) {
-        alert("Failed: " + e.message);
-    }
-}
-
-    async function markEquitySold(listingId, askPrice) {
-    const soldPrice = await nqPrompt(`Confirm the final sale price:\n(Press OK to confirm at ${askPrice}, or type a different amount)`);
-    if (soldPrice === null) return; // cancelled
-
-    const finalPrice = soldPrice.trim() || askPrice;
-
-    // Extract numeric value from price string e.g. "$5,000 USDC" → 5000
-    const numericValue = parseFloat(finalPrice.replace(/[^0-9.]/g, '')) || 0;
-
-    try {
-        const batch = db.batch();
-
-        // Mark listing as sold
-        const listingRef = db.collection("equityListings").doc(listingId);
-        batch.update(listingRef, {
-            status: 'sold',
-            soldAt: firebase.firestore.FieldValue.serverTimestamp(),
-            finalSalePrice: finalPrice,
-            finalSaleValue: numericValue
-        });
-
-        // Update or create the global stats document
-        const statsRef = db.collection("platformStats").doc("equity");
-        batch.set(statsRef, {
-            totalEquityTraded: firebase.firestore.FieldValue.increment(numericValue)
-        }, { merge: true });
-
-        await batch.commit();
-
-        alert(`Listing marked as sold at ${finalPrice}!`);
-        hideProjectDetailModal();
-        loadEquityListings();
-        loadEquityTradedStat();
-    } catch (e) {
-        console.error(e);
-        alert("Failed: " + e.message);
-    }
-}
-
-
-    async function approveVerification(companyId) {
-    await db.collection("companies").doc(companyId).update({
-        equityUnlocked: true,
-        verificationStatus: 'verified',
-        verifiedAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    alert("Company verified and equity unlocked.");
-}
-
-async function loadPendingVerifications() {
-    const snap = await db.collection("companies")
-        .where("verificationStatus", "==", "pending")
-        .get();
-    
-    snap.forEach(doc => {
-        const company = doc.data();
-        console.log(`Company: ${company.name}`);
-        console.log(`Docs: ${company.verificationDocUrls}`);
-        // Render in your admin UI
-    });
-}
 
 async function showCompanyDetail(companyId, company) {
     const modal = document.getElementById('project-detail-modal');
@@ -13737,11 +12874,7 @@ async function submitCreateProject() {
     }
 }
 
-// ====================== NEW MARKETPLACE POSTING SELECTOR ======================
-function showNewMarketplacePostingModal() {
-    if (!currentUser) return alert("Please log in first");
-    document.getElementById('new-marketplace-posting-modal').classList.remove('hidden');
-}
+// ====================== MARKETPLACE POSTING SELECTOR ======================
 
 function hideNewMarketplacePostingModal() {
     document.getElementById('new-marketplace-posting-modal').classList.add('hidden');
@@ -13781,46 +12914,6 @@ function hidePostBountyModal() {
     document.getElementById('post-bounty-modal').classList.add('hidden');
     selectedBountyProjectId = null;
     window._postingFromNodeId = null;
-}
-
-async function populateBountyProjectList() {
-    const list = document.getElementById('bounty-project-list');
-    list.innerHTML = '<p class="text-zinc-500 text-sm">Loading your projects...</p>';
-
-    const snap = await myCompaniesSnap();          // yours, and those you are on the team of
-
-    if (snap.empty) {
-        list.innerHTML = '<p class="text-zinc-500 text-sm">No projects yet. Create one first.</p>';
-        return;
-    }
-
-    list.innerHTML = '';
-    snap.forEach(doc => {
-        const p = doc.data();
-        const div = document.createElement('div');
-        div.className = `p-4 rounded-2xl border cursor-pointer transition-all ${selectedBountyProjectId === doc.id ? 'border-cyan-400 bg-cyan-400/10' : 'border-zinc-700 hover:border-zinc-500'}`;
-        div.innerHTML = `
-            <div class="flex justify-between items-center">
-                <div>
-                    <p class="font-semibold">${p.name}</p>
-                    <p class="text-xs text-zinc-400">${p.category || ''} ${p.entityType ? '· ' + p.entityType : ''}${p.mine === false ? ' · Team — cash bounties only' : ''}</p>
-                </div>
-                <span class="text-xs px-2 py-1 rounded-full ${p.equityUnlocked ? 'bg-emerald-500/20 text-emerald-400' : 'bg-zinc-700 text-zinc-400'}">
-                    ${p.equityUnlocked ? 'Verified' : 'Unverified'}
-                </span>
-            </div>
-        `;
-        div.onclick = () => {
-            selectedBountyProjectId = doc.id;
-            document.querySelectorAll('#bounty-project-list > div').forEach(d => {
-                d.classList.remove('border-cyan-400', 'bg-cyan-400/10');
-                d.classList.add('border-zinc-700');
-            });
-            div.classList.add('border-cyan-400', 'bg-cyan-400/10');
-            div.classList.remove('border-zinc-700');
-        };
-        list.appendChild(div);
-    });
 }
 
 async function bountyGoToStep2() {
@@ -14337,7 +13430,6 @@ async function submitFundingPosting() {
                             })
                         });
                         const listResult = await listResp.json();
-                        console.log('admin-list-equity result:', listResult);
                         if (listResult.success) {
                             await db.collection('equityListings').doc(listingIdStr).set({
                                 listingId: listingIdStr,
@@ -14404,7 +13496,7 @@ async function togglePostLike(postId, hasLiked) {
     }
 }
 
-// ====================== UPDATED showPostEquityModal ======================
+// ====================== showPostEquityModal ======================
 async function showPostEquityModal() {
     if (!currentUser) return alert("Please log in first");
 
@@ -15576,51 +14668,6 @@ async function deleteAccount() {
     }
 }
 
-async function submitMetricsOnChain(companyId) {
-    if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
-
-    const revenue  = document.getElementById('metric-revenue')?.value.trim() || '';
-    const users    = document.getElementById('metric-users')?.value.trim() || '';
-    const growth   = document.getElementById('metric-growth')?.value.trim() || '';
-    const funding  = document.getElementById('metric-funding')?.value.trim() || '';
-    const website  = document.getElementById('metric-website')?.value.trim() || '';
-
-    if (!revenue && !users && !growth) return alert("Please fill in at least revenue, users, or growth.");
-
-    const metrics = {
-        revenue, users, growth, funding, website,
-        updatedAt: Date.now(),
-        projectId: companyId
-    };
-
-    // Save to Firestore
-    await db.collection("companies").doc(companyId).update({
-        revenue, userCount: users, website,
-        growthRate: growth, fundingRaised: funding,
-        statsUpdatedAt: new Date().toISOString()
-    });
-
-    // Compute hash and timestamp on-chain
-    const metricsHash = ethers.utils.keccak256(
-        ethers.utils.toUtf8Bytes(JSON.stringify(metrics))
-    );
-
-    try {
-        const equityContract = new ethers.Contract(EQUITY_REGISTRY_ADDRESS, EQUITY_REGISTRY_ABI, signer);
-        // updateMetrics removed in V4 — metrics stored in Firestore only
-        console.log('Metrics hash (Firestore only):', metricsHash);
-        const tx = { hash: '0x' + Date.now().toString(16) }; // placeholder
-        await confirmTx(tx);
-        alert(`Metrics saved and timestamped on-chain.\nHash: ${metricsHash}\nTx: https://arbiscan.io/tx/${tx.hash}`);
-        hideProjectDetailModal();
-        loadProfileData();
-    } catch(e) {
-        const msg = e.message || '';
-        if (msg.includes('user rejected') || e.code === 4001) alert("Transaction cancelled — metrics saved to Firestore only.");
-        else alert("On-chain timestamp failed: " + msg + "\nMetrics saved to Firestore only.");
-    }
-}
-
 async function showCreateEquityListingModal(companyId, companyName, availableUnits) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
     if (availableUnits === 0) return alert("You have no equity units available to list.");
@@ -16504,7 +15551,6 @@ async function triggerEquityRevaluation(projectId) {
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${await authToken()}` },
             body: JSON.stringify({ projectId, forceRefresh: true })
         });
-        console.log('Revaluation triggered for', projectId);
     } catch(e) {
         console.warn('Revaluation trigger failed:', e.message);
     }
@@ -16853,40 +15899,6 @@ function toggleCompletedPostings() {
 }
 
 // ====================== COMPANY ACTIVE/INACTIVE ======================
-
-async function toggleCompanyActive(companyId, currentStatus, card, btn) {
-    // Cycle: in-development → live → inactive → in-development
-    const cycle = { 'in-development': 'live', 'live': 'inactive', 'inactive': 'in-development' };
-    const newStatus = cycle[currentStatus] || 'live';
-    const isActive = newStatus !== 'inactive';
-
-    try {
-        await db.collection('companies').doc(companyId).update({
-            projectStatus: newStatus,
-            isActive
-        });
-
-        card.dataset.active = isActive ? 'true' : 'false';
-        card.classList.toggle('opacity-50', !isActive);
-
-        const labels = {
-            'live':           { text: 'Live',           cls: 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30' },
-            'in-development': { text: 'In Development', cls: 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' },
-            'inactive':       { text: 'Inactive',        cls: 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600' }
-        };
-        const l = labels[newStatus];
-        btn.textContent = l.text;
-        btn.className = `flex-1 py-2 text-xs rounded-xl font-medium transition-colors ${l.cls}`;
-        btn.onclick = async (e) => {
-            e.stopPropagation();
-            await toggleCompanyActive(companyId, newStatus, card, btn);
-        };
-
-        applyInactiveFilter();
-    } catch(e) {
-        alert('Failed to update status: ' + e.message);
-    }
-}
 
 function toggleInactiveCompanies() {
     const toggle = document.getElementById('show-inactive-toggle');
@@ -17343,10 +16355,6 @@ async function loadAndShowDeck(companyId) {
     }
 }
 
-async function buyNowOnChain(listingId, totalUSDC) {
-    return alert('Direct purchase is not available. Please use "Make Offer" at the asking price.');
-}
-
 async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk, skipConfirm = false, noAutoAccept = false) {
     if (!connectedAddress || !signer) return alert("Please connect your wallet first.");
     const buyBtn = document.querySelector(`button[onclick*="makeOfferOnChain('${listingId}'"]`);
@@ -17455,28 +16463,6 @@ async function makeOfferOnChain(listingId, units, askPricePerUnit, totalAsk, ski
     
 
 // ====================== CAP TABLE ======================
-async function indexEquityTrade(projectId, sellerAddr, buyerAddr, units, txHash) {
-    try {
-        const sellerLower = sellerAddr.toLowerCase();
-        const buyerLower  = buyerAddr.toLowerCase();
-
-        await db.collection('equityHolders').doc(`${projectId}_${sellerLower}`).set({
-            projectId, wallet: sellerLower,
-            units: firebase.firestore.FieldValue.increment(-units),
-            lastTxHash: txHash,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-
-        await db.collection('equityHolders').doc(`${projectId}_${buyerLower}`).set({
-            projectId, wallet: buyerLower,
-            units: firebase.firestore.FieldValue.increment(units),
-            lastTxHash: txHash,
-            updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-        }, { merge: true });
-    } catch(e) {
-        console.warn('indexEquityTrade failed:', e.message);
-    }
-}
 
 async function showCapTable(projectId, companyName) {
     if (!currentUser) return alert('Please log in to view the cap table.');
@@ -17590,7 +16576,6 @@ async function showCapTable(projectId, companyName) {
 function hideCapTable() {
     document.getElementById('cap-table-modal').classList.add('hidden');
 }
-
 
 
 async function counterOfferOnChain(offerId) {
@@ -17914,7 +16899,6 @@ async function fileProjectDispute(projectId) {
             body: JSON.stringify({ projectId })
         }).then(r => r.json()).then(result => {
             if (result.success) {
-                console.log(`Dispute auto-resolved: ${result.workerPct}% worker / ${result.posterPct}% poster. Tx: ${result.txHash}`);
             } else {
                 console.error('Auto-resolution failed:', result.error);
             }
@@ -18048,7 +17032,6 @@ async function claimEscrowRefund(projectId) {
                     })
                 });
                 const releaseResult = await releaseResp.json();
-                console.log('Equity release result:', releaseResult);
                 await db.collection("subprojects").doc(projectId).update({
                     status: "refunded",
                     refundedAt: firebase.firestore.FieldValue.serverTimestamp(),
@@ -18196,16 +17179,6 @@ async function loadStudioProjectList() {
 }
 
 // (Loading and drawing the plan now lives in STUDIO PIPELINE, further down.)
-
-// ── Node status update ────────────────────────────────────────────────
-async function updateNodeStatus(nodeId, status) {
-    try {
-        await db.collection('subprojects').doc(nodeId).update({ status });
-        loadStudioProject();
-    } catch(e) {
-        alert('Failed to update: ' + e.message);
-    }
-}
 
 // ── Send node to Build tab ────────────────────────────────────────────
 async function sendNodeToBuild(nodeId, title) {
@@ -18496,14 +17469,6 @@ async function openMarketplacePosting(postingId) {
         }
     } catch(e) {
         alert('Error loading posting: ' + e.message);
-    }
-}
-async function sendNodeBackToPlan(nodeId) {
-    try {
-        await db.collection('subprojects').doc(nodeId).update({ type: 'plan', bidsOpen: false });
-        studioRefresh();
-    } catch(e) {
-        alert('Failed: ' + e.message);
     }
 }
 
