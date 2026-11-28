@@ -1861,7 +1861,11 @@
 
         <!-- Title and live counts -->
         <div class="eco-main-ui absolute top-3 left-3 right-3 md:top-4 md:left-4 md:right-auto pointer-events-none">
-            <h1 class="text-lg md:text-2xl font-bold tracking-tight">The NQVerse</h1>
+            <div class="flex items-center gap-2">
+                <h1 class="text-lg md:text-2xl font-bold tracking-tight">The NQVerse</h1>
+                <button onclick="showNqverseInfo()" aria-label="Why the NQVerse" title="Why the NQVerse"
+                        class="pointer-events-auto text-zinc-400 hover:text-amber-400 text-sm md:text-base leading-none"><i class="fa-solid fa-circle-info" aria-hidden="true"></i></button>
+            </div>
             <p class="text-[11px] md:text-xs text-zinc-400 mt-1">
                 <span id="eco-live-dot" class="inline-block w-2 h-2 rounded-full bg-zinc-600 mr-1.5 align-middle"></span><span id="eco-counts">Loading…</span>
             </p>
@@ -20039,6 +20043,16 @@ function ecoSetMeasure(kind, key) {
 /// The "Size by" menu on the map: values look like "people:usdc".
 function ecoSizeBy(value) { const [kind, key] = String(value).split(':'); ecoSetMeasure(kind, key); }
 
+/// "Why the NQVerse": the info button beside the map's title.
+function showNqverseInfo() {
+    const m = document.getElementById('nqverse-info-modal');
+    if (m) m.classList.remove('hidden');
+}
+function hideNqverseInfo() {
+    const m = document.getElementById('nqverse-info-modal');
+    if (m) m.classList.add('hidden');
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') hideNqverseInfo(); });
 /// Keep the map's menu and legend in step with the chosen measures.
 function ecoSyncMeasureUI() {
     const sel = document.getElementById('eco-sizeby'), rk = ECO.model && ECO.model.rank;
@@ -23819,6 +23833,23 @@ async function showsAdminRemove(postId) {
     <!-- One shared pop-up: report, blocked members, alerts, portfolio, team, analytics -->
     <div id="nqv-sheet-modal" class="hidden fixed inset-0 bg-black/90 flex items-center justify-center z-[99999]" onclick="if (event.target === this) nqvSheetClose()">
         <div id="nqv-sheet-body" class="bg-zinc-900 w-full max-w-lg mx-4 rounded-3xl p-6 max-h-[90vh] overflow-y-auto"></div>
+    </div>
+
+    <!-- WHY THE NQVERSE -->
+    <div id="nqverse-info-modal" class="hidden fixed inset-0 bg-black/95 flex items-start justify-center z-[99999] overflow-y-auto py-6" onclick="if (event.target === this) hideNqverseInfo()">
+        <div role="dialog" aria-modal="true" aria-labelledby="nqverse-info-title"
+             class="bg-zinc-900 border border-zinc-800 w-full max-w-2xl mx-4 rounded-3xl p-6 md:p-8 my-auto">
+            <h2 id="nqverse-info-title" class="text-2xl md:text-3xl font-bold mb-5">Why the NQVerse</h2>
+            <div class="space-y-4 text-zinc-300 text-sm md:text-base leading-relaxed">
+                <p>Most platforms are built around tabs and feeds: a marketplace here, a social feed there, a profile somewhere else. That architecture is efficient for browsing a single stream, but it silos users from each other. You see what the algorithm shows you, not the shape of the network itself.</p>
+                <p>NQVate is built around a different premise. If the value of a network scales with the connections between its members, then the interface should make those connections visible. A tabbed layout hides the network. The NQVerse shows it.</p>
+                <p>The design is informed by two ideas from nature. The first is structural: the solar system, where bodies of different sizes find their natural position relative to each other, pulled by gravity toward the things with the most mass and activity. The NQVerse is organized the same way. The most active founders, builders, and investors pull others into their orbit.</p>
+                <p>The second is functional: individual cells in the human body respond to signals from across the entire organism. A change in one part propagates through the network and every cell adjusts. That is what a platform should do: make every member aware of what is happening across the whole system, not just the slice the algorithm decided to show them.</p>
+                <p>Traditional tab-based interfaces break that. The NQVerse restores it. Founders, builders, and investors are not rows in a database. They are nodes in a living network, and the interface reflects that. The companies with the most activity pull others into orbit. The builders with the strongest portfolios become visible across the whole network, not just to whoever happens to search for them. The connections between users are the product, not an afterthought.</p>
+                <p class="text-zinc-400">Traditional UI ends up serving the platform. The NQVerse serves the network.</p>
+            </div>
+            <button onclick="hideNqverseInfo()" class="w-full mt-7 py-3 rounded-2xl border border-zinc-700 hover:bg-zinc-800 transition-colors text-sm font-semibold">Got it</button>
+        </div>
     </div>
 
     <!-- BUY NQV8 MODAL -->
